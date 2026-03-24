@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+
+    <!-- ✅ viewport-fit=cover for iPhone notch / Dynamic Island -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- PWA / Theme -->
+    <meta name="theme-color" content="#6D28D9" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#3B0764" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="AturDuitku - Aplikasi Manajemen Keuangan Personal Terlengkap" />
+
+    <!-- iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="AturDuitku" />
+
+    <!-- Android PWA -->
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icon-96.png" />
+    <link rel="shortcut icon" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icon-152.png" />
+    <link rel="apple-touch-icon" sizes="144x144" href="/icon-144.png" />
+    <link rel="apple-touch-icon" sizes="128x128" href="/icon-128.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
+
+    <!-- Splash screen colors for iOS -->
+    <meta name="msapplication-TileColor" content="#6D28D9" />
+    <meta name="msapplication-TileImage" content="/icon-144.png" />
+
+    <link rel="manifest" href="/manifest.json" />
+    <title>AturDuitku</title>
+
+    <!-- Preload critical font for consistent rendering -->
+    <style>
+      html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    </style>
+    <script>
+      window.onerror = function(msg, src, line, col, err) {
+        document.body.style.cssText = 'background:#1a0a2e;color:#fff;padding:24px;font-family:monospace;';
+        document.body.innerHTML = '<h2 style="color:#f87171">⚠️ AturDuitku Error</h2>'
+          + '<p style="color:#fca5a5;margin:8px 0">'+msg+'</p>'
+          + '<p style="color:#888;font-size:12px">'+src+' line:'+line+'</p>'
+          + '<button onclick="location.reload()" style="margin-top:16px;padding:10px 20px;background:#6d28d9;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">🔄 Muat Ulang</button>';
+        return false;
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        console.error('Unhandled promise rejection:', e.reason);
+      });
+    </script>
+    <meta name="format-detection" content="telephone=no" />
+</head>
+  <body>
+    <div id="root"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      // Clear all caches on load to fix stale SW issues
+      if ('serviceWorker' in navigator) {
+        // Unregister old broken SW first, then re-register
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          regs.forEach(reg => reg.unregister());
+        });
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('SW registered:', reg.scope))
+            .catch(err => console.log('SW error:', err));
+        });
+      }
+      // Clear all caches
+      if ('caches' in window) {
+        caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+      }
+    </script>
+  </body>
+</html>

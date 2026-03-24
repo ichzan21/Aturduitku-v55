@@ -1,0 +1,5964 @@
+import React, { useState, useEffect, useMemo, useRef, createContext, useContext } from "react";
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
+} from "recharts";
+import {
+  signInWithGoogle, signOutUser, onAuthChange,
+  saveUserData, getUserData,
+} from "./firebase.js";
+
+
+// ─── ERROR BOUNDARY ───────────────────────────────────────────────────────────
+export class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(err, info) { console.error("AturDuitku Error:", err, info); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"#0f0a22",color:"#fff",padding:24,fontFamily:"sans-serif"}}>
+          <div style={{fontSize:48,marginBottom:16}}>⚠️</div>
+          <div style={{fontSize:20,fontWeight:800,marginBottom:8,color:"#A78BFA"}}>AturDuitku</div>
+          <div style={{fontSize:14,color:"#aaa",marginBottom:20,textAlign:"center"}}>Ada yang tidak beres. Coba muat ulang halaman.</div>
+          <button onClick={()=>window.location.reload()} style={{padding:"12px 28px",borderRadius:12,border:"none",background:"#6D28D9",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+            🔄 Muat Ulang
+          </button>
+          {this.state.error&&<details style={{marginTop:20,fontSize:10,color:"#666",maxWidth:500}}>
+            <summary style={{cursor:"pointer",color:"#888"}}>Detail Error (untuk developer)</summary>
+            <pre style={{marginTop:8,whiteSpace:"pre-wrap",fontSize:10}}>{String(this.state.error)}</pre>
+          </details>}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+
+// ─── THEME CONTEXT ────────────────────────────────────────────────────────────
+const ThemeCtx = createContext({});
+const useT = () => useContext(ThemeCtx);
+
+const LIGHT = {
+  bg:"#F0EBF8",card:"#FFFFFF",cardAlt:"#FDFBFF",
+  border:"#E9D5FF",borderLight:"#F5F0FF",
+  text:"#1A0A2E",sub:"#64748B",muted:"#94A3B8",
+  accent:"#6D28D9",accentSoft:"#8B5CF6",accentBg:"#EDE9FE",accentFg:"#5B21B6",accentPop:"rgba(109,40,217,0.12)",
+  nav:"#FFFFFF",navActive:"#F3EEFF",navBorder:"#7C3AED",navHover:"rgba(139,92,246,.05)",
+  input:"#FDFBFF",inputBorder:"#E9D5FF",
+  ok:"#15803D",okBg:"#F0FDF4",okBorder:"#BBF7D0",
+  err:"#B91C1C",errBg:"#FEF2F2",errBorder:"#FCA5A5",
+  warn:"#D97706",warnBg:"#FFFBEB",warnBorder:"#FDE68A",
+  info:"#1D4ED8",infoBg:"#EFF6FF",infoBorder:"#BFDBFE",
+  scroll:"#D8B4FE",
+  shadow:"0 2px 12px rgba(109,40,217,.07)",shadowMd:"0 8px 28px rgba(109,40,217,.1)",
+  topbar:"rgba(255,255,255,.96)",
+  hero:"linear-gradient(135deg,#3B0764 0%,#6D28D9 40%,#A855F7 75%,#E879F9 100%)",
+  p:{"green":["#DCFCE7","#059669"],"red":["#FFF0F3","#E11D48"],"blue":["#EDE9FE","#6D28D9"],"indigo":["#EDE9FE","#5B21B6"],"yellow":["#FFFBEB","#B45309"],"gray":["#F5F3FF","#7C3AED"],"purple":["#ECFDF5","#059669"],"orange":["#FFF7ED","#C2410C"]},
+};
+const DARK = {
+  bg:"#08051A",card:"#0F0A22",cardAlt:"#140D2A",
+  border:"#231547",borderLight:"#180F38",
+  text:"#EDE9FF",sub:"#8B7EC0",muted:"#5D4E8A",
+  accent:"#A78BFA",accentSoft:"#C4B5FD",accentBg:"#1C1238",accentFg:"#DDD6FE",accentPop:"rgba(167,139,250,0.1)",
+  nav:"#0C0820",navActive:"#1C1238",navBorder:"#A78BFA",navHover:"rgba(167,139,250,.07)",
+  input:"#140D2A",inputBorder:"#231547",
+  ok:"#22C55E",okBg:"#052E16",okBorder:"#166534",
+  err:"#F87171",errBg:"#1F0909",errBorder:"#7F1D1D",
+  warn:"#FBBF24",warnBg:"#1C1000",warnBorder:"#713F12",
+  info:"#60A5FA",infoBg:"#0C1A3D",infoBorder:"#1E3A8A",
+  scroll:"#3D2B6E",
+  shadow:"0 2px 14px rgba(0,0,0,.4)",shadowMd:"0 8px 28px rgba(0,0,0,.5)",
+  topbar:"rgba(15,10,34,.97)",
+  hero:"linear-gradient(135deg,#0A0412 0%,#2D1060 40%,#5B21B6 75%,#7C3AED 100%)",
+  p:{"green":["#052E16","#22C55E"],"red":["#1F0909","#F87171"],"blue":["#1C1238","#A78BFA"],"indigo":["#1C1238","#C4B5FD"],"yellow":["#1C1000","#FBBF24"],"gray":["#1C1238","#A78BFA"],"purple":["#052E16","#22C55E"],"orange":["#1C0800","#FB923C"]},
+};
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+const IDR  = v=>"Rp "+Number(v||0).toLocaleString("id-ID");
+const IDRs = v=>{const n=Number(v||0),a=Math.abs(n);if(a>=1e9)return(n<0?"-":"")+"Rp "+(a/1e9).toFixed(1)+"M";if(a>=1e6)return(n<0?"-":"")+"Rp "+(a/1e6).toFixed(1)+"jt";if(a>=1e3)return(n<0?"-":"")+"Rp "+(a/1e3).toFixed(0)+"rb";return"Rp "+n;};
+const fmtN = v=>{const n=String(v).replace(/\D/g,"");return n?n.replace(/\B(?=(\d{3})+(?!\d))/g,"."):"";};
+const pN   = v=>String(v).replace(/\./g,"");
+const N    = v=>Number(String(v||0).replace(/\./g,""))||0;
+const PCT  = v=>Number(v||0).toFixed(1)+"%";
+const today= ()=>new Date().toISOString().slice(0,10);
+const nowM = ()=>new Date().getMonth();
+const nowY = ()=>new Date().getFullYear();
+const MONTHS=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+const MSHORT=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
+const DAYS_SHORT=["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
+const KAT_IN=["Gaji","Bonus","Freelance","Transfer Masuk","Investasi","Bisnis","Lainnya"];
+const ICONS=["🍜","🚗","🛍️","💡","💊","🎮","📚","📈","🏦","📦","✈️","🏠","👗","💻","🎵","🐾","🍕","☕","🎁","💰","🏋️","💅","🎓","🌿","🎯","📱","🚿","🎭","🍷","🎸","🏀","⚽","🚌","🧴","🎬","🧘","🍔","🌮","🎪","💈"];
+const DREAM_ICONS=["⭐","🏠","🚗","✈️","💻","👗","🎓","💍","🐾","🎵","🏋️","🌿","🍕","📸","🎮","💎","🏖️","🎯","🚀","🎺","🏄","🌏","🎭","🏕️","🛶"];
+const PIE_C=["#6366F1","#22C55E","#F59E0B","#EF4444","#3B82F6","#EC4899","#14B8A6","#8B5CF6","#F97316","#06B6D4","#84CC16","#A855F7"];
+const DOMPET_TIPE=["Bank","E-Wallet","Tunai","Investasi","Lainnya"];
+const DOMPET_ICONS={"Bank":"🏦","E-Wallet":"📱","Tunai":"💵","Investasi":"📈","Lainnya":"💳"};
+
+// ─── TRANSLATIONS (i18n) ─────────────────────────────────────────────────────
+const MONTHS_EN=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MSHORT_EN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DAYS_SHORT_EN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+const TR = {
+  id: {
+    // Nav
+    home:"Home", dompet:"Dompet", trans:"Transaksi", budget:"Budget",
+    amplop:"Amplop", goals:"Goals", aset:"Aset", utang:"Utang/Piutang",
+    laporan:"Laporan", setting:"Pengaturan",
+    // Common
+    save:"Simpan", cancel:"Batal", delete:"Hapus", edit:"Edit", add:"Tambah",
+    back:"← Kembali", next:"Lanjut →", done:"Selesai", close:"Tutup",
+    confirm:"Konfirmasi", yes:"Ya", no:"Tidak", search:"Cari...",
+    loading:"Memuat...", empty:"Belum ada data", all:"Semua",
+    export:"Export", import:"Import", reset:"Reset",
+    // Money
+    income:"Pemasukan", expense:"Pengeluaran", saving:"Tabungan",
+    transfer:"Transfer", balance:"Saldo", totalBalance:"Total Saldo",
+    netCashflow:"Net Cashflow", monthlyBudget:"Budget Bulanan",
+    dailyBudget:"Budget Harian Tersisa", remaining:"Sisa",
+    allocation:"Alokasi", realization:"Realisasi", usage:"Terpakai",
+    // Dompet
+    wallet:"Dompet", account:"Rekening", accountNo:"No. Rekening",
+    walletType:"Tipe", addWallet:"+ Tambah Dompet", initialBalance:"Saldo Awal",
+    liquidAssets:"Total Saldo Likuid",
+    // Transaction
+    addTx:"+ Transaksi", bulkInput:"Input Massal", date:"Tanggal",
+    description:"Keterangan", amount:"Jumlah", category:"Kategori",
+    fromWallet:"Dari Dompet", toWallet:"Ke Dompet", transferFee:"Biaya Transfer",
+    txHistory:"Riwayat Transaksi", noTx:"Belum ada transaksi",
+    loadMore:"Muat Lebih Banyak", goal:"Goal",
+    // Budget
+    needs:"Kebutuhan", wants:"Keinginan", addCategory:"+ Kategori",
+    subCategory:"Sub Kategori", dueDate:"Jatuh Tempo", billReminder:"Pengingat Tagihan",
+    // Goals
+    targetAmount:"Target", currentSaved:"Terkumpul", deadline:"Target Selesai",
+    addGoal:"+ Tambah Goal", contribute:"Setor ke Goal",
+    // Debt
+    debt:"Hutang", receivable:"Piutang", debtor:"Nama", paidOff:"Lunas",
+    partial:"Sebagian", markPaid:"Tandai Lunas",
+    // Asset
+    assetName:"Nama Aset", assetValue:"Nilai", fixedAsset:"Aset Tetap",
+    deductFromWallet:"Potong dari dompet",
+    // Envelope
+    envelope:"Amplop", fill:"Isi Ulang", use:"Pakai", resetEnv:"Reset",
+    createEnvelope:"Buat Amplop", fillEnvelope:"Isi Amplop",
+    spendEnvelope:"Pakai Dana Amplop",
+    // Report
+    report:"Laporan", healthScore:"Skor Kesehatan Finansial",
+    savingRatio:"Rasio Tabungan", budgetDiscipline:"Disiplin Anggaran",
+    emergencyFund:"Keamanan & Runway", prediction:"Prediksi Akhir Bulan",
+    trend6mo:"Tren 6 Bulan", dailyExpense:"Pengeluaran Harian",
+    budgetPerformance:"Performa Anggaran", historicalBalance:"Histori Saldo",
+    comparison:"Komparasi Laporan", exportCSV:"Export CSV", exportSheets:"📊 Export Sheets",aiAssistant:"✨ AturDuitku AI",aiPlaceholder:"Ketik pesan... cth: bayar listrik 150rb",aiSending:"Mengirim...",aiTitle:"AturDuitku AI",aiClose:"Tutup",sheetsUrlLabel:"Google Sheets Script URL",groqKeyLabel:"Groq API Key",aiSyncOk:"✅ Tersinkron ke Google Sheets!",aiSyncFail:"⚠️ Gagal sinkron ke Sheets",aiRecorded:"✅ Transaksi dicatat via AI!", exportPDF:"📄 Export PDF",
+    loanCalc:"Kalkulator Cicilan",
+    // Settings
+    settings:"Pengaturan", profile:"Profil & Preferensi", display:"Tampilan",
+    darkMode:"Mode Gelap", darkModeDesc:"Tampilan dark mode untuk mata yang nyaman",
+    blurBalance:"Sembunyikan Saldo", blurDesc:"Blur angka saldo saat di tempat umum",
+    notifications:"Notifikasi Browser", notifDesc:"Alert tagihan, budget, reminder harian",
+    activateNotif:"Aktifkan", notifActive:"✅ Aktif",
+    reportPeriod:"Periode Laporan", displayName:"Nama Tampilan",
+    emergencyTarget:"Target Dana Darurat (Rp)",
+    backupRestore:"Backup & Restore Data",
+    exportJSON:"Export JSON", importJSON:"Import / Restore JSON",
+    recurringTx:"Transaksi Rutin", processNow:"Proses Sekarang",
+    addRecurring:"+ Tambah Transaksi Rutin", day:"Hari",
+    active:"Aktif", inactive:"Nonaktif",
+    resetAll:"Reset Semua Data", resetWarning:"Tindakan ini akan menghapus SEMUA data secara permanen.",
+    language:"Bahasa", changeLanguage:"Ganti Bahasa",
+    // Onboarding
+    ob_welcome:"Halo! Saya AturDuitku",
+    ob_desc:"Aplikasi keuangan personal untuk membantu kamu mencatat, mengatur, dan merencanakan keuangan dengan mudah.",
+    ob_feat1:"💳 Catat transaksi harian",
+    ob_feat2:"📊 Atur budget bulanan",
+    ob_feat3:"⭐ Lacak goals impianmu",
+    ob_feat4:"📄 Laporan bergaya bank",
+    ob_feat5:"🏦 Import mutasi bank",
+    ob_start:"Mulai Setup →",
+    ob_steps:"Setup cepat · 3 langkah · < 1 menit",
+    ob_local:"Data tersimpan lokal · Tidak ada server",
+    ob_nameQ:"Siapa namamu?",
+    ob_nameHint:"Biar AturDuitku bisa menyapa kamu secara personal",
+    ob_namePh:"Masukkan namamu...",
+    ob_walletQ:"Dompet & Rekening",
+    ob_walletHint:"Masukkan saldo awal masing-masing akun",
+    ob_addWallet:"+ Tambah Akun Lain",
+    ob_budgetQ:"Budget Bulanan",
+    ob_budgetOpt:"(opsional)",
+    ob_budgetHint:"Bisa diatur nanti di halaman Budget",
+    ob_budgetTip:"Budget lainnya bisa ditambah di halaman Budget setelah setup selesai",
+    ob_finish:"✅ Mulai Pakai!",
+    ob_step:"Langkah",
+    ob_of:"dari",
+    // Import mutasi
+    importMutasi:"Import Mutasi Bank",
+    importMutasiDesc:"Upload file CSV dari m-banking atau internet banking",
+    bankFormat:"Format Bank", targetWallet:"Masukkan ke Dompet",
+    clickOrDrop:"Klik atau drag & drop file CSV",
+    supportedBanks:"BCA · Mandiri · BNI · BRI · CIMB · Jenius · OVO · GoPay · Dana · ShopeePay · BSI",
+    importTips:"Cara download mutasi CSV:",
+    importBtn:"📥 Import", importSelected:"Transaksi",
+    reupload:"← Ulang",
+    allTx:"Semua", inflow:"↑ Masuk", outflow:"↓ Keluar",
+    selectedOf:"dipilih · Kategori otomatis",
+    autoCategory:"Kategori otomatis, bisa diedit setelah import",
+    // Greeting
+    morning:"Selamat Pagi", afternoon:"Selamat Siang",
+    evening:"Selamat Sore", night:"Selamat Malam",
+    // Misc
+    runway:"Runway", months:"bln", days:"hari tersisa",
+    daysLeft:"hari", score:"Skor", excellent:"Excellent",
+    veryGood:"Sangat Baik", good:"Baik", fair:"Cukup", poor:"Perlu Perhatian",
+    safe:"AMAN", almost:"HAMPIR", over:"OVER",
+    dailyAvg:"Avg harian", predExpense:"Prediksi Pengeluaran",
+    predRemain:"Prediksi Sisa", advice:"Saran & Catatan",
+    prevMonth:"vs bulan lalu", surp:"Surplus", def:"Defisit",
+    balance:"Saldo", totalIn:"Yang Ditabung", month:"Bulan", year:"Tahun",
+    wallet_bank:"Bank", wallet_ewallet:"E-Wallet", wallet_cash:"Tunai",
+    wallet_invest:"Investasi", wallet_other:"Lainnya",
+    kat_food:"Makan & Minum", kat_transport:"Transportasi",
+    kat_bills:"Tagihan & Utilitas", kat_health:"Kesehatan",
+    kat_shop:"Belanja", kat_fun:"Hiburan", kat_edu:"Pendidikan",
+    kat_invest:"Investasi", kat_other:"Lainnya",
+    in_salary:"Gaji", in_bonus:"Bonus", in_freelance:"Freelance",
+    yearReview:"Rekap Tahunan", yearReviewBtn:"🎊 Rekap Tahunan",
+    yearIncome:"Total Pemasukan", yearExpense:"Total Pengeluaran",
+    yearSaving:"Total Tabungan", yearNet:"Net Cashflow Tahun Ini",
+    bestMonth:"Bulan Terbaik", worstMonth:"Bulan Terboros",
+    topCategories:"Kategori Terbesar", monthlyTrend:"Tren Bulanan",
+    avgMonthly:"Rata-rata per Bulan", txTotal:"Total Transaksi",
+    yearScore:"Skor Keuangan Tahunan", yearSummary:"Ringkasan Tahun",
+    shareReport:"Bagikan", closeBtn:"Tutup",
+    bankJenius:"Jenius", bankOVO:"OVO", bankGoPay:"GoPay",
+    bankDana:"Dana", bankShopeePay:"ShopeePay", bankPermata:"Permata",
+    bankBTN:"BTN", bankBSI:"BSI",
+    importGuideJenius:"Jenius → Akun → Riwayat → Export CSV",
+    importGuideOVO:"OVO → Transaksi → Filter → Download",
+    importGuideGoPay:"GoPay (Gojek) → Transaksi → Download Riwayat",
+    importGuideDana:"Dana → Riwayat Transaksi → Export",
+    importGuideShopeePay:"Shopee → Saya → ShopeePay → Riwayat → Export",
+    importGuideBSI:"BSIm → Rekening → Mutasi → Download CSV",
+    noTxYear:"Belum ada transaksi di tahun ini",
+    growth:"Pertumbuhan",netWorthChange:"Perubahan Net Worth",
+    vsLastMonth:"vs bulan lalu",
+
+    in_transfer:"Transfer Masuk", in_invest:"Investasi", in_biz:"Bisnis", in_other:"Lainnya",
+    // Toast messages
+    toast_balanceOk:"✅ Saldo sesuai & Transaksi tercatat!",
+    toast_walletAdded:"✅ Dompet ditambahkan!",
+    toast_notEnough:"⚠️ Saldo tidak cukup!",
+    toast_walletNotEnough:"⚠️ Saldo dompet tidak cukup!",
+    toast_sameDompet:"⚠️ Dompet asal & tujuan tidak boleh sama!",
+    toast_transferOk:"✅ Transfer dicatat!",
+    toast_expenseOk:"✅ Pengeluaran dicatat & saldo terpotong!",
+    toast_incomeOk:"✅ Pemasukan dicatat & saldo bertambah!",
+    toast_savingOk:"✅ Tabungan dicatat & saldo terpotong!",
+    toast_savingOk2:"✅ Tabungan dicatat!",
+    toast_txOk:"✅ Transaksi dicatat!",
+    toast_noteOk:"✅ Catatan disimpan!",
+    toast_recurringOk:"✅ Transaksi rutin ditambahkan!",
+    toast_noRecurring:"ℹ️ Tidak ada transaksi rutin aktif",
+    toast_envelopeOk:"✅ Amplop dibuat & saldo dompet terpotong!",
+    toast_topupOk:"✅ Amplop diisi!",
+    toast_envelopeNotFound:"⚠️ Amplop tidak ditemukan!",
+    toast_envelopeFunds:"⚠️ Dana amplop tidak cukup! Sisa:",
+    toast_expenseEnvOk:"✅ Pengeluaran dari amplop dicatat!",
+    toast_resetEnvOk:"✅ Amplop direset!",
+    toast_walletNotFound:"⚠️ Dompet sumber tidak ditemukan!",
+    toast_paymentOk:"✅ Pembayaran dicatat & Saldo dompet terpotong!",
+    toast_fundOk:"✅ Dana tabungan dicatat & Saldo dompet terpotong!",
+    toast_pdfOk:"✅ Laporan PDF berhasil diunduh!",
+    toast_fillName:"⚠️ Isi nama!",
+    toast_noData:"Tidak ada data yang bisa dibaca.",
+    // UI strings
+    noTxToday:"📝 Belum ada transaksi hari ini",
+    noTxTodayBody:"Jangan lupa catat pengeluaran hari ini!",
+    noBudgetData:"Belum ada data",
+    noEnvelope:"Belum ada amplop",
+    noGoal:"Belum ada goal",
+    noAsset:"Belum ada aset tetap",
+    noDebt:"Tidak ada utang/piutang",
+    noNotif:"✅ Tidak ada notifikasi aktif",
+    noTxData:"Belum ada data pengeluaran",
+    noTxFound:"Tidak ada transaksi",
+    fromWallet:"Dari Dompet",
+    toWallet:"Ke Dompet",
+    transferFeeLabel:"Biaya Transfer",
+    saveBulk:"✓ Simpan",
+    manageCategory:"Kelola Kategori",
+    addCategory2:"+ Tambah Kategori",
+    totalEnvFunds:"Total Dana Amplop",
+    activeDebt:"Aktif",
+    paidDebt:"Lunas",
+    laporan:"Laporan",
+    laporanPeriod:"Periode Laporan",
+    notifPermission:"Izinkan Notifikasi",
+    notifActive:"✅ Aktif",
+    surplusLabel:"Surplus",
+    budgetMonthProg:"Progres Budget Bulanan",
+    envelopePlaceholder:"Makan, Bensin, Hiburan...",
+    goalPlaceholder:"Beli rumah, Liburan Eropa...",
+    assetPlaceholder:"Rumah, Kendaraan, Emas...",
+    ketOpsional:"Opsional",
+    walletPlaceholder:"BCA, GoPay, Tunai Harian...",
+    norekPlaceholder:"Nomor rekening / no HP",
+    txDescPlaceholder:"Contoh: Makan siang...",
+    recurringPlaceholder:"Gaji, Netflix, Cicilan...",
+    subBillPlaceholder:"Netflix, Listrik...",
+    catPlaceholder:"Olahraga, Travel...",
+    deleteWallet:"Hapus Dompet",
+    deleteWalletMsg:"Dompet dengan saldo",
+    deleteEnvelope:"Hapus Amplop",
+    deleteEnvelopeMsg:"Hapus amplop",
+    deleteEnvelopeSuffix:"? Dana tersisa tidak akan dikembalikan.",
+    balAdjustLabel:"Penyesuaian Saldo",
+    debtorPlaceholder:"BRI, Pak Budi...",
+    prediksiPengeluaran:"Prediksi Pengeluaran",
+    prediksiSisa:"Prediksi Sisa",
+    bulanShort:"Bulan",
+    months:"bulan",
+    csvHint:"💡 Export CSV tersedia di halaman Transaksi & Laporan",
+    recurringDesc2:"Transaksi yang berulang setiap bulan (gaji, cicilan, dll)",
+    processedInfo:"transaksi diproses",
+    unprocessed:"belum diproses",
+    scorePeriod:"Skor keuangan",
+    idealSaving:"Ideal >20%",
+    idealBudget:"Ideal <85%",
+    goodLabel:"✓ BAIK",
+    cautionLabel:"⚠ PERHATIAN",
+    incomePDF:"PEMASUKAN",
+    expensePDF:"PENGELUARAN",
+    totalBalPDF:"TOTAL SALDO",
+    thisMonth:"Bulan ini",
+    netPositive:"▲ Surplus",
+    netNegative:"Defisit Bulan Ini",
+    accDetail:"Detail Saldo Dompet",
+    accDetailSub:"Saldo per akun pada akhir periode",
+    accHead1:"Akun / Dompet",
+    spendDistrib:"Distribusi Pengeluaran",
+    spendDistribSub:"Pengeluaran per kategori bulan ini",
+    trend6:"Tren 6 Bulan Terakhir",
+    trend6Sub:"Perbandingan pemasukan vs pengeluaran",
+    txHistory:"Riwayat Transaksi",
+    budgetPerf:"Performa Anggaran",
+    budgetPerfSub:"Realisasi vs Alokasi per Kategori",
+    budgetHead1:"Kategori",budgetHead2:"Alokasi",budgetHead3:"Realisasi",budgetHead4:"Sisa",budgetHead5:"% Terpakai",budgetHead6:"Status",
+    scoreSection:"Skor Kesehatan Keuangan",
+    scoreSectionSub:"Analisis berdasarkan pola transaksi bulan ini",
+    txHead1:"Tanggal",txHead2:"Keterangan",txHead3:"Kategori",txHead4:"Dompet",txHead5:"Debit",txHead6:"Kredit",
+    pdfDisclaimer:"📌  Laporan ini dibuat secara otomatis oleh aplikasi AturDuitku berdasarkan data yang diinput pengguna.",
+    pdfTitle:"Laporan Keuangan",
+    incomeLabel:"Pemasukan",
+    expenseLabel:"Pengeluaran",
+    savingLabel:"Tabungan",
+    netCashLabel:"Net Cashflow",
+    runwayMonths:"Bulan",
+    scoreFinance:"Skor keuangan",
+    filterReset:"Reset Filter",
+    filterLabel:"Filter",
+    allShown:"Semua",
+    txShown:"transaksi ditampilkan",
+    dailyExpense:"Pengeluaran Harian",
+    inkludeWallet:"termasuk",
+    total:"Total",
+
+    // UI Labels (extended)
+    newTx:"Transaksi Baru", bulkTitle:"Input Transaksi Massal",
+    bulkDesc:"Tambah banyak transaksi sekaligus.",
+    addDompetTitle:"Tambah Dompet", addGoalTitle:"Tambah Goal / Target",
+    addAsetTitle:"Tambah Aset Tetap",
+    walletName:"Nama", accountNoOpt:"No Rekening (Opsional)",
+    openingBal:"Saldo Awal (Rp)", useWalletBal:"Beli menggunakan Saldo Dompet?",
+    goalName:"Nama Goal", goalTarget:"Target Dana (Rp)",
+    asetName2:"Nama Aset", asetVal:"Estimasi Nilai (Rp)",
+    fromWalletShort:"Dari Dompet", toWalletShort:"Ke Dompet",
+    saveNote:"+ Simpan Catatan", saveTx:"Simpan Transaksi",
+    addMoreRows:"+ Baris", processAll:"Proses Semua ke",
+    type:"Tipe", name:"Nama",
+    debtTitle:"Catat Utang / Piutang",
+    debtActive:"Total Utang Aktif", recvActive:"Total Piutang Aktif",
+    dangerZone:"Zona Berbahaya",
+    resetConfirmMsg:"Tindakan ini akan menghapus SEMUA data keuanganmu secara permanen. Yakin ingin melanjutkan?",
+    prevPeriod:"Perbandingan Periode Lalu",
+    prevIncome:"Pemasukan Periode Lalu (Rp)", prevExpense:"Pengeluaran Periode Lalu (Rp)",
+    exportHint:"💡 Export CSV tersedia di halaman Transaksi & Laporan",
+    recurringDesc:"Transaksi yang berulang setiap bulan (gaji, cicilan, dll)",
+    addRecurringBtn:"+ Tambah Rutin", cancelRecurring:"✕ Tutup",
+    showBalance:"Tampilkan saldo", hideBalance:"Sembunyikan saldo",
+    budgetMonthly:"Total Budget Bulanan",
+    budgetUsed:"Terpakai", budgetLeft:"Sisa",
+    budgetDisc:"Disiplin Anggaran",
+    budgetProgress:"Performa Anggaran", dayOf:"Hari ke",
+    needsCat:"Kebutuhan", wantsCat:"Keinginan",
+    catName:"Nama Kategori", catClass:"Kelas",
+    subName:"Nama", billDate:"Jatuh Tempo",
+    envelopeHero:"Total Amplop", envelopeLeft:"Sisa",
+    envelopeName:"Nama Amplop", envelopeAlloc:"Alokasi Dana (Rp)",
+    envelopeSource:"Dompet Sumber",
+    createTransfer:"✓ Buat & Transfer Dana",
+    createFirst:"+ Buat Amplop Pertama",
+    goalsStats:"Statistik Goals", goalsAchieved:"Tercapai",
+    goalsAdd:"Tambahkan target keuanganmu!",
+    addFirstGoal:"+ Tambah Goal Pertama",
+    addGoalBtn:"+ Tambah Goal",
+    assetHero:"Total Aset", assetLiquid:"Likuid",
+    assetDebt:"Utang",
+    walletSection:"💳 Dompet & Akun", assetSection:"🏠 Aset Tetap",
+    adjustBalance:"Sesuaikan Saldo Otomatis",
+    searchTx:"Cari transaksi...",
+    allWallets:"Semua Dompet", allTypes:"Semua Tipe",
+    txCount:"Transaksi", showAll:"Semua",
+    upcomingBills:"🚨 Tagihan Mendatang", noBills:"Tidak ada tagihan",
+    topExpense:"🏆 Top Pengeluaran",
+    recentTx:"Transaksi Terbaru",
+    monthlyScore:"Skor keuanganmu",
+    savingRatioLabel:"Rasio Tabungan", disciplineLabel:"Disiplin Anggaran",
+    allSafe:"Semua kategori dalam batas aman!",
+    histBalance:"Riwayat Saldo",
+    histDesc:"Saldo tiap dompet diestimasi berdasarkan transaksi",
+    activeLabel:"Aktif", monthCol:"Bulan", totalCol:"Total",
+    spendDetail:"Rincian Pengeluaran",
+    tipPerCat:"💡 Saran per Kategori",
+    navMain:"Beranda", navFinance:"Keuangan", navSettings2:"Pengaturan",
+    debtType_utang:"⊖ Utang", debtType_piutang:"⊕ Piutang", debtType_biz:"💼 Bisnis",
+    paidOff2:"Lunas", unpaid:"Belum Lunas",
+    today2:"Hari ini", overdue:"Terlambat",
+    restoreTitle:"📥 Import / Restore Data",
+    confirmBtn:"Ya, Lanjutkan",
+    runwayLabel:"Dana Bertahan", runwayDesc:"Berapa lama saldo bisa bertahan",
+    topSpend:"Pengeluaran Terbesar",
+    predSafe:"Aman", predDeficit:"⚠ Akan defisit",
+    overLabel:"Over", almostLabel:"Hampir", safeLabel:"Aman",
+    scoreLabel:"Skor",
+    recurringAdd:"+ Tambah Transaksi Rutin", recurringClose:"✕ Tutup",
+    recurringDay:"Tanggal", recurringType:"Tipe",
+    notifSummary:"🔔 Ringkasan Notifikasi",
+    more:"Lainnya",
+    imported:"Tersimpan", balAdjust:"Penyesuaian Saldo",
+    resetDataTitle:"Reset Semua Data",
+    inflow2:"↑ Masuk", outflow2:"↓ Keluar", savingShort:"🏦 Tabung",
+    allSelected:"✗ Batal", selectAll:"✓ Semua",
+    envelopeInfo:"💡 Amplop Digital adalah cara budgeting dengan memasukkan uang ke amplop-amplop virtual.",
+    ideal20:"dari ideal 20%", ideal85:"Ideal <85%",
+  },
+  en: {
+    // Nav
+    home:"Home", dompet:"Wallets", trans:"Transactions", budget:"Budget",
+    amplop:"Envelopes", goals:"Goals", aset:"Assets", utang:"Debt/Receivables",
+    laporan:"Reports", setting:"Settings",
+    // Common
+    save:"Save", cancel:"Cancel", delete:"Delete", edit:"Edit", add:"Add",
+    back:"← Back", next:"Next →", done:"Done", close:"Close",
+    confirm:"Confirm", yes:"Yes", no:"No", search:"Search...",
+    loading:"Loading...", empty:"No data yet", all:"All",
+    export:"Export", import:"Import", reset:"Reset",
+    // Money
+    income:"Income", expense:"Expense", saving:"Saving",
+    transfer:"Transfer", balance:"Balance", totalBalance:"Total Balance",
+    netCashflow:"Net Cashflow", monthlyBudget:"Monthly Budget",
+    dailyBudget:"Daily Budget Remaining", remaining:"Remaining",
+    allocation:"Allocation", realization:"Spent", usage:"Usage",
+    // Dompet
+    wallet:"Wallet", account:"Account", accountNo:"Account No.",
+    walletType:"Type", addWallet:"+ Add Wallet", initialBalance:"Opening Balance",
+    liquidAssets:"Total Liquid Balance",
+    // Transaction
+    addTx:"+ Transaction", bulkInput:"Bulk Input", date:"Date",
+    description:"Description", amount:"Amount", category:"Category",
+    fromWallet:"From Wallet", toWallet:"To Wallet", transferFee:"Transfer Fee",
+    txHistory:"Transaction History", noTx:"No transactions yet",
+    loadMore:"Load More", goal:"Goal",
+    // Budget
+    needs:"Needs", wants:"Wants", addCategory:"+ Category",
+    subCategory:"Sub Category", dueDate:"Due Date", billReminder:"Bill Reminder",
+    // Goals
+    targetAmount:"Target", currentSaved:"Saved", deadline:"Target Date",
+    addGoal:"+ Add Goal", contribute:"Contribute to Goal",
+    // Debt
+    debt:"Debt", receivable:"Receivable", debtor:"Name", paidOff:"Paid Off",
+    partial:"Partial", markPaid:"Mark as Paid",
+    // Asset
+    assetName:"Asset Name", assetValue:"Value", fixedAsset:"Fixed Assets",
+    deductFromWallet:"Deduct from wallet",
+    // Envelope
+    envelope:"Envelope", fill:"Top Up", use:"Spend", resetEnv:"Reset",
+    createEnvelope:"Create Envelope", fillEnvelope:"Top Up Envelope",
+    spendEnvelope:"Spend from Envelope",
+    // Report
+    report:"Reports", healthScore:"Financial Health Score",
+    savingRatio:"Saving Ratio", budgetDiscipline:"Budget Discipline",
+    emergencyFund:"Safety & Runway", prediction:"End-of-Month Forecast",
+    trend6mo:"6-Month Trend", dailyExpense:"Daily Expenses",
+    budgetPerformance:"Budget Performance", historicalBalance:"Balance History",
+    comparison:"Monthly Comparison", exportCSV:"Export CSV", exportSheets:"📊 Export Sheets",aiAssistant:"✨ AturDuitku AI",aiPlaceholder:"Type message... e.g: paid electricity 150k",aiSending:"Sending...",aiTitle:"AturDuitku AI",aiClose:"Close",sheetsUrlLabel:"Google Sheets Script URL",groqKeyLabel:"Groq API Key",aiSyncOk:"✅ Synced to Google Sheets!",aiSyncFail:"⚠️ Failed to sync to Sheets",aiRecorded:"✅ Transaction recorded via AI!", exportPDF:"📄 Export PDF",
+    loanCalc:"Loan Calculator",
+    // Settings
+    settings:"Settings", profile:"Profile & Preferences", display:"Display",
+    darkMode:"Dark Mode", darkModeDesc:"Dark theme for comfortable viewing",
+    blurBalance:"Hide Balances", blurDesc:"Blur balance amounts in public",
+    notifications:"Browser Notifications", notifDesc:"Bill alerts, budget warnings, daily reminders",
+    activateNotif:"Enable", notifActive:"✅ Active",
+    reportPeriod:"Report Period", displayName:"Display Name",
+    emergencyTarget:"Emergency Fund Target",
+    backupRestore:"Backup & Restore",
+    exportJSON:"Export JSON", importJSON:"Import / Restore JSON",
+    recurringTx:"Recurring Transactions", processNow:"Process Now",
+    addRecurring:"+ Add Recurring", day:"Day",
+    active:"Active", inactive:"Inactive",
+    resetAll:"Reset All Data", resetWarning:"This will permanently delete ALL your data.",
+    language:"Language", changeLanguage:"Change Language",
+    // Onboarding
+    ob_welcome:"Hi! I'm AturDuitku",
+    ob_desc:"Your personal finance app to help you track, manage, and plan your finances with ease.",
+    ob_feat1:"💳 Log daily transactions",
+    ob_feat2:"📊 Set monthly budgets",
+    ob_feat3:"⭐ Track your dreams & goals",
+    ob_feat4:"📄 Bank-style reports",
+    ob_feat5:"🏦 Import bank statements",
+    ob_start:"Get Started →",
+    ob_steps:"Quick setup · 3 steps · < 1 min",
+    ob_local:"Data stored locally · No server",
+    ob_nameQ:"What's your name?",
+    ob_nameHint:"So AturDuitku can greet you personally",
+    ob_namePh:"Enter your name...",
+    ob_walletQ:"Wallets & Accounts",
+    ob_walletHint:"Enter the opening balance for each account",
+    ob_addWallet:"+ Add Another Account",
+    ob_budgetQ:"Monthly Budget",
+    ob_budgetOpt:"(optional)",
+    ob_budgetHint:"Can be set later in the Budget page",
+    ob_budgetTip:"More budgets can be added in the Budget page after setup",
+    ob_finish:"✅ Let's Go!",
+    ob_step:"Step",
+    ob_of:"of",
+    // Import mutasi
+    importMutasi:"Import Bank Statement",
+    importMutasiDesc:"Upload CSV file from mobile or internet banking",
+    bankFormat:"Bank Format", targetWallet:"Import to Wallet",
+    clickOrDrop:"Click or drag & drop CSV file",
+    supportedBanks:"BCA · Mandiri · BNI · BRI · CIMB · Jenius · OVO · GoPay · Dana · ShopeePay · BSI",
+    importTips:"How to download bank statement CSV:",
+    importBtn:"📥 Import", importSelected:"Transactions",
+    reupload:"← Re-upload",
+    allTx:"All", inflow:"↑ Income", outflow:"↓ Expense",
+    selectedOf:"selected · Auto-categorized",
+    autoCategory:"Auto-categorized, editable after import",
+    // Greeting
+    morning:"Good Morning", afternoon:"Good Afternoon",
+    evening:"Good Evening", night:"Good Night",
+    // Misc
+    runway:"Runway", months:"mo", days:"days left",
+    balance:"Balance", daysLeft:"days", score:"Score", excellent:"Excellent",
+    veryGood:"Very Good", good:"Good", fair:"Fair", poor:"Needs Attention",
+    safe:"SAFE", almost:"ALMOST", over:"OVER",
+    dailyAvg:"Daily avg", predExpense:"Projected Expense",
+    predRemain:"Projected Remaining", advice:"Tips & Notes",
+    prevMonth:"vs last month", surp:"Surplus", def:"Deficit",
+    totalIn:"Saved", month:"Month", year:"Year",
+    wallet_bank:"Bank", wallet_ewallet:"E-Wallet", wallet_cash:"Cash",
+    wallet_invest:"Investment", wallet_other:"Other",
+    kat_food:"Food & Drinks", kat_transport:"Transportation",
+    kat_bills:"Bills & Utilities", kat_health:"Health",
+    kat_shop:"Shopping", kat_fun:"Entertainment", kat_edu:"Education",
+    kat_invest:"Investment", kat_other:"Other",
+    in_salary:"Salary", in_bonus:"Bonus", in_freelance:"Freelance",
+    yearReview:"Year in Review", yearReviewBtn:"🎊 Year in Review",
+    yearIncome:"Total Income", yearExpense:"Total Expenses",
+    yearSaving:"Total Savings", yearNet:"Net Cashflow This Year",
+    bestMonth:"Best Month", worstMonth:"Worst Month",
+    topCategories:"Top Categories", monthlyTrend:"Monthly Trend",
+    avgMonthly:"Monthly Average", txTotal:"Total Transactions",
+    yearScore:"Annual Financial Score", yearSummary:"Year Summary",
+    shareReport:"Share", closeBtn:"Close",
+    bankJenius:"Jenius", bankOVO:"OVO", bankGoPay:"GoPay",
+    bankDana:"Dana", bankShopeePay:"ShopeePay", bankPermata:"Permata",
+    bankBTN:"BTN", bankBSI:"BSI",
+    importGuideJenius:"Jenius → Account → History → Export CSV",
+    importGuideOVO:"OVO → Transactions → Filter → Download",
+    importGuideGoPay:"GoPay (Gojek) → Transactions → Download History",
+    importGuideDana:"Dana → Transaction History → Export",
+    importGuideShopeePay:"Shopee → Me → ShopeePay → History → Export",
+    importGuideBSI:"BSIm → Account → Mutation → Download CSV",
+    noTxYear:"No transactions this year",
+    growth:"Growth",netWorthChange:"Net Worth Change",
+    vsLastMonth:"vs last month",
+
+    in_transfer:"Incoming Transfer", in_invest:"Investment", in_biz:"Business", in_other:"Other",
+    // Toast messages
+    toast_balanceOk:"✅ Balance adjusted & transaction recorded!",
+    toast_walletAdded:"✅ Wallet added!",
+    toast_notEnough:"⚠️ Insufficient balance!",
+    toast_walletNotEnough:"⚠️ Wallet balance insufficient!",
+    toast_sameDompet:"⚠️ Source & destination wallet cannot be the same!",
+    toast_transferOk:"✅ Transfer recorded!",
+    toast_expenseOk:"✅ Expense recorded & balance deducted!",
+    toast_incomeOk:"✅ Income recorded & balance added!",
+    toast_savingOk:"✅ Saving recorded & balance deducted!",
+    toast_savingOk2:"✅ Saving recorded!",
+    toast_txOk:"✅ Transaction recorded!",
+    toast_noteOk:"✅ Note saved!",
+    toast_recurringOk:"✅ Recurring transaction added!",
+    toast_noRecurring:"ℹ️ No active recurring transactions",
+    toast_envelopeOk:"✅ Envelope created & balance deducted!",
+    toast_topupOk:"✅ Envelope topped up!",
+    toast_envelopeNotFound:"⚠️ Envelope not found!",
+    toast_envelopeFunds:"⚠️ Insufficient envelope funds! Remaining:",
+    toast_expenseEnvOk:"✅ Envelope expense recorded!",
+    toast_resetEnvOk:"✅ Envelope reset!",
+    toast_walletNotFound:"⚠️ Source wallet not found!",
+    toast_paymentOk:"✅ Payment recorded & balance deducted!",
+    toast_fundOk:"✅ Savings recorded & balance deducted!",
+    toast_pdfOk:"✅ PDF report downloaded!",
+    toast_fillName:"⚠️ Please enter a name!",
+    toast_noData:"No readable data found.",
+    // UI strings
+    noTxToday:"📝 No transactions today",
+    noTxTodayBody:"Don't forget to log today's expenses!",
+    noBudgetData:"No data yet",
+    noEnvelope:"No envelopes yet",
+    noGoal:"No goals yet",
+    noAsset:"No fixed assets yet",
+    noDebt:"No debt / receivables",
+    noNotif:"✅ No active notifications",
+    noTxData:"No expense data yet",
+    noTxFound:"No transactions found",
+    fromWallet:"From Wallet",
+    toWallet:"To Wallet",
+    transferFeeLabel:"Transfer Fee",
+    saveBulk:"✓ Save",
+    manageCategory:"Manage Categories",
+    addCategory2:"+ Add Category",
+    totalEnvFunds:"Total Envelope Funds",
+    activeDebt:"Active",
+    paidDebt:"Paid Off",
+    laporan:"Reports",
+    laporanPeriod:"Report Period",
+    notifPermission:"Enable Notifications",
+    notifActive:"✅ Active",
+    surplusLabel:"Surplus",
+    budgetMonthProg:"Monthly Budget Progress",
+    envelopePlaceholder:"Food, Gas, Entertainment...",
+    goalPlaceholder:"Buy a house, Europe vacation...",
+    assetPlaceholder:"House, Vehicle, Gold...",
+    ketOpsional:"Optional",
+    walletPlaceholder:"BCA, GoPay, Cash...",
+    norekPlaceholder:"Account no. / phone no.",
+    txDescPlaceholder:"e.g. Lunch...",
+    recurringPlaceholder:"Salary, Netflix, Loan...",
+    subBillPlaceholder:"Netflix, Electricity...",
+    catPlaceholder:"Sports, Travel...",
+    deleteWallet:"Delete Wallet",
+    deleteWalletMsg:"Wallet with balance",
+    deleteEnvelope:"Delete Envelope",
+    deleteEnvelopeMsg:"Delete envelope",
+    deleteEnvelopeSuffix:"? Remaining funds will not be returned.",
+    balAdjustLabel:"Balance Adjustment",
+    debtorPlaceholder:"Bank, Person name...",
+    prediksiPengeluaran:"Projected Expense",
+    prediksiSisa:"Projected Remaining",
+    bulanShort:"Month",
+    months:"months",
+    csvHint:"💡 CSV export available on Transactions & Reports pages",
+    recurringDesc2:"Transactions that repeat monthly (salary, subscriptions, etc.)",
+    processedInfo:"transactions processed",
+    unprocessed:"not yet processed",
+    scorePeriod:"Financial score",
+    idealSaving:"Ideal >20%",
+    idealBudget:"Ideal <85%",
+    goodLabel:"✓ GOOD",
+    cautionLabel:"⚠ CAUTION",
+    incomePDF:"INCOME",
+    expensePDF:"EXPENSES",
+    totalBalPDF:"TOTAL BALANCE",
+    thisMonth:"This month",
+    netPositive:"▲ Surplus",
+    netNegative:"▼ Deficit",
+    accDetail:"Wallet Balance Detail",
+    accDetailSub:"Balance per account at end of period",
+    accHead1:"Account / Wallet",
+    spendDistrib:"Spending Distribution",
+    spendDistribSub:"Expenses per category this month",
+    trend6:"6-Month Trend",
+    trend6Sub:"Income vs expenses comparison",
+    txHistory:"Transaction History",
+    budgetPerf:"Budget Performance",
+    budgetPerfSub:"Realized vs Allocated per Category",
+    budgetHead1:"Category",budgetHead2:"Allocated",budgetHead3:"Realized",budgetHead4:"Remaining",budgetHead5:"% Used",budgetHead6:"Status",
+    scoreSection:"Financial Health Score",
+    scoreSectionSub:"Analysis based on this month's transactions",
+    txHead1:"Date",txHead2:"Description",txHead3:"Category",txHead4:"Wallet",txHead5:"Debit",txHead6:"Credit",
+    pdfDisclaimer:"📌  This report was automatically generated by AturDuitku based on user-entered data.",
+    pdfTitle:"Personal Finance Report",
+    incomeLabel:"Income",
+    expenseLabel:"Expenses",
+    savingLabel:"Savings",
+    netCashLabel:"Net Cashflow",
+    runwayMonths:"Months",
+    scoreFinance:"Financial score",
+    filterReset:"Reset Filter",
+    filterLabel:"Filter",
+    allShown:"All shown",
+    txShown:"transactions shown",
+    dailyExpense:"📊 Daily Expenses",
+    inkludeWallet:"including",
+    total:"Total",
+
+    // UI Labels (extended)
+    newTx:"New Transaction", bulkTitle:"Bulk Transaction Input",
+    bulkDesc:"Add multiple transactions at once.",
+    addDompetTitle:"Add Wallet", addGoalTitle:"Add Goal / Target",
+    addAsetTitle:"Add Fixed Asset",
+    walletName:"Name", accountNoOpt:"Account No. (Optional)",
+    openingBal:"Opening Balance (Rp)", useWalletBal:"Purchase from Wallet Balance?",
+    goalName:"Goal Name", goalTarget:"Target Amount (Rp)",
+    asetName2:"Asset Name", asetVal:"Estimated Value (Rp)",
+    fromWalletShort:"From Wallet", toWalletShort:"To Wallet",
+    saveNote:"+ Save Note", saveTx:"Save Transaction",
+    addMoreRows:"+ Row", processAll:"Process All to",
+    type:"Type", name:"Name",
+    debtTitle:"Record Debt / Receivable",
+    debtActive:"Total Active Debt", recvActive:"Total Active Receivables",
+    dangerZone:"⚠️ Danger Zone",
+    resetConfirmMsg:"This will permanently delete ALL your financial data. Are you sure?",
+    prevPeriod:"Previous Period Comparison",
+    prevIncome:"Previous Period Income (Rp)", prevExpense:"Previous Period Expense (Rp)",
+    exportHint:"💡 CSV export available on Transactions & Reports pages",
+    recurringDesc:"Transactions that repeat monthly (salary, subscriptions, etc.)",
+    addRecurringBtn:"+ Add Recurring", cancelRecurring:"✕ Close",
+    showBalance:"Show balances", hideBalance:"Hide balances",
+    budgetMonthly:"Total Monthly Budget",
+    budgetUsed:"Used", budgetLeft:"Remaining",
+    budgetDisc:"Budget Discipline",
+    budgetProgress:"Monthly Budget Progress", dayOf:"Day",
+    needsCat:"Needs", wantsCat:"Wants",
+    catName:"Category Name", catClass:"Class",
+    subName:"Name", billDate:"Due Date",
+    envelopeHero:"Total Envelopes", envelopeLeft:"Remaining",
+    envelopeName:"Envelope Name", envelopeAlloc:"Allocation (Rp)",
+    envelopeSource:"Source Wallet",
+    createTransfer:"✓ Create & Transfer Funds",
+    createFirst:"+ Create First Envelope",
+    goalsStats:"Total Goals", goalsAchieved:"Achieved",
+    goalsAdd:"Add your financial targets!",
+    addFirstGoal:"+ Add First Goal",
+    addGoalBtn:"+ Add Goal",
+    assetHero:"Total Assets", assetLiquid:"Liquid",
+    assetDebt:"Debt",
+    walletSection:"💳 Wallets & Accounts", assetSection:"🏠 Fixed Assets",
+    adjustBalance:"Auto-Adjust Balance",
+    searchTx:"Search transactions...",
+    allWallets:"All Wallets", allTypes:"All Types",
+    txCount:"Transactions", showAll:"All shown",
+    upcomingBills:"🚨 Upcoming Bills", noBills:"No upcoming bills",
+    topExpense:"🏆 Top Expenses",
+    recentTx:"Recent Transactions",
+    monthlyScore:"Your financial score",
+    savingRatioLabel:"Saving Ratio", disciplineLabel:"Budget Discipline",
+    allSafe:"All categories within safe limits!",
+    histBalance:"📅 Balance History (End-of-Month Estimate)",
+    histDesc:"Balance estimated from transactions",
+    activeLabel:"Active", monthCol:"Month", totalCol:"Total",
+    spendDetail:"Spending Breakdown",
+    tipPerCat:"💡 Tips per Category",
+    navMain:"Main Menu", navFinance:"Finance", navSettings2:"Settings",
+    debtType_utang:"⊖ Debt", debtType_piutang:"⊕ Receivable", debtType_biz:"💼 Business",
+    paidOff2:"Paid Off", unpaid:"Outstanding",
+    today2:"Today", overdue:"Overdue",
+    restoreTitle:"📥 Import / Restore Data",
+    confirmBtn:"Yes, Proceed",
+    runwayLabel:"Cash Runway", runwayDesc:"Total balance / spending",
+    topSpend:"Top Expense",
+    predSafe:"Safe", predDeficit:"⚠ Deficit ahead",
+    overLabel:"Over", almostLabel:"Almost", safeLabel:"Safe",
+    scoreLabel:"Score",
+    recurringAdd:"+ Add Recurring Transaction", recurringClose:"✕ Close",
+    recurringDay:"Date", recurringType:"Type",
+    notifSummary:"🔔 Notification Summary",
+    more:"More",
+    imported:"Saved", balAdjust:"Balance Adjustment",
+    resetDataTitle:"Reset All Data",
+    inflow2:"↑ Income", outflow2:"↓ Expense", savingShort:"🏦 Save",
+    allSelected:"✗ Deselect All", selectAll:"✓ Select All",
+    envelopeInfo:"💡 Digital Envelopes help you budget by allocating money to virtual envelopes.",
+    ideal20:"of ideal 20%", ideal85:"Ideal <85%",
+  }
+};
+
+// Locale-aware month/day helpers
+const getMonths = (lang) => lang==="en" ? MONTHS_EN : ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+const getMShort = (lang) => lang==="en" ? MSHORT_EN : ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
+
+
+// ─── DEFAULT DATA ─────────────────────────────────────────────────────────────
+const INIT_BUDGETS=[
+  {id:1,kat:"Makan & Minum",icon:"🍜",kelas:"Kebutuhan",alokasi:"0",sub:[]},
+  {id:2,kat:"Transportasi",icon:"🚗",kelas:"Kebutuhan",alokasi:"0",sub:[]},
+  {id:3,kat:"Tagihan & Utilitas",icon:"💡",kelas:"Kebutuhan",alokasi:"0",sub:[{nama:"Listrik",emoji:"⚡",alokasi:"0",tempo:null},{nama:"Internet",emoji:"📶",alokasi:"0",tempo:null}]},
+  {id:4,kat:"Kesehatan",icon:"💊",kelas:"Kebutuhan",alokasi:"0",sub:[]},
+  {id:5,kat:"Belanja",icon:"🛍️",kelas:"Keinginan",alokasi:"0",sub:[]},
+  {id:6,kat:"Hiburan",icon:"🎮",kelas:"Keinginan",alokasi:"0",sub:[]},
+  {id:7,kat:"Pendidikan",icon:"📚",kelas:"Keinginan",alokasi:"0",sub:[]},
+  {id:8,kat:"Investasi",icon:"📈",kelas:"Kebutuhan",alokasi:"0",sub:[]},
+  {id:9,kat:"Lainnya",icon:"📦",kelas:"Kebutuhan",alokasi:"0",sub:[]},
+];
+const INIT={
+  name:"Iksanarsana",bulan:MONTHS[nowM()],tahun:String(nowY()),
+  dompet:[
+    {id:1,tipe:"Bank",nama:"BCA",norek:"",saldo:"0",icon:"🏦"},
+    {id:2,tipe:"E-Wallet",nama:"GoPay",norek:"",saldo:"0",icon:"📱"},
+    {id:3,tipe:"Tunai",nama:"Tunai",norek:"",saldo:"0",icon:"💵"},
+  ],
+  txs:[],utang:[],budgets:INIT_BUDGETS,
+  goals:[],asetTetap:[],targetDana:"0",
+  prevPemasukan:"0",prevPengeluaran:"0",
+  recurring:[],
+  amplop:[],
+  processedRecurring:{},
+  groqKey:"",
+  googleEmail:"",
+};
+const NAV=[
+  {id:"home",icon:"🏠",label:"Home"},
+  {id:"dompet",icon:"💳",label:"Dompet"},
+  {id:"trans",icon:"🔄",label:"Transaksi"},
+  {id:"budget",icon:"📊",label:"Budget"},
+  {id:"amplop",icon:"✉️",label:"Amplop"},
+  {id:"goals",icon:"⭐",label:"Goals"},
+  {id:"aset",icon:"🏛️",label:"Aset"},
+  {id:"utang",icon:"📋",label:"Utang"},
+  {id:"laporan",icon:"📈",label:"Laporan"},
+  {id:"setting",icon:"⚙️",label:"Setting"},
+];
+
+// ─── REUSABLE COMPONENTS ──────────────────────────────────────────────────────
+const Card=({ch,style={},lift})=>{
+  const T=useT();
+  return <div className={lift?"card-lift":""} style={{background:T.card,borderRadius:16,padding:"18px 20px",boxShadow:T.shadow,border:`1.5px solid ${T.border}`,transition:"background .3s,border-color .3s,box-shadow .3s",...style}}>{ch}</div>;
+};
+const Sec=({t,sub,right})=>{
+  const T=useT();
+  return(
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,paddingBottom:10,borderBottom:`1px solid ${T.borderLight}`}}>
+      <div><div style={{fontSize:10,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:T.accent}}>{t}</div>{sub&&<div style={{fontSize:11,color:T.muted,marginTop:2}}>{sub}</div>}</div>
+      {right&&<div>{right}</div>}
+    </div>
+  );
+};
+const Pill=({c,ch,xs})=>{
+  const T=useT();
+  const [bg,tc]=T.p[c]||T.p.indigo;
+  return <span style={{display:"inline-flex",padding:xs?"1px 7px":"2px 10px",borderRadius:99,fontSize:11,fontWeight:600,background:bg,color:tc,whiteSpace:"nowrap"}}>{ch}</span>;
+};
+const PBar=({pct,c="#8B5CF6",h=6})=>{
+  const T=useT();
+  return(
+    <div style={{background:T.borderLight,borderRadius:99,overflow:"hidden",height:h}}>
+      <div style={{width:Math.min(Math.max(N(pct),0),100)+"%",height:"100%",background:c,borderRadius:99,transition:"width .6s cubic-bezier(.4,0,.2,1)"}}/>
+    </div>
+  );
+};
+const Btn=({onClick,ch,c,outline,style={}})=>{
+  const T=useT();const bc=c||T.accent;
+  return <button onClick={onClick} className="btn-go" style={{padding:"9px 18px",borderRadius:10,border:outline?`1.5px solid ${bc}`:"none",cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit",background:outline?"transparent":bc,color:outline?bc:"white",...style}}>{ch}</button>;
+};
+const Del=({onClick})=>{
+  const T=useT();
+  return <button onClick={onClick} className="del-x" style={{background:"none",border:"none",color:T.muted,padding:"2px 6px",fontSize:14,fontFamily:"inherit",borderRadius:4,cursor:"pointer"}}>✕</button>;
+};
+const CurIn=({value,onChange,placeholder="0",style={}})=>{
+  const T=useT();
+  return(
+    <input value={fmtN(value)} onChange={e=>onChange(pN(e.target.value))}
+      onFocus={e=>{if(!value||pN(String(value))==="0"){onChange("");setTimeout(()=>{e.target.value="";},0);}}}
+      onBlur={()=>{if(!value||value===""){onChange("0");}}}
+      placeholder={placeholder} inputMode="numeric"
+      style={{width:"100%",padding:"9px 12px",border:`1.5px solid ${T.inputBorder}`,borderRadius:9,fontSize:13,outline:"none",background:T.input,color:T.text,fontFamily:"inherit",...style}}
+    />
+  );
+};
+
+// ─── CALCULATOR ───────────────────────────────────────────────────────────────
+const Calculator=({value,onChange,onClose})=>{
+  const T=useT();
+  const [disp,setDisp]=useState(value||"0");
+  const press=k=>{
+    if(k==="C"){setDisp("0");return;}
+    if(k==="⌫"){setDisp(p=>p.length>1?p.slice(0,-1):"0");return;}
+    if(k==="✓"){onChange(pN(disp));onClose();return;}
+    if(k==="."){setDisp(p=>p.includes(".")?p:p+".");return;}
+    setDisp(p=>p==="0"?k:p+k);
+  };
+  const keys=["7","8","9","⌫","4","5","6","C","1","2","3","","0",".",""," ✓"];
+  return(
+    <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:9999}} onClick={onClose}>
+      <div style={{cursor:"pointer",background:T.card,borderRadius:"24px 24px 0 0",padding:22,width:"100%",maxWidth:340,boxShadow:T.shadowMd}} onClick={e=>e.stopPropagation()}>
+        <div style={{textAlign:"right",fontSize:28,fontWeight:900,color:T.text,marginBottom:14,padding:"6px 12px",background:T.cardAlt,borderRadius:10}}>{fmtN(disp)||"0"}</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+          {keys.map((k,i)=>(
+            <button key={i} onClick={()=>k.trim()&&press(k.trim())} style={{padding:14,borderRadius:10,border:"none",cursor:k.trim()?"pointer":"default",fontWeight:700,fontSize:16,fontFamily:"inherit",
+              background:k.trim()==="✓"?T.accent:k==="C"||k==="⌫"?T.errBg:T.cardAlt,
+              color:k.trim()==="✓"?"white":k==="C"||k==="⌫"?T.err:T.text,opacity:k.trim()?1:.2}}>{k}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── KALKULATOR FINANSIAL (NEW) ────────────────────────────────────────────────
+const KalkulatorFinansial = ({onClose}) => {
+  const T=useT();
+  const [tab, setTab] = useState("investasi");
+  const [inv, setInv] = useState({awal: "1000000", rutin: "500000", bunga: "8", tahun: "5"});
+  const [pinj, setPinj] = useState({pokok: "10000000", bunga: "10", tenor: "12"});
+
+  const calcInv = () => {
+     const p = N(inv.awal); const pmt = N(inv.rutin); const r = N(inv.bunga)/100/12; const n = N(inv.tahun)*12;
+     if(r===0) return p + (pmt*n);
+     const future = p * Math.pow(1+r, n) + pmt * ((Math.pow(1+r, n) - 1) / r);
+     return future;
+  };
+  const calcPinj = () => {
+     const p = N(pinj.pokok); const r = N(pinj.bunga)/100/12; const n = N(pinj.tenor);
+     if(r===0) return n>0 ? p/n : 0;
+     const cicilan = (p * r * Math.pow(1+r, n)) / (Math.pow(1+r, n) - 1);
+     return cicilan;
+  };
+
+  const IS={width:"100%",padding:"9px 12px",border:`1.5px solid ${T.inputBorder}`,borderRadius:9,fontSize:13,outline:"none",background:T.input,color:T.text,fontFamily:"inherit",marginBottom:10};
+  const LS={fontSize:10,color:T.accent,marginBottom:5,fontWeight:700,display:"block",textTransform:"uppercase"};
+
+  return (
+    <>
+      <div style={{fontSize:16,fontWeight:800,marginBottom:16,color:T.text}}>🧮 Kalkulator Finansial</div>
+      <div style={{display:"flex",gap:8,marginBottom:16}}>
+        <button onClick={()=>setTab("investasi")} style={{flex:1,padding:8,borderRadius:8,background:tab==="investasi"?T.accentBg:T.input,color:tab==="investasi"?T.accent:T.sub,border:`1.5px solid ${tab==="investasi"?T.accent:T.inputBorder}`,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>📈 Investasi</button>
+        <button onClick={()=>setTab("pinjaman")} style={{flex:1,padding:8,borderRadius:8,background:tab==="pinjaman"?T.accentBg:T.input,color:tab==="pinjaman"?T.accent:T.sub,border:`1.5px solid ${tab==="pinjaman"?T.accent:T.inputBorder}`,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>💳 Pinjaman</button>
+      </div>
+      {tab==="investasi" && <div>
+         <label style={LS}>Modal Awal (Rp)</label><CurIn value={inv.awal} onChange={v=>setInv({...inv,awal:v})} style={IS}/>
+         <label style={LS}>Nabung Rutin per Bulan (Rp)</label><CurIn value={inv.rutin} onChange={v=>setInv({...inv,rutin:v})} style={IS}/>
+         <div style={{display:"flex",gap:10}}>
+           <div style={{flex:1}}><label style={LS}>Bunga Tahunan (%)</label><input type="number" value={inv.bunga} onChange={e=>setInv({...inv,bunga:e.target.value})} style={IS}/></div>
+           <div style={{flex:1}}><label style={LS}>Lama (Tahun)</label><input type="number" value={inv.tahun} onChange={e=>setInv({...inv,tahun:e.target.value})} style={IS}/></div>
+         </div>
+         <div style={{background:T.infoBg,padding:16,borderRadius:12,border:`1px solid ${T.infoBorder}`,marginTop:10}}>
+           <div style={{fontSize:11,color:T.info,fontWeight:700}}>Estimasi Hasil Akhir</div>
+           <div style={{fontSize:24,fontWeight:900,color:T.info}}>{IDR(calcInv())}</div>
+         </div>
+      </div>}
+      {tab==="pinjaman" && <div>
+         <label style={LS}>Pokok Pinjaman (Rp)</label><CurIn value={pinj.pokok} onChange={v=>setPinj({...pinj,pokok:v})} style={IS}/>
+         <div style={{display:"flex",gap:10}}>
+           <div style={{flex:1}}><label style={LS}>Bunga Tahunan (%)</label><input type="number" value={pinj.bunga} onChange={e=>setPinj({...pinj,bunga:e.target.value})} style={IS}/></div>
+           <div style={{flex:1}}><label style={LS}>Tenor (Bulan)</label><input type="number" value={pinj.tenor} onChange={e=>setPinj({...pinj,tenor:e.target.value})} style={IS}/></div>
+         </div>
+         <div style={{background:T.errBg,padding:16,borderRadius:12,border:`1px solid ${T.errBorder}`,marginTop:10}}>
+           <div style={{fontSize:11,color:T.err,fontWeight:700}}>Estimasi Cicilan per Bulan</div>
+           <div style={{fontSize:24,fontWeight:900,color:T.err}}>{IDR(calcPinj())}</div>
+           <div style={{fontSize:11,color:T.err,marginTop:4,opacity:0.8}}>Total bayar: {IDR(calcPinj()*N(pinj.tenor))}</div>
+         </div>
+      </div>}
+      <Btn onClick={onClose} ch="Tutup" c={T.muted} outline style={{width:"100%",marginTop:16,padding:10}} />
+    </>
+  )
+}
+
+
+// ─── CALENDAR VIEW ────────────────────────────────────────────────────────────
+const CalendarView=({txs,bulan,tahun,liveDay,liveMonth,liveYear})=>{
+  const T=useT();
+  const mIdx=MONTHS.indexOf(bulan);const yr=Number(tahun);
+  const daysInMonth=new Date(yr,mIdx+1,0).getDate();
+  const firstDay=new Date(yr,mIdx,1).getDay();
+  const byDay={};
+  txs.filter(t=>t.tipe==="pengeluaran"&&t.tgl&&t.tgl.startsWith(`${yr}-${String(mIdx+1).padStart(2,"0")}`))
+    .forEach(t=>{const d=Number(t.tgl.slice(8,10));byDay[d]=(byDay[d]||0)+N(t.jml);});
+  const cells=[];
+  for(let i=0;i<firstDay;i++)cells.push(null);
+  for(let d=1;d<=daysInMonth;d++)cells.push(d);
+  const todayNum=liveDay||new Date().getDate();
+  const isCurrentMonth=liveMonth!==undefined?mIdx===liveMonth&&yr===liveYear:mIdx===nowM()&&yr===nowY();
+  return(
+    <div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
+        {DAYS_SHORT.map(d=><div key={d} style={{textAlign:"center",fontSize:9,color:T.muted,fontWeight:700,padding:"3px 0"}}>{d}</div>)}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
+        {cells.map((d,i)=>{
+          if(!d)return<div key={i}/>;
+          const amt=byDay[d]||0;const isToday=isCurrentMonth&&d===todayNum;const hasSpend=amt>0;
+          return(
+            <div key={i} style={{textAlign:"center",padding:"5px 2px",borderRadius:7,background:isToday?T.accent:"transparent",border:`1px solid ${isToday?"transparent":T.borderLight}`}}>
+              <div style={{fontSize:11,fontWeight:isToday?700:500,color:isToday?"white":T.text,marginBottom:1}}>{d}</div>
+              {hasSpend&&<div style={{fontSize:9,color:isToday?"rgba(255,255,255,.8)":T.err,fontWeight:600}}>{IDRs(amt)}</div>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ─── CIRCLE GAUGE ─────────────────────────────────────────────────────────────
+const CircleGauge=({value,max=100,size=110,c="#22C55E",label})=>{
+  const r=42,cx=55,cy=55,circ=2*Math.PI*r;
+  const pct=Math.min(value/max,1);const dash=pct*circ;
+  return(
+    <div style={{position:"relative",width:size,height:size,flexShrink:0}}>
+      <svg width={size} height={size} viewBox="0 0 110 110">
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(100,100,100,.15)" strokeWidth={10}/>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={c} strokeWidth={10}
+          strokeDasharray={`${dash} ${circ}`} strokeDashoffset={circ/4}
+          strokeLinecap="round" style={{transition:"stroke-dasharray .6s"}}/>
+      </svg>
+      <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+        <div style={{fontSize:22,fontWeight:900,color:c,lineHeight:1}}>{Math.round(value)}</div>
+        {label&&<div style={{fontSize:9,color:"#94A3B8",fontWeight:600,marginTop:1}}>{label}</div>}
+      </div>
+    </div>
+  );
+};
+
+// ─── NOTIFICATION PANEL ───────────────────────────────────────────────────────
+const NotificationPanel=({notifs,onClose})=>{
+  const T=useT();
+  const colMap={danger:{bg:T.errBg,border:T.errBorder,c:T.err},warning:{bg:T.warnBg,border:T.warnBorder,c:T.warn},success:{bg:T.okBg,border:T.okBorder,c:T.ok},info:{bg:T.infoBg,border:T.infoBorder,c:T.info}};
+  return(
+    <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",zIndex:500,display:"flex",justifyContent:"flex-end"}} onClick={onClose}>
+      <div style={{cursor:"pointer",width:Math.min(380,window.innerWidth),background:T.card,height:"100%",overflowY:"auto",boxShadow:T.shadowMd,animation:"slideInRight .25s cubic-bezier(.4,0,.2,1)"}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:"20px 20px 14px",borderBottom:`1.5px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:T.card,zIndex:1}}>
+          <div>
+            <div style={{fontWeight:900,fontSize:17,color:T.text}}>🔔 Notifikasi</div>
+            <div style={{fontSize:11,color:T.muted,marginTop:1}}>{notifs.length} peringatan aktif</div>
+          </div>
+          <button onClick={onClose} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:9,width:32,height:32,cursor:"pointer",fontSize:15,color:T.sub,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+        </div>
+        <div style={{padding:16}}>
+          {notifs.length===0?(
+            <div style={{textAlign:"center",padding:"48px 20px",color:T.muted}}>
+              <div style={{fontSize:48,marginBottom:12}}>✅</div>
+              <div style={{fontSize:15,fontWeight:700,color:T.sub}}>Semua beres!</div>
+              <div style={{fontSize:12,marginTop:6}}>Tidak ada tagihan atau peringatan aktif.</div>
+            </div>
+          ):notifs.map((n,i)=>{
+            const col=colMap[n.color]||colMap.info;
+            return(
+              <div key={i} style={{background:col.bg,border:`1px solid ${col.border}`,borderRadius:12,padding:"12px 14px",marginBottom:10,display:"flex",gap:12,alignItems:"flex-start"}}>
+                <span style={{fontSize:22,flexShrink:0,marginTop:1}}>{n.icon}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:13,color:col.c,marginBottom:3}}>{n.title}</div>
+                  <div style={{fontSize:12,color:T.sub}}>{n.msg}</div>
+                  {n.amount&&<div style={{fontSize:12,fontWeight:700,color:T.text,marginTop:3}}>{IDR(n.amount)}</div>}
+                </div>
+                <span style={{fontSize:11,color:col.c,fontWeight:700,flexShrink:0,background:`${col.border}55`,padding:"2px 7px",borderRadius:5,marginTop:1}}>{n.tag}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── TREND CHART ──────────────────────────────────────────────────────────────
+const TrendChart=({trendData,isMobile})=>{
+  const T=useT();
+  const CustomTooltip=({active,payload,label})=>{
+    if(!active||!payload?.length)return null;
+    return(
+      <div style={{background:T.card,border:`1.5px solid ${T.border}`,borderRadius:10,padding:"10px 14px",fontSize:12,boxShadow:T.shadowMd}}>
+        <div style={{fontWeight:700,color:T.text,marginBottom:6}}>{label}</div>
+        {payload.map(p=>(
+          <div key={p.dataKey} style={{color:p.color,marginBottom:3}}>{p.name}: {IDRs(p.value)}</div>
+        ))}
+      </div>
+    );
+  };
+  return(
+    <ResponsiveContainer width="100%" height={isMobile?160:200}>
+      <AreaChart data={trendData} margin={{top:5,right:5,bottom:0,left:0}}>
+        <defs>
+          <linearGradient id="gIn" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#22C55E" stopOpacity={0.3}/>
+            <stop offset="95%" stopColor="#22C55E" stopOpacity={0}/>
+          </linearGradient>
+          <linearGradient id="gOut" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
+            <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
+          </linearGradient>
+          <linearGradient id="gSave" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3}/>
+            <stop offset="95%" stopColor="#6366F1" stopOpacity={0}/>
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke={T.borderLight} vertical={false}/>
+        <XAxis dataKey="label" tick={{fontSize:10,fill:T.muted}} axisLine={false} tickLine={false}/>
+        <YAxis tickFormatter={v=>IDRs(v)} tick={{fontSize:9,fill:T.muted}} axisLine={false} tickLine={false} width={50}/>
+        <Tooltip content={<CustomTooltip/>}/>
+        <Area type="monotone" dataKey="masuk" name="Pemasukan" stroke="#22C55E" strokeWidth={2} fill="url(#gIn)" dot={false}/>
+        <Area type="monotone" dataKey="keluar" name="Pengeluaran" stroke="#EF4444" strokeWidth={2} fill="url(#gOut)" dot={false}/>
+        <Area type="monotone" dataKey="tabung" name="Tabungan" stroke="#6366F1" strokeWidth={2} fill="url(#gSave)" dot={false}/>
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+};
+
+// ─── DAILY SPEND CHART ────────────────────────────────────────────────────────
+const DailyChart=({txBulan,bulan,tahun})=>{
+  const T=useT();
+  const mIdx=MONTHS.indexOf(bulan);const yr=Number(tahun);
+  const daysInMonth=new Date(yr,mIdx+1,0).getDate();
+  const data=[];
+  for(let d=1;d<=daysInMonth;d++){
+    const key=`${yr}-${String(mIdx+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const val=txBulan.filter(t=>t.tipe==="pengeluaran"&&t.tgl===key).reduce((a,b)=>a+N(b.jml),0);
+    data.push({d:String(d),val});
+  }
+  const now_=new Date();
+  const isCurrentMonth=mIdx===now_.getMonth()&&yr===now_.getFullYear();
+  const today_num=isCurrentMonth?now_.getDate():-1;
+  return(
+    <ResponsiveContainer width="100%" height={130}>
+      <BarChart data={data} margin={{top:4,right:4,bottom:0,left:0}}>
+        <Tooltip formatter={v=>IDR(v)} labelFormatter={l=>`Tgl ${l}`} contentStyle={{borderRadius:8,fontSize:11,background:T.card,border:`1px solid ${T.border}`,color:T.text}}/>
+        <Bar dataKey="val" radius={[3,3,0,0]}>
+          {data.map((entry,i)=>(
+            <Cell key={i} fill={i+1===today_num?"#8B5CF6":entry.val>0?"#6366F1":T.borderLight}/>
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+};
+
+// ─── AMPLOP CARD ──────────────────────────────────────────────────────────────
+const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset})=>{
+  const T=useT();
+  const [showPakai,setShowPakai]=useState(false);
+  const [pakaiJml,setPakaiJml]=useState("");
+  const [pakaiKet,setPakaiKet]=useState("");
+  const [showIsi,setShowIsi]=useState(false);
+  const [isiJml,setIsiJml]=useState("");
+  const [isiDompetId,setIsiDompetId]=useState(dompetList[0]?.id||1);
+  const alokasi=N(amp.alokasi);const terpakai=N(amp.terpakai||0);
+  const sisa=alokasi-terpakai;const pct=alokasi>0?Math.min(terpakai/alokasi*100,100):0;
+  const isOver=terpakai>alokasi;
+  return(
+    <div style={{background:T.card,borderRadius:14,padding:18,border:`1.5px solid ${isOver?T.errBorder:pct>80?T.warnBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{display:"flex",gap:10,alignItems:"center"}}>
+          <div style={{width:44,height:44,borderRadius:12,background:amp.warna||T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{amp.icon||"✉️"}</div>
+          <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{amp.nama}</div><div style={{fontSize:11,color:T.muted}}>Sisa: <strong style={{color:sisa>=0?T.ok:T.err}}>{IDR(Math.max(sisa,0))}</strong></div></div>
+        </div>
+        <Del onClick={onDelete}/>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+        <div style={{background:T.infoBg,borderRadius:8,padding:"8px 10px",border:`1px solid ${T.infoBorder}`}}>
+          <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:.6,marginBottom:1}}>ALOKASI</div>
+          <div style={{fontWeight:700,color:T.info,fontSize:13}}>{IDR(alokasi)}</div>
+        </div>
+        <div style={{background:isOver?T.errBg:T.okBg,borderRadius:8,padding:"8px 10px",border:`1px solid ${isOver?T.errBorder:T.okBorder}`}}>
+          <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:.6,marginBottom:1}}>TERPAKAI</div>
+          <div style={{fontWeight:700,color:isOver?T.err:T.ok,fontSize:13}}>{IDR(terpakai)}</div>
+        </div>
+      </div>
+      <PBar pct={pct} c={isOver?"#EF4444":pct>80?"#F59E0B":"#22C55E"} h={7}/>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.muted,marginTop:3,marginBottom:12}}>
+        <span style={{fontWeight:700,color:isOver?T.err:pct>80?T.warn:T.ok}}>{pct.toFixed(0)}% terpakai</span>
+        {isOver&&<span style={{color:T.err,fontWeight:700}}>⚠ Melebihi alokasi!</span>}
+      </div>
+      {!showPakai&&!showIsi&&<div style={{display:"flex",gap:6}}>
+        <Btn onClick={()=>setShowPakai(true)} ch="💸 Pakai" c={T.err} outline style={{flex:1,padding:"8px 10px",fontSize:12}}/>
+        <Btn onClick={()=>setShowIsi(true)} ch="➕ Isi" c={T.ok} outline style={{flex:1,padding:"8px 10px",fontSize:12}}/>
+        <button onClick={onReset} title="Reset terpakai" style={{padding:"8px 10px",borderRadius:8,border:`1px solid ${T.border}`,background:T.cardAlt,cursor:"pointer",fontSize:14,fontFamily:"inherit",color:T.muted}}>🔄</button>
+      </div>}
+      {showPakai&&<div>
+        <input placeholder="Keterangan belanja..." value={pakaiKet} onChange={e=>setPakaiKet(e.target.value)} style={{...{width:"100%",padding:"9px 12px",border:`1.5px solid ${T.inputBorder}`,borderRadius:9,fontSize:13,outline:"none",background:T.input,color:T.text,fontFamily:"inherit"},marginBottom:6}}/>
+        <div style={{display:"flex",gap:6}}>
+          <CurIn value={pakaiJml} onChange={setPakaiJml} placeholder="Jumlah..." style={{flex:1}}/>
+          <Btn onClick={()=>{if(pakaiJml){onPakai(pakaiJml,pakaiKet);setPakaiJml("");setPakaiKet("");setShowPakai(false);}}} ch="✓" c={T.err} style={{padding:"8px 14px"}}/>
+          <Btn onClick={()=>setShowPakai(false)} ch="✕" c={T.muted} outline style={{padding:"8px 14px"}}/>
+        </div>
+      </div>}
+      {showIsi&&<div style={{padding:10,background:T.okBg,borderRadius:8,border:`1px solid ${T.okBorder}`}}>
+        <div style={{fontSize:11,color:T.ok,fontWeight:700,marginBottom:6}}>Top-up dari Dompet</div>
+        <select value={isiDompetId} onChange={e=>setIsiDompetId(Number(e.target.value))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1.5px solid ${T.inputBorder}`,background:T.input,color:T.text,fontSize:12,outline:"none",marginBottom:6,fontFamily:"inherit"}}>
+          {dompetList.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama} ({IDRs(N(d.saldo))})</option>)}
+        </select>
+        <div style={{display:"flex",gap:6}}>
+          <CurIn value={isiJml} onChange={setIsiJml} placeholder="Jumlah..." style={{flex:1}}/>
+          <Btn onClick={()=>{if(isiJml){onIsi(isiJml,isiDompetId);setIsiJml("");setShowIsi(false);}}} ch="+ Isi" c={T.ok} style={{padding:"8px 12px"}}/>
+          <Btn onClick={()=>setShowIsi(false)} ch="✕" c={T.muted} outline style={{padding:"8px 10px"}}/>
+        </div>
+      </div>}
+    </div>
+  );
+};
+
+// ─── UTANG CARD ───────────────────────────────────────────────────────────────
+const UtangCard=({u,dompetList,onDelete,onCicilan})=>{
+  const T=useT();
+  const [inp,setInp]=useState("");const [showCalc,setShowCalc]=useState(false);
+  const [dompetId, setDompetId]=useState(dompetList[0]?.id || 1);
+  const totalC=(u.cicilan||[]).reduce((a,b)=>a+N(b.jml),0);
+  const pct=N(u.jml)>0?Math.min(totalC/N(u.jml)*100,100):0;
+  return(
+    <div style={{background:T.cardAlt,borderRadius:12,padding:16,marginBottom:10,border:`1px solid ${u.lunas?T.okBorder:u.tipe==="utang"?T.errBorder:T.infoBorder}`,transition:"background .3s,border-color .3s"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+        <div><div style={{fontWeight:700,fontSize:14,color:T.text}}>{u.nama}</div><div style={{fontSize:11,color:T.muted}}>{u.tgl}{u.tempo&&` · Tempo: ${u.tempo}`}</div></div>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <Pill c={u.lunas?"green":u.tipe==="utang"?"red":u.tipe==="piutangBisnis"?"purple":"blue"} ch={u.lunas?"✓ Lunas":u.tipe==="utang"?"Utang":u.tipe==="piutangBisnis"?"Piutang Bisnis":"Piutang"}/>
+          <Del onClick={onDelete}/>
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}}>
+        {[{l:"Total",v:IDR(N(u.jml)),c:u.tipe==="utang"?T.err:T.info},{l:"Terbayar",v:IDR(totalC),c:T.ok},{l:"Sisa",v:IDR(Math.max(N(u.jml)-totalC,0)),c:T.warn}].map(x=>(
+          <div key={x.l} style={{background:T.card,borderRadius:8,padding:"8px 10px",border:`1px solid ${T.border}`}}>
+            <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.6,marginBottom:2}}>{x.l}</div>
+            <div style={{fontWeight:700,color:x.c,fontSize:12}}>{x.v}</div>
+          </div>
+        ))}
+      </div>
+      <PBar pct={pct} c={u.lunas?"#22C55E":u.tipe==="utang"?"#EF4444":"#3B82F6"} h={5}/>
+      <div style={{fontSize:10,color:T.muted,marginBottom:8,marginTop:3}}>{pct.toFixed(0)}% terbayar</div>
+      {!u.lunas&&<div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <div style={{position:"relative",flex:1}}>
+          <CurIn value={inp} onChange={v=>setInp(v)} placeholder="Nominal..." style={{paddingRight:36}}/>
+          <button onClick={()=>setShowCalc(true)} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14}}>🔢</button>
+        </div>
+        <select value={dompetId} onChange={e=>setDompetId(Number(e.target.value))} style={{width:80, padding:"8px", borderRadius:8, border:`1.5px solid ${T.inputBorder}`, background:T.input, color:T.text, fontSize:12, outline:"none"}}>
+           {dompetList.map(d=><option key={d.id} value={d.id}>{d.icon}</option>)}
+        </select>
+        {showCalc&&<Calculator value={inp} onChange={v=>{setInp(v);setShowCalc(false);}} onClose={()=>setShowCalc(false)}/>}
+        <Btn onClick={()=>{if(inp){onCicilan(u.id,inp,dompetId);setInp("");}}} ch="+ Bayar" c="#16A34A" style={{padding:"8px 12px",fontSize:12,whiteSpace:"nowrap"}}/>
+      </div>}
+      {(u.cicilan||[]).length>0&&<div style={{marginTop:8,borderTop:`1px solid ${T.border}`,paddingTop:6}}>
+        {u.cicilan.slice(-3).map((c,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:T.sub,padding:"2px 0"}}><span>{c.tgl}</span><span style={{color:T.ok,fontWeight:600}}>+{IDR(N(c.jml))}</span></div>)}
+      </div>}
+    </div>
+  );
+};
+
+// ─── GOAL CARD ────────────────────────────────────────────────────────────────
+const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai})=>{
+  const T=useT();
+  const [inp,setInp]=useState("");const [showCalc,setShowCalc]=useState(false);
+  const [dompetId, setDompetId]=useState(dompetList[0]?.id || 1);
+  const tg=N(g.target),km=N(g.kumpul),pct=tg>0?Math.min(km/tg*100,100):0;
+  return(
+    <div style={{background:T.card,borderRadius:14,padding:18,border:`1.5px solid ${pct>=100?T.okBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s,border-color .3s"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+        <div style={{display:"flex",gap:10,alignItems:"center"}}>
+          <span style={{fontSize:28}}>{g.icon||"⭐"}</span>
+          <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{g.nama}</div><div style={{fontSize:11,color:T.muted}}>{g.deadline&&`🗓 ${g.deadline}`}</div></div>
+        </div>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          {pct>=100&&<Pill c="green" ch={"🎉 "+(lang==="en"?"Achieved!":"Tercapai!")}/>}
+          <Del onClick={onDelete}/>
+        </div>
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+        <span style={{fontWeight:800,color:T.accent,fontSize:15}}>{IDR(km)}</span>
+        <span style={{fontSize:12,color:T.muted}}>dari {IDR(tg)}</span>
+      </div>
+      <PBar pct={pct} c={pct>=100?"#22C55E":T.accent} h={7}/>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:T.muted,marginTop:4,marginBottom:12}}>
+        <span style={{fontWeight:700,color:pct>=100?T.ok:T.accent}}>{pct.toFixed(1)}%</span>
+        <span>Sisa {IDR(Math.max(tg-km,0))}</span>
+      </div>
+      {pct>=100
+        ?<Btn onClick={()=>onSelesai(g.id)} ch={"✓ "+(lang==="en"?"Mark Done":"Selesai")} c="#16A34A" style={{width:"100%",padding:10}}/>
+        :<div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <div style={{position:"relative",flex:1}}>
+            <CurIn value={inp} onChange={v=>setInp(v)} placeholder="Tambah dana..." style={{paddingRight:36}}/>
+            <button onClick={()=>setShowCalc(true)} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14}}>🔢</button>
+          </div>
+          <select value={dompetId} onChange={e=>setDompetId(Number(e.target.value))} style={{width:60, padding:"8px", borderRadius:8, border:`1.5px solid ${T.inputBorder}`, background:T.input, color:T.text, fontSize:12, outline:"none"}}>
+             {dompetList.map(d=><option key={d.id} value={d.id}>{d.icon}</option>)}
+          </select>
+          {showCalc&&<Calculator value={inp} onChange={v=>{setInp(v);setShowCalc(false);}} onClose={()=>setShowCalc(false)}/>}
+          <Btn onClick={()=>{if(inp){onTambah(g.id,inp,dompetId);setInp("");}}} ch="+ Dana" style={{padding:"8px 12px",fontSize:12}}/>
+        </div>
+      }
+    </div>
+  );
+};
+
+// ─── MORE MENU (mobile) ───────────────────────────────────────────────────────
+const MoreMenu=({page,setPage,onClose})=>{
+  const T=useT();
+  return(
+    <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",zIndex:400}} onClick={onClose}>
+      <div style={{cursor:"pointer",position:"absolute",bottom:58,left:0,right:0,background:T.card,borderRadius:"20px 20px 0 0",padding:20,boxShadow:T.shadowMd}} onClick={e=>e.stopPropagation()}>
+        <div style={{width:40,height:4,background:T.border,borderRadius:4,margin:"0 auto 16px"}}/>
+        <div style={{fontSize:10,color:T.muted,fontWeight:700,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>Menu Lainnya</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+          {NAV.slice(4).map(n=>{
+            const a=page===n.id;
+            return(
+              <button key={n.id} onClick={()=>{setPage(n.id);onClose();}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:"12px 8px",borderRadius:12,border:`1.5px solid ${a?T.navBorder:T.border}`,background:a?T.navActive:T.cardAlt,cursor:"pointer",fontFamily:"inherit"}}>
+                <span style={{fontSize:22}}>{n.icon}</span>
+                <span style={{fontSize:10,fontWeight:700,color:a?T.accent:T.sub}}>{n.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── KEYWORD AUTO-KATEGORISASI ───────────────────────────────────────────────
+const KW_KAT = [
+  { kat:"Makan & Minum",  id:1, kw:["makan","resto","kafe","cafe","kopi","coffee","starbucks","kfc","mcd","mcdonalds","pizza","burger","bakso","mie","nasi","warung","seafood","sushi","boba","chatime","grab food","gofood","shopeefood","snack","minuman"] },
+  { kat:"Transportasi",   id:2, kw:["grab","gojek","maxim","ojol","ojek","bensin","pertamina","spbu","parkir","tol","busway","mrt","lrt","kereta","krl","tiket","damri","taxi","pertamax","pertalite","solar"] },
+  { kat:"Tagihan & Utilitas", id:3, kw:["pln","listrik","air","pdam","internet","telkom","indihome","wifi","xl","telkomsel","axis","smartfren","im3","tri","pulsa","paket data","token","bpjs","asuransi"] },
+  { kat:"Kesehatan",      id:4, kw:["apotek","kimia farma","guardian","apotik","dokter","klinik","rumah sakit","vitamin","obat","halodoc","alodokter","gym","fitnes","fitness"] },
+  { kat:"Belanja",        id:5, kw:["shopee","tokopedia","lazada","blibli","bukalapak","tiktok shop","zalora","indomaret","alfamart","alfamidi","superindo","giant","hypermart","transmart","carrefour","ikea","ecommerce"] },
+  { kat:"Hiburan",        id:6, kw:["netflix","spotify","youtube","disney","vidio","genflix","viu","wetv","bioskop","cgv","cineplex","game","steam","playstation","xbox","nintendo","deezer","joox"] },
+  { kat:"Pendidikan",     id:7, kw:["buku","gramedia","toga mas","ruangguru","zenius","coursera","udemy","kampus","spp","ukt","sekolah","kursus","les"] },
+  { kat:"Investasi",      id:8, kw:["bibit","bareksa","ipot","indopremier","ajaib","pluang","stockbit","reksadana","reksa dana","saham","obligasi","emas","logam mulia","kripto","crypto"] },
+];
+const autoKat = (desc) => {
+  const d = (desc||"").toLowerCase();
+  for (const k of KW_KAT) { if (k.kw.some(w => d.includes(w))) return k.id; }
+  return 9;
+};
+const splitCSVLine = (line) => {
+  const result = []; let cur = ""; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i]==='"') { inQ = !inQ; }
+    else if (line[i]==="," && !inQ) { result.push(cur.trim()); cur = ""; }
+    else { cur += line[i]; }
+  }
+  result.push(cur.trim());
+  return result;
+};
+const toIso = (tgl) => {
+  const p = tgl.split(/[\/\-\.]/);
+  if (p.length < 3) return tgl;
+  const y = p[2].length===4?p[2]:"20"+p[2];
+  return `${y}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}`;
+};
+const detectBank = (text) => {
+  const t = (text||"").toLowerCase().slice(0,1200);
+  if (t.includes("bank central asia")||t.includes("klik bca")||t.includes("mybca")||t.includes(",bca,")) return "BCA";
+  if (t.includes("bank mandiri")||t.includes("livin")||t.includes("mandiri")) return "Mandiri";
+  if (t.includes("bank negara indonesia")||t.includes(" bni")||t.includes("bni mobile")) return "BNI";
+  if (t.includes("bank rakyat indonesia")||t.includes("brimo")||t.includes(",bri,")) return "BRI";
+  if (t.includes("cimb")||t.includes("niaga")) return "CIMB";
+  if (t.includes("jenius")||t.includes("btpn")||t.includes("dream")) return "Jenius";
+  if (t.includes("ovo")||t.includes("visionet")) return "OVO";
+  if (t.includes("gopay")||t.includes("gojek")) return "GoPay";
+  if (t.includes("dana")||t.includes("dana.id")) return "Dana";
+  if (t.includes("shopee")||t.includes("shopeepay")||t.includes("sea limited")) return "ShopeePay";
+  if (t.includes("bank syariah indonesia")||t.includes("bsi")||t.includes("bsim")) return "BSI";
+  if (t.includes("permata")||t.includes("permatabank")) return "Permata";
+  if (t.includes("btn ")||t.includes("bank tabungan negara")) return "BTN";
+  return "Generic";
+};
+const cleanNum = (s) => Math.abs(parseFloat((s||"").replace(/[^\d,.\-]/g,"").replace(/\./g,"").replace(",","."))||0);
+// Parse date flexibly: DD/MM/YYYY, YYYY-MM-DD, DD-MM-YYYY, DD MMM YYYY, etc.
+const toIsoFlex = (raw) => {
+  if (!raw) return "";
+  const s = raw.trim().replace(/\s+/g," ");
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  // DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
+  const p = s.split(/[\/\-\.]/);
+  if (p.length >= 3) {
+    const y = p[2].length===4?p[2]:"20"+p[2];
+    if (y.length===4) return `${y}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}`;
+  }
+  // DD MMM YYYY (e.g. 01 Jan 2024)
+  const MMAP={jan:"01",feb:"02",mar:"03",apr:"04",mei:"05",may:"05",jun:"06",jul:"07",ags:"08",aug:"08",sep:"09",okt:"10",oct:"10",nov:"11",des:"12",dec:"12"};
+  const mp = s.match(/(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/);
+  if (mp) { const mon = MMAP[mp[2].toLowerCase().slice(0,3)]; if(mon) return `${mp[3]}-${mon}-${mp[1].padStart(2,"0")}`; }
+  return toIso(raw);
+};
+// Detect debit/credit from mutation type string
+const isCR = (s) => { const l=(s||"").toLowerCase(); return l.includes("cr")||l.includes("credit")||l.includes("kredit")||l.includes("masuk")||l.includes("+"); };
+const isDB = (s) => { const l=(s||"").toLowerCase(); return l.includes("db")||l.includes("debet")||l.includes("debit")||l.includes("keluar"); };
+const parseBankCSV = (text, bank) => {
+  const lines = text.split(/\r?\n/).filter(l=>l.trim());
+  const results = [];
+  // ── Find header row ──────────────────────────────────────────────────────
+  let ds = 0, headerCols = [];
+  const HDR_KEYS = ["tanggal","date","tgl","waktu","time","deskripsi","description","keterangan","uraian","transaksi","transaction"];
+  for (let i=0;i<Math.min(lines.length,20);i++) {
+    const lc = lines[i].toLowerCase();
+    if (HDR_KEYS.some(k=>lc.includes(k))) {
+      headerCols = splitCSVLine(lines[i]).map(h=>h.trim().toLowerCase());
+      ds = i+1; break;
+    }
+  }
+  const hi = (key) => headerCols.findIndex(h=>h.includes(key));
+  // column indices by bank
+  const getRow = (cols, bank) => {
+    let tgl="", ket="", jml=0, tipe="pengeluaran";
+    if (bank==="BCA") {
+      // BCA: Tanggal, Keterangan, Cabang, Jumlah, Saldo
+      tgl=cols[0]||"";
+      ket=(cols[1]||cols[2]||"").trim();
+      const raw=(cols[3]||cols[2]||"").trim();
+      jml=cleanNum(raw);
+      tipe=(raw.replace(/[\d.,\s]/g,"")||"DB").toLowerCase().includes("cr")||cols[4]?"pemasukan":"pengeluaran";
+      // BCA myBCA CSV: Debit=pengeluaran, Kredit=pemasukan
+      const rawDB=cleanNum(cols[3]||""); const rawCR=cleanNum(cols[4]||"");
+      if (cols.length>=5) { if(rawCR>0){jml=rawCR;tipe="pemasukan";}else if(rawDB>0){jml=rawDB;tipe="pengeluaran";} }
+      else { tipe=raw.includes("-")?"pengeluaran":"pemasukan"; }
+    } else if (bank==="Mandiri") {
+      // Mandiri Livin: Tanggal, Deskripsi, Jumlah, Tipe, Saldo
+      tgl=cols[0]||"";
+      ket=(cols[1]||"").trim();
+      jml=cleanNum(cols[2]||"");
+      tipe=isCR(cols[3]||"") ? "pemasukan" : "pengeluaran";
+    } else if (bank==="BNI") {
+      // BNI: Tanggal Transaksi, Keterangan, Debet, Kredit, Saldo
+      tgl=cols[0]||"";
+      ket=(cols[1]||"").trim();
+      const dbt=cleanNum(cols[2]||""); const krd=cleanNum(cols[3]||"");
+      if (krd>0){jml=krd;tipe="pemasukan";}else{jml=dbt;tipe="pengeluaran";}
+    } else if (bank==="BRI") {
+      // BRImo: Tanggal, Keterangan, Debet, Kredit, Saldo
+      tgl=cols[0]||"";
+      ket=(cols[1]||"").trim();
+      const dbt=cleanNum(cols[2]||""); const krd=cleanNum(cols[3]||"");
+      if (krd>0){jml=krd;tipe="pemasukan";}else{jml=dbt;tipe="pengeluaran";}
+    } else if (bank==="CIMB") {
+      tgl=cols[0]||"";
+      ket=(cols[1]||"").trim();
+      const dbt=cleanNum(cols[2]||""); const krd=cleanNum(cols[3]||"");
+      if (krd>0){jml=krd;tipe="pemasukan";}else{jml=dbt;tipe="pengeluaran";}
+    } else if (bank==="Jenius") {
+      // Jenius CSV: Date, Description, Amount, Type, Balance
+      // Amount negative = debit/pengeluaran, positive = kredit/pemasukan
+      tgl=cols[0]||"";
+      ket=(cols[1]||"").trim();
+      const amtRaw=(cols[2]||"").trim();
+      jml=Math.abs(cleanNum(amtRaw));
+      tipe=amtRaw.trim().startsWith("-")||isDB(cols[3]||"")?"pengeluaran":"pemasukan";
+    } else if (bank==="OVO") {
+      // OVO: Tanggal & Waktu, Jenis Transaksi, Nama, Nominal, Status
+      tgl=cols[0]||""; tgl=tgl.split(" ")[0];
+      ket=(cols[2]||cols[1]||"").trim();
+      jml=cleanNum(cols[3]||"");
+      tipe=isDB(cols[1]||"")||(cols[1]||"").toLowerCase().includes("pembayaran")?"pengeluaran":"pemasukan";
+    } else if (bank==="GoPay") {
+      // GoPay: Tanggal, Keterangan, Kredit, Debet, Saldo
+      tgl=cols[0]||"";
+      ket=(cols[1]||"").trim();
+      const krd=cleanNum(cols[2]||""); const dbt=cleanNum(cols[3]||"");
+      if (krd>0){jml=krd;tipe="pemasukan";}else{jml=dbt;tipe="pengeluaran";}
+    } else if (bank==="Dana") {
+      // Dana: Tanggal, Deskripsi, Tipe, Jumlah
+      tgl=cols[0]||"";
+      ket=(cols[1]||"").trim();
+      jml=cleanNum(cols[3]||cols[2]||"");
+      tipe=isCR(cols[2]||"")||(cols[3]||"").trim().startsWith("+")?"pemasukan":"pengeluaran";
+    } else if (bank==="ShopeePay") {
+      // ShopeePay: Waktu, Deskripsi, Tipe, Jumlah, Status
+      tgl=cols[0]||""; tgl=tgl.split(" ")[0];
+      ket=(cols[1]||"").trim();
+      jml=cleanNum(cols[3]||cols[2]||"");
+      tipe=isCR(cols[2]||"")?"pemasukan":"pengeluaran";
+    } else if (bank==="BSI") {
+      tgl=cols[0]||"";
+      ket=(cols[1]||"").trim();
+      const dbt=cleanNum(cols[2]||""); const krd=cleanNum(cols[3]||"");
+      if (krd>0){jml=krd;tipe="pemasukan";}else{jml=dbt;tipe="pengeluaran";}
+    } else if (bank==="Permata"||bank==="BTN") {
+      tgl=cols[0]||"";
+      ket=(cols[1]||"").trim();
+      const dbt=cleanNum(cols[2]||""); const krd=cleanNum(cols[3]||"");
+      if (krd>0){jml=krd;tipe="pemasukan";}else{jml=dbt;tipe="pengeluaran";}
+    } else {
+      // Generic: smart detection
+      tgl=cols[0]||"";
+      ket="";
+      // Try to find description column (longest string)
+      for (let ci=1;ci<Math.min(cols.length,5);ci++) { if((cols[ci]||"").length>ket.length) ket=cols[ci]; }
+      ket=ket.trim();
+      // Find amount: last numeric column
+      const nums=cols.slice(1).map(v=>({v,n:cleanNum(v),raw:v.trim()})).filter(x=>x.n>0);
+      if (nums.length===0) return null;
+      if (nums.length===1) {
+        jml=nums[0].n;
+        tipe=nums[0].raw.startsWith("-")?"pengeluaran":"pemasukan";
+      } else {
+        // debit/credit pattern
+        const dbt=cleanNum(cols[cols.length-3]||""); const krd=cleanNum(cols[cols.length-2]||"");
+        if (krd>0&&dbt===0){jml=krd;tipe="pemasukan";}else if(dbt>0&&krd===0){jml=dbt;tipe="pengeluaran";}
+        else{jml=nums[0].n;tipe=nums[0].raw.startsWith("-")?"pengeluaran":"pemasukan";}
+      }
+    }
+    return { tgl: toIsoFlex(tgl)||toIso(tgl), ket, jml, tipe };
+  };
+  for (let i=ds;i<lines.length;i++) {
+    const cols = splitCSVLine(lines[i]);
+    if (cols.length<2) continue;
+    const row = getRow(cols, bank);
+    if (!row||!row.tgl||row.tgl.length<6||!row.jml||row.jml<=0) continue;
+    results.push({
+      tgl: row.tgl, ket: row.ket||"Transaksi", jml: String(row.jml),
+      tipe: row.tipe, katId: row.tipe==="pengeluaran"?autoKat(row.ket):9, bank
+    });
+  }
+  return results;
+};
+
+
+
+// ─── KALKULATOR CICILAN ───────────────────────────────────────────────────────
+function KalkulatorCicilan({ onClose, T }) {
+  const [harga, setHarga] = useState("");
+  const [dp, setDp] = useState("");
+  const [tenor, setTenor] = useState("12");
+  const [bunga, setBunga] = useState("1");
+  const [tipe, setTipe] = useState("flat"); // flat | efektif
+  const fmtN = v => { const n=String(v).replace(/\D/g,""); return n?n.replace(/\B(?=(\d{3})+(?!\d))/g,"."):""};
+  const N2 = v => parseFloat(String(v).replace(/\./g,""))||0;
+  const idr = n => "Rp " + Math.round(n).toLocaleString("id-ID");
+
+  const hargaN = N2(harga), dpN = N2(dp), tenorN = parseInt(tenor)||12, bungaN = parseFloat(bunga)||0;
+  const pokok = Math.max(0, hargaN - dpN);
+  const bungaBln = bungaN / 100;
+
+  let cicilan = 0, totalBayar = 0, totalBunga = 0;
+  if (pokok > 0 && tenorN > 0) {
+    if (tipe === "flat") {
+      const bungaPerBln = pokok * bungaBln;
+      cicilan = (pokok / tenorN) + bungaPerBln;
+      totalBayar = cicilan * tenorN + dpN;
+      totalBunga = bungaPerBln * tenorN;
+    } else {
+      if (bungaBln === 0) {
+        cicilan = pokok / tenorN;
+      } else {
+        cicilan = pokok * (bungaBln * Math.pow(1+bungaBln, tenorN)) / (Math.pow(1+bungaBln, tenorN) - 1);
+      }
+      totalBayar = cicilan * tenorN + dpN;
+      totalBunga = totalBayar - hargaN;
+    }
+  }
+
+  // Amortization table (first 6 + last 1)
+  const rows = [];
+  if (tipe === "efektif" && pokok > 0 && tenorN > 0) {
+    let sisa = pokok;
+    for (let i = 1; i <= tenorN; i++) {
+      const bungaBulan = sisa * bungaBln;
+      const pokokBulan = cicilan - bungaBulan;
+      sisa = Math.max(0, sisa - pokokBulan);
+      rows.push({ i, cicilan, bungaBulan, pokokBulan, sisa });
+    }
+  }
+
+  const IS2 = {width:"100%",padding:"9px 12px",borderRadius:9,border:`1.5px solid ${T.inputBorder}`,background:T.input,color:T.text,fontSize:13,fontWeight:600,outline:"none"};
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div>
+          <div style={{fontSize:17,fontWeight:800,color:T.text}}>🧮 Kalkulator Cicilan</div>
+          <div style={{fontSize:11,color:T.muted,marginTop:2}}>Hitung cicilan kredit / KPR / kendaraan</div>
+        </div>
+        <button onClick={onClose} style={{background:T.cardAlt,border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",color:T.muted,fontSize:16}}>✕</button>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:5}}>Harga / Nilai</div>
+          <input value={harga} onChange={e=>setHarga(fmtN(e.target.value))} placeholder="Contoh: 150.000.000" style={IS2}/>
+        </div>
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:5}}>Uang Muka (DP)</div>
+          <input value={dp} onChange={e=>setDp(fmtN(e.target.value))} placeholder="0 jika tidak ada" style={IS2}/>
+        </div>
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:5}}>Tenor (Bulan)</div>
+          <select value={tenor} onChange={e=>setTenor(e.target.value)} style={IS2}>
+            {[6,12,18,24,36,48,60,72,84,96,120,180,240].map(t=><option key={t} value={t}>{t} bulan ({(t/12).toFixed(1)} thn)</option>)}
+          </select>
+        </div>
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:5}}>Bunga / Bulan (%)</div>
+          <input value={bunga} onChange={e=>setBunga(e.target.value.replace(/[^0-9.]/g,""))} placeholder="1" style={IS2}/>
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:6,marginBottom:14}}>
+        {["flat","efektif"].map(t=>(
+          <button key={t} onClick={()=>setTipe(t)} style={{flex:1,padding:"7px",borderRadius:9,border:`2px solid ${tipe===t?T.accent:T.border}`,background:tipe===t?T.accentBg:T.card,color:tipe===t?T.accent:T.sub,fontWeight:700,fontSize:12,cursor:"pointer",transition:"all .15s"}}>
+            {t==="flat"?"📊 Flat Rate":"📈 Efektif / Anuitas"}
+          </button>
+        ))}
+      </div>
+
+      {pokok > 0 && cicilan > 0 && <>
+        <div style={{background:T.accentBg,border:`1.5px solid ${T.accent}`,borderRadius:14,padding:"16px 18px",marginBottom:12}}>
+          <div style={{textAlign:"center",marginBottom:12}}>
+            <div style={{fontSize:10,color:T.accent,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Cicilan per Bulan</div>
+            <div style={{fontSize:28,fontWeight:900,color:T.accent}}>{idr(cicilan)}</div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+            {[
+              {l:"Pokok",v:idr(pokok),c:T.text},
+              {l:"Total Bunga",v:idr(totalBunga),c:T.err},
+              {l:"Total Bayar",v:idr(totalBayar),c:T.ok},
+            ].map(x=>(
+              <div key={x.l} style={{background:T.card,borderRadius:9,padding:"8px 10px",textAlign:"center"}}>
+                <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.7,marginBottom:3}}>{x.l}</div>
+                <div style={{fontSize:11,fontWeight:800,color:x.c}}>{x.v}</div>
+              </div>
+            ))}
+          </div>
+          {hargaN > 0 && <div style={{marginTop:10,fontSize:11,color:T.sub,textAlign:"center"}}>
+            Efektif bunga total: <strong style={{color:T.err}}>{((totalBunga/hargaN)*100).toFixed(1)}%</strong> dari harga · DP: <strong>{((dpN/hargaN)*100).toFixed(0)}%</strong>
+          </div>}
+        </div>
+
+        {/* DP slider hint */}
+        <div style={{background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:10,padding:"9px 13px",marginBottom:4}}>
+          <div style={{fontSize:11,color:T.info,fontWeight:700,marginBottom:4}}>💡 Tips</div>
+          <div style={{fontSize:11,color:T.sub,lineHeight:1.65}}>
+            • DP 30%+ = cicilan lebih ringan &amp; bunga total lebih kecil<br/>
+            • Bunga flat lebih mudah dihitung tapi total bunga lebih besar<br/>
+            • Bandingkan beberapa tenor untuk temukan yang paling efisien
+          </div>
+        </div>
+      </>}
+      {!pokok && <div style={{textAlign:"center",padding:"28px 0",color:T.muted,fontSize:13}}>Isi harga barang untuk mulai menghitung 🧮</div>}
+    </div>
+  );
+}
+
+// ─── KOMPARASI BULANAN ─────────────────────────────────────────────────────────
+function KomparasiBulanan({ txs, budgets, T, isMobile }) {
+  const allMonths = [];
+  const seen = new Set();
+  txs.forEach(t => {
+    const k = `${t.bulan}_${t.tahun}`;
+    if (!seen.has(k) && t.bulan && t.tahun) { seen.add(k); allMonths.push({bulan:t.bulan,tahun:t.tahun,label:`${t.bulan} ${t.tahun}`}); }
+  });
+  const nowM2 = MONTHS[new Date().getMonth()], nowY2 = String(new Date().getFullYear());
+  const nowKey = `${nowM2}_${nowY2}`;
+  if (!seen.has(nowKey)) allMonths.push({bulan:nowM2,tahun:nowY2,label:`${nowM2} ${nowY2}`});
+  allMonths.sort((a,b)=>{ const ya=parseInt(a.tahun),yb=parseInt(b.tahun),ma=MONTHS.indexOf(a.bulan),mb=MONTHS.indexOf(b.bulan); return yb-ya||mb-ma; });
+
+  const [bulan1, setBulan1] = useState(allMonths[0]?.label||"");
+  const [bulan2, setBulan2] = useState(allMonths[1]?.label||"");
+  const [open, setOpen] = useState(false);
+
+  const getStats = (label) => {
+    const m = allMonths.find(x=>x.label===label);
+    if (!m) return null;
+    const t = txs.filter(x=>x.bulan===m.bulan&&x.tahun===m.tahun);
+    const masuk = t.filter(x=>x.tipe==="pemasukan").reduce((a,x)=>a+N(x.jml),0);
+    const keluar = t.filter(x=>x.tipe==="pengeluaran").reduce((a,x)=>a+N(x.jml),0);
+    const tabung = t.filter(x=>x.tipe==="tabungan").reduce((a,x)=>a+N(x.jml),0);
+    const net = masuk - keluar - tabung;
+    const spendKat = {};
+    t.filter(x=>x.tipe==="pengeluaran").forEach(x=>{spendKat[x.katId]=(spendKat[x.katId]||0)+N(x.jml);});
+    return {masuk,keluar,tabung,net,spendKat,txCount:t.length};
+  };
+
+  const s1 = getStats(bulan1), s2 = getStats(bulan2);
+  const idr = n => "Rp " + Math.abs(Number(n||0)).toLocaleString("id-ID");
+  const diff = (a,b) => { if(!a||!b||b===0)return null; const p=((a-b)/b)*100; return {pct:p.toFixed(1),up:p>0}; };
+
+  const DiffBadge = ({a,b,invert=false}) => {
+    const d = diff(a,b);
+    if (!d) return null;
+    const good = invert ? !d.up : d.up;
+    return <span style={{fontSize:10,fontWeight:700,color:good?T.ok:T.err,marginLeft:4}}>{d.up?"↑":"↓"}{Math.abs(d.pct)}%</span>;
+  };
+
+  return (
+    <div style={{marginBottom:18}}>
+      <button onClick={()=>setOpen(v=>!v)} style={{width:"100%",background:T.card,border:`1.5px solid ${T.border}`,borderRadius:14,padding:"13px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",boxShadow:T.shadow,marginBottom:open?8:0,transition:"all .2s"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:18}}>📊</span>
+          <div style={{textAlign:"left"}}>
+            <div style={{fontSize:13,fontWeight:800,color:T.text}}>Komparasi Laporan Bulanan</div>
+            <div style={{fontSize:11,color:T.muted}}>Bandingkan 2 periode keuangan</div>
+          </div>
+        </div>
+        <span style={{fontSize:16,color:T.muted,transition:"transform .2s",transform:open?"rotate(180deg)":"none"}}>▾</span>
+      </button>
+
+      {open && <div style={{background:T.card,borderRadius:14,padding:"16px 18px",border:`1.5px solid ${T.border}`,boxShadow:T.shadow}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+          {[{label:"Periode 1",val:bulan1,set:setBulan1,c:T.accent},{label:"Periode 2",val:bulan2,set:setBulan2,c:"#059669"}].map(({label,val,set,c})=>(
+            <div key={label}>
+              <div style={{fontSize:10,fontWeight:700,color:c,textTransform:"uppercase",letterSpacing:.8,marginBottom:5}}>{label}</div>
+              <select value={val} onChange={e=>set(e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:9,border:`2px solid ${c}`,background:T.input,color:T.text,fontSize:12,fontWeight:700,outline:"none"}}>
+                {allMonths.map(m=><option key={m.label} value={m.label}>{m.label}</option>)}
+              </select>
+            </div>
+          ))}
+        </div>
+
+        {s1 && s2 && <>
+          {/* Main stats comparison */}
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
+            {[
+              {l:"Pemasukan",v1:s1.masuk,v2:s2.masuk,invert:false},
+              {l:"Pengeluaran",v1:s1.keluar,v2:s2.keluar,invert:true},
+              {l:"Tabungan",v1:s1.tabung,v2:s2.tabung,invert:false},
+              {l:"Net Cashflow",v1:s1.net,v2:s2.net,invert:false},
+            ].map(({l,v1,v2,invert})=>{
+              const isNet=l==="Net Cashflow";
+              return (
+                <div key={l} style={{background:T.cardAlt,borderRadius:10,padding:"10px 12px",border:`1px solid ${T.border}`}}>
+                  <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.7,marginBottom:6}}>{l}</div>
+                  <div style={{display:"flex",alignItems:"baseline",gap:4,marginBottom:4}}>
+                    <div style={{width:3,height:24,borderRadius:2,background:T.accent,flexShrink:0}}/>
+                    <div style={{fontSize:12,fontWeight:800,color:isNet?(v1>=0?T.ok:T.err):T.text}}>{idr(v1)}</div>
+                    <DiffBadge a={v1} b={v2} invert={invert}/>
+                  </div>
+                  <div style={{display:"flex",alignItems:"baseline",gap:4}}>
+                    <div style={{width:3,height:20,borderRadius:2,background:"#059669",flexShrink:0}}/>
+                    <div style={{fontSize:11,fontWeight:700,color:T.sub}}>{idr(v2)}</div>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",marginTop:6,paddingTop:5,borderTop:`1px solid ${T.borderLight}`}}>
+                    <span style={{fontSize:9,color:T.accent,fontWeight:700}}>■ {bulan1.split(" ")[0]}</span>
+                    <span style={{fontSize:9,color:"#059669",fontWeight:700}}>■ {bulan2.split(" ")[0]}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Bar chart comparison */}
+          {!isMobile && <div style={{marginBottom:12}}>
+            <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:.8,marginBottom:8}}>Perbandingan Visual</div>
+            {[{l:"Pemasukan",v1:s1.masuk,v2:s2.masuk},{l:"Pengeluaran",v1:s1.keluar,v2:s2.keluar},{l:"Tabungan",v1:s1.tabung,v2:s2.tabung}].map(({l,v1,v2})=>{
+              const max=Math.max(v1,v2,1);
+              return (
+                <div key={l} style={{marginBottom:8}}>
+                  <div style={{fontSize:11,color:T.sub,marginBottom:3,fontWeight:600}}>{l}</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                    {[{v:v1,c:T.accent,label:bulan1},{v:v2,c:"#059669",label:bulan2}].map(({v,c,label})=>(
+                      <div key={label} style={{display:"flex",alignItems:"center",gap:8}}>
+                        <div style={{width:60,fontSize:9,color:T.muted,textAlign:"right",flexShrink:0}}>{label.split(" ")[0]}</div>
+                        <div style={{flex:1,background:T.cardAlt,borderRadius:99,height:14,overflow:"hidden"}}>
+                          <div style={{height:"100%",borderRadius:99,background:c,width:`${(v/max)*100}%`,transition:"width .4s ease-out",minWidth:v>0?4:0}}/>
+                        </div>
+                        <div style={{width:90,fontSize:10,fontWeight:700,color:c,flexShrink:0}}>{idr(v)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>}
+
+          {/* Category breakdown */}
+          <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:.8,marginBottom:8}}>Pengeluaran per Kategori</div>
+          <div style={{border:`1px solid ${T.border}`,borderRadius:10,overflow:"hidden"}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 90px 90px 70px",padding:"6px 10px",background:T.cardAlt,borderBottom:`1px solid ${T.border}`,gap:6}}>
+              {["Kategori",bulan1.split(" ")[0],bulan2.split(" ")[0],"Selisih"].map(h=><span key={h} style={{fontSize:9,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:.5}}>{h}</span>)}
+            </div>
+            {budgets.map(b=>{
+              const v1=s1.spendKat[b.id]||0, v2=s2.spendKat[b.id]||0;
+              if(!v1&&!v2)return null;
+              const delta=v1-v2;
+              return (
+                <div key={b.id} style={{display:"grid",gridTemplateColumns:"1fr 90px 90px 70px",padding:"7px 10px",borderBottom:`1px solid ${T.borderLight}`,gap:6,alignItems:"center"}}>
+                  <span style={{fontSize:11,color:T.text,fontWeight:600}}>{b.icon} {b.kat}</span>
+                  <span style={{fontSize:11,fontWeight:700,color:T.accent}}>{v1?idr(v1):"-"}</span>
+                  <span style={{fontSize:11,fontWeight:700,color:"#059669"}}>{v2?idr(v2):"-"}</span>
+                  <span style={{fontSize:10,fontWeight:700,color:delta>0?T.err:delta<0?T.ok:T.muted}}>{delta>0?"↑+":"↓"}{idr(Math.abs(delta))}</span>
+                </div>
+              );
+            }).filter(Boolean)}
+          </div>
+
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:10,fontSize:11,color:T.muted}}>
+            <span>📝 {s1.txCount} transaksi · <span style={{color:T.accent,fontWeight:700}}>{bulan1}</span></span>
+            <span>📝 {s2.txCount} transaksi · <span style={{color:"#059669",fontWeight:700}}>{bulan2}</span></span>
+          </div>
+        </>}
+        {(!s1||!s2)&&<div style={{textAlign:"center",padding:"20px 0",color:T.muted,fontSize:12}}>Belum ada data untuk periode yang dipilih</div>}
+      </div>}
+    </div>
+  );
+}
+
+// ─── ONBOARDING COMPONENT ─────────────────────────────────────────────────────
+function Onboarding({ onDone, lang="id", changeLang }) {
+  const t = (key) => TR[lang]?.[key] ?? TR["id"]?.[key] ?? key;
+  const [step, setStep] = useState(0);
+  const [nama, setNama] = useState("");
+  const [dompetList, setDompetList] = useState([
+    { id:1, tipe:"Bank",     nama:"BCA",   icon:"🏦", saldo:"" },
+    { id:2, tipe:"E-Wallet", nama:"GoPay", icon:"📱", saldo:"" },
+    { id:3, tipe:"Tunai",    nama:"Tunai", icon:"💵", saldo:"" },
+  ]);
+  const [budgetBasic, setBudgetBasic] = useState({ makan:"", transport:"", tagihan:"" });
+  const [anim, setAnim] = useState(true);
+  const greeting = lang==="en" ? "Hey" : "Halo";
+  const nextStep = () => { setAnim(false); setTimeout(()=>{setStep(s=>s+1);setAnim(true);},180); };
+  const prevStep = () => { setAnim(false); setTimeout(()=>{setStep(s=>s-1);setAnim(true);},180); };
+  const fmtN = v => { const n=String(v).replace(/\D/g,""); return n?n.replace(/\B(?=(\d{3})+(?!\d))/g,"."):""};
+  const updateDompet = (id,f,v) => setDompetList(p=>p.map(d=>d.id===id?{...d,[f]:v}:d));
+  const addDompet = () => setDompetList(p=>[...p,{id:Date.now(),tipe:"Bank",nama:"",icon:"💳",saldo:""}]);
+  const removeDompet = id => setDompetList(p=>p.filter(d=>d.id!==id));
+  const handleDone = () => {
+    const cleanDompet = dompetList.filter(d=>d.nama.trim()).map((d,i)=>({...d,id:i+1,norek:"",saldo:d.saldo||"0"}));
+    const budgets = INIT_BUDGETS.map(b=>{
+      if(b.id===1)return{...b,alokasi:budgetBasic.makan.replace(/\./g,"")||"0"};
+      if(b.id===2)return{...b,alokasi:budgetBasic.transport.replace(/\./g,"")||"0"};
+      if(b.id===3)return{...b,alokasi:budgetBasic.tagihan.replace(/\./g,"")||"0"};
+      return b;
+    });
+    onDone({name:nama.trim()||"Pengguna",dompet:cleanDompet.length?cleanDompet:INIT.dompet,budgets});
+  };
+  const progressPct = (step / 3) * 100;
+  const inputSt = {width:"100%",padding:"12px 14px",borderRadius:12,border:"2px solid #E9D5FF",fontSize:15,fontWeight:700,textAlign:"center",outline:"none",background:"#FDFBFF",color:"#1F2937"};
+  return (
+    <div style={{minHeight:"100dvh",background:"linear-gradient(135deg,#EDE9FE 0%,#F5F3FF 60%,#FDFBFF 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,fontFamily:"'Nunito',system-ui,sans-serif"}}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}`}</style>
+      <div style={{background:"white",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:400,boxShadow:"0 20px 60px rgba(91,33,182,.15)"}}>
+        {step>0&&<div style={{marginBottom:20}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:11,color:"#94A3B8"}}>
+            <span>{t("ob_step")} {step} {t("ob_of")} 3</span><span>{Math.round(progressPct)}%</span>
+          </div>
+          <div style={{background:"#EDE9FE",borderRadius:99,height:5,overflow:"hidden"}}>
+            <div style={{background:"linear-gradient(90deg,#5B21B6,#7C3AED)",height:"100%",width:progressPct+"%",borderRadius:99,transition:"width .35s"}}/>
+          </div>
+          <div style={{display:"flex",gap:6,justifyContent:"center",marginTop:8}}>
+            {[1,2,3].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:step>=i?"#7C3AED":"#E9D5FF",transition:"background .3s"}}/>)}
+          </div>
+        </div>}
+        <div style={{opacity:anim?1:0,transform:anim?"none":"translateX(18px)",transition:"opacity .18s,transform .18s"}}>
+          {step===0&&<div style={{textAlign:"center",padding:"10px 0 20px"}}>
+            {/* Language picker */}
+            <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:16}}>
+              {[{code:"id",flag:"🇮🇩",label:"Indonesia"},{code:"en",flag:"🇺🇸",label:"English"}].map(l=>(
+                <button key={l.code} onClick={()=>changeLang&&changeLang(l.code)} style={{display:"flex",alignItems:"center",gap:5,padding:"6px 14px",borderRadius:99,border:`2px solid ${lang===l.code?"#7C3AED":"#E9D5FF"}`,background:lang===l.code?"#EDE9FE":"white",color:lang===l.code?"#5B21B6":"#9CA3AF",fontWeight:700,fontSize:12,cursor:"pointer",transition:"all .2s"}}>
+                  <span style={{fontSize:16}}>{l.flag}</span>{l.label}
+                </button>
+              ))}
+            </div>
+            <div style={{marginBottom:14,display:"inline-block",animation:"bob 2s ease-in-out infinite",width:80,height:80}}><div style={{width:80,height:80,borderRadius:20,background:"#7C3AED",display:"flex",alignItems:"center",justifyContent:"center",fontSize:48}}>🐱</div></div>
+            <div style={{fontSize:26,fontWeight:900,color:"#5B21B6",marginBottom:8}}>{t("ob_welcome")}</div>
+            <div style={{fontSize:14,color:"#6B7280",lineHeight:1.65,marginBottom:24,maxWidth:320,margin:"0 auto 24px"}}>{t("ob_desc")}</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,maxWidth:280,margin:"0 auto 24px"}}>
+              {[t("ob_feat1"),t("ob_feat2"),t("ob_feat3"),t("ob_feat4"),t("ob_feat5")].map(f=>(
+                <div key={f} style={{background:"#F5F3FF",borderRadius:10,padding:"9px 14px",fontSize:13,color:"#5B21B6",fontWeight:600,textAlign:"left"}}>{f}</div>
+              ))}
+            </div>
+            <div style={{fontSize:12,color:"#94A3B8",marginBottom:18}}>{t("ob_steps")}</div>
+            <button onClick={nextStep} style={{background:"linear-gradient(135deg,#5B21B6,#7C3AED)",color:"white",border:"none",borderRadius:14,padding:"13px 34px",fontSize:15,fontWeight:800,cursor:"pointer",boxShadow:"0 6px 24px rgba(91,33,182,.35)"}}>{t("ob_start")}</button>
+          </div>}
+          {step===1&&<div style={{padding:"6px 0 12px"}}>
+            <div style={{fontSize:38,textAlign:"center",marginBottom:12}}>👋</div>
+            <div style={{fontSize:18,fontWeight:900,color:"#1F2937",marginBottom:4,textAlign:"center"}}>{t("ob_nameQ")}</div>
+            <div style={{fontSize:12,color:"#6B7280",textAlign:"center",marginBottom:20}}>{t("ob_nameHint")}</div>
+            <input value={nama} onChange={e=>setNama(e.target.value)} onKeyDown={e=>e.key==="Enter"&&nama.trim()&&nextStep()} placeholder={t("ob_namePh")} style={inputSt} autoFocus/>
+            {nama.trim()&&<div style={{marginTop:12,padding:"12px 16px",background:"#F5F3FF",borderRadius:12,textAlign:"center",fontSize:14,color:"#5B21B6",fontWeight:700}}>{greeting} <strong>{nama}</strong>! ✨</div>}
+            <div style={{display:"flex",gap:8,marginTop:20}}>
+              <button onClick={prevStep} style={{flex:1,padding:"11px",borderRadius:12,border:"2px solid #E9D5FF",background:"white",color:"#6B7280",fontWeight:700,cursor:"pointer",fontSize:13}}>{t("back")}</button>
+              <button onClick={nextStep} disabled={!nama.trim()} style={{flex:2,padding:"11px",borderRadius:12,border:"none",background:nama.trim()?"linear-gradient(135deg,#5B21B6,#7C3AED)":"#E9D5FF",color:nama.trim()?"white":"#94A3B8",fontWeight:800,cursor:nama.trim()?"pointer":"default",fontSize:13}}>{t("next")}</button>
+            </div>
+          </div>}
+          {step===2&&<div style={{padding:"6px 0 12px"}}>
+            <div style={{fontSize:34,textAlign:"center",marginBottom:10}}>💳</div>
+            <div style={{fontSize:17,fontWeight:900,color:"#1F2937",marginBottom:4,textAlign:"center"}}>{t("ob_walletQ")}</div>
+            <div style={{fontSize:12,color:"#6B7280",textAlign:"center",marginBottom:14}}>{t("ob_walletHint")}</div>
+            <div style={{display:"flex",flexDirection:"column",gap:7,maxHeight:260,overflowY:"auto",marginBottom:10}}>
+              {dompetList.map(d=>(
+                <div key={d.id} style={{background:"#F5F3FF",borderRadius:11,padding:"9px 11px",display:"flex",gap:7,alignItems:"center"}}>
+                  <div style={{fontSize:20,minWidth:28,textAlign:"center"}}>{d.icon}</div>
+                  <div style={{flex:1}}>
+                    <input value={d.nama} onChange={e=>updateDompet(d.id,"nama",e.target.value)} placeholder={lang==="en"?"Account name":"Nama rekening"} style={{width:"100%",border:"1.5px solid #E9D5FF",borderRadius:7,padding:"4px 8px",fontSize:12,fontWeight:700,color:"#1F2937",background:"white",outline:"none",marginBottom:3}}/>
+                    <div style={{display:"flex",gap:5,alignItems:"center"}}>
+                      <span style={{fontSize:10,color:"#94A3B8"}}>Rp</span>
+                      <input value={d.saldo} onChange={e=>updateDompet(d.id,"saldo",fmtN(e.target.value))} placeholder={t("initialBalance")} style={{flex:1,border:"1.5px solid #E9D5FF",borderRadius:7,padding:"4px 8px",fontSize:12,color:"#5B21B6",fontWeight:700,background:"white",outline:"none"}}/>
+                    </div>
+                  </div>
+                  {dompetList.length>1&&<button onClick={()=>removeDompet(d.id)} style={{background:"#FEE2E2",border:"none",borderRadius:7,padding:"5px 8px",cursor:"pointer",color:"#DC2626",fontSize:13}}>✕</button>}
+                </div>
+              ))}
+            </div>
+            <button onClick={addDompet} style={{width:"100%",padding:"8px",borderRadius:9,border:"2px dashed #C4B5FD",background:"transparent",color:"#7C3AED",fontWeight:700,cursor:"pointer",fontSize:12,marginBottom:12}}>{t("ob_addWallet")}</button>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={prevStep} style={{flex:1,padding:"11px",borderRadius:12,border:"2px solid #E9D5FF",background:"white",color:"#6B7280",fontWeight:700,cursor:"pointer",fontSize:13}}>{t("back")}</button>
+              <button onClick={nextStep} style={{flex:2,padding:"11px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#5B21B6,#7C3AED)",color:"white",fontWeight:800,cursor:"pointer",fontSize:13}}>{t("next")}</button>
+            </div>
+          </div>}
+          {step===3&&<div style={{padding:"6px 0 12px"}}>
+            <div style={{fontSize:34,textAlign:"center",marginBottom:10}}>📊</div>
+            <div style={{fontSize:17,fontWeight:900,color:"#1F2937",marginBottom:2,textAlign:"center"}}>{t("ob_budgetQ")} <span style={{fontSize:11,fontWeight:500,color:"#94A3B8"}}>{t("ob_budgetOpt")}</span></div>
+            <div style={{fontSize:12,color:"#6B7280",textAlign:"center",marginBottom:16}}>{t("ob_budgetHint")}</div>
+            <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:14}}>
+              {[{key:"makan",label:"🍜 "+t("kat_food"),ph:lang==="en"?"e.g. 150"  :"Misal: 1.500.000"},{key:"transport",label:"🚗 "+t("kat_transport"),ph:lang==="en"?"e.g. 50":"Misal: 500.000"},{key:"tagihan",label:"💡 "+t("kat_bills"),ph:lang==="en"?"e.g. 40":"Misal: 400.000"}].map(({key,label,ph})=>(
+                <div key={key} style={{background:"#F5F3FF",borderRadius:11,padding:"9px 13px"}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#5B21B6",marginBottom:5}}>{label}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:5}}>
+                    <span style={{fontSize:11,color:"#94A3B8",fontWeight:600}}>Rp</span>
+                    <input value={budgetBasic[key]} onChange={e=>setBudgetBasic(p=>({...p,[key]:fmtN(e.target.value)}))} placeholder={ph} style={{flex:1,border:"1.5px solid #E9D5FF",borderRadius:7,padding:"6px 9px",fontSize:12,fontWeight:700,color:"#5B21B6",background:"white",outline:"none"}}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:9,padding:"9px 13px",fontSize:11,color:"#92400E",marginBottom:14}}>
+              💡 {t("ob_budgetTip")}
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={prevStep} style={{flex:1,padding:"11px",borderRadius:12,border:"2px solid #E9D5FF",background:"white",color:"#6B7280",fontWeight:700,cursor:"pointer",fontSize:13}}>← Kembali</button>
+              <button onClick={handleDone} style={{flex:2,padding:"11px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#059669,#10B981)",color:"white",fontWeight:800,cursor:"pointer",fontSize:13,boxShadow:"0 4px 16px rgba(5,150,105,.3)"}}>{t("ob_finish")}</button>
+            </div>
+          </div>}
+        </div>
+        {step>0&&<div style={{textAlign:"center",marginTop:10,fontSize:10,color:"#94A3B8"}}>{t("ob_local")}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ─── IMPORT MUTASI BANK MODAL ────────────────────────────────────────────────
+
+
+
+// ─── YEAR IN REVIEW ───────────────────────────────────────────────────────────
+function YearInReview({ s, T, lang, onClose }) {
+  const t = (k) => (lang==="en"?{
+    yearReview:"Year in Review",yearIncome:"Total Income",yearExpense:"Total Expenses",
+    yearSaving:"Total Savings",yearNet:"Net Cashflow",bestMonth:"Best Month",
+    worstMonth:"Worst Month",topCategories:"Top Categories",monthlyTrend:"Monthly Trend",
+    txTotal:"Transactions",avgMonthly:"Monthly Average",yearScore:"Annual Score",
+    noTxYear:"No transactions this year",growth:"Growth",closeBtn:"Close",
+    yearSummary:"Year Summary",netWorthChange:"Net Worth Change",
+  }:{
+    yearReview:"Rekap Tahunan",yearIncome:"Total Pemasukan",yearExpense:"Total Pengeluaran",
+    yearSaving:"Total Tabungan",yearNet:"Net Cashflow Tahun Ini",bestMonth:"Bulan Terbaik",
+    worstMonth:"Bulan Terboros",topCategories:"Kategori Terbesar",monthlyTrend:"Tren Bulanan",
+    txTotal:"Transaksi",avgMonthly:"Rata-rata/Bulan",yearScore:"Skor Tahunan",
+    noTxYear:"Belum ada transaksi di tahun ini",growth:"Pertumbuhan",closeBtn:"Tutup",
+    yearSummary:"Ringkasan Tahun",netWorthChange:"Perubahan Net Worth",
+  })[k]||k;
+  const MONTHS_L = lang==="en"
+    ? ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+    : ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
+  const MONTHS_FULL = lang==="en"
+    ? ["January","February","March","April","May","June","July","August","September","October","November","December"]
+    : ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+  const IDR = n => "Rp " + Math.abs(Math.round(n||0)).toLocaleString("id-ID");
+  const IDRs = n => { const abs=Math.abs(Math.round(n||0)); return (n<0?"-":"")+"Rp "+(abs>=1e9?(abs/1e9).toFixed(1)+"M":abs>=1e6?(abs/1e6).toFixed(1)+"jt":abs.toLocaleString("id-ID")); };
+  const N = v => parseFloat(String(v||0).replace(/[^0-9.,-]/g,"").replace(/\./g,"").replace(",","."))||0;
+  const year = s.tahun || String(new Date().getFullYear());
+
+  // Filter transactions for the year
+  const txYear = s.txs.filter(tx => (tx.tgl||"").startsWith(year));
+  const totalIn  = txYear.filter(t=>t.tipe==="pemasukan").reduce((a,b)=>a+N(b.jml),0);
+  const totalOut = txYear.filter(t=>t.tipe==="pengeluaran").reduce((a,b)=>a+N(b.jml),0);
+  const totalSav = txYear.filter(t=>t.tipe==="tabungan").reduce((a,b)=>a+N(b.jml),0);
+  const netCash  = totalIn - totalOut - totalSav;
+  const totalTx  = txYear.length;
+  const totalSaldo = s.dompet.reduce((a,d)=>a+N(d.saldo),0);
+
+  // Monthly breakdown
+  const monthly = Array.from({length:12},(_,mi)=>{
+    const m = String(mi+1).padStart(2,"0");
+    const prefix = `${year}-${m}`;
+    const mTx = txYear.filter(t=>(t.tgl||"").startsWith(prefix));
+    const inc = mTx.filter(t=>t.tipe==="pemasukan").reduce((a,b)=>a+N(b.jml),0);
+    const exp = mTx.filter(t=>t.tipe==="pengeluaran").reduce((a,b)=>a+N(b.jml),0);
+    const sav = mTx.filter(t=>t.tipe==="tabungan").reduce((a,b)=>a+N(b.jml),0);
+    return {month:MONTHS_L[mi],fullMonth:MONTHS_FULL[mi],inc,exp,sav,net:inc-exp-sav,count:mTx.length};
+  });
+
+  const activeMo = monthly.filter(m=>m.count>0);
+  const bestM  = activeMo.length ? activeMo.reduce((a,b)=>b.net>a.net?b:a, activeMo[0]) : null;
+  const worstM = activeMo.length ? activeMo.reduce((a,b)=>b.exp>a.exp?b:a, activeMo[0]) : null;
+  const avgIn  = activeMo.length ? totalIn/activeMo.length : 0;
+  const avgOut = activeMo.length ? totalOut/activeMo.length : 0;
+
+  // Top spending categories
+  const catSpend = {};
+  txYear.filter(t=>t.tipe==="pengeluaran"&&t.katId).forEach(t=>{
+    const b = s.budgets.find(b=>b.id===t.katId);
+    const nm = b?.kat||"Lainnya";
+    const ico = b?.icon||"📦";
+    catSpend[nm] = {jml:(catSpend[nm]?.jml||0)+N(t.jml), icon:ico};
+  });
+  const topCats = Object.entries(catSpend).sort((a,b)=>b[1].jml-a[1].jml).slice(0,5);
+
+  // Annual financial score
+  const savRate = totalIn>0 ? (totalSav/totalIn)*100 : 0;
+  const expRate = totalIn>0 ? (totalOut/totalIn)*100 : 0;
+  const yearScoreVal = Math.min(100,Math.round(
+    (savRate>=20?30:savRate/20*30) +
+    (expRate<=50?40:expRate<=70?25:expRate<=90?10:0) +
+    (netCash>0?30:0)
+  ));
+  const scoreColor = yearScoreVal>=70?T.ok:yearScoreVal>=40?T.warn:T.err;
+  const scoreLabel = yearScoreVal>=80?"Excellent":yearScoreVal>=60?(lang==="en"?"Good":"Baik"):yearScoreVal>=40?(lang==="en"?"Fair":"Cukup"):(lang==="en"?"Needs Work":"Perlu Kerja");
+
+  // Chart max
+  const maxBar = Math.max(...monthly.map(m=>Math.max(m.inc,m.exp)),1);
+
+  const SS = {fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:4};
+
+  if (!txYear.length) return (
+    <div style={{textAlign:"center",padding:"40px 20px"}}>
+      <div style={{fontSize:64,marginBottom:12}}>📭</div>
+      <div style={{fontWeight:700,color:T.muted}}>{t("noTxYear")} {year}</div>
+      <button onClick={onClose} style={{marginTop:20,padding:"8px 20px",borderRadius:9,background:T.accentBg,border:"none",color:T.accent,fontWeight:700,cursor:"pointer"}}>{t("closeBtn")}</button>
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
+        <div>
+          <div style={{fontSize:18,fontWeight:900,color:T.text}}>🎊 {t("yearReview")} {year}</div>
+          <div style={{fontSize:11,color:T.muted,marginTop:2}}>{totalTx} {t("txTotal")}</div>
+        </div>
+        <button onClick={onClose} style={{background:T.cardAlt,border:"none",borderRadius:8,padding:"5px 10px",cursor:"pointer",color:T.muted,fontSize:16}}>✕</button>
+      </div>
+
+      {/* Annual Score Hero */}
+      <div style={{background:`linear-gradient(135deg,${T.accent},${T.accentSoft})`,borderRadius:16,padding:"16px 18px",marginBottom:14,color:"white",display:"flex",alignItems:"center",gap:16}}>
+        <div style={{width:68,height:68,background:"rgba(255,255,255,.15)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:22,fontWeight:900}}>{yearScoreVal}</div>
+            <div style={{fontSize:8,opacity:.8}}>/100</div>
+          </div>
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:900,fontSize:16,marginBottom:3}}>{scoreLabel} 🏆</div>
+          <div style={{fontSize:11,opacity:.85}}>{t("yearScore")} {year}</div>
+          <div style={{marginTop:8,background:"rgba(255,255,255,.2)",borderRadius:99,height:6,overflow:"hidden"}}>
+            <div style={{width:yearScoreVal+"%",height:"100%",background:"white",borderRadius:99,transition:"width .6s ease"}}/>
+          </div>
+        </div>
+      </div>
+
+      {/* 4 Big Stats */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+        {[
+          {l:t("yearIncome"),  v:IDRs(totalIn),  c:T.ok,  bg:T.okBg,  ico:"📈"},
+          {l:t("yearExpense"), v:IDRs(totalOut), c:T.err, bg:T.errBg, ico:"📉"},
+          {l:t("yearSaving"),  v:IDRs(totalSav), c:T.info,bg:T.infoBg,ico:"🏦"},
+          {l:t("yearNet"),     v:IDRs(netCash),  c:netCash>=0?T.ok:T.err, bg:netCash>=0?T.okBg:T.errBg, ico:netCash>=0?"✨":"⚠️"},
+        ].map(({l,v,c,bg,ico})=>(
+          <div key={l} style={{background:bg,borderRadius:12,padding:"12px 14px"}}>
+            <div style={{fontSize:18,marginBottom:4}}>{ico}</div>
+            <div style={{fontSize:9,color:c,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:2}}>{l}</div>
+            <div style={{fontSize:14,fontWeight:900,color:c}}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Monthly Bar Chart */}
+      <div style={{background:T.card,borderRadius:14,padding:"12px 14px",marginBottom:14,border:`1px solid ${T.border}`}}>
+        <div style={SS}>{t("monthlyTrend")} {year}</div>
+        <div style={{display:"flex",alignItems:"flex-end",gap:3,height:80,marginTop:8}}>
+          {monthly.map((m,i)=>(
+            <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
+              <div style={{width:"100%",display:"flex",flexDirection:"column",alignItems:"center",gap:1,height:72,justifyContent:"flex-end"}}>
+                <div style={{width:"80%",background:T.ok,borderRadius:"3px 3px 0 0",opacity:.85,
+                  height:m.inc?(m.inc/maxBar*66)+"px":"2px",minHeight:m.inc?2:0,transition:"height .4s"}}/>
+                <div style={{width:"80%",background:T.err,borderRadius:"3px 3px 0 0",opacity:.85,
+                  height:m.exp?(m.exp/maxBar*66)+"px":"2px",minHeight:m.exp?2:0,transition:"height .4s"}}/>
+              </div>
+              <div style={{fontSize:7,color:T.muted,marginTop:2,textAlign:"center"}}>{m.month}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:12,marginTop:6,justifyContent:"center"}}>
+          {[{c:T.ok,l:lang==="en"?"Income":"Masuk"},{c:T.err,l:lang==="en"?"Expense":"Keluar"}].map(({c,l})=>(
+            <div key={l} style={{display:"flex",alignItems:"center",gap:4,fontSize:9,color:T.muted}}>
+              <div style={{width:8,height:8,borderRadius:2,background:c,opacity:.85}}/>
+              {l}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Best / Worst Month */}
+      {(bestM||worstM)&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+        {bestM&&<div style={{background:T.okBg,borderRadius:12,padding:"10px 12px"}}>
+          <div style={{fontSize:9,color:T.ok,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>🏅 {t("bestMonth")}</div>
+          <div style={{fontWeight:900,fontSize:15,color:T.ok}}>{bestM.fullMonth}</div>
+          <div style={{fontSize:10,color:T.ok,marginTop:2,opacity:.8}}>Net {IDRs(bestM.net)}</div>
+        </div>}
+        {worstM&&<div style={{background:T.errBg,borderRadius:12,padding:"10px 12px"}}>
+          <div style={{fontSize:9,color:T.err,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>🔥 {t("worstMonth")}</div>
+          <div style={{fontWeight:900,fontSize:15,color:T.err}}>{worstM.fullMonth}</div>
+          <div style={{fontSize:10,color:T.err,marginTop:2,opacity:.8}}>Exp {IDRs(worstM.exp)}</div>
+        </div>}
+      </div>}
+
+      {/* Average */}
+      <div style={{background:T.card,borderRadius:12,padding:"10px 14px",marginBottom:14,border:`1px solid ${T.border}`,display:"flex",gap:12,flexWrap:"wrap"}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:9,color:T.muted,textTransform:"uppercase",letterSpacing:.8}}>{t("avgMonthly")} {lang==="en"?"Income":"Masuk"}</div>
+          <div style={{fontWeight:800,color:T.ok,fontSize:13,marginTop:2}}>{IDRs(avgIn)}</div>
+        </div>
+        <div style={{width:1,background:T.border}}/>
+        <div style={{flex:1}}>
+          <div style={{fontSize:9,color:T.muted,textTransform:"uppercase",letterSpacing:.8}}>{t("avgMonthly")} {lang==="en"?"Expense":"Keluar"}</div>
+          <div style={{fontWeight:800,color:T.err,fontSize:13,marginTop:2}}>{IDRs(avgOut)}</div>
+        </div>
+      </div>
+
+      {/* Top Categories */}
+      {topCats.length>0&&<div style={{background:T.card,borderRadius:14,padding:"12px 14px",marginBottom:14,border:`1px solid ${T.border}`}}>
+        <div style={SS}>{t("topCategories")}</div>
+        {topCats.map(([name,{jml,icon}],i)=>(
+          <div key={name} style={{display:"flex",alignItems:"center",gap:10,paddingBottom:i<topCats.length-1?8:0,marginBottom:i<topCats.length-1?8:0,borderBottom:i<topCats.length-1?`1px solid ${T.borderLight}`:"none"}}>
+            <div style={{width:28,height:28,background:T.accentBg,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{icon}</div>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,fontSize:12,color:T.text}}>{name}</div>
+              <div style={{height:4,background:T.cardAlt,borderRadius:99,marginTop:4,overflow:"hidden"}}>
+                <div style={{height:"100%",background:T.accent,borderRadius:99,width:(topCats[0][1].jml>0?jml/topCats[0][1].jml*100:0)+"%",transition:"width .5s ease"}}/>
+              </div>
+            </div>
+            <div style={{fontWeight:800,fontSize:12,color:T.err,flexShrink:0}}>{IDRs(jml)}</div>
+            <div style={{fontWeight:900,color:T.muted,fontSize:11,width:16,textAlign:"right"}}>#{i+1}</div>
+          </div>
+        ))}
+      </div>}
+
+      {/* Net Worth Snapshot */}
+      <div style={{background:T.accentBg,borderRadius:12,padding:"12px 14px",marginBottom:14,border:`1px solid ${T.accentPop}20`}}>
+        <div style={{fontSize:9,color:T.accent,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:6}}>{t("netWorthChange")}</div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontSize:10,color:T.muted}}>Current Saldo</div>
+            <div style={{fontSize:18,fontWeight:900,color:T.accent}}>{IDR(totalSaldo)}</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:10,color:T.muted}}>{t("yearNet")+":"}</div>
+            <div style={{fontSize:14,fontWeight:800,color:netCash>=0?T.ok:T.err}}>{netCash>=0?"+":""}{IDRs(netCash)}</div>
+          </div>
+        </div>
+      </div>
+
+      <button onClick={onClose} style={{width:"100%",padding:"11px",borderRadius:11,background:T.accentBg,border:`1.5px solid ${T.accentPop}30`,color:T.accent,fontWeight:800,cursor:"pointer",fontSize:13}}>
+        ✕ {t("closeBtn")}
+      </button>
+    </div>
+  );
+}
+function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
+  const t = k => ({
+    toast_noData:"Tidak ada data transaksi ditemukan.",
+    all:"Semua", inflow2:"Masuk", outflow2:"Keluar",
+    allSelected:"Batalkan Semua", selectAll:"Pilih Semua",
+  }[k]||k);
+  const [step, setStep] = useState(0);
+  const [bankType, setBankType] = useState("BCA");
+  const [dompetId, setDompetId] = useState(dompet[0]?.id || 1);
+  const [parsed, setParsed] = useState([]);
+  const [selected, setSelected] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [kat, setKat] = useState({});
+  const BANKS = ["BCA","Mandiri","BNI","BRI","CIMB","Jenius","OVO","GoPay","Dana","ShopeePay","BSI","Permata","BTN","Generic"];
+  const BANK_GUIDES = {
+    BCA:"myBCA → Rekening → Unduh Mutasi → CSV",
+    Mandiri:"Livin → Rekening → Cetak Rekening → Export",
+    BNI:"BNI Mobile → Informasi → Mutasi → Download",
+    BRI:"BRImo → Rekening → Mutasi → Download CSV",
+    CIMB:"OCTO Mobile → Rekening → Mutasi → Export",
+    Jenius:"Jenius → Akun → Riwayat Transaksi → Export CSV",
+    OVO:"OVO → Transaksi → Filter → Download Riwayat",
+    GoPay:"Gojek → GoPay → Riwayat → Download (CSV)",
+    Dana:"Dana → Riwayat Transaksi → Export ke Email",
+    ShopeePay:"Shopee → Saya → ShopeePay → Riwayat → Export",
+    BSI:"BSIm → Rekening → Mutasi → Download CSV",
+    Permata:"PermataMobile X → Rekening → Mutasi",
+    BTN:"BTN Mobile → Rekening → Mutasi CSV",
+    Generic:"Format otomatis — coba upload & lihat hasilnya",
+  };
+  const BANK_ICONS = {
+    BCA:"🔵",Mandiri:"🟡",BNI:"🟠",BRI:"🔵",CIMB:"🔴",
+    Jenius:"💎",OVO:"💜",GoPay:"🟢",Dana:"🔵",ShopeePay:"🟠",
+    BSI:"🟢",Permata:"🔵",BTN:"🟡",Generic:"⚙️",
+  };
+
+  const handleFile = (e) => {
+    const file = e.target.files?.[0] || e;
+    if (!file) return;
+    setFileName(file.name||"file.csv");
+    setLoading(true); setError("");
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target.result;
+        const detected = detectBank(text);
+        const useBank = bankType==="Generic" ? detected : bankType;
+        if (detected!=="Generic") setBankType(detected);
+        const rows = parseBankCSV(text, useBank);
+        if (!rows.length) { setError(t("toast_noData")); setLoading(false); return; }
+        setParsed(rows);
+        const sel = {}; const k = {};
+        rows.forEach((r,i)=>{ sel[i]=true; k[i]=r.katId; });
+        setSelected(sel); setKat(k);
+        setStep(1);
+      } catch(err) { setError("Gagal membaca file. Pastikan file adalah CSV yang valid."); }
+      setLoading(false);
+    };
+    reader.readAsText(file, "UTF-8");
+  };
+
+  const IDRf = n => "Rp " + Number(n||0).toLocaleString("id-ID");
+  const filtered = parsed.map((r,i)=>[i,r]).filter(([,r])=>filter==="all"||r.tipe===filter);
+  const selectedCount = Object.values(selected).filter(Boolean).length;
+  const totalMasuk = parsed.reduce((a,r,i)=>selected[i]&&r.tipe==="pemasukan"?a+Number(r.jml):a,0);
+  const totalKeluar = parsed.reduce((a,r,i)=>selected[i]&&r.tipe==="pengeluaran"?a+Number(r.jml):a,0);
+  const toggleAll = () => {
+    const idxs = filtered.map(([i])=>i);
+    const allOn = idxs.every(i=>selected[i]);
+    const ns = {...selected}; idxs.forEach(i=>ns[i]=!allOn); setSelected(ns);
+  };
+  const handleImport = () => {
+    const toImport = parsed.filter((_,i)=>selected[i]).map((r,i)=>({
+      ...r, id:Date.now()+Math.random(), katId:kat[i]||r.katId,
+      bulan:MONTHS[new Date(r.tgl).getMonth()]||MONTHS[0],
+      tahun:String(new Date(r.tgl).getFullYear()),
+      dompetId:Number(dompetId), subKat:"", biaya:"0",
+    }));
+    onImport(toImport, Number(dompetId));
+  };
+  const katName = id => KW_KAT.find(k=>k.id===id)?.kat || "Lainnya";
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:800,color:T.text}}>🏦 Import Mutasi Bank</div>
+          <div style={{fontSize:11,color:T.muted,marginTop:2}}>{step===0?"Upload file CSV dari m-banking atau internet banking":`${parsed.length} transaksi ditemukan dari ${fileName}`}</div>
+        </div>
+        <button onClick={onClose} style={{background:T.cardAlt,border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",color:T.muted,fontSize:16}}>✕</button>
+      </div>
+      {step===0&&<>
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:6}}>Format Bank</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:5}}>
+            {BANKS.map(b=>(
+              <button key={b} onClick={()=>setBankType(b)} style={{padding:"6px 4px",borderRadius:9,border:`2px solid ${bankType===b?T.accent:T.border}`,background:bankType===b?T.accentBg:T.card,color:bankType===b?T.accent:T.sub,fontWeight:700,fontSize:10,cursor:"pointer",transition:"all .15s",textAlign:"center",lineHeight:1.3}}>
+                <span style={{fontSize:14,display:"block"}}>{BANK_ICONS[b]}</span>
+                {b==="Generic"?"Auto":b==="ShopeePay"?"SPay":b}
+              </button>
+            ))}
+          </div>
+          {bankType&&BANK_GUIDES[bankType]&&<div style={{marginTop:6,fontSize:10,color:T.sub,background:T.cardAlt,borderRadius:7,padding:"6px 10px"}}>
+            📱 {BANK_GUIDES[bankType]}
+          </div>}
+        </div>
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:5}}>Masukkan ke Dompet</div>
+          <select value={dompetId} onChange={e=>setDompetId(e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:9,border:`1.5px solid ${T.inputBorder}`,background:T.input,color:T.text,fontSize:13,fontWeight:600,outline:"none"}}>
+            {dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama}</option>)}
+          </select>
+        </div>
+        <label style={{display:"block",cursor:"pointer"}}
+          onDragOver={e=>{e.preventDefault();}} onDrop={e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)handleFile(f);}}>
+          <div style={{border:`2px dashed ${T.border}`,borderRadius:14,padding:"24px 18px",textAlign:"center",background:T.cardAlt}}>
+            {loading?<div style={{color:T.accent,fontWeight:700}}>⏳ Memproses...</div>:<>
+              <div style={{fontSize:36,marginBottom:8}}>📂</div>
+              <div style={{fontWeight:800,color:T.text,fontSize:14,marginBottom:3}}>Klik atau drag & drop file CSV</div>
+              <div style={{fontSize:10,color:T.muted,lineHeight:1.6}}>BCA · Mandiri · BNI · BRI · CIMB<br/>Jenius · OVO · GoPay · Dana · ShopeePay · BSI</div>
+            </>}
+          </div>
+          <input type="file" accept=".csv,.txt" onChange={handleFile} style={{display:"none"}}/>
+        </label>
+        {error&&<div style={{marginTop:8,color:T.err,fontSize:11,background:T.errBg,borderRadius:7,padding:"7px 11px"}}>{error}</div>}
+        <div style={{marginTop:12,background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:9,padding:"9px 12px"}}>
+          <div style={{fontSize:11,fontWeight:700,color:T.info,marginBottom:5}}>💡 Cara download mutasi CSV:</div>
+          <div style={{fontSize:10,color:T.sub,lineHeight:1.75}}>
+            <b>BCA:</b> myBCA → Rekening → Unduh Mutasi → CSV<br/>
+            <b>Mandiri:</b> Livin → Rekening → Cetak Rekening → Export<br/>
+            <b>BNI:</b> BNI Mobile → Informasi → Mutasi → Download<br/>
+            <b>BRI:</b> BRImo → Rekening → Mutasi → Download CSV<br/>
+            <b>Jenius:</b> Akun → Riwayat Transaksi → Export CSV<br/>
+            <b>OVO/GoPay/Dana:</b> Riwayat → Download / Export<br/>
+            <b>ShopeePay:</b> Saya → ShopeePay → Riwayat → Export
+          </div>
+        </div>
+      </>}
+      {step===1&&<>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:10}}>
+          <div style={{background:T.okBg,borderRadius:9,padding:"7px 11px"}}><div style={{fontSize:9,color:T.ok,fontWeight:700,textTransform:"uppercase"}}>{t("incomeLabel")}</div><div style={{fontSize:13,fontWeight:800,color:T.ok}}>{IDRf(totalMasuk)}</div></div>
+          <div style={{background:T.errBg,borderRadius:9,padding:"7px 11px"}}><div style={{fontSize:9,color:T.err,fontWeight:700,textTransform:"uppercase"}}>{t("expenseLabel")}</div><div style={{fontSize:13,fontWeight:800,color:T.err}}>{IDRf(totalKeluar)}</div></div>
+        </div>
+        <div style={{display:"flex",gap:5,marginBottom:8,alignItems:"center",flexWrap:"wrap"}}>
+          {["all","pemasukan","pengeluaran"].map(f=>(
+            <button key={f} onClick={()=>setFilter(f)} style={{padding:"4px 10px",borderRadius:99,border:"none",background:filter===f?T.accent:T.cardAlt,color:filter===f?"white":T.sub,fontWeight:700,fontSize:10,cursor:"pointer"}}>
+              {f==="all"?t("all"):f==="pemasukan"?t("inflow2"):t("outflow2")}
+            </button>
+          ))}
+          <button onClick={toggleAll} style={{marginLeft:"auto",padding:"4px 10px",borderRadius:99,border:`1.5px solid ${T.border}`,background:"transparent",color:T.accent,fontWeight:700,fontSize:10,cursor:"pointer"}}>
+            {filtered.every(([i])=>selected[i])?t("allSelected"):t("selectAll")}
+          </button>
+        </div>
+        <div style={{maxHeight:280,overflowY:"auto",border:`1px solid ${T.border}`,borderRadius:11,marginBottom:10}}>
+          {filtered.map(([i,r])=>(
+            <div key={i} onClick={()=>setSelected(p=>({...p,[i]:!p[i]}))} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 11px",borderBottom:`1px solid ${T.borderLight}`,cursor:"pointer",background:selected[i]?T.cardAlt:T.card,transition:"background .12s"}}>
+              <div style={{width:17,height:17,borderRadius:4,border:`2px solid ${selected[i]?T.accent:T.border}`,background:selected[i]?T.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                {selected[i]&&<span style={{color:"white",fontSize:10,fontWeight:900}}>✓</span>}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:11,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.ket||"—"}</div>
+                <div style={{fontSize:9,color:T.muted,marginTop:1}}>{r.tgl} · {katName(kat[i]||r.katId)}</div>
+              </div>
+              <div style={{fontSize:12,fontWeight:800,color:r.tipe==="pemasukan"?T.ok:T.err,flexShrink:0}}>
+                {r.tipe==="pemasukan"?"+":"-"}{IDRf(r.jml)}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{fontSize:10,color:T.muted,textAlign:"center",marginBottom:12}}>
+          {selectedCount} dari {parsed.length} transaksi dipilih · Kategori otomatis, bisa diedit setelah import
+        </div>
+        <div style={{display:"flex",gap:7}}>
+          <button onClick={()=>{setStep(0);setParsed([]);}} style={{flex:1,padding:"10px",borderRadius:11,border:`2px solid ${T.border}`,background:T.card,color:T.sub,fontWeight:700,cursor:"pointer",fontSize:12}}>← Ulang</button>
+          <button onClick={handleImport} disabled={!selectedCount} style={{flex:2,padding:"10px",borderRadius:11,border:"none",background:selectedCount?"linear-gradient(135deg,#5B21B6,#7C3AED)":"#E9D5FF",color:selectedCount?"white":"#94A3B8",fontWeight:800,cursor:selectedCount?"pointer":"default",fontSize:13}}>
+            📥 Import {selectedCount} Transaksi
+          </button>
+        </div>
+      </>}
+    </div>
+  );
+}
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MAIN APP
+// ═════════════════════════════════════════════════════════════════════════════
+export default function App(){
+  const [s,setS]=useState(()=>{
+    try{
+      const saved=localStorage.getItem("aturduitku_data");
+      if(saved){const p=JSON.parse(saved);return{...INIT,...p,dompet:p.dompet||INIT.dompet,txs:p.txs||[],utang:p.utang||[],budgets:p.budgets||INIT_BUDGETS,goals:p.goals||[],asetTetap:p.asetTetap||[],recurring:p.recurring||[],amplop:p.amplop||[],processedRecurring:p.processedRecurring||{}};}
+    }catch(e){}
+    return INIT;
+  });
+  const [onboarded,setOnboarded]=useState(()=>{try{return localStorage.getItem("aturduitku_onboarded")==="1";}catch(e){return false;}});
+  const [fireUser,setFireUser]=useState(null);
+  const [fireLoading,setFireLoading]=useState(true);
+  const [syncStatus,setSyncStatus]=useState("idle"); // idle | saving | saved | error
+  const [lang,setLang]=useState(()=>{try{return localStorage.getItem("aturduitku_lang")||"id";}catch(e){return "id";}});
+  const t = (key) => TR[lang]?.[key] ?? TR["id"]?.[key] ?? key;
+  const changeLang = (l) => { setLang(l); try{localStorage.setItem("aturduitku_lang",l);}catch(e){} };
+  // Locale-aware months
+  const MONTHS_L = getMonths(lang);
+  const MSHORT_L = getMShort(lang);
+  const [dark,setDark]=useState(()=>{try{return localStorage.getItem("aturduitku_dark")==="1";}catch(e){return false;}});
+  const [blurSaldo,setBlurSaldo]=useState(()=>{try{return localStorage.getItem("aturduitku_blur")==="1";}catch(e){return false;}});
+
+  const [page,setPage]=useState("home");
+  const [toast,setToast]=useState("");
+  const [modal,setModal]=useState(null);
+  const [showCalc,setShowCalc]=useState(false);
+  const [calcFor,setCalcFor]=useState(null);
+  const [notifOpen,setNotifOpen]=useState(false);
+  const [moreOpen,setMoreOpen]=useState(false);
+  const [sidebarOpen,setSidebarOpen]=useState(false);
+  const [now,setNow]=useState(new Date());
+  const [tz,setTz]=useState({city:"",offset:""});
+  const [editSaldo,setEditSaldo]=useState({});
+  const [inAppAlerts,setInAppAlerts]=useState([]);
+
+  const T=dark?DARK:LIGHT;
+  const YEAR_OPTIONS = Array.from({ length: 20 }, (_, i) => String(2020 + i));
+  const toggleBlur=()=>{setBlurSaldo(v=>{try{localStorage.setItem("aturduitku_blur",!v?"1":"0");}catch(e){}return !v;});};
+  const MV=({v,style,className})=>blurSaldo?<span className={className} style={{filter:"blur(7px)",userSelect:"none",transition:"filter .25s",...style}}>{v}</span>:<span className={className} style={style}>{v}</span>;
+
+  // Viewport
+  useEffect(()=>{
+    let meta=document.querySelector("meta[name=\"viewport\"]");
+    if(!meta){meta=document.createElement("meta");meta.name="viewport";document.head.appendChild(meta);}
+    meta.content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no";
+    document.title="AturDuitku";
+  },[]);
+
+  // Auto-save (hanya saat s berubah, bukan setiap render/clock tick)
+  // Autosave: localStorage + Firestore
+  useEffect(()=>{
+    try{localStorage.setItem("aturduitku_data",JSON.stringify(s));}catch(e){}
+    if(fireUser){
+      setSyncStatus("saving");
+      const timer = setTimeout(async()=>{
+        try{
+          await saveUserData(fireUser.uid, {data:s, onboarded:true});
+          setSyncStatus("saved");
+          setTimeout(()=>setSyncStatus("idle"),2000);
+        }catch(e){
+          setSyncStatus("error");
+        }
+      }, 1500); // debounce 1.5s
+      return ()=>clearTimeout(timer);
+    }
+  },[s, fireUser]);
+
+  // Firebase Auth listener
+  useEffect(()=>{
+    const unsub = onAuthChange(async(user)=>{
+      setFireUser(user);
+      if(user){
+        try{
+          const cloudData = await getUserData(user.uid);
+          if(cloudData && cloudData.data){
+            const d = cloudData.data;
+            const merged = {
+              ...INIT,...d,
+              dompet:d.dompet||INIT.dompet,txs:d.txs||[],utang:d.utang||[],
+              budgets:d.budgets||INIT_BUDGETS,goals:d.goals||[],asetTetap:d.asetTetap||[],
+              recurring:d.recurring||[],amplop:d.amplop||[],processedRecurring:d.processedRecurring||{},
+            };
+            setS(merged);
+            try{localStorage.setItem("aturduitku_data",JSON.stringify(merged));}catch(e){}
+            if(cloudData.onboarded){
+              setOnboarded(true);
+              try{localStorage.setItem("aturduitku_onboarded","1");}catch(e){}
+            }
+
+          } else {
+            const localRaw = localStorage.getItem("aturduitku_data");
+            if(localRaw){try{await saveUserData(user.uid,{data:JSON.parse(localRaw),onboarded:true});}catch(e){}}
+          }
+        }catch(e){ console.warn("Load from Firebase failed:",e); }
+      }
+      setFireLoading(false);
+    });
+    return ()=>unsub();
+  },[]);
+
+  // Handle sign in with Google - auto setup Sheets
+  const handleGoogleSignIn = async() => {
+    try{
+      await signInWithGoogle();
+    }catch(e){
+      console.warn("Google sign in failed:", e);
+      showToast("⚠️ Login gagal. Coba lagi!");
+    }
+  };
+
+  // Handle sign out
+  const handleSignOut = async() => {
+    await signOutUser();
+    setFireUser(null);
+    setFireLoading(false);
+  };
+
+
+  useEffect(()=>{try{localStorage.setItem("aturduitku_dark",dark?"1":"0");}catch(e){}},[ dark]);
+
+  // ── SMART NOTIFICATIONS ────────────────────────────────────────────────────
+  useEffect(()=>{
+    const runChecks = async () => {
+      const alerts = [];
+      const todayStr = today();
+      const todayD = new Date(todayStr);
+      // 1. Tagihan jatuh tempo dalam 3 hari
+      s.utang.filter(u=>u.tempo&&u.status!=="lunas").forEach(u=>{
+        const diff = Math.ceil((new Date(u.tempo)-todayD)/(1000*60*60*24));
+        if(diff>=0&&diff<=3) alerts.push({type:"warn",title:`⏰ ${lang==="en"?"Due: ":"Jatuh Tempo: "}${u.nama}`,body:`${u.tipe==="utang"?"Hutang":"Piutang"} ${IDR(N(u.jml))} jatuh tempo ${diff===0?"HARI INI":"dalam "+diff+" hari"} (${u.tempo})`});
+      });
+      // 2. Budget hampir habis (>85%)
+      const spendKatLocal={};
+      txBulan.filter(t=>t.tipe==="pengeluaran").forEach(t=>{spendKatLocal[t.katId]=(spendKatLocal[t.katId]||0)+N(t.jml);});
+      s.budgets.forEach(b=>{
+        const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
+        const spend=spendKatLocal[b.id]||0;
+        const pct=alloc>0?spend/alloc*100:0;
+        if(alloc>0&&pct>=85&&pct<100) alerts.push({type:"warn",title:`📊 Budget ${b.kat} ${lang==="en"?"Almost Over":"Hampir Habis"}`,body:`${lang==="en"?"Used ":"Sudah terpakai "} ${pct.toFixed(0)}% (${IDR(spend)} dari ${IDR(alloc)})`});
+        if(alloc>0&&pct>=100) alerts.push({type:"danger",title:`🚨 Budget ${b.kat} ${lang==="en"?"Over Budget!":"Melebihi Batas!"}`,body:`Kelebihan ${IDR(spend-alloc)} — sudah ${pct.toFixed(0)}% dari alokasi`});
+      });
+      // 3. Belum ada transaksi hari ini (cek jam > 20:00)
+      const nowH = new Date().getHours();
+      const todayTx = s.txs.filter(t=>t.tgl===todayStr);
+      if(nowH>=20&&todayTx.length===0) alerts.push({type:"info",title:t("noTxToday"),body:t("noTxTodayBody")||"Ayo catat pengeluaran kamu hari ini ya!"});
+      // 4. Recurring belum diproses bulan ini
+      const mk=`${s.bulan}_${s.tahun}`;
+      const unproc=s.recurring.filter(r=>r.aktif&&!Object.keys(s.processedRecurring).some(k=>k.startsWith(r.id+"_"+mk)));
+      if(unproc.length>0) alerts.push({type:"info",title:`🔁 ${unproc.length} ${lang==="en"?"Recurring Transactions Not Processed":"Transaksi Rutin Belum Diproses"}`,body:`Klik "Proses Sekarang" di menu Setting → Transaksi Rutin`});
+
+      setInAppAlerts(alerts);
+
+      // Browser notification (jika diizinkan)
+      if(alerts.length>0&&"Notification" in window&&Notification.permission==="granted"){
+        const urgent=alerts.filter(a=>a.type==="danger"||a.type==="warn");
+        if(urgent.length>0){
+          const a=urgent[0];
+          try{new Notification(a.title,{body:a.body,icon:"/favicon.svg"});}catch(e){}
+        }
+      }
+    };
+    runChecks();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[s.utang, s.budgets, s.txs, s.recurring, s.processedRecurring]);
+
+  const requestNotifPermission=async()=>{
+    if(!("Notification" in window)){showToast("❌ Browser tidak mendukung notifikasi");return;}
+    const perm=await Notification.requestPermission();
+    if(perm==="granted") showToast("✅ Notifikasi diaktifkan!");
+    else showToast("⚠️ Izin notifikasi ditolak");
+  };
+
+
+
+  // Clock + tz
+  useEffect(()=>{
+    try{const tzName=Intl.DateTimeFormat().resolvedOptions().timeZone;const city=tzName.split("/").pop().replace(/_/g," ");const off=new Date().getTimezoneOffset();const h=Math.floor(Math.abs(off)/60),m=Math.abs(off)%60;const sign=off<=0?"+":"-";setTz({city,offset:`UTC${sign}${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`});}catch(e){}
+    const tick=setInterval(()=>setNow(new Date()),1000);
+    return()=>clearInterval(tick);
+  },[]);
+
+  // Responsive
+  const [vw,setVw]=useState(typeof window!=="undefined"?window.innerWidth:1200);
+  useEffect(()=>{const f=()=>setVw(window.innerWidth);window.addEventListener("resize",f);return()=>window.removeEventListener("resize",f);},[]);
+  const isMobile=vw<768;const isTablet=vw>=768&&vw<1024;
+  const navTo=id=>{setPage(id);if(isMobile)setSidebarOpen(false);};
+
+  // Forms
+  const [txForm,setTxForm]=useState({tipe:"pengeluaran",tgl:today(),ket:"",jml:"",katId:1,subKat:"",dompetId:1,dompetTo:2,biaya:"",goalId:""});
+  const [bulkRows,setBulkRows]=useState([{tgl:today(),jml:"",tipe:"pengeluaran",dompetId:1,katId:"",ket:""}]);
+  const [utForm,setUtForm]=useState({tipe:"utang",tgl:today(),nama:"",jml:"",tempo:"",ket:""});
+  const [goalForm,setGoalForm]=useState({nama:"",target:"",kumpul:"",deadline:"",icon:"⭐"});
+  const [dompetForm,setDompetForm]=useState({tipe:"Bank",nama:"",norek:"",saldo:""});
+  const [asetForm,setAsetForm]=useState({nama:"",nilai:"",ket:"",beliDariDompet:false,dompetId:1});
+  const [sfForm,setSfForm]=useState({name:s.name,targetDana:s.targetDana,prevPemasukan:s.prevPemasukan,prevPengeluaran:s.prevPengeluaran,groqKey:s.groqKey||""});
+  const [txSearch,setTxSearch]=useState("");
+  const [txFilt,setTxFilt]=useState({dompet:"",tipe:"",sub:""});
+  const [txPage,setTxPage]=useState(1);
+  const TX_PER_PAGE=30;
+  const [recurringForm,setRecurringForm]=useState({nama:"",tipe:"pengeluaran",jml:"",katId:1,dompetId:1,hari:"1",aktif:true});
+  const [amplopForm,setAmplopForm]=useState({nama:"",icon:"✉️",warna:"#8B5CF6",dompetId:1,alokasi:""});
+  const [showAddRecurring,setShowAddRecurring]=useState(false);
+  const [showAddAmplop,setShowAddAmplop]=useState(false);
+  const [amplopIsiForm,setAmplopIsiForm]=useState({id:null,jml:"",dompetId:1});
+  const [newKat,setNewKat]=useState({kat:"",icon:"📦",kelas:"Kebutuhan"});
+  const [showAddKat,setShowAddKat]=useState(false);
+  const [newSub,setNewSub]=useState({katId:null,nama:"",emoji:"📌",alokasi:"",tempo:""});
+
+
+  // ── Computed ────────────────────────────────────────────────────────────────
+  const bulanIdx=MONTHS.indexOf(s.bulan);const yr=Number(s.tahun);
+  const txBulan=useMemo(()=>s.txs.filter(t=>t.tgl&&t.tgl.startsWith(`${yr}-${String(bulanIdx+1).padStart(2,"0")}`)),[s.txs,yr,bulanIdx]);
+  const totalIn=useMemo(()=>txBulan.filter(t=>t.tipe==="pemasukan").reduce((a,b)=>a+N(b.jml),0),[txBulan]);
+  const totalOut=useMemo(()=>txBulan.filter(t=>t.tipe==="pengeluaran").reduce((a,b)=>a+N(b.jml),0),[txBulan]);
+  const totalTabung=useMemo(()=>txBulan.filter(t=>t.tipe==="tabungan").reduce((a,b)=>a+N(b.jml),0),[txBulan]);
+  const netCash=totalIn-totalOut;
+  const totalSaldo=s.dompet.reduce((a,b)=>a+N(b.saldo),0);
+  const savRate=totalIn>0?(totalTabung/totalIn*100):0;
+  const rasioOut=totalIn>0?(totalOut/totalIn*100):0;
+  const totalAset=totalSaldo+s.asetTetap.reduce((a,b)=>a+N(b.nilai),0);
+  const totalUtangAktif=s.utang.filter(u=>u.tipe==="utang"&&!u.lunas).reduce((a,b)=>a+N(b.jml),0);
+  const totalPiutang=s.utang.filter(u=>(u.tipe==="piutang"||u.tipe==="piutangBisnis")&&!u.lunas).reduce((a,b)=>a+N(b.jml),0);
+  const runwayReal=totalOut>0?(totalSaldo/totalOut).toFixed(1):0;
+  const hariIni=new Date().getDate();const hariDlmBulan=new Date(yr,bulanIdx+1,0).getDate();const sisaHari=hariDlmBulan-hariIni;
+  const totalBudget=s.budgets.reduce((a,b)=>a+N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0),0);
+  const sisaAnggaran=totalBudget-totalOut;const budgetHarian=sisaHari>0?Math.max(sisaAnggaran,0)/sisaHari:0;
+
+  const spendByKat=useMemo(()=>{const m={};txBulan.filter(t=>t.tipe==="pengeluaran"&&t.katId).forEach(t=>{m[t.katId]=(m[t.katId]||0)+N(t.jml);});return m;},[txBulan]);
+
+  const trendData=useMemo(()=>{
+    const months=[];
+    for(let i=5;i>=0;i--){
+      const d=new Date(yr,bulanIdx-i,1);
+      const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      const label=MSHORT[d.getMonth()];
+      const masuk=s.txs.filter(t=>t.tipe==="pemasukan"&&t.tgl?.startsWith(key)).reduce((a,b)=>a+N(b.jml),0);
+      const keluar=s.txs.filter(t=>t.tipe==="pengeluaran"&&t.tgl?.startsWith(key)).reduce((a,b)=>a+N(b.jml),0);
+      const tabung=s.txs.filter(t=>t.tipe==="tabungan"&&t.tgl?.startsWith(key)).reduce((a,b)=>a+N(b.jml),0);
+      months.push({label,masuk,keluar,tabung,net:masuk-keluar});
+    }
+    return months;
+  },[s.txs,yr,bulanIdx]);
+
+  const tagihan=useMemo(()=>{const list=[];s.budgets.forEach(b=>b.sub.forEach(sb=>{if(sb.tempo){list.push({...sb,kat:b.kat});}}));return list.sort((a,b)=>Number(a.tempo)-Number(b.tempo));},[s.budgets]);
+  const topKat=useMemo(()=>{const m={};txBulan.filter(t=>t.tipe==="pengeluaran").forEach(t=>{const b=s.budgets.find(b=>b.id===Number(t.katId));const nm=b?.kat||(lang==="en"?"Other":"Lainnya");m[nm]=(m[nm]||0)+N(t.jml);});return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,5);},[txBulan,s.budgets,lang]);
+
+  const skorTabungan=Math.min(savRate/20*100,100);
+  const skorDisiplin=totalBudget>0?Math.max(0,100-Math.max(0,(totalOut-totalBudget)/totalBudget*100)):totalOut===0?100:80;
+  const skorRunway=Math.min(Number(runwayReal)/6*100,100);
+  const skorTotal=Math.round((skorTabungan+skorDisiplin+skorRunway)/3);
+  const getLabel=sc=>sc>=80?t("excellent"):sc>=60?t("good"):sc>=40?t("fair"):sc>=20?t("poor")+" 💪":t("poor");
+  const getC=sc=>sc>=80?"#16A34A":sc>=60?"#22C55E":sc>=40?"#F59E0B":sc>=20?"#EF4444":"#B91C1C";
+
+  const statusC=totalIn===0&&totalOut>0?T.err:rasioOut>80?T.err:rasioOut>60?T.warn:T.ok;
+  const status=totalIn===0&&totalOut>0?t("fair")+" 🟡":rasioOut>80?t("poor")+" 🔴":rasioOut>60?t("fair")+" 🟡":t("good")+" 🟢";
+
+  const isCurrentPeriod=bulanIdx===new Date().getMonth()&&yr===new Date().getFullYear();
+  const daysPassed=isCurrentPeriod?hariIni:hariDlmBulan;
+  const dailyAvg=daysPassed>0?totalOut/daysPassed:0;
+  const prediksiOut=isCurrentPeriod?Math.round(dailyAvg*hariDlmBulan):totalOut;
+  const prediksiSisa=totalIn-prediksiOut;
+
+  const prevIn=N(s.prevPemasukan),prevOut=N(s.prevPengeluaran);
+  const changePct=(cur,prev)=>prev>0?((cur-prev)/prev*100).toFixed(1):null;
+
+  const filtTx=useMemo(()=>{
+    setTxPage(1);
+    let list=[...s.txs].sort((a,b)=>new Date(b.tgl)-new Date(a.tgl));
+    if(txSearch)list=list.filter(t=>t.ket?.toLowerCase().includes(txSearch.toLowerCase()));
+    if(txFilt.dompet)list=list.filter(t=>String(t.dompetId)===String(txFilt.dompet));
+    if(txFilt.tipe)list=list.filter(t=>t.tipe===txFilt.tipe);
+    return list;
+  },[s.txs,txSearch,txFilt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pieData=s.budgets.filter(b=>spendByKat[b.id]>0).map(b=>({name:b.icon+" "+b.kat,value:spendByKat[b.id]||0}));
+
+
+  // Notifications
+  const notifications=useMemo(()=>{
+    const list=[];
+    const now_date=new Date();
+    // Tagihan jatuh tempo
+    s.budgets.forEach(b=>b.sub.forEach(sb=>{
+      if(sb.tempo){
+        const tDate=new Date(now_date.getFullYear(),now_date.getMonth(),Number(sb.tempo));
+        const diff=Math.ceil((tDate-now_date)/(1000*60*60*24));
+        if(diff>=0&&diff<=7){list.push({icon:sb.emoji||b.icon,title:`Tagihan: ${sb.nama}`,msg:diff===0?"Jatuh tempo HARI INI!":diff+" hari lagi jatuh tempo",tag:"Tagihan",color:diff<=1?"danger":"warning",amount:N(sb.alokasi)});}
+        else if(diff<0&&diff>=-7){list.push({icon:sb.emoji||b.icon,title:`OVERDUE: ${sb.nama}`,msg:`Sudah ${Math.abs(diff)} hari melewati jatuh tempo!`,tag:"Overdue",color:"danger",amount:N(sb.alokasi)});}
+      }
+    }));
+    // Budget overrun
+    s.budgets.forEach(b=>{
+      const spend=spendByKat[b.id]||0;
+      const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
+      if(alloc>0&&spend>alloc){list.push({icon:b.icon,title:`Budget ${b.kat} Terlampaui`,msg:`Pengeluaran melebihi budget ${IDR(alloc)}`,tag:"Budget",color:"danger",amount:spend-alloc});}
+      else if(alloc>0&&spend>alloc*0.85){list.push({icon:b.icon,title:`Budget ${b.kat} Hampir Habis`,msg:`Sudah ${PCT(spend/alloc*100)} terpakai`,tag:"Budget",color:"warning"});}
+    });
+    // Goals near deadline
+    s.goals.filter(g=>!g.selesai&&g.deadline).forEach(g=>{
+      const dl=new Date(g.deadline);
+      const diff=Math.ceil((dl-now_date)/(1000*60*60*24));
+      if(diff>=0&&diff<=14){const pct=N(g.target)>0?N(g.kumpul)/N(g.target)*100:0;list.push({icon:g.icon,title:`Goal: ${g.nama}`,msg:`${diff} hari lagi, progress ${pct.toFixed(0)}%`,tag:"Goal",color:pct>=80?"success":"warning"});}
+    });
+    // Utang tempo
+    s.utang.filter(u=>!u.lunas&&u.tempo).forEach(u=>{
+      const tempo=new Date(u.tempo);
+      const diff=Math.ceil((tempo-now_date)/(1000*60*60*24));
+      if(diff>=0&&diff<=14){list.push({icon:"📋",title:u.tipe==="utang"?`Utang: ${u.nama}`:`Piutang: ${u.nama}`,msg:diff===0?"Jatuh tempo HARI INI!":diff+" hari lagi",tag:u.tipe==="utang"?"Utang":"Piutang",color:diff<=3?"danger":"warning",amount:N(u.jml)});}
+    });
+    return list.sort((a,b)=>a.color==="danger"?-1:1);
+  },[s.budgets,s.goals,s.utang,spendByKat]);
+
+  const saranList=useMemo(()=>{
+    const list=[];
+    s.budgets.forEach(b=>{
+      const spend=spendByKat[b.id]||0;const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
+      if(alloc>0&&spend>alloc){const lebih=spend-alloc;list.push({kat:b.kat,icon:b.icon,type:"over",msg:`Pengeluaran ${b.kat} melebihi budget ${IDR(alloc)}. Bisa hemat ${IDR(lebih)}.`});}
+      else if(alloc>0&&spend<alloc*0.3&&daysPassed>15){list.push({kat:b.kat,icon:b.icon,type:"under",msg:`Budget ${b.kat} baru terpakai ${PCT(alloc>0?spend/alloc*100:0)}. Pertimbangkan realokasi.`});}
+    });
+    return list;
+  },[s.budgets,spendByKat,daysPassed]);
+
+  // Amplop computed
+  const amplopTotal=useMemo(()=>s.amplop.reduce((a,b)=>a+N(b.alokasi),0),[s.amplop]);
+  const amplopTerpakai=useMemo(()=>s.amplop.reduce((a,b)=>a+N(b.terpakai||0),0),[s.amplop]);
+
+  // Time-aware saldo (saldo akhir bulan historis per dompet)
+  const historicalSaldo=useMemo(()=>{
+    // Hitung saldo tiap dompet di akhir setiap bulan pada trendData
+    const result={};
+    const now_=new Date();
+    for(let i=5;i>=0;i--){
+      const d=new Date(yr,bulanIdx-i,1);
+      const monthKey=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      const label=MSHORT[d.getMonth()];
+      // Kalkulasi: saldo saat ini + semua tx setelah bulan ini (dikurangi) - semua tx di/sebelum bulan ini (ditambah kembali)
+      // Cara sederhana: hitung net tx per dompet untuk setiap bulan
+      const dompetSaldoAtEnd={};
+      s.dompet.forEach(dom=>{
+        let saldo=N(dom.saldo);
+        // Reverse semua tx setelah monthKey
+        s.txs.filter(t=>t.tgl&&t.tgl>monthKey+"-31").forEach(t=>{
+          if(t.dompetId===dom.id){
+            if(t.tipe==="pemasukan")saldo-=N(t.jml);
+            else if(t.tipe==="pengeluaran"||t.tipe==="tabungan")saldo+=N(t.jml);
+            else if(t.tipe==="transfer"){saldo+=N(t.jml)+N(t.biaya||0);}
+          }
+          if(t.tipe==="transfer"&&t.dompetTo===dom.id&&t.tgl>monthKey+"-31")saldo-=N(t.jml);
+        });
+        dompetSaldoAtEnd[dom.id]=saldo;
+      });
+      result[label]={monthKey,dompetSaldo:dompetSaldoAtEnd,totalSaldo:Object.values(dompetSaldoAtEnd).reduce((a,b)=>a+b,0)};
+    }
+    return result;
+  },[s.dompet,s.txs,yr,bulanIdx]);
+
+  const hari=now.toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  const jam=now.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+  // Timezone zone name (WIB/WITA/WIT)
+  const tzZone = useMemo(()=>{
+    try {
+      const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const off = -new Date().getTimezoneOffset() / 60;
+      if (off === 7) return {zone:"WIB", city: tzName.split("/").pop().replace(/_/g," "), color:"#22C55E"};
+      if (off === 8) return {zone:"WITA", city: tzName.split("/").pop().replace(/_/g," "), color:"#F59E0B"};
+      if (off === 9) return {zone:"WIT", city: tzName.split("/").pop().replace(/_/g," "), color:"#3B82F6"};
+      return {zone:`UTC${off>=0?"+":""}${off}`, city: tzName.split("/").pop().replace(/_/g," "), color:"#8B5CF6"};
+    } catch(e) { return {zone:"",city:"",color:"#8B5CF6"}; }
+  },[]);
+  // Greeting based on hour
+  const greetingWord = useMemo(()=>{
+    const h = now.getHours();
+    if (h>=4&&h<11) return "morning";
+    if (h>=11&&h<15) return "afternoon";
+    if (h>=15&&h<18) return "evening";
+    return "night";
+  },[now.getHours()]);
+  const greetingEmoji = useMemo(()=>{
+    const h = now.getHours();
+    if (h>=4&&h<11) return "🌤️";
+    if (h>=11&&h<15) return "☀️";
+    if (h>=15&&h<18) return "🌆";
+    return "🌙";
+  },[now.getHours()]);
+  // Short date for topbar — locale aware
+  const hariShort = now.toLocaleDateString(lang==="en"?"en-US":"id-ID",{weekday:"long",day:"numeric",month:"short",year:"numeric"});
+
+  // Handlers
+  const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(""),2500);};
+  const openCalc=(field,cur,setter)=>{setCalcFor({field,cur,setter});setShowCalc(true);};
+
+
+  // ═══════════════════════════════════════════════════
+  // GROQ AI + GOOGLE SHEETS SYNC
+  // ═══════════════════════════════════════════════════
+  const callGroq = async (messages, systemPrompt) => {
+    const apiKey = "REDACTED_GROQ_API_KEY";
+    // Keep last 12 messages for memory (context window)
+    const recentMsgs = messages.slice(-12);
+    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+apiKey},
+      body:JSON.stringify({
+        model:"llama-3.3-70b-versatile",
+        messages:[{role:"system",content:systemPrompt},...recentMsgs],
+        max_tokens:1500,
+        temperature:0.7,
+        top_p:0.9,
+      })
+    });
+    if(!resp.ok){
+      const err = await resp.json().catch(()=>({}));
+      throw new Error(err.error?.message||"Groq error: "+resp.status);
+    }
+    const data = await resp.json();
+    return data.choices?.[0]?.message?.content || "";
+  };
+
+  // ─── Google Sheets OAuth ────────────────────────────────────────
+  const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_HERE";
+  const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
+
+  const getGoogleToken = () => {
+    return new Promise((resolve, reject) => {
+      if(!window.google?.accounts?.oauth2) return reject(new Error("GIS not loaded"));
+      const client = window.google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: SHEETS_SCOPE,
+        callback: (resp) => {
+          if(resp.error) return reject(new Error(resp.error));
+          resolve(resp.access_token);
+        },
+      });
+      client.requestAccessToken({prompt:""});
+    });
+  };
+
+
+    // Sheets sync removed - use Export XLSX/PDF instead
+
+  const [aiOpen,setAiOpen]=useState(false);
+  const aiMsgsRef = useRef(null);
+  const [aiMsgs,setAiMsgs]=useState([{role:"assistant",content:"Halo! 👋 Saya **AturDuitku AI**, financial advisor pribadi kamu.\n\nSaya bisa membantu:\n📝 **Catat** transaksi, utang, goals, aset\n📊 **Analisis** kesehatan keuangan kamu\n💡 **Saran** konkret untuk hemat & investasi\n⚠️ **Peringatkan** jika ada masalah finansial\n\nCoba tanya: \'Analisis keuanganku\' atau \'Bagaimana kondisi finansialku?\' 🚀"}]);
+  const [aiInput,setAiInput]=useState("");
+  const [aiLoading,setAiLoading]=useState(false);
+
+  const getAiSystemPrompt = () => {
+    // ── Compute financial metrics ──────────────────────
+    const totalSaldo = s.dompet.reduce((a,d)=>a+Number(d.saldo||0),0);
+    const txBulan = s.txs.filter(t=>t.bulan===s.bulan&&t.tahun===s.tahun);
+    const totalIn = txBulan.filter(t=>t.tipe==="pemasukan").reduce((a,t)=>a+Number(t.jml),0);
+    const totalOut = txBulan.filter(t=>t.tipe==="pengeluaran").reduce((a,t)=>a+Number(t.jml),0);
+    const savingRate = totalIn>0 ? ((totalIn-totalOut)/totalIn*100).toFixed(1) : 0;
+
+    // Budget analysis
+    const budgetAnalysis = s.budgets.map(b=>{
+      const spent = txBulan.filter(t=>t.tipe==="pengeluaran"&&t.katId===b.id).reduce((a,t)=>a+Number(t.jml),0);
+      const alloc = Number(b.alokasi||0)+b.sub.reduce((a,x)=>a+Number(x.alokasi||0),0);
+      const pct = alloc>0 ? Math.round(spent/alloc*100) : 0;
+      const status = pct>=100?"🔴 LEWATI":pct>=85?"🟡 HAMPIR":pct>=50?"🟠 SETENGAH":"🟢 AMAN";
+      return `${b.kat}: ${status} ${pct}% (Rp ${spent.toLocaleString("id-ID")}/${alloc.toLocaleString("id-ID")})`;
+    }).join("\n  ");
+
+    // Top spending categories
+    const spendByKat = {};
+    txBulan.filter(t=>t.tipe==="pengeluaran").forEach(t=>{
+      const kat = s.budgets.find(b=>b.id===t.katId)?.kat||"Lainnya";
+      spendByKat[kat] = (spendByKat[kat]||0)+Number(t.jml);
+    });
+    const topSpend = Object.entries(spendByKat).sort((a,b)=>b[1]-a[1]).slice(0,3)
+      .map(([k,v])=>`${k}: Rp ${v.toLocaleString("id-ID")}`).join(", ");
+
+    // Goals progress
+    const goalsInfo = s.goals.length>0 ? s.goals.map(g=>{
+      const tgt = Number(g.target||0);
+      const kmp = Number(g.kumpul||0);
+      const pct = tgt>0 ? Math.round(kmp/tgt*100) : 0;
+      const sisa = tgt-kmp;
+      return `${g.nama}: ${pct}% (terkumpul Rp ${kmp.toLocaleString("id-ID")} dari Rp ${tgt.toLocaleString("id-ID")}, sisa Rp ${sisa.toLocaleString("id-ID")}${g.deadline?", deadline "+g.deadline:""})`;
+    }).join("\n  ") : "Belum ada goals";
+
+    // Debt/receivable
+    const utangAktif = s.utang.filter(u=>!u.lunas);
+    const totalUtang = utangAktif.filter(u=>u.tipe==="utang").reduce((a,u)=>a+Number(u.jml||0),0);
+    const totalPiutang = utangAktif.filter(u=>u.tipe==="piutang").reduce((a,u)=>a+Number(u.jml||0),0);
+    const utangInfo = utangAktif.length>0 ? utangAktif.map(u=>
+      `${u.tipe==="piutang"?"[PIUTANG]":"[UTANG]"} ${u.nama}: Rp ${Number(u.jml||0).toLocaleString("id-ID")}${u.tempo?" jatuh tempo "+u.tempo:""}`
+    ).join("\n  ") : "Tidak ada utang/piutang aktif";
+
+    // Asset & net worth
+    const totalAset = s.asetTetap.reduce((a,x)=>a+Number(x.nilai||0),0);
+    const netWorth = totalSaldo+totalAset-totalUtang;
+
+    // Amplop
+    const amplopInfo = s.amplop.length>0 ? s.amplop.map(a=>{
+      const sisa = Number(a.alokasi||0)-Number(a.terpakai||0);
+      return `${a.nama}: sisa Rp ${sisa.toLocaleString("id-ID")} dari Rp ${Number(a.alokasi||0).toLocaleString("id-ID")}`;
+    }).join(", ") : "Belum ada amplop";
+
+    // Recent 5 transactions
+    const recentTx = s.txs.slice(0,5).map(t=>{
+      const kat = s.budgets.find(b=>b.id===t.katId)?.kat||"-";
+      const dompet = s.dompet.find(d=>d.id===t.dompetId)?.nama||"-";
+      return `${t.tgl} | ${t.tipe==="pemasukan"?"➕":"➖"} ${t.ket} | Rp ${Number(t.jml).toLocaleString("id-ID")} | ${kat} | ${dompet}`;
+    }).join("\n  ") || "Belum ada transaksi";
+
+    // Financial health score
+    const healthScore = Math.round(
+      (savingRate>=20?25:savingRate>=10?15:5) +
+      (totalUtang===0?20:totalUtang<totalSaldo?12:4) +
+      (s.goals.length>0?15:0) +
+      (Number(savingRate)>=0?15:0) +
+      (s.budgets.some(b=>b.alokasi>0)?15:5) +
+      (s.asetTetap.length>0?10:0)
+    );
+    const healthLabel = healthScore>=80?"🌟 Sangat Baik":healthScore>=60?"✅ Baik":healthScore>=40?"🟡 Cukup":"⚠️ Perlu Perhatian";
+
+    return `Kamu adalah **AturDuitku AI** — financial advisor pribadi yang cerdas, empatik, dan proaktif.
+
+Kamu BUKAN sekadar chatbot. Kamu adalah teman finansial terpercaya yang:
+- Memahami kondisi keuangan user secara mendalam
+- Memberikan saran yang KONKRET dan ACTIONABLE
+- Berbicara dengan hangat, jujur, dan tidak menghakimi
+- Proaktif mendeteksi masalah dan peluang finansial
+
+═══ DATA KEUANGAN ${s.name} — ${s.bulan} ${s.tahun} ═══
+
+💼 SALDO & ARUS KAS
+- Total Saldo: Rp ${totalSaldo.toLocaleString("id-ID")}
+- Dompet: ${s.dompet.map(d=>d.nama+" (Rp "+Number(d.saldo||0).toLocaleString("id-ID")+")").join(", ")}
+- Pemasukan: Rp ${totalIn.toLocaleString("id-ID")}
+- Pengeluaran: Rp ${totalOut.toLocaleString("id-ID")}
+- Net Cash: Rp ${(totalIn-totalOut).toLocaleString("id-ID")} ${totalIn>totalOut?"(surplus ✅)":"(defisit ⚠️)"}
+- Saving Rate: ${savingRate}% ${Number(savingRate)>=20?"✅ bagus!":Number(savingRate)>=10?"🟡 bisa lebih baik":"⚠️ perlu ditingkatkan"}
+- Top pengeluaran: ${topSpend||"belum ada"}
+
+📊 BUDGET STATUS
+  ${budgetAnalysis||"Belum ada budget"}
+
+⭐ GOALS
+  ${goalsInfo}
+
+📋 UTANG & PIUTANG
+  ${utangInfo}
+- Total utang: Rp ${totalUtang.toLocaleString("id-ID")}
+- Total piutang: Rp ${totalPiutang.toLocaleString("id-ID")}
+
+🏛️ ASET & NET WORTH
+- Aset tetap: ${s.asetTetap.map(a=>a.nama+" (Rp "+Number(a.nilai||0).toLocaleString("id-ID")+")").join(", ")||"belum ada"}
+- Total aset: Rp ${totalAset.toLocaleString("id-ID")}
+- Net Worth: Rp ${netWorth.toLocaleString("id-ID")}
+
+✉️ AMPLOP: ${amplopInfo}
+
+📜 5 TRANSAKSI TERAKHIR
+  ${recentTx}
+
+🏆 SKOR KESEHATAN FINANSIAL: ${healthScore}/100 — ${healthLabel}
+
+═══ KEMAMPUAN AI ═══
+
+Balas HANYA JSON (tanpa teks lain) untuk action:
+
+1. Catat transaksi:
+{"action":"catat","tipe":"pengeluaran|pemasukan","ket":"deskripsi","jml":123000,"kat":"kategori","dompet":"nama dompet"}
+
+2. Tambah goal:
+{"action":"tambah_goal","nama":"nama goal","target":15000000,"deadline":"2026-12-31"}
+
+3. Tambah aset:
+{"action":"tambah_aset","nama":"nama aset","nilai":8000000,"ket":"keterangan"}
+
+4. Catat utang/piutang:
+{"action":"tambah_utang","tipe":"utang|piutang","nama":"deskripsi","jml":5000000,"tempo":"2027-06-01"}
+
+5. Isi amplop:
+{"action":"isi_amplop","nama":"nama amplop","jumlah":500000}
+
+Untuk chat/analisis/saran → jawab langsung tanpa JSON.
+
+═══ CARA MENJAWAB ═══
+- Bahasa Indonesia yang hangat dan natural
+- Parse nominal: 150rb=150000, 5jt=5000000, 50k=50000, 1.5jt=1500000
+- Untuk saran keuangan: berikan angka konkret, bukan abstrak
+- Jika ada masalah keuangan (defisit, budget lewat, utang besar): sampaikan dengan empati + solusi
+- Gunakan emoji secukupnya untuk membuat pesan lebih hidup
+- Saat memberikan analisis: gunakan data aktual dari user di atas
+- Kategorikan dari: ${s.budgets.map(b=>b.kat).join(", ")}
+- Dompet tersedia: ${s.dompet.map(d=>d.nama).join(", ")}`;
+  };
+
+  const handleAiSend = async () => {
+    const msg = aiInput.trim();
+    if(!msg || aiLoading) return;
+    const newMsgs = [...aiMsgs, {role:"user",content:msg}];
+    setAiMsgs(newMsgs);
+    setAiInput("");
+    setAiLoading(true);
+    try {
+      const reply = await callGroq(
+        newMsgs.filter(m=>m.role!=="system").map(m=>({role:m.role,content:m.content})),
+        getAiSystemPrompt()
+      );
+
+      // Try parse JSON action
+      let parsed = null;
+      try {
+        const jsonMatch = reply.match(/\{[\s\S]*?"action"\s*:[\s\S]*?\}/);
+        if(jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+      } catch(e){}
+
+      if(parsed?.action) {
+        // ── CATAT TRANSAKSI ──────────────────────────────
+        if(parsed.action==="catat") {
+          const katMatch = s.budgets.find(b=>b.kat.toLowerCase()===parsed.kat?.toLowerCase());
+          const katId = katMatch?.id || s.budgets[0]?.id || "";
+          const dompetMatch = s.dompet.find(d=>d.nama.toLowerCase()===parsed.dompet?.toLowerCase());
+          const dompetId = dompetMatch?.id || s.dompet[0]?.id;
+          const newTx = {
+            id:Date.now(), tgl:today(),
+            tipe:parsed.tipe==="pemasukan"?"pemasukan":"pengeluaran",
+            ket:parsed.ket||msg, jml:String(parsed.jml||0),
+            katId, dompetId, subKat:"", goalId:"",
+            bulan:s.bulan, tahun:s.tahun,
+          };
+          const delta = parsed.tipe==="pemasukan" ? Number(newTx.jml) : -Number(newTx.jml);
+          setS(p=>({...p,
+            txs:[newTx,...p.txs],
+            dompet:p.dompet.map(d=>d.id===dompetId?{...d,saldo:String(Number(d.saldo||0)+delta)}:d)
+          }));
+          const idr = Number(newTx.jml).toLocaleString("id-ID");
+          const emoji = parsed.tipe==="pemasukan"?"💵":"💸";
+          setAiMsgs(prev=>[...prev,{role:"assistant",content:`${emoji} **${parsed.tipe==="pemasukan"?"Pemasukan":"Pengeluaran"} dicatat!**
+
+📝 ${newTx.ket}
+💰 Rp ${idr}
+📂 ${katMatch?.kat||"Lainnya"}
+💳 ${dompetMatch?.nama||s.dompet[0]?.nama}`}]);
+          showToast(t("aiRecorded"));
+
+        // ── TAMBAH GOAL ──────────────────────────────────
+        } else if(parsed.action==="tambah_goal") {
+          const newGoal = {
+            id:Date.now(), nama:parsed.nama||"Goal Baru",
+            target:String(parsed.target||0), kumpul:"0",
+            deadline:parsed.deadline||"", icon:"⭐",
+            history:[], selesai:false,
+          };
+          setS(p=>({...p, goals:[...p.goals, newGoal]}));
+          const idr = Number(parsed.target||0).toLocaleString("id-ID");
+          setAiMsgs(prev=>[...prev,{role:"assistant",content:`⭐ **Goal ditambahkan!**
+
+🎯 ${newGoal.nama}
+💰 Target: Rp ${idr}
+📅 Deadline: ${parsed.deadline||"tidak ditentukan"}
+
+Lihat di menu **Goals** untuk mulai nabung! 💪`}]);
+          showToast("⭐ Goal ditambahkan!");
+
+        // ── TAMBAH ASET ──────────────────────────────────
+        } else if(parsed.action==="tambah_aset") {
+          const newAset = {
+            id:Date.now(), nama:parsed.nama||"Aset Baru",
+            nilai:String(parsed.nilai||0), ket:parsed.ket||"",
+            beliDariDompet:false, dompetId:null,
+          };
+          setS(p=>({...p, asetTetap:[...p.asetTetap, newAset]}));
+          const idr = Number(parsed.nilai||0).toLocaleString("id-ID");
+          setAiMsgs(prev=>[...prev,{role:"assistant",content:`🏛️ **Aset dicatat!**
+
+📦 ${newAset.nama}
+💰 Nilai: Rp ${idr}
+
+Lihat di menu **Aset** untuk detail lengkap.`}]);
+          showToast("🏛️ Aset ditambahkan!");
+
+        // ── TAMBAH UTANG ─────────────────────────────────
+        } else if(parsed.action==="tambah_utang") {
+          const newUtang = {
+            id:Date.now(),
+            tipe:parsed.tipe==="piutang"?"piutang":"utang",
+            nama:parsed.nama||"Utang Baru",
+            jml:String(parsed.jml||0),
+            tempo:parsed.tempo||"",
+            lunas:false, cicilan:[],
+            catatan:"Dicatat via AI",
+          };
+          setS(p=>({...p, utang:[...p.utang, newUtang]}));
+          const idr = Number(parsed.jml||0).toLocaleString("id-ID");
+          const emoji = parsed.tipe==="piutang"?"📤":"📋";
+          setAiMsgs(prev=>[...prev,{role:"assistant",content:`${emoji} **${parsed.tipe==="piutang"?"Piutang":"Utang"} dicatat!**
+
+📝 ${newUtang.nama}
+💰 Rp ${idr}
+📅 Jatuh tempo: ${parsed.tempo||"tidak ditentukan"}
+
+Lihat di menu **Utang** untuk pantau cicilan.`}]);
+          showToast("📋 Utang/Piutang dicatat!");
+
+        // ── ISI AMPLOP ───────────────────────────────────
+        } else if(parsed.action==="isi_amplop") {
+          const amplopMatch = s.amplop.find(a=>a.nama.toLowerCase().includes(parsed.nama?.toLowerCase()||""));
+          if(amplopMatch) {
+            setS(p=>({...p, amplop:p.amplop.map(a=>a.id===amplopMatch.id?{...a,alokasi:String(Number(a.alokasi||0)+Number(parsed.jumlah||0))}:a)}));
+            const idr = Number(parsed.jumlah||0).toLocaleString("id-ID");
+            setAiMsgs(prev=>[...prev,{role:"assistant",content:`✉️ **Amplop diisi!**
+
+📦 ${amplopMatch.nama}
+➕ Rp ${idr}
+
+Saldo amplop bertambah.`}]);
+            showToast("✉️ Amplop diisi!");
+          } else {
+            setAiMsgs(prev=>[...prev,{role:"assistant",content:`⚠️ Amplop "${parsed.nama}" tidak ditemukan. Amplop yang ada: ${s.amplop.map(a=>a.nama).join(", ")||"belum ada amplop"}`}]);
+          }
+        }
+      } else {
+        // Chat biasa
+        setAiMsgs(prev=>[...prev,{role:"assistant",content:reply}]);
+      }
+    } catch(e) {
+      setAiMsgs(prev=>[...prev,{role:"assistant",content:"⚠️ Maaf, terjadi error. Coba lagi ya!"}]);
+    }
+    setAiLoading(false);
+  };
+
+  // ── AUTO-SCROLL AI: only when new msg arrives ─────────────────────────────
+  useEffect(()=>{
+    if(!aiMsgsRef.current) return;
+    const el = aiMsgsRef.current;
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    if(isNearBottom || aiLoading){ el.scrollTop = el.scrollHeight; }
+  },[aiMsgs.length, aiLoading]);
+
+    const exportCSV = () => {
+    const headers = ["ID", "Tanggal", "Tipe", "Keterangan", "Jumlah (Rp)", "Dompet", "Kategori", "Subkategori"];
+    const rows = s.txs.map(t => {
+      const d = s.dompet.find(x => x.id === t.dompetId)?.nama || "";
+      const k = s.budgets.find(x => x.id === t.katId)?.kat || "";
+      return [t.id, t.tgl, t.tipe, `"${t.ket||""}"`, N(t.jml), `"${d}"`, `"${k}"`, `"${t.subKat||""}"`].join(",");
+    });
+    const BOM = "\uFEFF"; // agar Excel baca UTF-8 dengan benar
+    const csv = BOM + [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `AturDuitku_Export_${today()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("✅ Berhasil di-export ke CSV!");
+  };
+
+  // ── EXPORT/IMPORT JSON ──────────────────────────────────────────────────────
+  const exportJSON=()=>{
+    const data=JSON.stringify(s,null,2);
+    const blob=new Blob([data],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=`AturDuitku_Backup_${today()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("✅ Backup JSON berhasil diunduh!");
+  };
+
+  // ── EXPORT PDF (Bank Style) ─────────────────────────────────────────────────
+  const exportPDF = () => {
+    const jsPDF = window.jspdf?.jsPDF;
+    if (!jsPDF) { showToast("Tunggu sebentar, library PDF sedang dimuat..."); return; }
+
+    try {
+      // ── Document setup ──────────────────────────────────────────────────
+      const doc  = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+      const W=210, H=297, ML=14, MR=14, CT=W-ML-MR;
+      const now  = new Date();
+      const pad  = n => String(n).padStart(2,"0");
+      const tsmp = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      const isEN = lang==="en";
+
+      // ── Strip emoji from strings going into PDF ──────────────────────────
+      const clean = str => String(str||"").replace(/[\u{1F000}-\u{1FFFF}]/gu,"").replace(/[\u2600-\u27BF]/g,"").replace(/\s{2,}/g," ").trim();
+
+      // ── Translate month name for EN mode ────────────────────────────────
+      const MONTHS_ID = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+      const MONTHS_EN_PDF = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      const bulanLabel = isEN ? (MONTHS_EN_PDF[MONTHS_ID.indexOf(s.bulan)] || s.bulan) : s.bulan;
+
+      // ── Color palette (RGB arrays) ───────────────────────────────────────
+      const C = {
+        purple:  [91,33,182],   purpleDk:[63,22,130],
+        purpleLt:[237,233,254], purpleBg:[245,243,255],
+        green:   [5,150,105],   greenLt: [209,250,229],
+        red:     [220,38,38],   redLt:   [254,226,226],
+        amber:   [217,119,6],   amberLt: [254,243,199],
+        blue:    [37,99,235],   blueLt:  [219,234,254],
+        dark:    [17,24,39],    gray:    [107,114,128],
+        line:    [229,231,235], grayLt:  [249,250,251],
+        white:   [255,255,255], black:   [0,0,0],
+        teal:    [6,182,212],
+      };
+      const CAT_COLORS = [
+        [245,158,11],[59,130,246],[239,68,68],[16,185,129],
+        [139,92,246],[236,72,153],[6,182,212],[107,114,128],[245,101,101],
+      ];
+
+      // ── Low-level helpers ────────────────────────────────────────────────
+      const fc = (...rgb) => doc.setFillColor(...rgb.flat());
+      const dc = (...rgb) => doc.setDrawColor(...rgb.flat());
+      const tc = (...rgb) => doc.setTextColor(...rgb.flat());
+      const lw = (w)      => doc.setLineWidth(w);
+      const ft = (style="normal", size=9) => { doc.setFont("helvetica",style); doc.setFontSize(size); };
+
+      // Rounded rect shorthand
+      const rr  = (x,y,w,h,r,mode="F") => doc.roundedRect(x,y,w,h,r,r,mode);
+      const rx  = (x,y,w,h,mode="F")   => doc.rect(x,y,w,h,mode);
+      // Line
+      const ln  = (x1,y1,x2,y2) => doc.line(x1,y1,x2,y2);
+      // Text
+      const txt = (text,x,y,opts={}) => doc.text(String(text),x,y,opts);
+
+      // ── Data helpers ─────────────────────────────────────────────────────
+      const Num = v => parseFloat(String(v||0).replace(/[^\d.,-]/g,"").replace(/\./g,"").replace(",","."))||0;
+      const idr = n => "Rp "+Math.round(Math.abs(n||0)).toLocaleString("id-ID");
+      const idrc = n => (n<0?"-":"")+"Rp "+Math.round(Math.abs(n||0)).toLocaleString("id-ID");
+      const idrs = n => {
+        const a=Math.round(Math.abs(n||0));
+        if(a>=1e9) return (n<0?"-":"")+"Rp "+(a/1e9).toFixed(1)+"M";
+        if(a>=1e6) return (n<0?"-":"")+"Rp "+(a/1e6).toFixed(1)+"jt";
+        if(a>=1e3) return (n<0?"-":"")+"Rp "+(a/1e3).toFixed(0)+"rb";
+        return "Rp "+a.toLocaleString("id-ID");
+      };
+      const pctn = (v,t) => t>0?((v/t)*100).toFixed(1)+"%":"0%";
+
+      // ── Transaction data ─────────────────────────────────────────────────
+      const txM     = s.txs.filter(tx=>tx.bulan===s.bulan&&tx.tahun===s.tahun);
+      const totalIn  = txM.filter(tx=>tx.tipe==="pemasukan").reduce((a,tx)=>a+Num(tx.jml),0);
+      const totalOut = txM.filter(tx=>tx.tipe==="pengeluaran").reduce((a,tx)=>a+Num(tx.jml),0);
+      const totalSav = txM.filter(tx=>tx.tipe==="tabungan").reduce((a,tx)=>a+Num(tx.jml),0);
+      const netCash  = totalIn-totalOut-totalSav;
+      const totalBal = s.dompet.reduce((a,d)=>a+Num(d.saldo),0);
+
+      // Kateg spend (match by Number ID)
+      const katSpend = {};
+      txM.filter(tx=>tx.tipe==="pengeluaran").forEach(tx=>{
+        const kid=Number(tx.katId); katSpend[kid]=(katSpend[kid]||0)+Num(tx.jml);
+      });
+
+      // ── Budget helpers ────────────────────────────────────────────────────
+      const budgetAlloc = s.budgets.reduce((a,b)=>a+Num(b.alokasi)+b.sub.reduce((x,sb)=>x+Num(sb.alokasi),0),0);
+      const budgetPct   = budgetAlloc>0?(totalOut/budgetAlloc*100):0;
+
+      // ── Score ─────────────────────────────────────────────────────────────
+      const savRate  = totalIn>0?(totalSav/totalIn*100):0;
+      const runway   = totalOut>0?(totalBal/totalOut):0;
+      const sSav = Math.min(40,(savRate/20)*40);
+      const sDis = budgetAlloc>0?Math.max(0,Math.min(30,(1-budgetPct/100)*30)):30;
+      const sRun = Math.min(30,(runway/6)*30);
+      const score = Math.round(sSav+sDis+sRun);
+      const scoreLabel = score>=90?"Excellent":score>=75?(isEN?"Very Good":"Sangat Baik"):score>=60?(isEN?"Good":"Baik"):score>=40?(isEN?"Fair":"Cukup"):(isEN?"Needs Work":"Perlu Perhatian");
+      const scoreRGB   = score>=75?C.green:score>=50?C.amber:C.red;
+
+      // ── Page state ────────────────────────────────────────────────────────
+      let pageNum=1;
+
+      const addFooter = () => {
+        fc(C.grayLt); rx(0,H-8,W,8);
+        dc(C.line); lw(0.3); ln(0,H-8,W,H-8);
+        tc(C.purple); ft("bold",6.5); txt("AturDuitku",ML,H-2.8);
+        tc(C.gray);   ft("normal",6);
+        txt(isEN?"Personal Finance Report":"Laporan Keuangan Personal", ML+21,H-2.8);
+        txt(`${bulanLabel} ${s.tahun}`, W/2,H-2.8,{align:"center"});
+        txt(`${isEN?"Page":"Hal"} ${pageNum}`, W-MR,H-2.8,{align:"right"});
+      };
+
+      const newPage = () => {
+        addFooter(); doc.addPage(); pageNum++;
+        fc(C.purple); rx(0,0,W,1.8);   // purple top rule
+      };
+
+      // Section title: left accent bar + title + optional subtitle + rule
+      const secTitle = (title, sub, y) => {
+        fc(C.purple); rx(ML,y,3,sub?8:6.5);
+        tc(C.dark); ft("bold",11); txt(clean(title),ML+5,y+5.5);
+        let bot=y+7;
+        if(sub){ tc(C.gray); ft("normal",7); txt(clean(sub),ML+5,y+11); bot=y+13; }
+        dc(C.line); lw(0.4); ln(ML,bot+1,W-MR,bot+1);
+        return bot+4;
+      };
+
+      // Inline progress bar
+      const progBar = (x,y,w,h,pct,rgb) => {
+        const p=Math.min(100,Math.max(0,pct));
+        fc(C.line); rr(x,y,w,h,h/2);
+        fc(rgb); rr(x,y,Math.max(h,w*p/100),h,h/2);
+      };
+
+      // ─────────────────────────────────────────────────────────────────────
+      // PAGE 1  –  HEADER + SUMMARY CARDS + WALLET
+      // ─────────────────────────────────────────────────────────────────────
+      let y=0;
+
+      // Solid gradient header (layered thin rects – no GState)
+      for(let i=0;i<50;i++){
+        const r=Math.round(91+(63-91)*(i/49));
+        const g=Math.round(33+(22-33)*(i/49));
+        const b=Math.round(182+(130-182)*(i/49));
+        fc([r,g,b]); rx(0,i*50/50*48/50,W,1);   // tiny overlap
+      }
+      // Cleaner solid band that looks like a gradient
+      fc(C.purple); rx(0,0,W,48);
+      // Decorative right panel (darker)
+      fc(C.purpleDk); rx(W-52,0,52,48);
+      // Thin separator line
+      dc(C.white); lw(0.2); ln(W-52,4,W-52,44);
+
+      // App name + subtitle
+      tc(C.white); ft("bold",22); txt("AturDuitku",ML,17);
+      tc(C.white); ft("normal",8.5); txt(isEN?"Personal Finance Report":"Laporan Keuangan Personal",ML,24);
+      // Thin rule
+      dc([200,180,255]); lw(0.3); ln(ML,27,W-56,27);
+      // Name + period
+      tc(C.white); ft("bold",9.5); txt(clean(s.name)||"Pengguna",ML,33);
+      tc([210,200,240]); ft("normal",7.5);
+      txt(`${isEN?"Period":"Periode"}: ${bulanLabel} ${s.tahun}`,ML,39);
+      txt(`${isEN?"Generated":"Dibuat"}: ${tsmp}`,ML,44.5);
+
+      // Right badges
+      tc(C.white); ft("bold",7.5); txt(isEN?"OFFICIAL REPORT":"LAPORAN RESMI", W-26,14,{align:"center"});
+      dc([200,180,255]); lw(0.2); ln(W-48,17,W-4,17);
+      ft("normal",8); txt(`${bulanLabel} ${s.tahun}`,W-26,24,{align:"center"});
+      ft("normal",6.5); txt(tsmp.split(" ")[0],W-26,30,{align:"center"});
+
+      y=52;
+
+      // ── Summary section ──────────────────────────────────────────────────
+      y=secTitle(isEN?"Financial Summary":"Ringkasan Keuangan",
+                 `${isEN?"Period":"Periode"}: ${bulanLabel} ${s.tahun} | ${txM.length} ${isEN?"transactions":"transaksi"}`, y);
+
+      // 4 stat cards
+      const cw4=(CT-9)/4, ch4=24;
+      const cards4=[
+        {l:isEN?"TOTAL BALANCE":"TOTAL SALDO",   v:idr(totalBal),  sub:s.dompet.slice(0,2).map(d=>clean(d.nama)).join(" & ").slice(0,20)||"-", ac:C.purple, bg:C.purpleLt},
+        {l:isEN?"INCOME":"PEMASUKAN",             v:idr(totalIn),   sub:`+${pctn(totalIn,totalIn+totalOut)} ${isEN?"of all":"dari total"}`,    ac:C.green,  bg:C.greenLt},
+        {l:isEN?"EXPENSES":"PENGELUARAN",         v:idr(totalOut),  sub:`${pctn(totalOut,totalIn+totalOut)} ${isEN?"of income":"dari masuk"}`,   ac:C.red,    bg:C.redLt},
+        {l:"NET CASHFLOW",                        v:idrc(netCash),  sub:netCash>=0?(isEN?"Surplus - great!":"Surplus - bagus!"):(isEN?"Deficit - careful":"Defisit - perhatian"),  ac:netCash>=0?C.green:C.red, bg:netCash>=0?C.greenLt:C.redLt},
+      ];
+      cards4.forEach((cd,i)=>{
+        const cx=ML+i*(cw4+3);
+        // Shadow
+        fc(C.line); rr(cx+0.4,y+0.6,cw4,ch4,2);
+        // Card
+        fc(cd.bg); rr(cx,y,cw4,ch4,2);
+        dc(cd.ac); lw(0.4); rr(cx,y,cw4,ch4,2,"D");
+        // Left bar
+        fc(cd.ac); rx(cx,y,2.5,ch4);
+        // Label
+        tc(cd.ac); ft("bold",5.5); txt(cd.l,cx+4.5,y+5.5);
+        // Value (auto-shrink if long)
+        tc(C.dark); ft("bold", cd.v.length>14?8:9.5);
+        doc.text(cd.v,cx+4.5,y+13);
+        // Sub
+        tc(C.gray); ft("normal",5.5); txt(cd.sub,cx+4.5,y+ch4-2.5);
+      });
+      y+=ch4+6;
+
+      // Score bar
+      fc(C.purpleBg); rr(ML,y,CT,16,2.5);
+      dc(C.purpleLt); lw(0.5); rr(ML,y,CT,16,2.5,"D");
+      fc(C.purple); rx(ML,y,3,16);
+      // Score badge
+      fc(scoreRGB); rr(ML+5,y+2.5,19,11,2);
+      tc(C.white); ft("bold",13); txt(String(score),ML+14.5,y+10.2,{align:"center"});
+      tc(C.white); ft("normal",5); txt("/100",ML+14.5,y+13.5,{align:"center"});
+      // Label
+      tc(C.dark); ft("bold",10.5); txt(scoreLabel,ML+28,y+8.5);
+      tc(C.gray);  ft("normal",7); txt(`${isEN?"Financial Health Score":"Skor Kesehatan Keuangan"} - ${bulanLabel} ${s.tahun}`,ML+28,y+13.5);
+      // Mini progress
+      progBar(ML+112,y+5.5,74,3.5,score,scoreRGB);
+      tc(C.gray); ft("bold",5.5); txt(score+"%",W-MR-1,y+9,{align:"right"});
+      y+=22;
+
+      // ── Wallet table ──────────────────────────────────────────────────────
+      y=secTitle(isEN?"Wallet Accounts":"Detail Dompet",
+                 isEN?"Balance per account (end of period)":"Saldo per akun akhir periode", y);
+
+      doc.autoTable({
+        startY:y, margin:{left:ML,right:MR},
+        head:[[
+          isEN?"Account":"Akun",
+          isEN?"Type":"Tipe",
+          isEN?"Balance":"Saldo",
+          isEN?"Share %":"Porsi %"
+        ]],
+        body:[
+          ...s.dompet.map(d=>{
+            const bal=Num(d.saldo);
+            return [clean(d.nama), clean(d.tipe), idr(bal), pctn(bal,totalBal)];
+          }),
+          [isEN?"TOTAL":"TOTAL","",idr(totalBal),"100%"],
+        ],
+        columnStyles:{
+          0:{cellWidth:68,fontStyle:"normal"},
+          1:{cellWidth:32,halign:"center"},
+          2:{cellWidth:55,halign:"right",fontStyle:"bold"},
+          3:{cellWidth:27,halign:"center"},
+        },
+        headStyles:{fillColor:C.purple,textColor:255,fontStyle:"bold",fontSize:8,cellPadding:3.5},
+        bodyStyles:{fontSize:8.5,cellPadding:3.5,textColor:C.dark},
+        alternateRowStyles:{fillColor:C.grayLt},
+        theme:"plain",
+        tableLineColor:C.line, tableLineWidth:0.3,
+        didParseCell:(d)=>{
+          if(d.section==="body"){
+            const isTot=d.row.index===s.dompet.length;
+            if(isTot){d.cell.styles.fillColor=C.dark;d.cell.styles.textColor=C.white;d.cell.styles.fontStyle="bold";return;}
+            if(d.column.index===2){
+              const bal=Num(s.dompet[d.row.index]?.saldo||0);
+              d.cell.styles.textColor=bal>=0?C.green:C.red;
+            }
+          }
+        },
+        didDrawCell:(d)=>{
+          if(d.column.index===0&&(d.section==="body"||d.section==="head")){
+            fc(C.purple); rx(d.cell.x,d.cell.y,2,d.cell.height);
+          }
+        },
+      });
+      y=doc.lastAutoTable.finalY+5;
+
+      // ─────────────────────────────────────────────────────────────────────
+      // PAGE 2  –  TRANSACTION HISTORY
+      // ─────────────────────────────────────────────────────────────────────
+      newPage(); y=6;
+      y=secTitle(isEN?"Transaction History":"Riwayat Transaksi",
+                 `${bulanLabel} ${s.tahun}  |  ${txM.length} ${isEN?"transactions":"transaksi"}  |  Max 60 ${isEN?"shown":"ditampilkan"}`, y);
+
+      const TIPE_LBL  = {pemasukan:"[+]", pengeluaran:"[-]", tabungan:"[S]", transfer:"[T]"};
+      const txRows = txM.slice(0,60).map(tx=>{
+        const dompet   = clean(s.dompet.find(d=>d.id===tx.dompetId)?.nama||"-");
+        const katB     = s.budgets.find(b=>b.id===Number(tx.katId));
+        const katLabel = clean(katB?.kat||(tx.tipe==="pemasukan"?(isEN?"Income":"Pemasukan"):(isEN?"Other":"Lainnya")));
+        const tlbl     = TIPE_LBL[tx.tipe]||"[?]";
+        const debit    = (tx.tipe==="pengeluaran"||tx.tipe==="tabungan")?idr(Num(tx.jml)):"";
+        const kredit   = tx.tipe==="pemasukan"?idr(Num(tx.jml)):"";
+        return [tx.tgl||"-", tlbl, clean(tx.ket||"-").slice(0,34), katLabel.slice(0,18), dompet.slice(0,14), debit, kredit];
+      });
+      // Total row
+      txRows.push(["","",isEN?"PERIOD TOTAL":"TOTAL PERIODE","","",
+        totalOut>0?"("+idr(totalOut)+")":"",
+        totalIn>0?idr(totalIn):"",
+      ]);
+
+      doc.autoTable({
+        startY:y, margin:{left:ML,right:MR},
+        head:[[
+          isEN?"Date":"Tgl","",
+          isEN?"Description":"Keterangan",
+          isEN?"Category":"Kategori",
+          isEN?"Wallet":"Dompet",
+          isEN?"Debit":"Debit",
+          isEN?"Credit":"Kredit",
+        ]],
+        body:txRows,
+        columnStyles:{
+          0:{cellWidth:21,fontSize:7,textColor:C.gray},
+          1:{cellWidth:9, halign:"center",fontSize:7.5,fontStyle:"bold"},
+          2:{cellWidth:55,fontSize:7.5},
+          3:{cellWidth:30,halign:"center",fontSize:7},
+          4:{cellWidth:22,halign:"center",fontSize:7},
+          5:{cellWidth:31,halign:"right",fontSize:7.5,fontStyle:"bold"},
+          6:{cellWidth:31,halign:"right",fontSize:7.5,fontStyle:"bold"},
+        },
+        headStyles:{fillColor:C.dark,textColor:255,fontStyle:"bold",fontSize:7.5,cellPadding:3.5},
+        bodyStyles:{fontSize:7.5,cellPadding:3,textColor:C.dark},
+        alternateRowStyles:{fillColor:C.grayLt},
+        theme:"plain",
+        tableLineColor:C.line,tableLineWidth:0.25,
+        didParseCell:(d)=>{
+          if(d.section!=="body") return;
+          const totIdx=txM.slice(0,60).length;
+          if(d.row.index===totIdx){
+            d.cell.styles.fillColor=C.dark; d.cell.styles.textColor=C.white; d.cell.styles.fontStyle="bold"; return;
+          }
+          const tx=txM[d.row.index]; if(!tx) return;
+          if(d.column.index===6&&tx.tipe==="pemasukan")  d.cell.styles.textColor=C.green;
+          if(d.column.index===5&&tx.tipe==="pengeluaran")d.cell.styles.textColor=C.red;
+          if(d.column.index===5&&tx.tipe==="tabungan")   d.cell.styles.textColor=C.purple;
+          if(d.column.index===1){
+            if(tx.tipe==="pemasukan")   d.cell.styles.textColor=C.green;
+            else if(tx.tipe==="pengeluaran") d.cell.styles.textColor=C.red;
+            else if(tx.tipe==="tabungan")    d.cell.styles.textColor=C.purple;
+            else d.cell.styles.textColor=C.blue;
+          }
+        },
+        didDrawCell:(d)=>{
+          if(d.column.index===0&&(d.section==="body"||d.section==="head")){
+            fc(C.purple); rx(d.cell.x,d.cell.y,2,d.cell.height);
+          }
+        },
+      });
+      y=doc.lastAutoTable.finalY+8;
+
+      // ─────────────────────────────────────────────────────────────────────
+      // PAGE 3  –  SPENDING DISTRIBUTION + 6-MONTH TREND
+      // ─────────────────────────────────────────────────────────────────────
+      newPage(); y=6;
+
+      // ── Spending by category (horizontal bar chart) ───────────────────────
+      const katData = s.budgets
+        .map((b,i)=>({
+          id:b.id, kat:clean(b.kat),
+          jml:katSpend[b.id]||0,
+          alloc:Num(b.alokasi)+b.sub.reduce((x,sb)=>x+Num(sb.alokasi),0),
+          color:CAT_COLORS[i%CAT_COLORS.length]
+        }))
+        .filter(x=>x.jml>0)
+        .sort((a,b2)=>b2.jml-a.jml)
+        .slice(0,8);
+      const totKat=katData.reduce((a,x)=>a+x.jml,0)||1;
+
+      y=secTitle(isEN?"Spending by Category":"Distribusi Pengeluaran",
+                 isEN?`Top ${katData.length} categories this period`:`${katData.length} kategori pengeluaran terbesar`, y);
+
+      if(katData.length){
+        const bX=ML+50, maxBW=CT-50-34, bH=5.2, bGap=3.2;
+        katData.forEach((d,i)=>{
+          const bY=y+i*(bH+bGap);
+          const bW=Math.max(2,(d.jml/totKat)*maxBW);
+          // Rank
+          fc(C.purpleBg); rr(ML-1,bY,10,bH,1);
+          tc(C.purple); ft("bold",6); txt("#"+(i+1),ML+4,bY+bH-0.8,{align:"center"});
+          // Category name
+          tc(C.dark); ft("normal",7.5); txt(d.kat.slice(0,18),ML+10,bY+bH-0.7);
+          // Track
+          fc(C.line); rr(bX,bY,maxBW,bH,bH/2);
+          // Bar fill
+          fc(d.color); rr(bX,bY,bW,bH,bH/2);
+          // Value
+          tc(C.gray); ft("bold",6.5);
+          txt(idrs(d.jml)+" ("+pctn(d.jml,totKat)+")", bX+maxBW+2, bY+bH-0.7);
+        });
+        y+=katData.length*(bH+bGap)+8;
+      } else {
+        tc(C.gray); ft("normal",8.5);
+        txt(isEN?"No spending data this period":"Belum ada pengeluaran bulan ini",ML,y+8);
+        y+=16;
+      }
+
+      // ── 6-month bar chart ─────────────────────────────────────────────────
+      if(y>H-80){newPage();y=6;}
+
+      const MONTHS_FULL = isEN
+        ?["January","February","March","April","May","June","July","August","September","October","November","December"]
+        :["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+      const MSHORT = isEN
+        ?["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+        :["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
+      const mIdx=MONTHS_FULL.indexOf(s.bulan);
+      const yr=parseInt(s.tahun);
+
+      const trendData=[];
+      for(let i=5;i>=0;i--){
+        let mi=mIdx-i,yi=yr;
+        if(mi<0){mi+=12;yi--;}
+        const mn=MONTHS_FULL[mi];
+        const mTx=s.txs.filter(tx=>tx.bulan===mn&&tx.tahun===String(yi));
+        trendData.push({
+          l:MSHORT[mi],
+          inc:mTx.filter(t=>t.tipe==="pemasukan").reduce((a,t)=>a+Num(t.jml),0),
+          exp:mTx.filter(t=>t.tipe==="pengeluaran").reduce((a,t)=>a+Num(t.jml),0),
+        });
+      }
+
+      y=secTitle(isEN?"6-Month Trend":"Tren 6 Bulan",
+                 isEN?"Income vs Expenses – last 6 months":"Perbandingan pemasukan vs pengeluaran 6 bulan terakhir",y);
+
+      const maxT=Math.max(...trendData.map(m=>Math.max(m.inc,m.exp)),1);
+      const cH=38,cX=ML+18,cW=CT-18,colW=cW/6,bW2=colW*0.33;
+
+      // Y-axis gridlines + labels
+      dc(C.line); lw(0.25);
+      [0.25,0.5,0.75,1].forEach(p=>{
+        const gy=y+cH*(1-p);
+        ln(cX,gy,cX+cW,gy);
+        tc(C.gray); ft("normal",5.5);
+        txt(idrs(maxT*p),cX-2,gy+1.5,{align:"right"});
+      });
+      // Baseline
+      dc(C.line); lw(0.6); ln(cX,y+cH,cX+cW,y+cH);
+
+      trendData.forEach((m,i)=>{
+        const gx=cX+i*colW+colW*0.06;
+        const hI=m.inc>0?(m.inc/maxT)*cH:0;
+        const hE=m.exp>0?(m.exp/maxT)*cH:0;
+        if(hI>0){fc(C.green); rr(gx,y+cH-hI,bW2,Math.max(hI,1),1);}
+        if(hE>0){fc(C.red);   rr(gx+bW2+1,y+cH-hE,bW2,Math.max(hE,1),1);}
+        // Month label
+        tc(C.dark); ft("bold",6);
+        // Bold if current month
+        const isCur=(i===5);
+        if(isCur){fc(C.purpleBg);rr(gx-1,y+cH+2,colW*0.7,5,1);}
+        txt(m.l,gx+bW2,y+cH+5.5,{align:"center"});
+      });
+
+      // Legend
+      fc(C.green); rx(W-54,y+1.5,8,3.5);
+      tc(C.dark); ft("normal",7); txt(isEN?"Income":"Masuk",W-44,y+5);
+      fc(C.red);   rx(W-54,y+7,8,3.5);
+      txt(isEN?"Expense":"Keluar",W-44,y+10.5);
+      y+=cH+12;
+
+      // ─────────────────────────────────────────────────────────────────────
+      // PAGE 4  –  BUDGET PERFORMANCE + HEALTH SCORE
+      // ─────────────────────────────────────────────────────────────────────
+      newPage(); y=6;
+
+      // ── Budget performance table ──────────────────────────────────────────
+      y=secTitle(isEN?"Budget Performance":"Performa Anggaran",
+                 isEN?"Realized vs allocated per category":"Realisasi vs alokasi per kategori bulan ini",y);
+
+      const budgetRows=s.budgets
+        .map(b=>{
+          const alloc=Num(b.alokasi)+b.sub.reduce((x,sb)=>x+Num(sb.alokasi),0);
+          const real=katSpend[b.id]||0;
+          const sisa=alloc-real;
+          const p=alloc>0?(real/alloc*100):0;
+          const status=p>100?(isEN?"OVER":"OVER"):p>80?(isEN?"WATCH":"HAMPIR"):(isEN?"OK":"AMAN");
+          return {kat:clean(b.kat),alloc,real,sisa,p,status,_p:p};
+        })
+        .filter(r=>r.alloc>0||r.real>0);
+
+      doc.autoTable({
+        startY:y, margin:{left:ML,right:MR},
+        head:[[
+          isEN?"Category":"Kategori",
+          isEN?"Allocated":"Alokasi",
+          isEN?"Realized":"Realisasi",
+          isEN?"Remaining":"Sisa",
+          "%",
+          isEN?"Status":"Status",
+        ]],
+        body:budgetRows.map(r=>[
+          r.kat,
+          idr(r.alloc),
+          idr(r.real),
+          r.sisa>=0?idr(r.sisa):"("+idr(Math.abs(r.sisa))+")",
+          r.p.toFixed(0)+"%",
+          r.status,
+        ]),
+        columnStyles:{
+          0:{cellWidth:52},
+          1:{cellWidth:33,halign:"right"},
+          2:{cellWidth:33,halign:"right"},
+          3:{cellWidth:33,halign:"right"},
+          4:{cellWidth:19,halign:"center",fontStyle:"bold"},
+          5:{cellWidth:22,halign:"center",fontStyle:"bold"},
+        },
+        headStyles:{fillColor:C.dark,textColor:255,fontStyle:"bold",fontSize:8,cellPadding:3.5},
+        bodyStyles:{fontSize:8,cellPadding:3.5,textColor:C.dark},
+        alternateRowStyles:{fillColor:C.grayLt},
+        theme:"plain",
+        tableLineColor:C.line,tableLineWidth:0.3,
+        didParseCell:(d)=>{
+          if(d.section!=="body") return;
+          const r=budgetRows[d.row.index]; if(!r) return;
+          if(d.column.index===5){d.cell.styles.textColor=r._p>100?C.red:r._p>80?C.amber:C.green;}
+          if(d.column.index===4){d.cell.styles.textColor=r._p>100?C.red:r._p>80?C.amber:C.green;}
+          if(d.column.index===3){d.cell.styles.textColor=r.sisa>=0?C.green:C.red;}
+        },
+        didDrawCell:(d)=>{
+          if(d.column.index===0&&(d.section==="body"||d.section==="head")){
+            fc(C.purple); rx(d.cell.x,d.cell.y,2,d.cell.height);
+          }
+          // Progress mini-bar inside % cell
+          if(d.section==="body"&&d.column.index===4){
+            const r=budgetRows[d.row.index]; if(!r) return;
+            const bx=d.cell.x+1, by=d.cell.y+d.cell.height-2.8, bw=d.cell.width-2;
+            fc(C.line); rx(bx,by,bw,1.5);
+            fc(r._p>100?C.red:r._p>80?C.amber:C.green);
+            rx(bx,by,Math.max(1.5,bw*Math.min(r._p,100)/100),1.5);
+          }
+        },
+      });
+      y=doc.lastAutoTable.finalY+8;
+
+      // ── Health score ──────────────────────────────────────────────────────
+      if(y>H-80){newPage();y=6;}
+      y=secTitle(isEN?"Financial Health":"Kesehatan Keuangan",
+                 isEN?"Key indicators - "+bulanLabel+" "+s.tahun:"Indikator utama - "+bulanLabel+" "+s.tahun,y);
+
+      // Hero score box
+      fc(C.purpleBg); rr(ML,y,CT,28,3);
+      dc(C.purpleLt); lw(0.6); rr(ML,y,CT,28,3,"D");
+      fc(C.purple); rx(ML,y,3,28);
+      // Score circle
+      fc(scoreRGB); rr(ML+5,y+4,22,20,3);
+      tc(C.white); ft("bold",18); txt(String(score),ML+16,y+16.5,{align:"center"});
+      tc(C.white); ft("normal",5.5); txt("/100",ML+16,y+21,{align:"center"});
+      // Label + description
+      tc(C.dark); ft("bold",15); txt(scoreLabel,ML+31,y+13);
+      tc(C.gray); ft("normal",8); txt(isEN?`Financial Health - ${bulanLabel} ${s.tahun}`:`Skor Kesehatan Keuangan - ${bulanLabel} ${s.tahun}`,ML+31,y+19.5);
+      progBar(ML+31,y+23,CT-35,3.5,score,scoreRGB);
+      tc(C.gray); ft("bold",6); txt(score+"%",W-MR-1,y+26.5,{align:"right"});
+      y+=34;
+
+      // 4 KPI mini-cards
+      const kpiW=(CT-9)/4, kpiH=20;
+      const kpis=[
+        {l:isEN?"Saving Rate":"Rasio Tabungan",  v:savRate.toFixed(1)+"%", bench:isEN?">=20% ideal":">=20% ideal", ok:savRate>=20},
+        {l:isEN?"Budget Usage":"Pemakaian Budget",v:budgetPct.toFixed(1)+"%",bench:isEN?"<=85% ideal":"<=85% ideal",ok:budgetPct<=85},
+        {l:"Net Cashflow",                         v:idrs(netCash),          bench:isEN?"Positive=good":"Positif=baik",ok:netCash>=0},
+        {l:isEN?"Cash Runway":"Dana Darurat",     v:runway.toFixed(1)+(isEN?" mo":" bln"),bench:isEN?">=3 mo ideal":">=3 bln ideal",ok:runway>=3},
+      ];
+      kpis.forEach((kpi,i)=>{
+        const kx=ML+i*(kpiW+3);
+        fc(kpi.ok?C.greenLt:C.redLt); rr(kx,y,kpiW,kpiH,2);
+        dc(kpi.ok?C.green:C.red); lw(0.4); rr(kx,y,kpiW,kpiH,2,"D");
+        fc(kpi.ok?C.green:C.red); rx(kx,y,2.5,kpiH);
+        tc(kpi.ok?C.green:C.red); ft("bold",5.5); txt(kpi.l,kx+4.5,y+5.5);
+        tc(C.dark); ft("bold",kpi.v.length>8?8:9.5); txt(kpi.v,kx+4.5,y+12.5);
+        tc(C.gray); ft("normal",5.5); txt(kpi.bench,kx+4.5,y+kpiH-2.5);
+      });
+      y+=kpiH+8;
+
+      // Indicators table
+      doc.autoTable({
+        startY:y, margin:{left:ML,right:MR},
+        head:[[
+          isEN?"Indicator":"Indikator",
+          isEN?"Value":"Nilai",
+          isEN?"Benchmark":"Benchmark",
+          isEN?"Status":"Status",
+          isEN?"Score":"Skor",
+        ]],
+        body:[
+          [isEN?"Saving Rate":"Rasio Tabungan",    savRate.toFixed(1)+"%", ">=20%", savRate>=20?(isEN?"GOOD":"BAIK"):(isEN?"LOW":"KURANG"), Math.round(sSav)+"/40"],
+          [isEN?"Budget Discipline":"Disiplin Budget", budgetPct.toFixed(1)+"%","<=85%",budgetPct<=85?(isEN?"GOOD":"BAIK"):(isEN?"OVER":"OVER"),Math.max(0,Math.round(sDis))+"/30"],
+          ["Net Cashflow", idrs(netCash), isEN?"Positive":"Positif", netCash>=0?(isEN?"GOOD":"BAIK"):(isEN?"DEFICIT":"DEFISIT"), "-"],
+          [isEN?"Cash Runway":"Dana Darurat", runway.toFixed(1)+(isEN?" months":" bulan"), ">=3", runway>=3?(isEN?"GOOD":"BAIK"):(isEN?"LOW":"KURANG"), Math.min(30,Math.round(sRun))+"/30"],
+          [isEN?"TOTAL SCORE":"TOTAL SKOR", score+"/100", "-", scoreLabel, score+"/100"],
+        ],
+        columnStyles:{
+          0:{cellWidth:56},
+          1:{cellWidth:38,halign:"right",fontStyle:"bold"},
+          2:{cellWidth:30,halign:"center"},
+          3:{cellWidth:30,halign:"center",fontStyle:"bold"},
+          4:{cellWidth:28,halign:"center",fontStyle:"bold"},
+        },
+        headStyles:{fillColor:C.purple,textColor:255,fontStyle:"bold",fontSize:8,cellPadding:4},
+        bodyStyles:{fontSize:8.5,cellPadding:4,textColor:C.dark},
+        alternateRowStyles:{fillColor:C.purpleBg},
+        theme:"plain",
+        tableLineColor:C.line,tableLineWidth:0.3,
+        didParseCell:(d)=>{
+          if(d.section!=="body") return;
+          const isTotal=d.row.index===4;
+          if(isTotal){d.cell.styles.fillColor=C.dark;d.cell.styles.textColor=C.white;d.cell.styles.fontStyle="bold";return;}
+          if(d.column.index===3){
+            const ok=String(d.cell.raw||"").includes("GOOD")||String(d.cell.raw||"").includes("BAIK");
+            d.cell.styles.textColor=ok?C.green:C.red;
+          }
+          if(d.column.index===1) d.cell.styles.textColor=C.purple;
+        },
+        didDrawCell:(d)=>{
+          if(d.column.index===0&&(d.section==="body"||d.section==="head")){
+            fc(C.purple); rx(d.cell.x,d.cell.y,2,d.cell.height);
+          }
+        },
+      });
+      y=doc.lastAutoTable.finalY+8;
+
+      // ── Disclaimer ────────────────────────────────────────────────────────
+      if(y<H-20){
+        fc(C.grayLt); rr(ML,y,CT,13,2);
+        dc(C.line); lw(0.3); rr(ML,y,CT,13,2,"D");
+        fc(C.gray); rx(ML,y,3,13);
+        tc(C.gray); ft("normal",6.5);
+        const dis=isEN
+          ?"This report was automatically generated by AturDuitku based on personal data entered by the user. Data is private and confidential. AturDuitku is not responsible for financial decisions made based on this report. Consult a certified financial planner for professional advice."
+          :"Laporan ini dibuat otomatis oleh AturDuitku berdasarkan data yang dimasukkan pengguna. Data bersifat pribadi & rahasia. AturDuitku tidak bertanggung jawab atas keputusan keuangan berdasarkan laporan ini. Konsultasikan dengan perencana keuangan profesional.";
+        const disLines=doc.splitTextToSize(dis,CT-8);
+        doc.text(disLines,ML+4,y+5.5);
+      }
+
+      // ── Final footer + save ───────────────────────────────────────────────
+      addFooter();
+      doc.save(`AturDuitku_${bulanLabel}_${s.tahun}.pdf`);
+      showToast(t("toast_pdfOk"));
+
+    } catch(err) {
+      console.error("PDF export error:", err);
+      showToast("Gagal export PDF: "+String(err.message||err));
+    }
+  };
+
+  // ── EXPORT GOOGLE SHEETS (XLSX) ─────────────────────────────────────────────
+  const exportSheets = () => {
+    const XLSX = window.XLSX;
+    if (!XLSX) { showToast("Tunggu sebentar, library sedang dimuat..."); return; }
+    try {
+      const isEN = lang==="en";
+      const Num = v => parseFloat(String(v||0).replace(/[^\d.,-]/g,"").replace(/\./g,"").replace(",","."))||0;
+      const idr = n => "Rp "+Math.round(Math.abs(n||0)).toLocaleString("id-ID");
+      const pct = (v,t) => t>0?((v/t)*100).toFixed(1)+"%":"0%";
+
+      const txM = s.txs.filter(tx=>tx.bulan===s.bulan&&tx.tahun===s.tahun);
+      const totalIn  = txM.filter(tx=>tx.tipe==="pemasukan").reduce((a,tx)=>a+Num(tx.jml),0);
+      const totalOut = txM.filter(tx=>tx.tipe==="pengeluaran").reduce((a,tx)=>a+Num(tx.jml),0);
+      const totalSav = txM.filter(tx=>tx.tipe==="tabungan").reduce((a,tx)=>a+Num(tx.jml),0);
+      const netCash  = totalIn-totalOut-totalSav;
+      const totalBal = s.dompet.reduce((a,d)=>a+Num(d.saldo),0);
+      const katSpend = {};
+      txM.filter(tx=>tx.tipe==="pengeluaran").forEach(tx=>{
+        const b=s.budgets.find(b=>b.id===Number(tx.katId));
+        const nm=b?.kat||(isEN?"Other":"Lainnya");
+        katSpend[nm]=(katSpend[nm]||0)+Num(tx.jml);
+      });
+
+      const wb = XLSX.utils.book_new();
+
+      // ── Palette & style helpers ──────────────────────────────────────────────
+      const purple  = "5B21B6"; const purpleLt = "EDE9FE"; const purpleDk = "3F1682";
+      const green   = "059669"; const greenLt  = "D1FAE5";
+      const red     = "DC2626"; const redLt    = "FEE2E2";
+      const amber   = "D97706"; const amberLt  = "FEF3C7";
+      const gray    = "6B7280"; const grayLt   = "F9FAFB";
+      const white   = "FFFFFF"; const dark     = "111827";
+      const line    = "E5E7EB";
+
+      const hdr = (bg, fg="FFFFFF", bold=true, sz=11) => ({
+        fill:{patternType:"solid", fgColor:{rgb:bg}},
+        font:{bold, color:{rgb:fg}, sz, name:"Arial"},
+        alignment:{horizontal:"center", vertical:"center", wrapText:true},
+        border:{top:{style:"thin",color:{rgb:line}},bottom:{style:"thin",color:{rgb:line}},
+                left:{style:"thin",color:{rgb:line}},right:{style:"thin",color:{rgb:line}}}
+      });
+      const cell = (bg=white, fg=dark, bold=false, align="left", sz=10) => ({
+        fill:{patternType:"solid", fgColor:{rgb:bg}},
+        font:{bold, color:{rgb:fg}, sz, name:"Arial"},
+        alignment:{horizontal:align, vertical:"center", wrapText:true},
+        border:{top:{style:"thin",color:{rgb:line}},bottom:{style:"thin",color:{rgb:line}},
+                left:{style:"thin",color:{rgb:line}},right:{style:"thin",color:{rgb:line}}}
+      });
+      const C = (r,c,v,s) => ({r,c,v,s});
+
+      // ── SHEET 1: Ringkasan ───────────────────────────────────────────────────
+      const ws1 = {};
+      const rows1 = [];
+      const pad1 = (r) => { rows1.push(r); };
+
+      // Title block
+      pad1([
+        {v:"AturDuitku - "+(isEN?"Financial Report":"Laporan Keuangan"), s:hdr(purpleDk,"FFFFFF",true,14)},
+        {v:"", s:hdr(purpleDk)},{v:"", s:hdr(purpleDk)},{v:"", s:hdr(purpleDk)},
+      ]);
+      pad1([
+        {v:(isEN?"Period":"Periode")+": "+s.bulan+" "+s.tahun, s:hdr(purple,"FFFFFF",false,10)},
+        {v:(isEN?"Name":"Nama")+": "+(s.name||"-"), s:hdr(purple,"FFFFFF",false,10)},
+        {v:(isEN?"Generated":"Dibuat")+": "+new Date().toLocaleDateString("id-ID"), s:hdr(purple,"FFFFFF",false,10)},
+        {v:"", s:hdr(purple)},
+      ]);
+      pad1([{v:"",s:cell()},{v:"",s:cell()},{v:"",s:cell()},{v:"",s:cell()}]);
+
+      // Summary header
+      pad1([
+        {v:isEN?"MONTHLY SUMMARY":"RINGKASAN BULANAN", s:hdr(purple)},
+        {v:"", s:hdr(purple)},{v:isEN?"AMOUNT":"JUMLAH", s:hdr(purple)},{v:isEN?"NOTE":"KETERANGAN", s:hdr(purple)},
+      ]);
+      const summaryRows = [
+        [isEN?"Total Income":"Total Pemasukan", idr(totalIn), greenLt, green, "💰"],
+        [isEN?"Total Expenses":"Total Pengeluaran", idr(totalOut), redLt, red, "💸"],
+        [isEN?"Total Savings":"Total Tabungan", idr(totalSav), amberLt, amber, "🏦"],
+        [isEN?"Net Cashflow":"Net Cashflow", idr(netCash), netCash>=0?greenLt:redLt, netCash>=0?green:red, netCash>=0?"✅":"⚠️"],
+        [isEN?"Total Balance":"Total Saldo", idr(totalBal), purpleLt, purple, "💼"],
+      ];
+      summaryRows.forEach(([label, val, bg, fg, icon]) => {
+        pad1([
+          {v:icon+" "+label, s:cell(bg,fg,true,"left")},
+          {v:"", s:cell(bg)},
+          {v:val, s:cell(bg,fg,true,"right")},
+          {v:isEN?"This month":"Bulan ini", s:cell(bg,gray,false,"center")},
+        ]);
+      });
+      pad1([{v:"",s:cell()},{v:"",s:cell()},{v:"",s:cell()},{v:"",s:cell()}]);
+
+      // Saving rate
+      const savRate = totalIn>0?(totalSav/totalIn*100).toFixed(1):0;
+      pad1([
+        {v:isEN?"Saving Rate":"Rasio Tabungan", s:cell(grayLt,dark,true)},
+        {v:"", s:cell(grayLt)},
+        {v:savRate+"%", s:cell(grayLt, Number(savRate)>=20?green:Number(savRate)>=10?amber:red, true,"right")},
+        {v:isEN?"Ideal ≥ 20%":"Ideal ≥ 20%", s:cell(grayLt,gray,false,"center")},
+      ]);
+
+      pad1([{v:"",s:cell()},{v:"",s:cell()},{v:"",s:cell()},{v:"",s:cell()}]);
+
+      // Wallets
+      pad1([
+        {v:isEN?"WALLETS":"DOMPET", s:hdr(purple)},
+        {v:isEN?"TYPE":"TIPE", s:hdr(purple)},
+        {v:isEN?"BALANCE":"SALDO", s:hdr(purple)},
+        {v:"", s:hdr(purple)},
+      ]);
+      s.dompet.forEach((d,idx) => {
+        const bg = idx%2===0?white:grayLt;
+        pad1([
+          {v:d.nama, s:cell(bg,dark,true)},
+          {v:d.tipe, s:cell(bg,gray,false,"center")},
+          {v:idr(Num(d.saldo)), s:cell(bg,dark,false,"right")},
+          {v:"", s:cell(bg)},
+        ]);
+      });
+      pad1([
+        {v:isEN?"TOTAL":"TOTAL", s:cell(purpleLt,purple,true)},
+        {v:"", s:cell(purpleLt,purple,true)},
+        {v:idr(totalBal), s:cell(purpleLt,purple,true,"right")},
+        {v:"", s:cell(purpleLt)},
+      ]);
+
+      // Write sheet 1
+      const range1 = {s:{r:0,c:0}, e:{r:rows1.length-1,c:3}};
+      rows1.forEach((row,r) => {
+        row.forEach((cel,c) => {
+          const addr = XLSX.utils.encode_cell({r,c});
+          ws1[addr] = {v:cel.v, t:"s", s:cel.s};
+        });
+      });
+      ws1["!ref"] = XLSX.utils.encode_range(range1);
+      ws1["!cols"] = [{wch:32},{wch:16},{wch:20},{wch:18}];
+      ws1["!rows"] = rows1.map((_,i)=>i<2?{hpt:24}:{hpt:20});
+      ws1["!merges"] = [{s:{r:0,c:0},e:{r:0,c:3}},{s:{r:1,c:0},e:{r:1,c:1}},{s:{r:1,c:2},e:{r:1,c:3}}];
+      XLSX.utils.book_append_sheet(wb, ws1, isEN?"Summary":"Ringkasan");
+
+      // ── SHEET 2: Transaksi ───────────────────────────────────────────────────
+      const ws2 = {};
+      const rows2 = [];
+      rows2.push([
+        {v:isEN?"DATE":"TANGGAL", s:hdr(purple)},
+        {v:isEN?"DESCRIPTION":"KETERANGAN", s:hdr(purple)},
+        {v:isEN?"TYPE":"TIPE", s:hdr(purple)},
+        {v:isEN?"CATEGORY":"KATEGORI", s:hdr(purple)},
+        {v:isEN?"WALLET":"DOMPET", s:hdr(purple)},
+        {v:isEN?"AMOUNT":"JUMLAH", s:hdr(purple)},
+      ]);
+      const sorted = [...txM].sort((a,b)=>new Date(b.tgl)-new Date(a.tgl));
+      sorted.forEach((tx,idx) => {
+        const bg = idx%2===0?white:grayLt;
+        const isTipe = tx.tipe==="pemasukan"?{bg:greenLt,fg:green}:tx.tipe==="tabungan"?{bg:amberLt,fg:amber}:{bg:redLt,fg:red};
+        const kat = s.budgets.find(b=>b.id===Number(tx.katId));
+        const dom = s.dompet.find(d=>d.id===Number(tx.dompetId));
+        rows2.push([
+          {v:tx.tgl||"-", s:cell(bg,gray,false,"center")},
+          {v:tx.ket||"-", s:cell(bg,dark)},
+          {v:tx.tipe, s:cell(isTipe.bg,isTipe.fg,true,"center")},
+          {v:kat?.kat||(isEN?"Other":"Lainnya"), s:cell(bg,gray,false,"center")},
+          {v:dom?.nama||"-", s:cell(bg,gray,false,"center")},
+          {v:idr(Num(tx.jml)), s:cell(bg,tx.tipe==="pemasukan"?green:tx.tipe==="tabungan"?amber:red,true,"right")},
+        ]);
+      });
+      // Total row
+      rows2.push([
+        {v:"", s:cell(purpleLt)},
+        {v:isEN?"TOTAL":"TOTAL", s:cell(purpleLt,purple,true,"right")},
+        {v:"", s:cell(purpleLt)},
+        {v:"", s:cell(purpleLt)},
+        {v:"", s:cell(purpleLt)},
+        {v:idr(totalIn-totalOut), s:cell(purpleLt,purple,true,"right")},
+      ]);
+      rows2.forEach((row,r) => {
+        row.forEach((cel,c) => {
+          const addr = XLSX.utils.encode_cell({r,c});
+          ws2[addr] = {v:cel.v, t:"s", s:cel.s};
+        });
+      });
+      ws2["!ref"] = XLSX.utils.encode_range({s:{r:0,c:0},e:{r:rows2.length-1,c:5}});
+      ws2["!cols"] = [{wch:14},{wch:34},{wch:14},{wch:18},{wch:16},{wch:20}];
+      ws2["!rows"] = rows2.map(()=>({hpt:20}));
+      XLSX.utils.book_append_sheet(wb, ws2, isEN?"Transactions":"Transaksi");
+
+      // ── SHEET 3: Budget ──────────────────────────────────────────────────────
+      const ws3 = {};
+      const rows3 = [];
+      rows3.push([
+        {v:isEN?"CATEGORY":"KATEGORI", s:hdr(purple)},
+        {v:isEN?"BUDGET":"ANGGARAN", s:hdr(purple)},
+        {v:isEN?"ACTUAL":"REALISASI", s:hdr(purple)},
+        {v:isEN?"REMAINING":"SISA", s:hdr(purple)},
+        {v:"%", s:hdr(purple)},
+        {v:isEN?"STATUS":"STATUS", s:hdr(purple)},
+      ]);
+      s.budgets.filter(b=>Num(b.alokasi)>0).forEach((b,idx) => {
+        const bg = idx%2===0?white:grayLt;
+        const spent = katSpend[b.kat]||0;
+        const alloc = Num(b.alokasi);
+        const sisa  = alloc-spent;
+        const p     = alloc>0?Math.round(spent/alloc*100):0;
+        const status= p>=100?(isEN?"Over Budget":"Melewati")
+                    : p>=80?(isEN?"Warning":"Perlu Hati-hati")
+                    : (isEN?"On Track":"Aman");
+        const stFg  = p>=100?red:p>=80?amber:green;
+        const stBg  = p>=100?redLt:p>=80?amberLt:greenLt;
+        rows3.push([
+          {v:b.kat, s:cell(bg,dark,true)},
+          {v:idr(alloc), s:cell(bg,dark,false,"right")},
+          {v:idr(spent), s:cell(bg,p>=100?red:dark,false,"right")},
+          {v:idr(Math.max(0,sisa)), s:cell(bg,sisa>=0?green:red,false,"right")},
+          {v:p+"%", s:cell(bg,p>=100?red:p>=80?amber:green,true,"center")},
+          {v:status, s:cell(stBg,stFg,true,"center")},
+        ]);
+      });
+      rows3.forEach((row,r) => {
+        row.forEach((cel,c) => {
+          const addr = XLSX.utils.encode_cell({r,c});
+          ws3[addr] = {v:cel.v, t:"s", s:cel.s};
+        });
+      });
+      ws3["!ref"] = XLSX.utils.encode_range({s:{r:0,c:0},e:{r:rows3.length-1,c:5}});
+      ws3["!cols"] = [{wch:22},{wch:18},{wch:18},{wch:18},{wch:10},{wch:16}];
+      ws3["!rows"] = rows3.map(()=>({hpt:20}));
+      XLSX.utils.book_append_sheet(wb, ws3, isEN?"Budget":"Anggaran");
+
+      // ── Save ─────────────────────────────────────────────────────────────────
+      const fname = `AturDuitku_${s.bulan}_${s.tahun}.xlsx`;
+      XLSX.writeFile(wb, fname, {bookType:"xlsx", type:"binary", cellStyles:true});
+      showToast("✅ "+(isEN?"Exported to Excel/Sheets!":"Berhasil export ke Google Sheets!"));
+    } catch(err) {
+      console.error(err);
+      showToast("Gagal export: "+String(err.message||err));
+    }
+  };
+
+    const handleSaveScanTx = (tx) => {
+    setS(p => {
+      const newTxs = [...p.txs, tx];
+      const newDompet = p.dompet.map(d => {
+        if (d.id !== tx.dompetId) return d;
+        const amt = parseFloat(String(tx.jml||0).replace(/[^\d.]/g,""))||0;
+        const delta = tx.tipe==="pemasukan" ? amt : -amt;
+        return {...d, saldo: String(parseFloat(String(d.saldo||0).replace(/[^\d.]/g,""))||0 + delta)};
+      });
+      return {...p, txs:newTxs, dompet:newDompet};
+    });
+    showToast(lang==="en"?"✅ Transaction saved!":"✅ Transaksi tersimpan!");
+  };
+
+  const importJSON=(file)=>{
+    if(!file)return;
+    const reader=new FileReader();
+    reader.onload=(e)=>{
+      try{
+        const parsed=JSON.parse(e.target.result);
+        // Validasi minimal field
+        if(!parsed.dompet||!parsed.txs){showToast("❌ File tidak valid!");return;}
+        setS({...INIT,...parsed,dompet:parsed.dompet||INIT.dompet,txs:parsed.txs||[],utang:parsed.utang||[],budgets:parsed.budgets||INIT_BUDGETS,goals:parsed.goals||[],asetTetap:parsed.asetTetap||[],recurring:parsed.recurring||[],amplop:parsed.amplop||[],processedRecurring:parsed.processedRecurring||{}});
+        showToast("✅ Data berhasil di-restore!");
+        setModal(null);
+      }catch(err){showToast("❌ File rusak atau format salah!");}
+    };
+    reader.readAsText(file);
+  };
+
+  // ── RECURRING TRANSACTIONS ──────────────────────────────────────────────────
+  const addRecurring=()=>{
+    if(!recurringForm.nama||!recurringForm.jml){showToast("⚠️ Isi nama & jumlah!");return;}
+    setS(p=>({...p,recurring:[...p.recurring,{...recurringForm,id:Date.now(),jml:pN(recurringForm.jml)}]}));
+    setRecurringForm({nama:"",tipe:"pengeluaran",jml:"",katId:1,dompetId:1,hari:"1",aktif:true});
+    setShowAddRecurring(false);
+    showToast(t("toast_recurringOk"));
+  };
+
+  const prosesRecurring=()=>{
+    // Proses recurring untuk bulan aktif
+    const monthKey=`${yr}-${String(bulanIdx+1).padStart(2,"0")}`;
+    const aktifList=s.recurring.filter(r=>r.aktif);
+    if(!aktifList.length){showToast(t("toast_noRecurring"));return;}
+    let count=0;
+    let newTxs=[...s.txs];
+    let newDompet=[...s.dompet];
+    const newProcessed={...s.processedRecurring};
+
+    aktifList.forEach(r=>{
+      const key=`${r.id}_${monthKey}`;
+      if(newProcessed[key])return; // sudah diproses bulan ini
+      const tgl=`${monthKey}-${String(r.hari).padStart(2,"0")}`;
+      const jmlNum=N(r.jml);
+      newTxs=[{id:Date.now()+count,tipe:r.tipe,tgl,ket:`[${lang==="en"?"Recurring":"Rutin"}] ${r.nama}`,jml:r.jml,katId:r.katId,dompetId:r.dompetId,subKat:""},...newTxs];
+      newDompet=newDompet.map(d=>{
+        if(d.id!==r.dompetId)return d;
+        if(r.tipe==="pemasukan")return{...d,saldo:String(N(d.saldo)+jmlNum)};
+        if(r.tipe==="pengeluaran"||r.tipe==="tabungan")return{...d,saldo:String(N(d.saldo)-jmlNum)};
+        return d;
+      });
+      newProcessed[key]=true;
+      count++;
+    });
+    if(count===0){showToast("ℹ️ Semua transaksi rutin sudah diproses bulan ini");return;}
+    setS(p=>({...p,txs:newTxs,dompet:newDompet,processedRecurring:newProcessed}));
+    showToast(`✅ ${count} transaksi rutin berhasil diproses!`);
+  };
+
+  // ── AMPLOP DIGITAL ──────────────────────────────────────────────────────────
+  const addAmplop=()=>{
+    if(!amplopForm.nama||!amplopForm.alokasi){showToast("⚠️ Isi nama & alokasi!");return;}
+    const jmlNum=N(amplopForm.alokasi);
+    const dompetSumber=s.dompet.find(d=>d.id===amplopForm.dompetId);
+    if(dompetSumber&&N(dompetSumber.saldo)<jmlNum){
+      showToast(`⚠️ ${t("toast_notEnough")} (${dompetSumber.nama})`);return;
+    }
+    setS(p=>({
+      ...p,
+      amplop:[...p.amplop,{...amplopForm,id:Date.now(),alokasi:pN(amplopForm.alokasi),terpakai:"0"}],
+      dompet:p.dompet.map(d=>d.id===amplopForm.dompetId?{...d,saldo:String(N(d.saldo)-jmlNum)}:d),
+      txs:[{id:Date.now()+1,tipe:"pengeluaran",tgl:today(),ket:`Isi Amplop: ${amplopForm.nama}`,jml:pN(amplopForm.alokasi),dompetId:amplopForm.dompetId},...p.txs]
+    }));
+    setAmplopForm({nama:"",icon:"✉️",warna:"#8B5CF6",dompetId:1,alokasi:""});
+    setShowAddAmplop(false);
+    showToast(t("toast_envelopeOk"));
+  };
+
+  const isiAmplop=(id,jml,dompetId)=>{
+    const jmlNum=N(jml);
+    const dompetSumber=s.dompet.find(d=>d.id===dompetId);
+    if(dompetSumber&&N(dompetSumber.saldo)<jmlNum){showToast(`⚠️ Saldo tidak cukup!`);return;}
+    setS(p=>({
+      ...p,
+      amplop:p.amplop.map(a=>a.id!==id?a:{...a,alokasi:String(N(a.alokasi)+jmlNum)}),
+      dompet:p.dompet.map(d=>d.id===dompetId?{...d,saldo:String(N(d.saldo)-jmlNum)}:d),
+      txs:[{id:Date.now(),tipe:"pengeluaran",tgl:today(),ket:`Top-up Amplop`,jml:pN(jml),dompetId},...p.txs]
+    }));
+    setAmplopIsiForm({id:null,jml:"",dompetId:1});
+    showToast(t("toast_topupOk"));
+  };
+
+  const pakaiAmplop=(amplopId,jml,ket)=>{
+    const jmlNum=N(jml);
+    const amp=s.amplop.find(a=>a.id===amplopId);
+    if(!amp){showToast(t("toast_envelopeNotFound"));return;}
+    const sisaAmplop=N(amp.alokasi)-N(amp.terpakai||0);
+    if(jmlNum>sisaAmplop){showToast(`${t("toast_envelopeFunds")} ${IDR(sisaAmplop)}`);return;}
+    setS(p=>({
+      ...p,
+      amplop:p.amplop.map(a=>a.id!==amplopId?a:{...a,terpakai:String(N(a.terpakai||0)+jmlNum)}),
+      txs:[{id:Date.now(),tipe:"pengeluaran",tgl:today(),ket:ket||`Pakai Amplop: ${amp.nama}`,jml:pN(jml),dompetId:amp.dompetId||1},...p.txs]
+    }));
+    showToast(t("toast_expenseEnvOk"));
+  };
+
+  const resetAmplop=(id)=>{
+    setS(p=>({...p,amplop:p.amplop.map(a=>a.id!==id?a:{...a,terpakai:"0"})}));
+    showToast(t("toast_resetEnvOk"));
+  };
+
+  const addTx=()=>{
+    const {tipe,tgl,ket,jml,katId,subKat,dompetId,dompetTo,biaya,goalId}=txForm;
+    if(!tgl||!jml){showToast("⚠️ Isi tanggal & jumlah!");return;}
+    const id=Date.now();
+    const jmlNum=N(jml);
+
+    if(tipe==="transfer"){
+      const sumber=s.dompet.find(d=>d.id===dompetId);
+      if(!sumber){showToast(t("toast_walletNotFound"));return;}
+      if(N(sumber.saldo)<jmlNum+N(biaya)){showToast(`⚠️ ${t("toast_notEnough")} (${sumber.nama}: ${IDR(N(sumber.saldo))})`  );return;}
+      if(dompetId===dompetTo){showToast(t("toast_sameDompet"));return;}
+      setS(p=>({...p,
+        dompet:p.dompet.map(d=>{
+          if(d.id===dompetId)return{...d,saldo:String(N(d.saldo)-jmlNum-N(biaya))};
+          if(d.id===dompetTo)return{...d,saldo:String(N(d.saldo)+jmlNum)};
+          return d;
+        }),
+        txs:[{...txForm,id,tipe:"transfer",jml:pN(jml)},...p.txs]
+      }));
+      setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",biaya:""}));
+      showToast(t("toast_transferOk"));setModal(null);return;
+    }
+
+    if(tipe==="pengeluaran"){
+      const dompetSumber=s.dompet.find(d=>d.id===dompetId);
+      if(dompetSumber&&N(dompetSumber.saldo)<jmlNum){
+        showToast(`⚠️ ${t("toast_notEnough")} (${dompetSumber.nama}: ${IDR(N(dompetSumber.saldo))})`  );
+        return;
+      }
+      setS(p=>({...p,
+        dompet:p.dompet.map(d=>d.id===dompetId?{...d,saldo:String(N(d.saldo)-jmlNum)}:d),
+        txs:[{...txForm,id,jml:pN(jml)},...p.txs]
+      }));
+      setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",subKat:"",goalId:""}));
+      showToast(t("toast_expenseOk"));setModal(null);return;
+    }
+
+    if(tipe==="pemasukan"){
+      setS(p=>({...p,
+        dompet:p.dompet.map(d=>d.id===dompetId?{...d,saldo:String(N(d.saldo)+jmlNum)}:d),
+        txs:[{...txForm,id,jml:pN(jml)},...p.txs]
+      }));
+      setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",subKat:"",goalId:""}));
+      showToast(t("toast_incomeOk"));setModal(null);return;
+    }
+
+    if(tipe==="tabungan"){
+      const dompetSumber=s.dompet.find(d=>d.id===dompetId);
+      if(dompetSumber&&N(dompetSumber.saldo)<jmlNum){
+        showToast(`⚠️ Saldo ${dompetSumber.nama} tidak cukup! Saldo: ${IDR(N(dompetSumber.saldo))}`);
+        return;
+      }
+      setS(p=>({
+        ...p,
+        dompet:p.dompet.map(d=>d.id===dompetId?{...d,saldo:String(N(d.saldo)-jmlNum)}:d),
+        goals:goalId?p.goals.map(g=>g.id===Number(goalId)?{...g,kumpul:String(N(g.kumpul)+jmlNum),history:[...(g.history||[]),{tgl:today(),jml:pN(jml)}]}:g):p.goals,
+        txs:[{...txForm,id,jml:pN(jml)},...p.txs]
+      }));
+      setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",subKat:"",goalId:""}));
+      showToast(goalId?t("toast_savingOk"):t("toast_savingOk2"));setModal(null);return;
+    }
+
+    const savedTx={...txForm,id,jml:pN(jml)};
+    setS(p=>({...p,txs:[savedTx,...p.txs]}));
+    setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",subKat:"",goalId:""}));
+    showToast(t("toast_txOk"));setModal(null);
+  };
+
+  const addBulk=()=>{
+    const valid=bulkRows.filter(r=>r.tgl&&r.jml);
+    if(!valid.length){showToast("⚠️ Minimal satu baris terisi!");return;}
+    const newTxs=valid.map((r,i)=>({...r,id:Date.now()+i,jml:pN(r.jml),ket:r.ket||""}));
+    // Hitung delta saldo per dompet
+    const dompetDelta={};
+    valid.forEach(r=>{
+      const d=Number(r.dompetId)||1;
+      const jmlNum=N(r.jml);
+      if(!dompetDelta[d])dompetDelta[d]=0;
+      if(r.tipe==="pemasukan")dompetDelta[d]+=jmlNum;
+      else if(r.tipe==="pengeluaran"||r.tipe==="tabungan")dompetDelta[d]-=jmlNum;
+    });
+    setS(p=>({
+      ...p,
+      txs:[...newTxs,...p.txs],
+      dompet:p.dompet.map(d=>dompetDelta[d.id]!==undefined?{...d,saldo:String(N(d.saldo)+dompetDelta[d.id])}:d)
+    }));
+    setBulkRows([{tgl:today(),jml:"",tipe:"pengeluaran",dompetId:1,katId:"",ket:""}]);
+    showToast(`✅ ${valid.length} transaksi ditambahkan & saldo diperbarui!`);setModal(null);
+  };
+
+  const addUt=()=>{
+    if(!utForm.tgl||!utForm.nama||!utForm.jml){showToast("⚠️ Isi semua field!");return;}
+    setS(p=>({...p,utang:[{...utForm,id:Date.now(),lunas:false,cicilan:[]},...p.utang]}));
+    setUtForm({tipe:"utang",tgl:today(),nama:"",jml:"",tempo:"",ket:""});
+    showToast(t("toast_noteOk"));
+  };
+
+  const addGoal=()=>{
+    if(!goalForm.nama||!goalForm.target){showToast("⚠️ Isi nama & target!");return;}
+    setS(p=>({...p,goals:[{...goalForm,id:Date.now(),kumpul:goalForm.kumpul||"0",history:[],selesai:false},...p.goals]}));
+    setGoalForm({nama:"",target:"",kumpul:"",deadline:"",icon:"⭐"});
+    showToast("✅ Goal ditambahkan!");setModal(null);
+  };
+
+  const addDompet=()=>{
+    if(!dompetForm.nama){showToast("⚠️ Isi nama dompet!");return;}
+    setS(p=>({...p,dompet:[...p.dompet,{...dompetForm,id:Date.now(),icon:DOMPET_ICONS[dompetForm.tipe]||"💳",saldo:dompetForm.saldo||"0"}]}));
+    setDompetForm({tipe:"Bank",nama:"",norek:"",saldo:""});
+    showToast(t("toast_walletAdded"));setModal(null);
+  };
+
+  const addAset = () => {
+    if(!asetForm.nama){showToast("⚠️ Isi nama aset!");return;}
+    if(asetForm.beliDariDompet) {
+       const targetDompet = s.dompet.find(d=>d.id===asetForm.dompetId);
+       if(targetDompet && N(targetDompet.saldo) < N(asetForm.nilai)) {
+           showToast(t("toast_walletNotEnough")); return;
+       }
+       setS(p=>({...p,
+          asetTetap:[...p.asetTetap,{id:Date.now(), nama:asetForm.nama, nilai:asetForm.nilai, ket:asetForm.ket}],
+          dompet:p.dompet.map(d=>d.id===asetForm.dompetId ? {...d, saldo: String(N(d.saldo)-N(asetForm.nilai))} : d),
+          txs:[{id:Date.now()+1, tipe:"pengeluaran", tgl:today(), ket:`Beli Aset: ${asetForm.nama}`, jml:pN(asetForm.nilai), dompetId:asetForm.dompetId}, ...p.txs]
+       }));
+    } else {
+       setS(p=>({...p,asetTetap:[...p.asetTetap,{id:Date.now(), nama:asetForm.nama, nilai:asetForm.nilai, ket:asetForm.ket}]}));
+    }
+    setAsetForm({nama:"",nilai:"",ket:"",beliDariDompet:false,dompetId:s.dompet[0]?.id||1});
+    showToast("✅ Aset ditambahkan!");setModal(null);
+  }
+
+  const catatCicilan=(uid,jml,dompetId)=>{
+    const targetDompet = s.dompet.find(d=>d.id===dompetId);
+    if(targetDompet && N(targetDompet.saldo) < N(jml)) { showToast("⚠️ Saldo dompet tidak cukup!"); return; }
+    
+    setS(p=>({...p,
+       utang:p.utang.map(u=>{if(u.id!==uid)return u;const nc=[...u.cicilan,{tgl:today(),jml}];const tc=nc.reduce((a,b)=>a+N(b.jml),0);return{...u,cicilan:nc,lunas:tc>=N(u.jml)};}),
+       dompet:p.dompet.map(d=>d.id===dompetId ? {...d, saldo: String(N(d.saldo)-N(jml))} : d),
+       txs:[{id:Date.now(), tipe:"pengeluaran", tgl:today(), ket:`Bayar Utang/Cicilan: ${p.utang.find(x=>x.id===uid)?.nama}`, jml:pN(jml), dompetId:dompetId}, ...p.txs]
+    }));
+    showToast(t("toast_paymentOk"));
+  };
+
+  const tambahGoalDana=(gid,jml,dompetId)=>{
+    const targetDompet = s.dompet.find(d=>d.id===dompetId);
+    if(targetDompet && N(targetDompet.saldo) < N(jml)) { showToast("⚠️ Saldo dompet tidak cukup!"); return; }
+
+    setS(p=>({...p,
+       goals:p.goals.map(g=>g.id!==gid?g:{...g,kumpul:String(N(g.kumpul)+N(jml)),history:[...(g.history||[]),{tgl:today(),jml}]}),
+       dompet:p.dompet.map(d=>d.id===dompetId ? {...d, saldo: String(N(d.saldo)-N(jml))} : d),
+       txs:[{id:Date.now(), tipe:"tabungan", tgl:today(), ket:`Nabung Goal: ${p.goals.find(x=>x.id===gid)?.nama}`, jml:pN(jml), dompetId:dompetId}, ...p.txs]
+    }));
+    showToast(t("toast_fundOk"));
+  };
+
+  const renderTxItem=t=>{
+    const dompet=s.dompet.find(d=>d.id===t.dompetId);
+    const kat=s.budgets.find(b=>b.id===t.katId);
+    const isIn=t.tipe==="pemasukan"||t.tipe==="pemasukan_transfer";
+    const colorMap={pemasukan:T.ok,tabungan:T.info,transfer:T.accent,pengeluaran:T.err};
+    return(
+      <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
+        <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
+          <div style={{width:36,height:36,borderRadius:10,background:isIn?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="transfer"?T.accentBg:T.errBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>
+            {isIn?"📈":t.tipe==="tabungan"?"🏦":t.tipe==="transfer"?"↔️":kat?kat.icon:"📉"}
+          </div>
+          <div style={{minWidth:0}}>
+            <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.ket||t.tipe}</div>
+            <div style={{fontSize:11,color:T.muted}}>{t.tgl}{dompet&&` · ${dompet.icon} ${dompet.nama}`}{kat&&` · ${kat.kat}`}{t.subKat&&` › ${t.subKat}`}</div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+          <span style={{fontWeight:700,fontSize:13,color:isIn?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="transfer"?T.accent:T.err}}>
+            {isIn?"+":t.tipe==="tabungan"?"💰":t.tipe==="transfer"?"→":"-"}{IDRs(N(t.jml))}
+          </span>
+          <Del onClick={()=>setS(p=>{
+            const jmlNum=N(t.jml);
+            let newDompet=p.dompet;
+            if(t.tipe==="pemasukan"&&t.dompetId){
+              newDompet=p.dompet.map(d=>d.id===t.dompetId?{...d,saldo:String(N(d.saldo)-jmlNum)}:d);
+            }else if((t.tipe==="pengeluaran"||t.tipe==="tabungan")&&t.dompetId){
+              newDompet=p.dompet.map(d=>d.id===t.dompetId?{...d,saldo:String(N(d.saldo)+jmlNum)}:d);
+            }else if(t.tipe==="transfer"){
+              newDompet=p.dompet.map(d=>{
+                if(d.id===t.dompetId)return{...d,saldo:String(N(d.saldo)+jmlNum+N(t.biaya||0))};
+                if(d.id===t.dompetTo)return{...d,saldo:String(N(d.saldo)-jmlNum)};
+                return d;
+              });
+            }
+            return{...p,txs:p.txs.filter(x=>x.id!==t.id),dompet:newDompet};
+          })}/>
+        </div>
+      </div>
+    );
+  };
+
+  const IS={width:"100%",padding:"9px 12px",border:`1.5px solid ${T.inputBorder}`,borderRadius:9,fontSize:13,outline:"none",background:T.input,color:T.text,fontFamily:"inherit"};
+  const LS={fontSize:10,color:T.accent,marginBottom:5,fontWeight:700,display:"block",textTransform:"uppercase",letterSpacing:.9};
+
+  // ── ONBOARDING HANDLER ─────────────────────────────────────────────────────
+  const handleOnboardDone = ({name, dompet, budgets}) => {
+    const newData = {...s, name, dompet, budgets};
+    setS(newData);
+    try{localStorage.setItem("aturduitku_onboarded","1");}catch(e){}
+    setOnboarded(true);
+    // Save to Firebase immediately on onboard
+    if(fireUser){
+      saveUserData(fireUser.uid, {data:newData, onboarded:true});
+    }
+    showToast(`Selamat datang, ${name}! 🎉`);
+  };
+
+  // Show loading screen while checking auth
+  if(fireLoading) return (
+    <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#2E1065 0%,#1A0A2E 100%)",gap:16}}>
+      <img src="/icon-192.png" alt="" style={{width:72,height:72,borderRadius:18,objectFit:"cover",animation:"spin 1s linear infinite"}}/>
+      <style>{"@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}"}</style>
+      <div style={{color:"#A78BFA",fontWeight:700,fontSize:16}}>AturDuitku</div>
+      <div style={{color:"#7C3AED",fontSize:12}}>Memuat...</div>
+    </div>
+  );
+
+  // Show Google login if not authenticated
+  if(!fireUser) return (
+    <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#2E1065 0%,#1A0A2E 100%)",padding:24,fontFamily:"system-ui,sans-serif"}}>
+      <div style={{width:"100%",maxWidth:360,display:"flex",flexDirection:"column",alignItems:"center",gap:0}}>
+        {/* Logo */}
+        <img src="/icon-192.png" alt="AturDuitku" style={{width:88,height:88,borderRadius:22,objectFit:"cover",marginBottom:20,boxShadow:"0 8px 32px rgba(124,58,237,0.5)"}}/>
+        <div style={{color:"white",fontWeight:800,fontSize:28,marginBottom:6,letterSpacing:-0.5}}>AturDuitku</div>
+        <div style={{color:"#A78BFA",fontSize:14,marginBottom:36,textAlign:"center",lineHeight:1.6}}>Aplikasi keuangan personal<br/>yang cerdas & mudah</div>
+
+        {/* Features */}
+        <div style={{width:"100%",background:"rgba(124,58,237,0.15)",borderRadius:16,padding:20,marginBottom:28,border:"1px solid rgba(124,58,237,0.3)"}}>
+          {[
+            ["📊","Catat & lacak pengeluaran otomatis"],
+            ["🤖","AI Assistant untuk analisis keuangan"],
+            ["☁️","Sync otomatis ke semua perangkat"],
+            ["📈","Laporan & insight keuangan lengkap"],
+          ].map(([icon,txt])=>(
+            <div key={txt} style={{display:"flex",alignItems:"center",gap:12,marginBottom:12,lastChild:{marginBottom:0}}}>
+              <span style={{fontSize:20,width:28,textAlign:"center"}}>{icon}</span>
+              <span style={{color:"#E9D5FF",fontSize:13}}>{txt}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Google Sign In Button */}
+        <button onClick={handleGoogleSignIn} style={{width:"100%",padding:"14px 20px",borderRadius:14,border:"none",background:"white",color:"#1F1F1F",fontWeight:700,fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:12,boxShadow:"0 4px 20px rgba(0,0,0,0.3)",fontFamily:"inherit",transition:"all 0.2s"}}>
+          <svg width="20" height="20" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Masuk dengan Google
+        </button>
+
+        <div style={{color:"#6D28D9",fontSize:11,marginTop:16,textAlign:"center",lineHeight:1.6}}>
+          Dengan masuk, data kamu tersimpan aman<br/>di cloud dan bisa diakses dari mana saja
+        </div>
+      </div>
+    </div>
+  );
+
+  if (!onboarded) return <Onboarding onDone={handleOnboardDone} lang={lang} changeLang={changeLang}/>;
+
+  // ── IMPORT MUTASI HANDLER ──────────────────────────────────────────────────
+  const handleImportMutasi = (txRows, dompetId) => {
+    setS(prev => {
+      const newTxs = [...prev.txs, ...txRows];
+      // Hitung delta saldo per dompet dari baris yang diimport
+      const deltaSaldo = {};
+      txRows.forEach(r => {
+        const did = r.dompetId;
+        if (!deltaSaldo[did]) deltaSaldo[did] = 0;
+        if (r.tipe==="pemasukan") deltaSaldo[did] += Number(r.jml||0);
+        else if (r.tipe==="pengeluaran") deltaSaldo[did] -= Number(r.jml||0);
+      });
+      const newDompet = prev.dompet.map(d => ({
+        ...d,
+        saldo: String(Math.max(0, N(d.saldo) + (deltaSaldo[d.id]||0)))
+      }));
+      return {...prev, txs:newTxs, dompet:newDompet};
+    });
+    showToast(`✅ ${txRows.length} transaksi berhasil diimport!`);
+    setModal(null);
+  };
+
+  return(
+    <ThemeCtx.Provider value={T}>
+    {/* LAYOUT 100vh FULL (FIX SIDEBAR BOLONG) */}
+    <div style={{display:"flex",height:"100dvh",overflow:"hidden",maxWidth:"100vw",width:"100%",background:T.bg,fontFamily:"'Nunito',system-ui,sans-serif",color:T.text,fontSize:14,position:"relative",transition:"background .3s,color .3s"}}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body,#root,button,input,select,textarea{font-family:'Nunito',system-ui,sans-serif;}
+        ::-webkit-scrollbar{width:5px;}
+        ::-webkit-scrollbar-thumb{background:${T.scroll};border-radius:99px;}
+        ::-webkit-scrollbar-track{background:transparent;}
+        input,select,textarea{transition:border-color .15s,box-shadow .15s;}
+        input:focus,select:focus,textarea:focus{outline:none!important;border-color:${T.accent}!important;box-shadow:0 0 0 3px ${T.accentPop}!important;}
+        button:focus{outline:none;}
+        .nav-item{transition:all .18s cubic-bezier(.4,0,.2,1);}
+        .nav-item:hover{background:${T.navHover}!important;color:${T.accentSoft}!important;}
+        .nav-item:active{transform:scale(.97);}
+        .btn-go{transition:all .15s cubic-bezier(.4,0,.2,1);}
+        .btn-go:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 6px 18px rgba(139,92,246,.25)!important;}
+        .btn-go:active{transform:scale(.96);filter:brightness(.95);}
+        .card-lift{transition:box-shadow .2s,transform .2s;}
+        .card-lift:hover{box-shadow:${T.shadowMd}!important;transform:translateY(-2px);}
+        .del-x{transition:color .15s,transform .15s;cursor:pointer;}
+        .del-x:hover{color:#F43F5E!important;transform:rotate(12deg);}
+        .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:${T.nav};border-top:1.5px solid ${T.border};display:flex;z-index:200;padding-bottom:max(env(safe-area-inset-bottom),8px);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);box-shadow:0 -4px 20px rgba(0,0,0,.12);}
+        .bottom-nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px 6px;cursor:pointer;gap:3px;transition:all .15s;border:none;background:none;font-family:inherit;min-height:56px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+        .bottom-nav-item:active{transform:scale(.9);}
+        .sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:499;backdrop-filter:blur(2px);}
+        @keyframes slideIn{from{transform:translateX(-100%);}to{transform:translateX(0);}}
+        @keyframes slideInRight{from{transform:translateX(100%);}to{transform:translateX(0);}}
+        .sidebar-slide{animation:slideIn .22s cubic-bezier(.4,0,.2,1);}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+        .page-in{animation:fadeUp .22s ease-out both;}
+        @keyframes modalPop{from{opacity:0;transform:scale(.95) translateY(10px);}to{opacity:1;transform:none;}}
+        .modal-pop{animation:modalPop .2s cubic-bezier(.34,1.36,.64,1) both;}
+        @keyframes toastSlide{from{opacity:0;transform:translateX(16px);}to{opacity:1;transform:none;}}
+        .toast-in{animation:toastSlide .25s ease-out;}
+        @keyframes catBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
+        .cat-bob{display:inline-block;animation:catBob 2.2s ease-in-out infinite;}
+        @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+        .pulse{animation:pulse 2s infinite;}
+        @keyframes notifBounce{0%,100%{transform:translateY(0);}30%{transform:translateY(-4px);}60%{transform:translateY(-2px);}}
+        .notif-bounce{animation:notifBounce .5s ease-in-out;}
+        .fab{position:fixed;bottom:calc(68px + max(env(safe-area-inset-bottom),8px));right:max(18px,env(safe-area-inset-right));z-index:190;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,${T.accent},${T.accentSoft});border:none;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px ${T.accentPop};transition:transform .15s,box-shadow .15s;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+        .fab:hover{transform:scale(1.07);}
+        .fab:active{transform:scale(.94);}
+        @media(max-width:767px){
+  .mobile-hide{display:none!important;}
+  .mobile-2col{grid-template-columns:1fr 1fr!important;}
+  .mobile-1col{grid-template-columns:1fr!important;}
+}
+/* iOS input fix: prevent zoom on focus */
+@media screen and (-webkit-min-device-pixel-ratio:0){
+  select,textarea,input{font-size:16px!important;}
+}
+/* Android ripple-like active state */
+button:active,.bottom-nav-item:active{opacity:.75;}
+/* iOS standalone: hide status bar overlap */
+@media(display-mode:standalone){
+  .topbar-safe{padding-top:max(10px,env(safe-area-inset-top))!important;}
+}
+/* Prevent text selection on UI elements */
+button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
+      `}</style>
+
+      {/* Toast */}
+      {toast&&<div className="toast-in" style={{position:"fixed",top:"max(18px, calc(env(safe-area-inset-top) + 8px))",right:"max(22px, env(safe-area-inset-right))",background:`linear-gradient(135deg,${T.accentFg},${T.accent})`,color:"white",padding:"11px 18px",borderRadius:12,fontSize:13,fontWeight:700,zIndex:9999,boxShadow:T.shadowMd,display:"flex",alignItems:"center",gap:8}}><span className="cat-bob"><img src="/icon-192.png" style={{width:20,height:20,borderRadius:5,verticalAlign:"middle"}}/></span>{toast}</div>}
+
+      {/* Global Calculator */}
+      {showCalc&&calcFor&&<Calculator value={calcFor.cur} onChange={v=>{calcFor.setter(v);setShowCalc(false);setCalcFor(null);}} onClose={()=>{setShowCalc(false);setCalcFor(null);}}/>}
+
+      {/* Notification Panel */}
+      {notifOpen&&<NotificationPanel notifs={notifications} onClose={()=>setNotifOpen(false)}/>}
+
+      {/* More Menu (mobile) */}
+      {moreOpen&&<MoreMenu page={page} setPage={setPage} onClose={()=>setMoreOpen(false)}/>}
+
+      {/* ── MODALS ── */}
+      {modal&&(
+        <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",zIndex:1000,padding:isMobile?0:"16px"}} onClick={()=>setModal(null)}>
+          <div className="modal-pop" style={{cursor:"pointer",background:T.card,borderRadius:isMobile?"24px 24px 0 0":20,padding:isMobile?"20px 18px calc(env(safe-area-inset-bottom, 0px) + 24px)":"26px",width:"100%",maxWidth:isMobile?"100%":520,maxHeight:isMobile?"88vh":"92vh",overflowY:"auto",overflowX:"hidden",color:T.text,WebkitOverflowScrolling:"touch"}} onClick={e=>e.stopPropagation()}>
+
+            {isMobile&&<div style={{width:40,height:4,borderRadius:99,background:"rgba(0,0,0,.15)",margin:"-8px auto 16px",flexShrink:0}}/>}
+            {/* Import Mutasi Bank Modal */}
+            {modal.type==="importMutasi"&&<ImportMutasiBank dompet={s.dompet} onImport={handleImportMutasi} onClose={()=>setModal(null)} T={T}/>}
+
+            {/* Kalkulator Cicilan */}
+            {modal.type==="yearReview"&&<YearInReview s={s} T={T} lang={lang} onClose={()=>setModal(null)}/>}
+            {modal.type==="kalkulator"&&<KalkulatorCicilan onClose={()=>setModal(null)} T={T}/>}
+
+            {/* Import JSON Modal */}
+            {modal.type==="importJSON"&&<>
+              <div style={{fontSize:16,fontWeight:800,marginBottom:8,color:T.text}}>{t("restoreTitle")}</div>
+              <div style={{fontSize:12,color:T.muted,marginBottom:16,background:T.warnBg,padding:12,borderRadius:10,border:`1px solid ${T.warnBorder}`}}>
+                ⚠️ Import akan <strong>mengganti semua data</strong> yang ada sekarang dengan data dari file backup. Pastikan file backup adalah dari AturDuitku.
+              </div>
+              <label style={{display:"block",padding:"40px 20px",border:`2px dashed ${T.accent}`,borderRadius:12,textAlign:"center",cursor:"pointer",background:T.accentBg,color:T.accent,fontWeight:700,fontSize:13}}>
+                📁 Klik untuk pilih file .json
+                <input type="file" accept=".json" style={{display:"none"}} onChange={e=>importJSON(e.target.files[0])}/>
+              </label>
+              <Btn onClick={()=>setModal(null)} ch={t("cancel")} c={T.muted} outline style={{width:"100%",padding:10,marginTop:12}}/>
+            </>}
+
+            {/* User Menu Modal */}
+            {modal.type==="userMenu"&&<>
+              <div style={{textAlign:"center",marginBottom:20}}>
+                {fireUser?.photoURL
+                  ?<img src={fireUser.photoURL} alt="" style={{width:72,height:72,borderRadius:"50%",objectFit:"cover",marginBottom:12,border:"3px solid #7C3AED"}}/>
+                  :<div style={{width:72,height:72,borderRadius:"50%",background:"linear-gradient(135deg,#8B5CF6,#6D28D9)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,fontWeight:900,color:"white",margin:"0 auto 12px"}}>{s.name?.[0]?.toUpperCase()||"U"}</div>
+                }
+                <div style={{fontWeight:800,fontSize:16,color:T.text}}>{fireUser?.displayName||s.name}</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:2}}>{fireUser?.email||""}</div>
+                <div style={{marginTop:8,display:"inline-flex",alignItems:"center",gap:6,background:"#D1FAE5",borderRadius:20,padding:"4px 12px"}}>
+                  <span style={{width:7,height:7,borderRadius:"50%",background:"#10B981",display:"inline-block"}}/>
+                  <span style={{fontSize:11,color:"#065F46",fontWeight:600}}>Tersinkron ke cloud ☁️</span>
+                </div>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <Btn onClick={()=>{setModal(null);navTo("setting");}} ch="⚙️ Pengaturan" outline c={T.accent} style={{width:"100%",padding:11}}/>
+                <button onClick={async()=>{setModal(null);await handleSignOut();}} style={{width:"100%",padding:11,borderRadius:10,border:"1.5px solid #FCA5A5",background:"#FEF2F2",color:"#B91C1C",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+                  🚪 Keluar dari Akun
+                </button>
+              </div>
+            </>}
+
+            {/* Confirm Modal */}
+            {modal.type==="confirm"&&<>
+              <div style={{textAlign:"center",marginBottom:20}}>
+                <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
+                <div style={{fontSize:17,fontWeight:800,color:T.text,marginBottom:8}}>{modal.title}</div>
+                <div style={{fontSize:13,color:T.sub,lineHeight:1.6}}>{modal.msg}</div>
+              </div>
+              <div style={{display:"flex",gap:10}}>
+                <Btn onClick={()=>setModal(null)} ch={t("cancel")} c={T.muted} outline style={{flex:1,padding:11}}/>
+                <Btn onClick={modal.onConfirm} ch={t("confirmBtn")} c={modal.danger?"#B91C1C":T.accent} style={{flex:1,padding:11}}/>
+              </div>
+            </>}
+
+            {/* Kalkulator Finansial */}
+            {modal.type==="kalkulator"&&<KalkulatorFinansial onClose={()=>setModal(null)} />}
+
+            {/* TX Modal */}
+            {modal.type==="tx"&&<>
+              <div style={{fontSize:16,fontWeight:800,marginBottom:16,color:T.text}}>{t("newTx")}</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
+                {[{v:"pengeluaran",l:t("outflow2")},{v:"pemasukan",l:t("inflow2")},{v:"tabungan",l:t("savingShort")},{v:"transfer",l:"↔ Transfer"}].map(({v,l})=>(
+                  <button key={v} onClick={()=>setTxForm(f=>({...f,tipe:v}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${txForm.tipe===v?T.accent:T.inputBorder}`,background:txForm.tipe===v?T.accentBg:T.input,color:txForm.tipe===v?T.accent:T.sub}}>{l}</button>
+                ))}
+              </div>
+              <label style={LS}>{t("date")}</label><input type="date" value={txForm.tgl} onChange={e=>setTxForm(f=>({...f,tgl:e.target.value}))} style={{...IS,marginBottom:10}}/>
+              <label style={LS}>{t("amount")} (Rp)</label>
+              <div style={{position:"relative",marginBottom:10}}>
+                <CurIn value={txForm.jml} onChange={v=>setTxForm(f=>({...f,jml:v}))} placeholder="0" style={{paddingRight:40}}/>
+                <button onClick={()=>openCalc("jml",txForm.jml,v=>setTxForm(f=>({...f,jml:v})))} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:16}}>🔢</button>
+              </div>
+              <label style={LS}>{t("description")}</label><input placeholder={t("txDescPlaceholder")} value={txForm.ket} onChange={e=>setTxForm(f=>({...f,ket:e.target.value}))} style={{...IS,marginBottom:10}}/>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                <div><label style={LS}>{txForm.tipe==="transfer"?t("fromWallet"):t("dompet")}</label>
+                <select value={txForm.dompetId} onChange={e=>setTxForm(f=>({...f,dompetId:Number(e.target.value)}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama}</option>)}</select></div>
+                {txForm.tipe==="pengeluaran"&&<div><label style={LS}>{t("category")}</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:Number(e.target.value),subKat:""}))} style={IS}><option value="">-- Pilih --</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{b.icon} {b.kat}</option>)}</select></div>}
+                {txForm.tipe==="transfer"&&<div><label style={LS}>{t("toWallet")}</label><select value={txForm.dompetTo} onChange={e=>setTxForm(f=>({...f,dompetTo:Number(e.target.value)}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama}</option>)}</select></div>}
+                {txForm.tipe==="pemasukan"&&<div><label style={LS}>Kategori</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:e.target.value}))} style={IS}>{KAT_IN.map(k=><option key={k}>{k}</option>)}</select></div>}
+                {txForm.tipe==="tabungan"&&<div><label style={LS}>Goal</label><select value={txForm.goalId} onChange={e=>setTxForm(f=>({...f,goalId:e.target.value}))} style={IS}><option value="">-- Pilih Goal --</option>{s.goals.filter(g=>!g.selesai).map(g=><option key={g.id} value={g.id}>{g.icon} {g.nama}</option>)}</select></div>}
+              </div>
+              {txForm.tipe==="pengeluaran"&&txForm.katId&&s.budgets.find(b=>b.id===txForm.katId)?.sub?.length>0&&(
+                <div style={{marginBottom:10}}><label style={LS}>Subkategori</label>
+                <select value={txForm.subKat} onChange={e=>setTxForm(f=>({...f,subKat:e.target.value}))} style={IS}>
+                  <option value="">-- Pilih --</option>
+                  {s.budgets.find(b=>b.id===txForm.katId)?.sub?.map(sb=><option key={sb.nama} value={sb.nama}>{sb.emoji} {sb.nama}</option>)}
+                </select></div>
+              )}
+              {txForm.tipe==="transfer"&&<><label style={LS}>{t("transferFee")}</label><CurIn value={txForm.biaya} onChange={v=>setTxForm(f=>({...f,biaya:v}))} placeholder="0" style={{...IS,marginBottom:10}}/></>}
+              <Btn onClick={addTx} ch={t("saveTx")} style={{width:"100%",padding:"12px",marginTop:4}}/>
+            </>}
+
+            {/* Bulk Modal */}
+            {modal.type==="bulk"&&<>
+              <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{t("bulkTitle")}</div>
+              <div style={{fontSize:12,color:T.muted,marginBottom:16}}>{t("bulkDesc")}</div>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                  <thead><tr style={{background:T.cardAlt}}>{[lang==="en"?[t("txHead1"),t("amount"),t("type"),t("dompet"),t("txHead2"),""]:["Tanggal","Jumlah","Tipe","Dompet","Keterangan",""]].map(h=><th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,borderBottom:`1px solid ${T.border}`}}>{h}</th>)}</tr></thead>
+                  <tbody>{bulkRows.map((r,i)=>(
+                    <tr key={i}>
+                      <td style={{padding:4}}><input type="date" value={r.tgl} onChange={e=>{const n=[...bulkRows];n[i]={...n[i],tgl:e.target.value};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:120}}/></td>
+                      <td style={{padding:4}}><CurIn value={r.jml} onChange={v=>{const n=[...bulkRows];n[i]={...n[i],jml:v};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:100}}/></td>
+                      <td style={{padding:4}}><select value={r.tipe} onChange={e=>{const n=[...bulkRows];n[i]={...n[i],tipe:e.target.value};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:110}}>{["pengeluaran","pemasukan","tabungan"].map(t=><option key={t}>{t}</option>)}</select></td>
+                      <td style={{padding:4}}><select value={r.dompetId} onChange={e=>{const n=[...bulkRows];n[i]={...n[i],dompetId:Number(e.target.value)};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:90}}>{s.dompet.map(d=><option key={d.id} value={d.id}>{d.nama}</option>)}</select></td>
+                      <td style={{padding:4}}><input placeholder={t("txDescPlaceholder")} value={r.ket} onChange={e=>{const n=[...bulkRows];n[i]={...n[i],ket:e.target.value};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:140}}/></td>
+                      <td style={{padding:4}}><Del onClick={()=>setBulkRows(bulkRows.filter((_,j)=>j!==i))}/></td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:12}}>
+                <Btn onClick={()=>setBulkRows([...bulkRows,{tgl:bulkRows[bulkRows.length-1]?.tgl||today(),jml:"",tipe:bulkRows[bulkRows.length-1]?.tipe||"pengeluaran",dompetId:bulkRows[bulkRows.length-1]?.dompetId||1,katId:"",ket:""}])} ch="+ Tambah Baris" c={T.accent} outline/>
+                <Btn onClick={addBulk} ch={`${t("saveBulk")} ${bulkRows.filter(r=>r.jml).length} ${t("txCount")}`} style={{padding:"10px 18px"}}/>
+              </div>
+            </>}
+
+            {/* Dompet Modal */}
+            {modal.type==="dompet"&&<>
+              <div style={{fontSize:16,fontWeight:800,marginBottom:16,color:T.text}}>{t("addDompetTitle")}</div>
+              <label style={LS}>{t("type")}</label>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+                {DOMPET_TIPE.map(t=><button key={t} onClick={()=>setDompetForm(f=>({...f,tipe:t}))} style={{padding:"7px 14px",borderRadius:8,border:`2px solid ${dompetForm.tipe===t?T.accent:T.inputBorder}`,background:dompetForm.tipe===t?T.accentBg:T.input,color:dompetForm.tipe===t?T.accent:T.sub,fontWeight:600,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{DOMPET_ICONS[t]} {t}</button>)}
+              </div>
+              <label style={LS}>{t("name")}</label><input placeholder={t("walletPlaceholder")} value={dompetForm.nama} onChange={e=>setDompetForm(f=>({...f,nama:e.target.value}))} style={{...IS,marginBottom:10}}/>
+              <label style={LS}>{t("accountNoOpt")}</label><input placeholder={t("norekPlaceholder")} value={dompetForm.norek} onChange={e=>setDompetForm(f=>({...f,norek:e.target.value}))} style={{...IS,marginBottom:10}}/>
+              <label style={LS}>{t("openingBal")}</label><CurIn value={dompetForm.saldo} onChange={v=>setDompetForm(f=>({...f,saldo:v}))} placeholder="0" style={{...IS,marginBottom:14}}/>
+              <Btn onClick={addDompet} ch={t("addWallet")} style={{width:"100%",padding:"12px"}}/>
+            </>}
+
+            {/* Goal Modal */}
+            {modal.type==="goal"&&<>
+              <div style={{fontSize:16,fontWeight:800,marginBottom:16,color:T.text}}>{t("addGoalTitle")}</div>
+              <label style={LS}>Pilih Icon</label>
+              <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:10,border:`1.5px solid ${T.inputBorder}`,borderRadius:8,marginBottom:10}}>
+                {DREAM_ICONS.map(ico=><button key={ico} onClick={()=>setGoalForm(f=>({...f,icon:ico}))} style={{padding:"5px 7px",borderRadius:7,border:`2px solid ${goalForm.icon===ico?T.accent:"transparent"}`,background:goalForm.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:20,fontFamily:"inherit"}}>{ico}</button>)}
+              </div>
+              <label style={LS}>{t("goalName")}</label><input placeholder={t("goalPlaceholder")} value={goalForm.nama} onChange={e=>setGoalForm(f=>({...f,nama:e.target.value}))} style={{...IS,marginBottom:10}}/>
+              <label style={LS}>{t("goalTarget")}</label><CurIn value={goalForm.target} onChange={v=>setGoalForm(f=>({...f,target:v}))} placeholder="0" style={{...IS,marginBottom:10}}/>
+              <div style={{display:"grid",gridTemplateColumns:"1fr",gap:10,marginBottom:14}}>
+                <div><label style={LS}>Deadline</label><input type="date" value={goalForm.deadline} onChange={e=>setGoalForm(f=>({...f,deadline:e.target.value}))} style={IS}/></div>
+              </div>
+              <Btn onClick={addGoal} ch={t("addGoal")} style={{width:"100%",padding:"12px"}}/>
+            </>}
+
+            {/* Aset Modal */}
+            {modal.type==="aset"&&<>
+              <div style={{fontSize:16,fontWeight:800,marginBottom:16,color:T.text}}>{t("addAsetTitle")}</div>
+              <label style={LS}>{t("asetName2")}</label><input placeholder={t("assetPlaceholder")} value={asetForm.nama} onChange={e=>setAsetForm(f=>({...f,nama:e.target.value}))} style={{...IS,marginBottom:10}}/>
+              <label style={LS}>{t("asetVal")}</label><CurIn value={asetForm.nilai} onChange={v=>setAsetForm(f=>({...f,nilai:v}))} placeholder="0" style={{...IS,marginBottom:10}}/>
+              <label style={LS}>Keterangan</label><input placeholder={t("ketOpsional")} value={asetForm.ket} onChange={e=>setAsetForm(f=>({...f,ket:e.target.value}))} style={{...IS,marginBottom:14}}/>
+              
+              <div style={{background:T.cardAlt, padding:14, borderRadius:10, border:`1.5px dashed ${T.border}`, marginBottom:16}}>
+                 <label style={{...LS, color:T.text}}>{t("useWalletBal")}</label>
+                 <div style={{display:"flex", gap:10, marginBottom:asetForm.beliDariDompet?10:0, alignItems:"center"}}>
+                    <input type="checkbox" checked={asetForm.beliDariDompet} onChange={e=>setAsetForm(f=>({...f,beliDariDompet:e.target.checked}))} style={{width:18, height:18}}/>
+                    <span style={{fontSize:13, fontWeight:600}}>Ya, potong saldo otomatis</span>
+                 </div>
+                 {asetForm.beliDariDompet && (
+                    <select value={asetForm.dompetId} onChange={e=>setAsetForm(f=>({...f,dompetId:Number(e.target.value)}))} style={IS}>
+                       {s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama}</option>)}
+                    </select>
+                 )}
+              </div>
+
+              <Btn onClick={addAset} ch={t("addAset")+""} style={{width:"100%",padding:"12px"}}/>
+            </>}
+          </div>
+        </div>
+      )}
+
+      {/* ── SIDEBAR ── */}
+      {isMobile&&sidebarOpen&&<div className="sidebar-overlay" style={{cursor:"pointer"}} onClick={()=>setSidebarOpen(false)}/>}
+      {(!isMobile||sidebarOpen)&&(
+        <div className={isMobile?"sidebar-slide":""} style={{position:isMobile?"fixed":"relative",top:0,left:0,width:isMobile?270:isTablet?190:220,minWidth:isMobile?270:isTablet?190:220,background:T.nav,borderRight:`1.5px solid ${T.border}`,display:"flex",flexDirection:"column",height:"100dvh",overflowY:"auto",flexShrink:0,zIndex:isMobile?500:10,boxShadow:isMobile?`6px 0 30px rgba(0,0,0,.2)`:T.shadow,transition:"background .3s,border-color .3s"}}>
+          <div style={{padding:"18px 16px",borderBottom:`1.5px solid ${T.border}`,display:"flex",alignItems:"center",gap:11}}>
+            <img src="/icon-192.png" alt="AturDuitku" style={{width:40,height:40,borderRadius:10,objectFit:"cover",flexShrink:0,boxShadow:`0 4px 14px ${T.accentPop}`}}/>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:900,fontSize:15,color:T.text,letterSpacing:-.3}}>AturDuitku</div>
+              <div style={{fontSize:10,color:T.accent,fontWeight:600,marginTop:1}}>{s.name} Workspace</div>
+            </div>
+            {isMobile&&<button onClick={()=>setSidebarOpen(false)} style={{background:T.accentBg,border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:16,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0}}>✕</button>}
+          </div>
+          <div style={{padding:"10px 8px",flex:1}}>
+            {[{label:"Menu Utama",items:NAV.slice(0,4)},{label:"Keuangan",items:NAV.slice(4,8)},{label:"Pengaturan",items:NAV.slice(8)}].map(section=>(
+              <div key={section.label}>
+                <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:2,textTransform:"uppercase",padding:"8px 10px 6px",marginTop:4}}>{section.label}</div>
+                {section.items.map(nav=>{const a=page===nav.id;return(
+                  <div key={nav.id} onClick={()=>navTo(nav.id)} className="nav-item" style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",borderRadius:11,cursor:"pointer",marginBottom:2,background:a?T.navActive:"transparent",color:a?T.accent:T.sub,fontWeight:a?800:600,fontSize:13,borderLeft:a?`3px solid ${T.navBorder}`:"3px solid transparent",transition:"background .15s,color .15s"}}>
+                    <span style={{fontSize:17}}>{nav.icon}</span>
+                    <span>{nav.label}</span>
+                    {a&&<span style={{marginLeft:"auto",width:6,height:6,borderRadius:"50%",background:T.accent,display:"block",boxShadow:`0 0 7px ${T.accent}`}}/>}
+                  </div>
+                );})}
+                {section.label!=="Pengaturan"&&<div style={{height:1,background:T.borderLight,margin:"6px 10px 0"}}/>}
+              </div>
+            ))}
+          </div>
+          <div style={{padding:12,borderTop:`1.5px solid ${T.border}`}}>
+            <div style={{background:T.accentBg,borderRadius:12,padding:"12px 14px",border:`1px solid ${T.border}`}}>
+              <div style={{fontSize:9,color:T.accent,fontWeight:700,textTransform:"uppercase",letterSpacing:1.5,marginBottom:4}}>Status Keuangan</div>
+              <div style={{fontWeight:800,color:statusC,fontSize:14,marginBottom:2}}>{status}</div>
+              <div style={{fontSize:10,color:T.muted}}>{s.bulan} {s.tahun}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MAIN CONTENT ── */}
+      <div style={{flex:1,height:"100dvh",overflowY:"auto",overflowX:"hidden",minWidth:0,maxWidth:"100%",width:0,background:T.bg,transition:"background .3s",WebkitOverflowScrolling:"touch"}}>
+        {/* Topbar */}
+        <div className="topbar-safe" style={{background:T.topbar,backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderBottom:`1.5px solid ${T.border}`,padding:isMobile?`10px max(14px,env(safe-area-inset-right)) 10px max(14px,env(safe-area-inset-left))`:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50,transition:"background .3s,border-color .3s"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            {isMobile&&<button onClick={()=>setSidebarOpen(true)} style={{background:T.accentBg,border:"none",borderRadius:9,width:36,height:36,cursor:"pointer",fontSize:18,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0}}>☰</button>}
+            <div>
+              <div style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg}}>{NAV.find(n=>n.id===page)?.icon} {(lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings"}:{})[page]||NAV.find(n=>n.id===page)?.label}</div>
+              {!isMobile&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>{hariShort}{tzZone.zone?` · ${tzZone.zone}`:""}</div>}
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            {!isMobile&&(page==="trans"||page==="home")&&<Btn onClick={()=>setModal({type:"tx"})} ch={t("addTx")} style={{padding:"8px 14px",fontSize:12}}/>}
+            {!isMobile&&page==="trans"&&<Btn onClick={()=>setModal({type:"bulk"})} ch="📋 Massal" c={T.accentSoft} outline style={{padding:"8px 14px",fontSize:12}}/>}
+            {!isMobile&&page==="dompet"&&<Btn onClick={()=>setModal({type:"dompet"})} ch={t("addWallet")+" "} style={{padding:"8px 14px",fontSize:12}}/>}
+            {!isMobile&&page==="dompet"&&<Btn onClick={()=>setModal({type:"importMutasi"})} ch={"🏦 "+(lang==="en"?"Import Statement":t("importMutasi").split(" ")[1]||"Mutasi")} c={T.accentSoft} outline style={{padding:"8px 14px",fontSize:12}}/>}
+            {!isMobile&&page==="goals"&&<Btn onClick={()=>setModal({type:"goal"})} ch={t("addGoalBtn")+" "} style={{padding:"8px 14px",fontSize:12}}/>}
+            {!isMobile&&page==="aset"&&<Btn onClick={()=>setModal({type:"aset"})} ch={"+ "+t("aset")} style={{padding:"8px 14px",fontSize:12}}/>}
+
+            <button onClick={()=>setModal({type:"kalkulator"})} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s"}}>🧮</button>
+
+            {/* Notification Bell */}
+            <button onClick={()=>setNotifOpen(true)} className={notifications.length?"notif-bounce":""} style={{position:"relative",background:notifications.length?T.errBg:T.cardAlt,border:`1px solid ${notifications.length?T.errBorder:T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,color:notifications.length?T.err:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .15s"}}>
+              🔔
+              {notifications.length>0&&<span style={{position:"absolute",top:-3,right:-3,background:T.err,color:"white",borderRadius:"50%",width:16,height:16,fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${T.nav}`}}>{Math.min(notifications.length,9)}</span>}
+            </button>
+
+            {/* Blur saldo toggle */}
+            <button onClick={toggleBlur} title={blurSaldo?t("showBalance"):t("hideBalance")} style={{background:blurSaldo?T.accentBg:T.cardAlt,border:`1px solid ${blurSaldo?T.accent:T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s"}}>
+              {blurSaldo?"🙈":"👁️"}
+            </button>
+
+            {/* Dark mode toggle */}
+            <button onClick={()=>setDark(!dark)} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s"}}>
+              {dark?"☀️":"🌙"}
+            </button>
+
+            {!isMobile&&<div style={{textAlign:"right",fontSize:12}}>
+              <div style={{fontWeight:700,color:T.text,marginBottom:2}}>{t(greetingWord)}, {s.name}! {greetingEmoji}</div>
+              <div style={{fontSize:11,color:T.sub,display:"flex",alignItems:"center",gap:4,justifyContent:"flex-end"}}>
+                <span>{hariShort}</span>
+                {tzZone.city&&<><span style={{opacity:.4}}>·</span><span style={{color:tzZone.color,fontWeight:700}}>{tzZone.city} {tzZone.zone}</span></>}
+              </div>
+            </div>}
+            {/* Sync status */}
+            {fireUser&&syncStatus!=="idle"&&<div style={{fontSize:10,color:syncStatus==="saving"?T.warn:syncStatus==="saved"?"#10B981":T.err,fontWeight:600,flexShrink:0}}>
+              {syncStatus==="saving"?"⏳ sync...":syncStatus==="saved"?"✅ tersimpan":"⚠️ error"}
+            </div>}
+            {/* Google avatar + logout */}
+            <div style={{position:"relative",flexShrink:0}} className="avatar-menu-wrap">
+              {fireUser?.photoURL
+                ?<img src={fireUser.photoURL} alt={fireUser.displayName||"User"} style={{width:34,height:34,borderRadius:"50%",objectFit:"cover",cursor:"pointer",boxShadow:`0 3px 10px ${T.accentPop}`,border:`2px solid ${T.accent}`}} onClick={()=>setModal({type:"userMenu"})}/>
+                :<div style={{width:34,height:34,borderRadius:"50%",background:`linear-gradient(135deg,${T.accentFg},${T.accent})`,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:900,fontSize:13,flexShrink:0,boxShadow:`0 3px 10px ${T.accentPop}`,cursor:"pointer"}} onClick={()=>setModal({type:"userMenu"})}>{s.name?.[0]?.toUpperCase()||"U"}</div>
+              }
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile FAB */}
+        {isMobile&&(page==="home"||page==="trans")&&(
+          <button className="fab" onClick={()=>setModal({type:"tx"})}>➕</button>
+        )}
+
+        <div className="page-in" style={{padding:isMobile?`14px max(14px,env(safe-area-inset-right)) calc(80px + max(env(safe-area-inset-bottom),0px)) max(14px,env(safe-area-inset-left))`:"22px 28px 40px",maxWidth:1340,margin:"0 auto"}}>
+
+          {/* ══════════════════════════════════════════════════════════
+              HOME
+          ══════════════════════════════════════════════════════════ */}
+          {page==="home"&&<>
+            {/* Smart Alert Banner */}
+            {inAppAlerts.length>0&&<div style={{marginBottom:14}}>
+              {inAppAlerts.slice(0,3).map((a,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 14px",borderRadius:12,marginBottom:6,background:a.type==="danger"?T.errBg:a.type==="warn"?T.warnBg:T.infoBg,border:`1px solid ${a.type==="danger"?T.errBorder:a.type==="warn"?T.warnBorder:T.infoBorder}`,animation:"fadeUp .3s ease-out"}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:12,fontWeight:800,color:a.type==="danger"?T.err:a.type==="warn"?T.warn:T.info,marginBottom:2}}>{a.title}</div>
+                    <div style={{fontSize:11,color:T.sub}}>{a.body}</div>
+                  </div>
+                  <button onClick={()=>setInAppAlerts(p=>p.filter((_,j)=>j!==i))} style={{background:"transparent",border:"none",cursor:"pointer",color:T.muted,fontSize:14,padding:"0 2px",flexShrink:0}}>✕</button>
+                </div>
+              ))}
+              {inAppAlerts.length>3&&<div style={{fontSize:11,color:T.muted,textAlign:"center",padding:"4px 0"}}>+{inAppAlerts.length-3} notifikasi lainnya</div>}
+            </div>}
+            {/* Hero */}
+            <div style={{background:T.hero,borderRadius:isMobile?14:18,padding:"22px 28px",marginBottom:18,color:"white",position:"relative",overflow:"hidden"}}>
+              <div style={{position:"absolute",right:-30,top:-50,width:220,height:220,borderRadius:"50%",background:"rgba(255,255,255,.04)"}}/>
+              <div style={{position:"absolute",right:80,bottom:-70,width:160,height:160,borderRadius:"50%",background:"rgba(255,255,255,.05)"}}/>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",position:"relative",flexWrap:"wrap",gap:12}}>
+                <div>
+                  <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>{t("dailyBudget")}</div>
+                  <div style={{fontSize:isMobile?24:32,fontWeight:900,letterSpacing:-.5,marginBottom:2}}>{IDR(budgetHarian)}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,.15)",borderRadius:10,padding:"6px 14px"}}>
+                      <span style={{fontSize:13}}>🕐</span>
+                      <span style={{fontSize:17,fontWeight:900,letterSpacing:1.5,fontVariantNumeric:"tabular-nums"}}>{jam}</span>
+                      {tzZone.zone&&<span style={{fontSize:11,fontWeight:700,background:"rgba(255,255,255,.2)",borderRadius:5,padding:"2px 7px",letterSpacing:.5}}>{tzZone.zone}</span>}
+                    </div>
+                    {tzZone.city&&<div style={{display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,.1)",borderRadius:8,padding:"5px 12px",fontSize:12,opacity:.9}}>
+                      <span>📍</span><span style={{fontWeight:600}}>{tzZone.city}</span>
+                    </div>}
+                  </div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>↑ {IDRs(totalIn)}</div>
+                    <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>↓ {IDRs(totalOut)}</div>
+                    <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>{sisaHari} {t("days")}</div>
+                  </div>
+                </div>
+                <div style={{textAlign:"right",background:"rgba(0,0,0,.2)",borderRadius:12,padding:"14px 18px",flexShrink:0}}>
+                  <div style={{fontSize:9,opacity:.6,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>{t("totalBalance")}</div>
+                  <div style={{fontSize:24,fontWeight:900}}><MV v={IDR(totalSaldo)}/></div>
+                  <div style={{fontSize:10,opacity:.65,marginTop:3}}>{t("runway")}: {runwayReal} {t("months")}</div>
+                  <div style={{fontSize:10,opacity:.65,marginTop:2}}>{t("scoreLabel")}: {skorTotal}/100 {getLabel(skorTotal)}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Notifications banner */}
+            {notifications.length>0&&<div onClick={()=>setNotifOpen(true)} style={{background:T.errBg,border:`1px solid ${T.errBorder}`,borderRadius:12,padding:"11px 16px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
+              <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                <span style={{fontSize:18}} className="notif-bounce">🔔</span>
+                <span style={{fontSize:13,fontWeight:700,color:T.err}}>{notifications.length} notifikasi perlu perhatianmu</span>
+              </div>
+              <span style={{fontSize:12,color:T.err,fontWeight:700}}>Lihat →</span>
+            </div>}
+
+            {/* Stats Row */}
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:18}}>
+              {[
+                {l:"Saving Rate",v:savRate>999?"999%+":PCT(savRate),vc:savRate>=20?T.ok:T.err,bg:savRate>=20?T.okBg:T.errBg,sub:savRate>=20?"✓ Ideal ≥ 20%":"⚠ Kurang dari 20%"},
+                {l:t("netCashLabel"),v:IDRs(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg,sub:netCash>=0?"Surplus bulan ini":"⚠ Defisit bulan ini"},
+                {l:t("runwayLabel"),v:`${runwayReal} ${t("runwayMonths")}`,vc:T.info,bg:T.infoBg,sub:t("runwayDesc")},
+                {l:"Pengeluaran Terbesar",v:topKat[0]?topKat[0].nama:"—",vc:T.warn,bg:T.warnBg,sub:topKat[0]?IDRs(topKat[0].nilai):"Belum ada data"},
+              ].map(x=>(
+                <div key={x.l} style={{background:x.bg,borderRadius:13,padding:"14px 16px",border:`1px solid ${x.vc}22`,transition:"background .3s"}}>
+                  <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1.2,marginBottom:6}}>{x.l}</div>
+                  <div style={{fontSize:isMobile?14:16,fontWeight:800,color:x.vc,marginBottom:3}}>{x.v}</div>
+                  <div style={{fontSize:10,color:T.muted}}>{x.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Progress Pengeluaran */}
+            <Card ch={<>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <div style={{fontWeight:700,fontSize:13,color:T.text}}>{t("budgetMonthProg")}</div>
+                <div style={{fontSize:11,color:T.muted}}>{t("dayOf")}-{hariIni}/{hariDlmBulan}</div>
+              </div>
+              {[
+                {l:"Kebutuhan",c:"#EF4444",val:s.budgets.filter(b=>b.kelas==="Kebutuhan"||b.kelas===t("needsCat")).reduce((a,b)=>a+(spendByKat[b.id]||0),0),total:s.budgets.filter(b=>b.kelas==="Kebutuhan").reduce((a,b)=>a+N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0),0)},
+                {l:"Keinginan",c:"#F59E0B",val:s.budgets.filter(b=>b.kelas==="Keinginan"||b.kelas===t("wantsCat")).reduce((a,b)=>a+(spendByKat[b.id]||0),0),total:s.budgets.filter(b=>b.kelas==="Keinginan").reduce((a,b)=>a+N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0),0)},
+                {l:"Tabungan",c:"#22C55E",val:totalTabung,total:N(s.targetDana)||totalIn*0.2},
+              ].map(({l,c,val,total})=>{
+                const pct=total>0?Math.min(val/total*100,100):0;
+                return(
+                  <div key={l} style={{marginBottom:10}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                      <span style={{fontSize:12,color:T.text,fontWeight:600}}>{l}</span>
+                      <span style={{fontSize:11,color:T.muted}}>{IDRs(val)} / {IDRs(total)} ({pct.toFixed(0)}%)</span>
+                    </div>
+                    <PBar pct={pct} c={c} h={8}/>
+                  </div>
+                );
+              })}
+            </>} style={{marginBottom:18}}/>
+
+            {/* Calendar + Recent Tx */}
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:18,marginBottom:18}}>
+              <Card ch={<>
+                <Sec t={`Aktivitas ${s.bulan}`} right={<span style={{fontSize:11,color:T.accent,fontWeight:700,background:T.accentBg,padding:"2px 8px",borderRadius:6}}>{now.getDate()} {MONTHS[now.getMonth()].slice(0,3)}</span>}/>
+                <CalendarView txs={txBulan} bulan={s.bulan} tahun={s.tahun} liveDay={now.getDate()} liveMonth={now.getMonth()} liveYear={now.getFullYear()}/>
+              </>}/>
+              <Card ch={<>
+                <Sec t={t("recentTx")} right={<button onClick={()=>setPage("trans")} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Lihat semua →</button>}/>
+                {txBulan.length?[...txBulan].sort((a,b)=>new Date(b.tgl)-new Date(a.tgl)).slice(0,6).map(t=>renderTxItem(t)):<div style={{textAlign:"center",padding:"24px",color:T.muted,fontSize:12}}>Belum ada transaksi bulan ini</div>}
+              </>}/>
+            </div>
+
+            {/* Daily Spending + Tagihan + Top Spending */}
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":`${isMobile?"1fr":"1fr 1fr 1fr"}`,gap:18,marginBottom:18}}>
+              <Card ch={<>
+                <Sec t={"📊 "+t("dailyExpense")} sub={s.bulan}/>
+                <DailyChart txBulan={txBulan} bulan={s.bulan} tahun={s.tahun}/>
+              </>}/>
+              <Card ch={<>
+                <Sec t={t("upcomingBills")}/>
+                {tagihan.length?tagihan.slice(0,5).map((t,i)=>{
+                  const tDate=new Date(now.getFullYear(),now.getMonth(),Number(t.tempo));
+                  const diff=Math.ceil((tDate-now)/(1000*60*60*24));
+                  const isUrgent=diff>=0&&diff<=3; const isOverdue=diff<0;
+                  return(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",borderRadius:8,background:(isUrgent||isOverdue)?T.errBg:"transparent",borderBottom:`1px solid ${T.borderLight}`}}>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <span style={{fontSize:18}}>{t.emoji}</span>
+                      <div><div style={{fontSize:12,fontWeight:600,color:(isUrgent||isOverdue)?T.err:T.text}}>{t.nama}</div><div style={{fontSize:10,color:T.muted}}>{t.kat}</div></div>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontSize:12,fontWeight:700,color:T.err}}>{IDRs(N(t.alokasi))}</div>
+                      <div style={{fontSize:10,color:(isUrgent||isOverdue)?T.err:T.muted, fontWeight:(isUrgent||isOverdue)?700:400}}>
+                         {isOverdue?`Lewat ${Math.abs(diff)} hari`:isUrgent?`${diff} hari lagi`:`tgl ${t.tempo}`}
+                      </div>
+                    </div>
+                  </div>
+                )}):<div style={{textAlign:"center",padding:20,color:T.muted,fontSize:12}}>{t("noBills")}<br/><span style={{fontSize:10}}>Tambah di Budget → Subkategori</span></div>}
+              </>}/>
+              <Card ch={<>
+                <Sec t={t("topExpense")}/>
+                {topKat.map((k,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.borderLight}`}}>
+                    <span style={{fontSize:12,color:T.text,fontWeight:500}}>{k.nama}</span>
+                    <span style={{fontSize:12,fontWeight:700,color:T.err}}>{IDRs(k.nilai)}</span>
+                  </div>
+                ))}
+                {pieData.length>0&&<div style={{marginTop:12}}>
+                  <ResponsiveContainer width="100%" height={120}>
+                    <PieChart><Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={52} innerRadius={28}>{pieData.map((_,i)=><Cell key={i} fill={PIE_C[i%PIE_C.length]}/>)}</Pie><Tooltip formatter={v=>IDR(v)} contentStyle={{borderRadius:8,fontSize:11,background:T.card,border:`1px solid ${T.border}`,color:T.text}}/></PieChart>
+                  </ResponsiveContainer>
+                </div>}
+                {!topKat.length&&<div style={{textAlign:"center",padding:20,color:T.muted,fontSize:12}}>{t("noBudgetData")}</div>}
+              </>}/>
+            </div>
+          </>}
+
+          {/* ══════════════════════════════════════════════════════════
+              DOMPET
+          ══════════════════════════════════════════════════════════ */}
+          {page==="dompet"&&<>
+            <div style={{background:T.hero,borderRadius:16,padding:"22px 28px",marginBottom:20,color:"white"}}>
+              <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>{t("liquidAssets")}</div>
+              <div style={{fontSize:30,fontWeight:900,marginBottom:4}}><MV v={IDR(totalSaldo)}/></div>
+              <div style={{display:"flex",gap:16,fontSize:12,opacity:.7}}>
+                <span>{t("scoreLabel")}: {getLabel(skorTotal)} ({skorTotal}/100)</span>
+                <span>🏦 {s.dompet.length} akun aktif</span>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(280px,1fr))",gap:14,marginBottom:20}}>
+              {s.dompet.map(d=>(
+                <div key={d.id} style={{background:T.card,borderRadius:14,padding:18,border:`1px solid ${T.border}`,boxShadow:T.shadow,transition:"background .3s"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+                    <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                      <span style={{fontSize:26}}>{d.icon}</span>
+                      <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}{d.norek&&` · ${d.norek}`}</div></div>
+                    </div>
+                    <Del onClick={()=>setModal({type:"confirm",title:`${t("deleteWallet")}: "${d.nama}"?`,msg:`${t("deleteWalletMsg")} ${IDR(N(d.saldo))} akan dihapus. Transaksi yang terhubung tetap ada tapi tidak lagi menunjuk ke dompet ini.`,danger:true,onConfirm:()=>{setS(p=>({...p,dompet:p.dompet.filter(x=>x.id!==d.id)}));setModal(null);showToast(`🗑️ Dompet ${d.nama} dihapus!`);}})} />
+                  </div>
+                  <div style={{fontSize:20,fontWeight:900,color:N(d.saldo)<0?T.err:T.text,marginBottom:8}}>
+                    {N(d.saldo)<0&&<span style={{fontSize:12,background:T.errBg,color:T.err,borderRadius:6,padding:"1px 7px",marginRight:6,fontWeight:700}}>⚠ Negatif</span>}
+                    <MV v={IDR(N(d.saldo))}/>
+                  </div>
+                  <div style={{height:4,background:T.border,borderRadius:4,marginBottom:12,overflow:"hidden"}}>
+                    <div style={{width:totalSaldo>0?Math.min(N(d.saldo)/totalSaldo*100,100)+"%" :"0%",height:"100%",background:T.accent,borderRadius:4}}/>
+                  </div>
+                  <label style={{...LS, color:T.muted}}>{t("adjustBalance")}</label>
+                  <div style={{display:"flex", gap:6}}>
+                    <CurIn value={editSaldo[d.id] !== undefined ? editSaldo[d.id] : d.saldo} onChange={v=>setEditSaldo(p=>({...p, [d.id]:v}))}/>
+                    {editSaldo[d.id] !== undefined && editSaldo[d.id] !== String(N(d.saldo)) && (
+                        <Btn onClick={()=>{
+                            const diff = N(editSaldo[d.id]) - N(d.saldo);
+                            const txTipe = diff > 0 ? "pemasukan" : "pengeluaran";
+                            setS(p=>({...p,
+                                dompet: p.dompet.map(x=>x.id===d.id ? {...x, saldo: String(N(editSaldo[d.id]))} : x),
+                                txs: [{id:Date.now(), tipe:txTipe, tgl:today(), ket:`${t("balAdjustLabel")}: ${d.nama}`, jml:String(Math.abs(diff)), dompetId:d.id}, ...p.txs]
+                            }));
+                            setEditSaldo(p=>{const np={...p}; delete np[d.id]; return np;});
+                            showToast(t("toast_balanceOk"));
+                        }} ch="✓" c="#16A34A" />
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div onClick={()=>setModal({type:"dompet"})} style={{background:T.cardAlt,borderRadius:14,padding:18,border:`1.5px dashed ${T.border}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",minHeight:140,gap:8,color:T.muted,transition:"border-color .15s"}} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                <span style={{fontSize:28}}>+</span><span style={{fontSize:13,fontWeight:600}}>{t("addWallet")}</span>
+              </div>
+            </div>
+          </>}
+
+          {/* ══════════════════════════════════════════════════════════
+              TRANSAKSI
+          ══════════════════════════════════════════════════════════ */}
+          {page==="trans"&&<>
+            <Card ch={<>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+                <div style={{position:"relative",flex:1,minWidth:200}}>
+                  <input placeholder={t("searchTx")} value={txSearch} onChange={e=>{setTxSearch(e.target.value);setTxPage(1);}} style={{...IS,paddingLeft:36,width:"100%"}}/>
+                  <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",fontSize:14}}>🔍</span>
+                </div>
+                <select value={txFilt.dompet} onChange={e=>{setTxFilt(f=>({...f,dompet:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
+                  <option value="">{t("allWallets")}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama}</option>)}
+                </select>
+                <select value={txFilt.tipe} onChange={e=>{setTxFilt(f=>({...f,tipe:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
+                  <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="transfer">Transfer</option>
+                </select>
+                {(txSearch||txFilt.dompet||txFilt.tipe)&&<Btn onClick={()=>{setTxSearch("");setTxFilt({dompet:"",tipe:"",sub:""});setTxPage(1);}} ch="✕ Reset" c={T.err} outline style={{padding:"7px 12px",fontSize:12}}/>}
+                <Btn onClick={exportCSV} ch="📥 Export" c="#16A34A" outline style={{padding:"7px 12px",fontSize:12}}/>
+                <Btn onClick={()=>setModal({type:"importMutasi"})} ch="🏦 Import Mutasi" c={T.accent} style={{padding:"7px 12px",fontSize:12}}/>
+              </div>
+            </>} style={{marginBottom:16}}/>
+
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:16}}>
+              {[{l:t("incomeLabel"),v:IDR(totalIn),vc:T.ok,bg:T.okBg},{l:t("expenseLabel"),v:IDR(totalOut),vc:T.err,bg:T.errBg},{l:"Tabungan",v:IDR(totalTabung),vc:T.info,bg:T.infoBg},{l:"Net",v:IDR(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg}].map(x=>(
+                <div key={x.l} style={{background:x.bg,borderRadius:12,padding:"13px 16px",transition:"background .3s"}}>
+                  <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{x.l}</div>
+                  <div style={{fontWeight:800,fontSize:15,color:x.vc}}>{x.v}</div>
+                </div>
+              ))}
+            </div>
+            <Card ch={<>
+              <Sec t={`${filtTx.length} ${t("txCount")}`} right={<div style={{fontSize:12,color:T.muted}}>{s.bulan} {s.tahun}</div>}/>
+              {filtTx.length?<>
+                {filtTx.slice(0,txPage*TX_PER_PAGE).map(t=>renderTxItem(t))}
+                {filtTx.length>txPage*TX_PER_PAGE&&(
+                  <div style={{textAlign:"center",paddingTop:16}}>
+                    <Btn onClick={()=>setTxPage(p=>p+1)} ch={`${t("loadMore")} (${filtTx.length-txPage*TX_PER_PAGE} tersisa)`} c={T.accent} outline style={{padding:"9px 20px",fontSize:12}}/>
+                  </div>
+                )}
+                {filtTx.length>TX_PER_PAGE&&txPage*TX_PER_PAGE>=filtTx.length&&(
+                  <div style={{textAlign:"center",paddingTop:12,fontSize:11,color:T.muted}}>{t("showAll").replace("All","")||""}{filtTx.length} {t("txCount").toLowerCase()}saksi ditampilkan</div>
+                )}
+              </>:<div style={{textAlign:"center",padding:40,color:T.muted}}><div style={{fontSize:32,marginBottom:8}}>🔍</div>Tidak ada transaksi ditemukan</div>}
+            </>}/>
+          </>}
+
+          {/* ══════════════════════════════════════════════════════════
+              BUDGET
+          ══════════════════════════════════════════════════════════ */}
+          {page==="budget"&&<>
+            <div style={{background:T.hero,borderRadius:16,padding:"20px 26px",marginBottom:20,color:"white",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
+              <div>
+                <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>{t("budgetMonthly")}</div>
+                <div style={{fontSize:isMobile?20:28,fontWeight:900,marginBottom:4}}>{IDR(totalBudget)}</div>
+                <div style={{fontSize:12,opacity:.7}}>{t("budgetUsed")} {IDR(totalOut)} · {t("budgetLeft")} {IDR(Math.max(totalBudget-totalOut,0))}</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:11,opacity:.6,marginBottom:4}}>{t("budgetDisc")}</div>
+                <div style={{fontSize:20,fontWeight:900}}>{Math.round(skorDisiplin)}/100</div>
+                <div style={{marginTop:8,width:120}}>
+                  <div style={{background:"rgba(255,255,255,.2)",borderRadius:99,overflow:"hidden",height:6}}>
+                    <div style={{width:Math.min(totalBudget>0?totalOut/totalBudget*100:0,100)+"%",height:"100%",background:"rgba(255,255,255,.7)",borderRadius:99,transition:"width .6s"}}/>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Card ch={<>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:showAddKat?14:0}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:T.muted}}>{t("manageCategory")}</div>
+                <Btn onClick={()=>setShowAddKat(!showAddKat)} ch={showAddKat?"✕ "+t("cancel"):"+ "+t("addCategory2")} c={T.accent} outline style={{padding:"7px 14px",fontSize:12}}/>
+              </div>
+              {showAddKat&&<div style={{background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:12,padding:16,marginTop:10}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:10,marginBottom:12}}>
+                  <div><label style={LS}>{t("catName")}</label><input placeholder={t("catPlaceholder")} value={newKat.kat} onChange={e=>setNewKat(f=>({...f,kat:e.target.value}))} style={IS}/></div>
+                  <div><label style={LS}>{t("catClass")}</label><select value={newKat.kelas} onChange={e=>setNewKat(f=>({...f,kelas:e.target.value}))} style={IS}><option>Kebutuhan</option><option>Keinginan</option></select></div>
+                </div>
+                <label style={LS}>Pilih Icon</label>
+                <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:10,background:T.card,borderRadius:8,border:`1.5px solid ${T.infoBorder}`,marginBottom:12}}>
+                  {ICONS.slice(0,28).map(ico=><button key={ico} onClick={()=>setNewKat(f=>({...f,icon:ico}))} style={{width:34,height:34,borderRadius:7,border:`2px solid ${newKat.icon===ico?T.accent:"transparent"}`,background:newKat.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:17,fontFamily:"inherit"}}>{ico}</button>)}
+                </div>
+                <Btn onClick={()=>{if(!newKat.kat.trim()){showToast(t("toast_fillName"));return;}setS(p=>({...p,budgets:[...p.budgets,{id:Date.now(),kat:newKat.kat,icon:newKat.icon,kelas:newKat.kelas,alokasi:"0",sub:[]}]}));setNewKat({kat:"",icon:"📦",kelas:"Kebutuhan"});setShowAddKat(false);showToast("✅ Kategori ditambahkan!");}} ch="+ Tambah" style={{padding:"10px 20px"}}/>
+              </div>}
+            </>} style={{marginBottom:20}}/>
+
+            {[t("needsCat"),t("wantsCat")].map(kelas=>{
+              const cats=s.budgets.filter(b=>b.kelas===kelas);
+              const kelasTotal=cats.reduce((a,b)=>a+N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0),0);
+              const kelasSpend=cats.reduce((a,b)=>a+(spendByKat[b.id]||0),0);
+              return(
+                <div key={kelas} style={{marginBottom:20}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                    <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                      <span style={{fontSize:16}}>{kelas===t("needsCat")?"🔵":"🟡"}</span>
+                      <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{kelas}</div><div style={{fontSize:11,color:T.muted}}>Total: {IDR(kelasSpend)} / {IDR(kelasTotal)}</div></div>
+                    </div>
+                    <Pill c={kelas==="Kebutuhan"?"blue":"yellow"} ch={`${cats.length} ${lang==="en"?"categories":"kategori"}`}/>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14}}>
+                    {cats.map(b=>{
+                      const spend=spendByKat[b.id]||0;
+                      const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
+                      const pct=alloc>0?spend/alloc*100:0;const over=alloc>0&&spend>alloc;
+                      return(
+                        <div key={b.id} style={{background:T.card,borderRadius:13,padding:16,border:`1px solid ${over?T.errBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                            <div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:20}}>{b.icon}</span><span style={{fontWeight:700,fontSize:13,color:T.text}}>{b.kat}</span></div>
+                            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                              <Pill c={over?"red":pct>80?"yellow":"green"} ch={over?t("overLabel"):pct>80?t("almostLabel"):t("safeLabel")} xs/>
+                              <button onClick={()=>setS(p=>({...p,budgets:p.budgets.filter(x=>x.id!==b.id)}))} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:13,padding:"2px 5px",borderRadius:4,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>🗑</button>
+                            </div>
+                          </div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                            <div><label style={LS}>Alokasi</label><CurIn value={b.alokasi} onChange={v=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,alokasi:v})}))} /></div>
+                            <div><label style={LS}>Realisasi</label>
+                            <div style={{padding:"9px 12px",borderRadius:8,border:`1.5px dashed ${over?T.errBorder:T.infoBorder}`,background:over?T.errBg:T.infoBg,color:over?T.err:T.info,fontWeight:700,fontSize:13}}>{IDRs(spend)||"Rp 0"}</div></div>
+                          </div>
+                          <PBar pct={pct} c={over?"#EF4444":pct>80?"#F59E0B":"#22C55E"} h={5}/>
+                          <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.muted,marginTop:3,marginBottom:b.sub.length?10:0}}>
+                            <span>{pct.toFixed(0)}% terpakai</span><span>Sisa: {IDR(Math.max(alloc-spend,0))}</span>
+                          </div>
+                          {b.sub.map((sb,si)=>(
+                            <div key={si} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:T.cardAlt,borderRadius:8,marginBottom:4,border:`1px solid ${T.borderLight}`}}>
+                              <div style={{display:"flex",gap:7,alignItems:"center"}}>
+                                <span style={{fontSize:14}}>{sb.emoji}</span>
+                                <div><div style={{fontSize:12,fontWeight:600,color:T.text}}>{sb.nama}</div>{sb.tempo&&<div style={{fontSize:10,color:T.muted}}>Tagihan tgl {sb.tempo}</div>}</div>
+                              </div>
+                              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                                <span style={{fontSize:12,fontWeight:700,color:T.text}}>{IDRs(N(sb.alokasi))}</span>
+                                <button onClick={()=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:x.sub.filter((_,j)=>j!==si)})}))} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:12,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>✕</button>
+                              </div>
+                            </div>
+                          ))}
+                          {newSub.katId===b.id
+                            ?<div style={{background:T.infoBg,borderRadius:8,padding:10,marginTop:8,border:`1px solid ${T.infoBorder}`}}>
+                              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                                <div><label style={{...LS,fontSize:9}}>{t("name")}</label><input placeholder={t("subBillPlaceholder")} value={newSub.nama} onChange={e=>setNewSub(f=>({...f,nama:e.target.value}))} style={{...IS,fontSize:11,padding:"6px 9px"}}/></div>
+                                <div><label style={{...LS,fontSize:9}}>Alokasi</label><CurIn value={newSub.alokasi} onChange={v=>setNewSub(f=>({...f,alokasi:v}))} style={{...IS,fontSize:11,padding:"6px 9px"}}/></div>
+                              </div>
+                              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                                <div><label style={{...LS,fontSize:9}}>Emoji</label>
+                                <div style={{display:"flex",flexWrap:"wrap",gap:3,padding:5,background:T.card,borderRadius:6,border:`1px solid ${T.infoBorder}`}}>
+                                  {ICONS.slice(0,16).map(ic=><button key={ic} onClick={()=>setNewSub(f=>({...f,emoji:ic}))} style={{width:26,height:26,borderRadius:5,border:`1.5px solid ${newSub.emoji===ic?T.accent:"transparent"}`,background:newSub.emoji===ic?T.accentBg:"transparent",cursor:"pointer",fontSize:13,fontFamily:"inherit"}}>{ic}</button>)}
+                                </div></div>
+                                <div><label style={{...LS,fontSize:9}}>Jatuh Tempo (tgl)</label><input type="number" min="1" max="31" placeholder="tgl" value={newSub.tempo} onChange={e=>setNewSub(f=>({...f,tempo:e.target.value}))} style={{...IS,fontSize:11,padding:"6px 9px"}}/></div>
+                              </div>
+                              <div style={{display:"flex",gap:8}}>
+                                <Btn onClick={()=>{if(!newSub.nama){showToast("⚠️ Isi nama!");return;}setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:[...x.sub,{nama:newSub.nama,emoji:newSub.emoji,alokasi:newSub.alokasi||"0",tempo:newSub.tempo||null}]})}));setNewSub({katId:null,nama:"",emoji:"📌",alokasi:"",tempo:""});showToast("✅ Subkategori ditambahkan!");}} ch="Simpan" c="#0369A1" style={{fontSize:11,padding:"6px 12px"}}/>
+                                <Btn onClick={()=>setNewSub({katId:null,nama:"",emoji:"📌",alokasi:"",tempo:""})} ch="Batal" c={T.muted} outline style={{fontSize:11,padding:"6px 12px"}}/>
+                              </div>
+                            </div>
+                            :<button onClick={()=>setNewSub({katId:b.id,nama:"",emoji:"📌",alokasi:"",tempo:""})} style={{width:"100%",padding:7,borderRadius:8,border:`1.5px dashed ${T.infoBorder}`,background:T.infoBg,color:T.info,fontWeight:600,fontSize:11,cursor:"pointer",fontFamily:"inherit",marginTop:6}}>+ Tambah Subkategori</button>
+                          }
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </>}
+
+          {/* ══════════════════════════════════════════════════════════
+              GOALS
+          ══════════════════════════════════════════════════════════ */}
+          {/* ══════════════════════════════════════════════════════════
+              AMPLOP DIGITAL
+          ══════════════════════════════════════════════════════════ */}
+          {page==="amplop"&&<>
+            {/* Hero */}
+            <div style={{background:T.hero,borderRadius:16,padding:"20px 26px",marginBottom:20,color:"white"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
+                <div>
+                  <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>{t("totalEnvFunds")}</div>
+                  <div style={{fontSize:28,fontWeight:900,marginBottom:4}}>{IDR(amplopTotal)}</div>
+                  <div style={{display:"flex",gap:10,fontSize:12,flexWrap:"wrap"}}>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px"}}>✉️ {s.amplop.length} amplop</div>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px"}}>💸 Terpakai: {IDRs(amplopTerpakai)}</div>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px"}}>💰 {t("envelopeLeft")}: {IDRs(amplopTotal-amplopTerpakai)}</div>
+                  </div>
+                </div>
+                <Btn onClick={()=>setShowAddAmplop(!showAddAmplop)} ch={showAddAmplop?"✕ "+t("cancel"):t("createEnvelope")} style={{padding:"10px 18px",background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.4)",color:"white"}}/>
+              </div>
+            </div>
+
+            {/* Penjelasan */}
+            <div style={{background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:12,padding:"12px 16px",marginBottom:18,fontSize:12,color:T.info,lineHeight:1.6}}>
+              {t("envelopeInfo")} untuk tujuan tertentu. Mirip metode amplop fisik, tapi digital. Uang dari dompet dipindah ke amplop, dan saat belanja cukup "ambil" dari amplop yang sesuai.
+            </div>
+
+            {/* Form Tambah Amplop */}
+            {showAddAmplop&&<Card ch={<>
+              <Sec t={lang==="en"?"Create New Envelope":"Buat Amplop Baru"}/>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
+                <div><label style={LS}>{t("envelopeName")}</label><input placeholder="Makan, Bensin, Hiburan..." value={amplopForm.nama} onChange={e=>setAmplopForm(f=>({...f,nama:e.target.value}))} style={IS}/></div>
+                <div><label style={LS}>{t("envelopeAlloc")}</label><CurIn value={amplopForm.alokasi} onChange={v=>setAmplopForm(f=>({...f,alokasi:v}))} placeholder="0" style={IS}/></div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+                <div><label style={LS}>{t("envelopeSource")}</label>
+                <select value={amplopForm.dompetId} onChange={e=>setAmplopForm(f=>({...f,dompetId:Number(e.target.value)}))} style={IS}>
+                  {s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama} ({IDRs(N(d.saldo))})</option>)}
+                </select></div>
+                <div><label style={LS}>Pilih Icon</label>
+                <div style={{display:"flex",flexWrap:"wrap",gap:4,padding:8,background:T.cardAlt,borderRadius:8,border:`1.5px solid ${T.inputBorder}`}}>
+                  {["✉️","🍜","🚗","🛍️","💡","💊","🎮","📚","✈️","🏠","👗","💻","🎵","☕","🎁","🏋️","🌿","🎓","📱","🚿"].map(ico=>(
+                    <button key={ico} onClick={()=>setAmplopForm(f=>({...f,icon:ico}))} style={{width:28,height:28,borderRadius:6,border:`2px solid ${amplopForm.icon===ico?T.accent:"transparent"}`,background:amplopForm.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:14,fontFamily:"inherit"}}>{ico}</button>
+                  ))}
+                </div></div>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <Btn onClick={addAmplop} ch={t("createTransfer")} style={{padding:"10px 18px"}}/>
+                <Btn onClick={()=>setShowAddAmplop(false)} ch={t("cancel")} c={T.muted} outline style={{padding:"10px 14px"}}/>
+              </div>
+            </>} style={{marginBottom:18}}/>}
+
+            {/* Daftar Amplop */}
+            {s.amplop.length===0&&!showAddAmplop&&<div style={{textAlign:"center",padding:"60px 20px",color:T.muted}}>
+              <div style={{fontSize:48,marginBottom:12}}>✉️</div>
+              <div style={{fontSize:16,fontWeight:600,color:T.sub}}>{t("noEnvelope")}</div>
+              <div style={{fontSize:13,marginTop:6,marginBottom:20}}>Buat amplop pertamamu untuk mulai budgeting!</div>
+              <Btn onClick={()=>setShowAddAmplop(true)} ch={t("createFirst")} style={{padding:"12px 24px"}}/>
+            </div>}
+
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
+              {s.amplop.map(amp=>(
+                <AmplopCard
+                  key={amp.id}
+                  amp={amp}
+                  dompetList={s.dompet}
+                  onDelete={()=>setModal({type:"confirm",title:t("deleteEnvelope"),msg:`${t("deleteEnvelopeMsg")} "${amp.nama}"${t("deleteEnvelopeSuffix")} — Dana dikembalikan ke dompet.`,danger:true,onConfirm:()=>{setS(p=>({...p,amplop:p.amplop.filter(a=>a.id!==amp.id)}));setModal(null);showToast("✅ Amplop dihapus!")}})}
+                  onIsi={(jml,dompetId)=>isiAmplop(amp.id,jml,dompetId)}
+                  onPakai={(jml,ket)=>pakaiAmplop(amp.id,jml,ket)}
+                  onReset={()=>resetAmplop(amp.id)}
+                />
+              ))}
+            </div>
+          </>}
+
+          {/* ══════════════════════════════════════════════════════════
+              GOALS
+          ══════════════════════════════════════════════════════════ */}
+          {page==="goals"&&<>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:isMobile?10:14,marginBottom:20}}>
+              {[{l:"Total Goal",v:s.goals.length,vc:T.accent,bg:T.accentBg},{l:"Tercapai",v:s.goals.filter(g=>g.selesai||(N(g.target)>0&&N(g.kumpul)>=N(g.target))).length,vc:T.ok,bg:T.okBg},{l:"Total Terkumpul",v:IDR(s.goals.reduce((a,g)=>a+N(g.kumpul),0)),vc:T.info,bg:T.infoBg}].map(x=>(
+                <div key={x.l} style={{background:x.bg,borderRadius:13,padding:"14px 18px",transition:"background .3s"}}>
+                  <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:5}}>{x.l}</div>
+                  <div style={{fontWeight:800,fontSize:18,color:x.vc}}>{x.v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
+              {s.goals.map(g=><GoalCard key={g.id} g={g} dompetList={s.dompet} onDelete={()=>setS(p=>({...p,goals:p.goals.filter(x=>x.id!==g.id)}))} onTambah={tambahGoalDana} onSelesai={id=>setS(p=>({...p,goals:p.goals.map(x=>x.id!==id?x:{...x,selesai:true})}))}/>)}
+              {!s.goals.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:"60px 20px",color:T.muted}}>
+                <div style={{fontSize:48,marginBottom:12}}>🌟</div>
+                <div style={{fontSize:16,fontWeight:600,color:T.sub}}>{t("noGoal")}</div>
+                <div style={{fontSize:13,marginTop:6,marginBottom:20,color:T.muted}}>{t("goalsAdd")}</div>
+                <Btn onClick={()=>setModal({type:"goal"})} ch={t("addFirstGoal")} style={{padding:"12px 24px"}}/>
+              </div>}
+            </div>
+            {s.goals.length>0&&<div style={{marginTop:16,textAlign:"right"}}><Btn onClick={()=>setModal({type:"goal"})} ch={t("addGoalBtn")} style={{padding:"10px 20px"}}/></div>}
+          </>}
+
+          {/* ══════════════════════════════════════════════════════════
+              ASET
+          ══════════════════════════════════════════════════════════ */}
+          {page==="aset"&&<>
+            <div style={{background:T.hero,borderRadius:16,padding:"22px 28px",marginBottom:20,color:"white"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
+                <div>
+                  <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>{lang==="en"?"Total Net Worth":t("assetHero")+" Bersih (Net Worth)"}</div>
+                  <div style={{fontSize:30,fontWeight:900,marginBottom:8}}>{IDR(totalAset)}</div>
+                  <div style={{display:"flex",gap:10,fontSize:12,flexWrap:"wrap"}}>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"6px 12px"}}>💳 {t("assetLiquid")}: {IDRs(totalSaldo)}</div>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"6px 12px"}}>🏠 Tetap: {IDRs(s.asetTetap.reduce((a,b)=>a+N(b.nilai),0))}</div>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"6px 12px"}}>📋 {t("assetDebt")}: -{IDRs(totalUtangAktif)}</div>
+                  </div>
+                </div>
+                <div style={{textAlign:"center",background:"rgba(0,0,0,.2)",borderRadius:12,padding:"14px 20px"}}>
+                  <CircleGauge value={skorTotal} c={getC(skorTotal)} label="SKOR"/>
+                  <div style={{fontSize:12,fontWeight:700,color:getC(skorTotal),marginTop:6}}>{getLabel(skorTotal)}</div>
+                </div>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:18}}>
+              <Card ch={<>
+                <Sec t={t("walletSection")} right={<button onClick={()=>setPage("dompet")} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Kelola →</button>}/>
+                {s.dompet.map(d=>(
+                  <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
+                    <div style={{display:"flex",gap:10,alignItems:"center"}}><span style={{fontSize:20}}>{d.icon}</span><div><div style={{fontSize:13,fontWeight:600,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}</div></div></div>
+                    <span style={{fontWeight:700,color:T.text}}><MV v={IDR(N(d.saldo))}/></span>
+                  </div>
+                ))}
+                <div style={{marginTop:12,background:T.okBg,borderRadius:9,padding:"10px 14px",border:`1px solid ${T.okBorder}`}}>
+                  <div style={{fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:2}}>{t("liquidAssets")}</div>
+                  <div style={{fontWeight:800,color:T.ok,fontSize:16}}><MV v={IDR(totalSaldo)}/></div>
+                </div>
+              </>}/>
+              <Card ch={<>
+                <Sec t={t("assetSection")}/>
+                {s.asetTetap.map(a=>(
+                  <div key={a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
+                    <div><div style={{fontSize:13,fontWeight:600,color:T.text}}>{a.nama}</div>{a.ket&&<div style={{fontSize:11,color:T.muted}}>{a.ket}</div>}</div>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <span style={{fontWeight:700,color:T.text}}>{IDR(N(a.nilai))}</span>
+                      <Del onClick={()=>setS(p=>({...p,asetTetap:p.asetTetap.filter(x=>x.id!==a.id)}))}/>
+                    </div>
+                  </div>
+                ))}
+                {!s.asetTetap.length&&<div style={{textAlign:"center",padding:24,color:T.muted,fontSize:12}}>Belum ada aset tetap<br/><span style={{fontSize:10}}>Rumah, Kendaraan, Emas dll</span></div>}
+                <div style={{marginTop:10}}><Btn onClick={()=>setModal({type:"aset"})} ch={"+ "+t("aset")} c={T.accent} outline style={{padding:"8px 14px",fontSize:12}}/></div>
+              </>}/>
+            </div>
+          </>}
+
+          {/* ══════════════════════════════════════════════════════════
+              UTANG
+          ══════════════════════════════════════════════════════════ */}
+          {page==="utang"&&<>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:20,marginBottom:20}}>
+              <Card ch={<>
+                <Sec t={t("debtTitle")}/>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginBottom:12}}>
+                  {[{v:"utang",l:t("debtType_utang")},{v:"piutang",l:t("debtType_piutang")},{v:"piutangBisnis",l:t("debtType_biz")}].map(({v,l})=>(
+                    <button key={v} onClick={()=>setUtForm(f=>({...f,tipe:v}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${utForm.tipe===v?T.accent:T.inputBorder}`,background:utForm.tipe===v?T.accentBg:T.input,color:utForm.tipe===v?T.accent:T.sub}}>{l}</button>
+                  ))}
+                </div>
+                <label style={LS}>{t("date")}</label><input type="date" value={utForm.tgl} onChange={e=>setUtForm(f=>({...f,tgl:e.target.value}))} style={{...IS,marginBottom:10}}/>
+                <label style={LS}>{t("debtor")}</label><input placeholder={t("debtorPlaceholder")} value={utForm.nama} onChange={e=>setUtForm(f=>({...f,nama:e.target.value}))} style={{...IS,marginBottom:10}}/>
+                <label style={LS}>{t("amount")} (Rp)</label>
+                <div style={{position:"relative",marginBottom:10}}>
+                  <CurIn value={utForm.jml} onChange={v=>setUtForm(f=>({...f,jml:v}))} placeholder="0" style={{paddingRight:40}}/>
+                  <button onClick={()=>openCalc("utjml",utForm.jml,v=>setUtForm(f=>({...f,jml:v})))} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:16}}>🔢</button>
+                </div>
+                <label style={LS}>Jatuh Tempo</label><input type="date" value={utForm.tempo} onChange={e=>setUtForm(f=>({...f,tempo:e.target.value}))} style={{...IS,marginBottom:10}}/>
+                <label style={LS}>Keterangan</label><input placeholder={t("ketOpsional")} value={utForm.ket} onChange={e=>setUtForm(f=>({...f,ket:e.target.value}))} style={{...IS,marginBottom:14}}/>
+                <Btn onClick={addUt} ch={t("saveNote")} style={{width:"100%",padding:11}}/>
+              </>}/>
+              <div style={{display:"grid",gap:14,alignContent:"start"}}>
+                {[{l:t("debtActive"),v:IDR(totalUtangAktif),vc:T.err,bg:T.errBg},{l:t("recvActive"),v:IDR(totalPiutang),vc:T.ok,bg:T.okBg},{l:"Sudah Lunas",v:s.utang.filter(u=>u.lunas).length+" item",vc:T.accent,bg:T.accentBg}].map(x=>(
+                  <div key={x.l} style={{background:x.bg,borderRadius:12,padding:"14px 18px",transition:"background .3s"}}>
+                    <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:5}}>{x.l}</div>
+                    <div style={{fontWeight:800,fontSize:17,color:x.vc}}>{x.v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {["utang","piutang","piutangBisnis"].map(tipe=>{
+              const list=s.utang.filter(u=>u.tipe===tipe&&!u.lunas);
+              if(!list.length)return null;
+              return <div key={tipe} style={{marginBottom:14}}>
+                <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>{tipe==="utang"?"Utang Aktif":tipe==="piutangBisnis"?"Piutang Bisnis":"Piutang Aktif"}</div>
+                {list.map(u=><UtangCard key={u.id} u={u} dompetList={s.dompet} onDelete={()=>setS(p=>({...p,utang:p.utang.filter(x=>x.id!==u.id)}))} onCicilan={catatCicilan}/>)}
+              </div>;
+            })}
+            {s.utang.filter(u=>u.lunas).length>0&&<div>
+              <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>✓ Sudah Lunas</div>
+              {s.utang.filter(u=>u.lunas).map(u=><UtangCard key={u.id} u={u} dompetList={s.dompet} onDelete={()=>setS(p=>({...p,utang:p.utang.filter(x=>x.id!==u.id)}))} onCicilan={catatCicilan}/>)}
+            </div>}
+            {!s.utang.length&&<Card ch={<div style={{textAlign:"center",padding:40,color:T.muted}}>{t("noDebt")} 🙌</div>}/>}
+          </>}
+
+          {/* ══════════════════════════════════════════════════════════
+              LAPORAN
+          ══════════════════════════════════════════════════════════ */}
+          {page==="laporan"&&<>
+            
+            <div style={{marginBottom:18, display:"flex", justifyContent:"flex-end", gap:8, flexWrap:"wrap"}}>
+              <Btn onClick={()=>setModal({type:"yearReview"})} ch={t("yearReviewBtn")} c={T.accentSoft} outline style={{padding:"7px 14px",fontSize:12}}/>
+              <Btn onClick={()=>setModal({type:"kalkulator"})} ch={"🧮 "+t("loanCalc")} c={T.accentSoft} outline style={{padding:"7px 14px",fontSize:12}}/>
+              <Btn onClick={exportCSV} ch={t("exportCSV")} c="#16A34A" outline style={{padding:"7px 14px",fontSize:12}}/>
+              <Btn onClick={exportSheets} ch={t("exportSheets")} c="#0F9D58" style={{padding:"7px 14px",fontSize:12}}/>
+              <Btn onClick={exportPDF} ch={t("exportPDF")} c="#5B21B6" style={{padding:"7px 14px",fontSize:12}}/>
+            </div>
+
+            {/* Komparasi Bulanan */}
+            <KomparasiBulanan txs={s.txs} budgets={s.budgets} T={T} isMobile={isMobile}/>
+
+            <Card ch={<>
+              <Sec t={"❤️ "+t("healthScore")} sub="Dihitung dari rasio tabungan, disiplin anggaran, dan dana darurat"/>
+              <div style={{display:"flex",gap:24,alignItems:"center",flexWrap:"wrap"}}>
+                <CircleGauge value={skorTotal} c={getC(skorTotal)} label="SKOR" size={120}/>
+                <div style={{flex:1,minWidth:200}}>
+                  <div style={{fontSize:20,fontWeight:900,color:getC(skorTotal),marginBottom:4}}>{getLabel(skorTotal)}</div>
+                  <div style={{fontSize:12,color:T.sub,marginBottom:14}}>{t("monthlyScore")} {s.bulan} {s.tahun}</div>
+                  {[{l:t("savingRatioLabel"),v:skorTabungan,c:"#22C55E",hint:`${PCT(savRate)} dari ideal 20%`},{l:"Disiplin Anggaran",v:skorDisiplin,c:T.accent,hint:`${totalBudget>0?PCT(totalOut/totalBudget*100):"N/A"} terpakai dari budget`},{l:"Keamanan & Runway",v:skorRunway,c:"#F59E0B",hint:`${runwayReal} bulan dari ideal 6`}].map(x=>(
+                    <div key={x.l} style={{marginBottom:10}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                        <span style={{fontSize:12,color:T.text,fontWeight:600}}>{x.l}</span>
+                        <span style={{fontSize:11,color:x.c,fontWeight:700}}>{Math.round(x.v)}/100 <span style={{color:T.muted,fontWeight:400}}>· {x.hint}</span></span>
+                      </div>
+                      <PBar pct={x.v} c={x.c}/>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>} style={{marginBottom:18}}/>
+
+            {/* Trend 6 bulan */}
+            <Card ch={<>
+              <Sec t={"📈 "+t("trend6mo")} right={
+                <div style={{display:"flex",gap:10,fontSize:10}}>
+                  <span style={{color:"#22C55E",fontWeight:700}}>● Masuk</span>
+                  <span style={{color:"#EF4444",fontWeight:700}}>● Keluar</span>
+                  <span style={{color:"#6366F1",fontWeight:700}}>● Tabung</span>
+                </div>
+              }/>
+              <TrendChart trendData={trendData} isMobile={isMobile}/>
+            </>} style={{marginBottom:18}}/>
+
+            {/* Summary */}
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:18}}>
+              {[
+                {l:"Yang Ditabung",v:IDR(totalTabung),sub:`Rasio: ${PCT(savRate)}`,vc:T.info,bg:T.infoBg},
+                {l:"+ "+t("incomeLabel"),v:IDR(totalIn),sub:prevIn>0?`${changePct(totalIn,prevIn)>0?"+":""}${changePct(totalIn,prevIn)}% vs lalu`:null,vc:T.ok,bg:T.okBg,trend:changePct(totalIn,prevIn)},
+                {l:"- "+t("expenseLabel"),v:IDR(totalOut),sub:prevOut>0?`${changePct(totalOut,prevOut)>0?"+":""}${changePct(totalOut,prevOut)}% vs lalu`:null,vc:T.err,bg:T.errBg,trend:changePct(totalOut,prevOut)},
+                {l:"Net Cashflow",v:IDR(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg},
+              ].map(x=>(
+                <div key={x.l} style={{background:x.bg,borderRadius:12,padding:"14px 16px",transition:"background .3s"}}>
+                  <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{x.l}</div>
+                  <div style={{fontWeight:800,fontSize:16,color:x.vc,marginBottom:2}}>{x.v}</div>
+                  {x.sub&&<div style={{fontSize:10,color:x.trend>0?T.ok:x.trend<0?T.err:T.muted}}>{x.sub}</div>}
+                </div>
+              ))}
+            </div>
+
+            {/* Charts */}
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:18,marginBottom:18}}>
+              <Card ch={<>
+                <Sec t={t("spendDetail")}/>
+                {pieData.length?<ResponsiveContainer width="100%" height={isMobile?150:200}>
+                  <PieChart><Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={80} innerRadius={40} label={({percent})=>`${(percent*100).toFixed(0)}%`}>{pieData.map((_,i)=><Cell key={i} fill={PIE_C[i%PIE_C.length]}/>)}</Pie><Tooltip formatter={v=>IDR(v)} contentStyle={{borderRadius:8,fontSize:12,background:T.card,border:`1px solid ${T.border}`,color:T.text}}/></PieChart>
+                </ResponsiveContainer>:<div style={{textAlign:"center",padding:40,color:T.muted,fontSize:12}}>{t("noTxData")}</div>}
+              </>}/>
+              <Card ch={<>
+                <Sec t={t("dailyExpense")} sub={s.bulan}/>
+                <DailyChart txBulan={txBulan} bulan={s.bulan} tahun={s.tahun}/>
+              </>}/>
+            </div>
+
+            {/* Performa Anggaran */}
+            <Card ch={<>
+              <Sec t={"📊 "+t("budgetPerformance")} sub="Alokasi vs realisasi per kategori"/>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 100px 100px minmax(120px,1fr) 70px",padding:"6px 0",borderBottom:`1.5px solid ${T.border}`,marginBottom:4,gap:8}}>
+                {[lang==="en"?["Category","Allocation","Realized","Progress","% Used"]:["Kategori","Alokasi","Realisasi","Progress","% Terpakai"]].map(h=><span key={h} style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8}}>{h}</span>)}
+              </div>
+              {s.budgets.map(b=>{
+                const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
+                const spend=spendByKat[b.id]||0;const pct=alloc>0?spend/alloc*100:0;const over=alloc>0&&spend>alloc;
+                return(
+                  <div key={b.id} style={{display:"grid",gridTemplateColumns:"1fr 100px 100px minmax(120px,1fr) 70px",padding:"9px 0",borderBottom:`1px solid ${T.borderLight}`,gap:8,alignItems:"center"}}>
+                    <span style={{fontSize:12,display:"flex",gap:6,alignItems:"center",color:T.text}}><span>{b.icon}</span>{b.kat}</span>
+                    <span style={{fontSize:12,color:T.sub}}>{IDRs(alloc)}</span>
+                    <span style={{fontSize:12,fontWeight:600,color:over?T.err:T.text}}>{IDRs(spend)}</span>
+                    <PBar pct={Math.min(pct,100)} c={over?"#EF4444":pct>80?"#F59E0B":"#22C55E"}/>
+                    <Pill c={over?"red":pct>80?"yellow":"green"} ch={`${pct.toFixed(0)}%`} xs/>
+                  </div>
+                );
+              })}
+            </>} style={{marginBottom:18}}/>
+
+            {/* Prediksi + Saran */}
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:18}}>
+              <Card ch={<>
+                <Sec t={"🔮 "+t("prediction")}/>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+                  <div style={{background:T.errBg,borderRadius:10,padding:"12px 14px"}}>
+                    <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>{t("prediksiPengeluaran")}</div>
+                    <div style={{fontWeight:800,color:T.err,fontSize:16}}>{IDR(prediksiOut)}</div>
+                    <div style={{fontSize:10,color:T.muted,marginTop:2}}>Avg harian: {IDRs(dailyAvg)}</div>
+                  </div>
+                  <div style={{background:prediksiSisa>=0?T.okBg:T.errBg,borderRadius:10,padding:"12px 14px"}}>
+                    <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>{t("prediksiSisa")}</div>
+                    <div style={{fontWeight:800,color:prediksiSisa>=0?T.ok:T.err,fontSize:16}}>{IDR(prediksiSisa)}</div>
+                    <div style={{fontSize:10,color:T.muted,marginTop:2}}>{prediksiSisa>=0?t("predSafe"):t("predDeficit")}</div>
+                  </div>
+                </div>
+              </>}/>
+              <Card ch={<>
+                <Sec t={t("tipPerCat")}/>
+                {saranList.length?saranList.map((saran,i)=>(
+                  <div key={i} style={{background:saran.type==="over"?T.errBg:T.warnBg,border:`1px solid ${saran.type==="over"?T.errBorder:T.warnBorder}`,borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+                    <div style={{fontSize:13,marginBottom:3,color:T.text}}>{saran.icon} <strong>{saran.kat}</strong></div>
+                    <div style={{fontSize:12,color:saran.type==="over"?T.err:T.warn}}>{saran.msg}</div>
+                  </div>
+                )):<div style={{background:T.okBg,border:`1px solid ${T.okBorder}`,borderRadius:10,padding:16,textAlign:"center"}}>
+                  <div style={{fontSize:24,marginBottom:8}}>🎉</div>
+                  <div style={{fontSize:13,fontWeight:700,color:T.ok}}>{t("allSafe")}</div>
+                </div>}
+              </>}/>
+            </div>
+
+            {/* Riwayat Saldo Per Bulan */}
+            <Card ch={<>
+              <Sec t={t("histBalance")} sub={lang==="en"?"Balance estimated from transactions":"Saldo tiap dompet diestimasi berdasarkan transaksi historis"}/>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:400}}>
+                  <thead>
+                    <tr style={{background:T.cardAlt}}>
+                      <th style={{padding:"8px 12px",textAlign:"left",fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",borderBottom:`1.5px solid ${T.border}`}}>Bulan</th>
+                      {s.dompet.map(d=><th key={d.id} style={{padding:"8px 12px",textAlign:"right",fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",borderBottom:`1.5px solid ${T.border}`}}>{d.icon} {d.nama}</th>)}
+                      <th style={{padding:"8px 12px",textAlign:"right",fontSize:10,color:T.accent,fontWeight:700,textTransform:"uppercase",borderBottom:`1.5px solid ${T.border}`}}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(historicalSaldo).map(([label,data],i)=>{
+                      const isCurrentMonth=label===MSHORT[bulanIdx];
+                      return(
+                        <tr key={label} style={{background:isCurrentMonth?T.accentBg:"transparent"}}>
+                          <td style={{padding:"9px 12px",fontWeight:isCurrentMonth?700:500,color:isCurrentMonth?T.accent:T.text,borderBottom:`1px solid ${T.borderLight}`}}>
+                            {label} {isCurrentMonth&&<Pill c="blue" ch={t("activeLabel")} xs/>}
+                          </td>
+                          {s.dompet.map(d=>(
+                            <td key={d.id} style={{padding:"9px 12px",textAlign:"right",fontWeight:600,color:data.dompetSaldo[d.id]>=0?T.text:T.err,borderBottom:`1px solid ${T.borderLight}`}}>
+                              {IDRs(data.dompetSaldo[d.id]||0)}
+                            </td>
+                          ))}
+                          <td style={{padding:"9px 12px",textAlign:"right",fontWeight:800,color:data.totalSaldo>=0?T.ok:T.err,borderBottom:`1px solid ${T.borderLight}`}}>
+                            {IDR(data.totalSaldo)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{fontSize:10,color:T.muted,marginTop:10}}>* Estimasi dihitung dengan meng-reverse transaksi dari saldo saat ini. Angka paling akurat jika data transaksi lengkap.</div>
+            </>} style={{marginTop:18}}/>
+          </>}
+
+          {/* ══════════════════════════════════════════════════════════
+              SETTING
+          ══════════════════════════════════════════════════════════ */}
+          {page==="setting"&&(
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:20}}>
+              <Card ch={<>
+                <Sec t={t("profile")}/>
+                <label style={LS}>{t("displayName")}</label><input value={sfForm.name} onChange={e=>setSfForm(f=>({...f,name:e.target.value}))} style={{...IS,marginBottom:10}}/>
+                <label style={LS}>{t("emergencyTarget")}</label><CurIn value={sfForm.targetDana} onChange={v=>setSfForm(f=>({...f,targetDana:v}))} placeholder="0" style={{...IS,marginBottom:14}}/>
+
+                <Sec t={t("display")}/>
+                {/* Language Selector */}
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:8}}>🌐 {t("language")}</div>
+                  <div style={{display:"flex",gap:6}}>
+                    {[{code:"id",flag:"🇮🇩",label:"Indonesia"},{code:"en",flag:"🇺🇸",label:"English"}].map(l=>(
+                      <button key={l.code} onClick={()=>changeLang(l.code)} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"9px 12px",borderRadius:10,border:`2px solid ${lang===l.code?T.accent:T.border}`,background:lang===l.code?T.accentBg:T.card,color:lang===l.code?T.accent:T.sub,fontWeight:700,fontSize:13,cursor:"pointer",transition:"all .2s"}}>
+                        <span style={{fontSize:18}}>{l.flag}</span>{l.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",background:T.cardAlt,borderRadius:10,border:`1px solid ${T.border}`,marginBottom:14}}>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:13,color:T.text}}>{t("darkMode")}</div>
+                    <div style={{fontSize:11,color:T.muted}}>{t("darkModeDesc")}</div>
+                  </div>
+                  <button onClick={()=>setDark(!dark)} style={{width:52,height:28,borderRadius:99,background:dark?T.accent:T.border,border:"none",cursor:"pointer",position:"relative",transition:"background .3s"}}>
+                    <div style={{width:22,height:22,borderRadius:"50%",background:"white",position:"absolute",top:3,left:dark?27:3,transition:"left .25s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+                  </button>
+                </div>
+
+                {/* Blur saldo toggle */}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",background:T.cardAlt,borderRadius:10,border:`1px solid ${T.border}`,marginBottom:14}}>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:13,color:T.text}}>👁️ {t("blurBalance")}</div>
+                    <div style={{fontSize:11,color:T.muted}}>{t("blurDesc")}</div>
+                  </div>
+                  <button onClick={toggleBlur} style={{width:52,height:28,borderRadius:99,background:blurSaldo?T.accent:T.border,border:"none",cursor:"pointer",position:"relative",transition:"background .3s"}}>
+                    <div style={{width:22,height:22,borderRadius:"50%",background:"white",position:"absolute",top:3,left:blurSaldo?27:3,transition:"left .25s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+                  </button>
+                </div>
+
+                {/* Notification permission */}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",background:T.cardAlt,borderRadius:10,border:`1px solid ${T.border}`,marginBottom:14}}>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:13,color:T.text}}>🔔 {t("notifications")}</div>
+                    <div style={{fontSize:11,color:T.muted}}>{t("notifDesc")}</div>
+                  </div>
+                  <button onClick={requestNotifPermission} style={{padding:"6px 14px",borderRadius:99,border:`1.5px solid ${T.accent}`,background:T.accentBg,color:T.accent,fontWeight:700,fontSize:11,cursor:"pointer"}}>
+                    {typeof window!=="undefined"&&"Notification" in window&&Notification.permission==="granted"?t("notifActive"):"Aktifkan"}
+                  </button>
+                </div>
+
+                <Sec t={t("laporanPeriod")}/>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+                  <div><label style={LS}>{t("bulanShort")}</label><select value={s.bulan} onChange={e=>setS(p=>({...p,bulan:e.target.value}))} style={IS}>{MONTHS.map(m=><option key={m}>{m}</option>)}</select></div>
+                  <div><label style={LS}>{t("year")}</label><select value={s.tahun} onChange={e=>setS(p=>({...p,tahun:e.target.value}))} style={IS}>{YEAR_OPTIONS.map(y=><option key={y}>{y}</option>)}</select></div>
+                </div>
+                
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>🟢 GOOGLE SHEETS</div>
+                  <div style={{background:dark?"#1F1035":"#F0EBFF",borderRadius:10,padding:"12px",border:`1px solid ${T.border}`}}>
+                    <div style={{fontSize:12,fontWeight:700,color:T.accent,marginBottom:4}}>📊 Export Data</div>
+                    <div style={{fontSize:11,color:T.muted,lineHeight:1.6}}>Gunakan tombol <strong>Export Sheets</strong> atau <strong>Export PDF</strong> di halaman Laporan untuk download data kamu.</div>
+                  </div>
+                                  </div>
+                <Btn onClick={()=>{setS(p=>({...p,name:sfForm.name,targetDana:sfForm.targetDana,prevPemasukan:sfForm.prevPemasukan,prevPengeluaran:sfForm.prevPengeluaran,groqKey:sfForm.groqKey||""}));showToast("✅ Tersimpan!");}} ch={lang==="en"?"💾 Save Changes":"💾 Simpan Perubahan"} style={{width:"100%",padding:11}}/>
+                <div style={{marginTop:16,paddingTop:14,borderTop:`1.5px solid ${T.errBorder}`}}>
+                  <div style={{fontSize:10,fontWeight:700,color:T.err,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>⚠️ Zona Berbahaya</div>
+                  <button onClick={()=>setModal({type:"confirm",title:"Reset Semua Data",msg:"Tindakan ini akan menghapus SEMUA data keuanganmu secara permanen. Yakin ingin melanjutkan?",danger:true,onConfirm:()=>{
+              localStorage.removeItem("aturduitku_data");
+              localStorage.removeItem("aturduitku_onboarded");
+              setS(INIT);
+              setOnboarded(false);
+              setModal(null);
+              if(fireUser){ saveUserData(fireUser.uid,{data:INIT,onboarded:false}); }
+              showToast("🗑️ Semua data direset!");
+            }})} style={{width:"100%",padding:10,borderRadius:10,border:`1.5px solid ${T.errBorder}`,background:T.errBg,color:T.err,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
+                    🗑️ Reset Semua Data
+                  </button>
+                </div>
+              </>}/>
+              <div style={{display:"grid",gap:14,alignContent:"start"}}>
+                <Card ch={<>
+                  <Sec t="📤 Export Data"/>
+                  <div style={{fontSize:12,color:T.muted,lineHeight:1.7}}>
+                    Download data keuanganmu kapanpun:<br/>
+                    <strong style={{color:T.text}}>📊 Export Sheets</strong> → buka di Google Sheets<br/>
+                    <strong style={{color:T.text}}>📄 Export PDF</strong> → laporan siap cetak
+                  </div>
+                  <Btn onClick={()=>navTo("laporan")} ch="Buka Laporan →" style={{marginTop:8,padding:"8px 14px",fontSize:12}}/>
+                </>}/>
+
+                <Card ch={<>
+                  <Sec t={t("prevPeriod")}/>
+                  <label style={LS}>{t("prevIncome")}</label><CurIn value={sfForm.prevPemasukan} onChange={v=>setSfForm(f=>({...f,prevPemasukan:v}))} placeholder="0" style={{...IS,marginBottom:10}}/>
+                  <label style={LS}>{t("prevExpense")}</label><CurIn value={sfForm.prevPengeluaran} onChange={v=>setSfForm(f=>({...f,prevPengeluaran:v}))} placeholder="0" style={IS}/>
+                </>}/>
+                
+                {/* Backup & Restore */}
+                <Card ch={<>
+                  <Sec t={t("backupRestore")}/>
+                  <div style={{fontSize:12,color:T.sub,marginBottom:14,lineHeight:1.5}}>Export semua data ke file JSON untuk backup, atau import kembali dari file backup sebelumnya.</div>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                    <Btn onClick={exportJSON} ch="📤 Export JSON" c="#16A34A" style={{flex:1,padding:"10px 14px"}}/>
+                    <Btn onClick={()=>setModal({type:"importJSON"})} ch="📥 Import JSON" c={T.info} outline style={{flex:1,padding:"10px 14px"}}/>
+                  </div>
+                  <div style={{marginTop:10,fontSize:11,color:T.muted}}>{t("csvHint")}</div>
+                </>} style={{marginBottom:14}}/>
+
+                {/* Recurring Transactions */}
+                <Card ch={<>
+                  <Sec t={t("recurringTx")} right={<Btn onClick={()=>setShowAddRecurring(!showAddRecurring)} ch={showAddRecurring?"✕":t("add")} c={T.accent} outline style={{padding:"5px 12px",fontSize:11}}/>}/>
+                  <div style={{fontSize:11,color:T.sub,marginBottom:12}}>{t("recurringDesc2")} //langganan). Proses otomatis ke bulan aktif.</div>
+
+                  {showAddRecurring&&<div style={{background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:10,padding:14,marginBottom:14}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                      <div><label style={{...LS,fontSize:9}}>{t("name")}</label><input placeholder={t("recurringPlaceholder")} value={recurringForm.nama} onChange={e=>setRecurringForm(f=>({...f,nama:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></div>
+                      <div><label style={{...LS,fontSize:9}}>{t("amount")}</label><CurIn value={recurringForm.jml} onChange={v=>setRecurringForm(f=>({...f,jml:v}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
+                      <div><label style={{...LS,fontSize:9}}>{t("type")}</label>
+                      <select value={recurringForm.tipe} onChange={e=>setRecurringForm(f=>({...f,tipe:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}>
+                        <option value="pengeluaran">↓ {t("expense")}</option>
+                        <option value="pemasukan">↑ {t("income")}</option>
+                        <option value="tabungan">{t("savingShort")}</option>
+                      </select></div>
+                      <div><label style={{...LS,fontSize:9}}>{t("recurringDay")}</label><input type="number" min="1" max="31" placeholder="tgl" value={recurringForm.hari} onChange={e=>setRecurringForm(f=>({...f,hari:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></div>
+                      <div><label style={{...LS,fontSize:9}}>{t("dompet")}</label>
+                      <select value={recurringForm.dompetId} onChange={e=>setRecurringForm(f=>({...f,dompetId:Number(e.target.value)}))} style={{...IS,fontSize:11,padding:"7px 9px"}}>
+                        {s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama}</option>)}
+                      </select></div>
+                    </div>
+                    <Btn onClick={addRecurring} ch={t("recurringAdd")} style={{padding:"8px 16px",fontSize:12}}/>
+                  </div>}
+
+                  {s.recurring.length>0&&<>
+                    <div style={{marginBottom:10}}>
+                      <Btn onClick={prosesRecurring} ch={`⚡ ${t("processAll")} ${s.bulan} ${s.tahun}`} c="#D97706" style={{width:"100%",padding:"10px 14px",fontSize:12}}/>
+                    </div>
+                    {s.recurring.map(r=>(
+                      <div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${T.borderLight}`}}>
+                        <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                          <div style={{width:32,height:32,borderRadius:8,background:r.tipe==="pemasukan"?T.okBg:r.tipe==="tabungan"?T.infoBg:T.errBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
+                            {r.tipe==="pemasukan"?"📈":r.tipe==="tabungan"?"🏦":"📉"}
+                          </div>
+                          <div>
+                            <div style={{fontSize:12,fontWeight:700,color:T.text}}>{r.nama}</div>
+                            <div style={{fontSize:10,color:T.muted}}>Tgl {r.hari} tiap bulan · {s.dompet.find(d=>d.id===r.dompetId)?.nama}</div>
+                          </div>
+                        </div>
+                        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                          <span style={{fontSize:12,fontWeight:700,color:r.tipe==="pemasukan"?T.ok:r.tipe==="tabungan"?T.info:T.err}}>{IDRs(N(r.jml))}</span>
+                          <button onClick={()=>setS(p=>({...p,recurring:p.recurring.map(x=>x.id!==r.id?x:{...x,aktif:!x.aktif})}))} style={{padding:"3px 8px",borderRadius:6,border:`1px solid ${r.aktif?T.okBorder:T.border}`,background:r.aktif?T.okBg:T.cardAlt,color:r.aktif?T.ok:T.muted,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>{r.aktif?"Aktif":"Nonaktif"}</button>
+                          <Del onClick={()=>setS(p=>({...p,recurring:p.recurring.filter(x=>x.id!==r.id)}))}/>
+                        </div>
+                      </div>
+                    ))}
+                  </>}
+                  {!s.recurring.length&&!showAddRecurring&&<div style={{textAlign:"center",padding:"16px 0",color:T.muted,fontSize:12}}>{lang==="en"?"No recurring transactions yet":"Belum ada transaksi rutin"}</div>}
+                </>} style={{marginBottom:14}}/>
+
+                {/* Notification Summary */}
+                <Card ch={<>
+                  <Sec t={t("notifSummary")} right={<button onClick={()=>setNotifOpen(true)} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:700}}>Lihat Semua</button>}/>
+                  {notifications.length===0
+                    ?<div style={{textAlign:"center",padding:20,color:T.muted,fontSize:12}}>{t("noNotif")}</div>
+                    :notifications.slice(0,3).map((n,i)=>(
+                      <div key={i} style={{display:"flex",gap:10,alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.borderLight}`}}>
+                        <span style={{fontSize:18}}>{n.icon}</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:12,fontWeight:700,color:n.color==="danger"?T.err:T.warn}}>{n.title}</div>
+                          <div style={{fontSize:11,color:T.muted}}>{n.msg}</div>
+                        </div>
+                      </div>
+                    ))
+                  }
+                  {notifications.length>3&&<div style={{textAlign:"center",fontSize:11,color:T.accent,fontWeight:700,marginTop:8,cursor:"pointer"}} onClick={()=>setNotifOpen(true)}>+{notifications.length-3} notifikasi lainnya</div>}
+                </>}/>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{textAlign:"center",padding:14,fontSize:11,color:T.muted,borderTop:`1.5px solid ${T.border}`,background:T.topbar,marginTop:8,transition:"background .3s", paddingBottom: isMobile ? 80 : 14}}>
+          AturDuitku · {s.name} Workspace · {s.bulan} {s.tahun} · {tzZone.city} {tzZone.zone} · {dark?"🌙 Dark":"☀️ Light"}
+        </div>
+      </div>
+
+      {/* ── BOTTOM NAV (mobile only) ── */}
+      {isMobile&&<nav className="bottom-nav" style={{background:T.nav,borderTopColor:T.border,display:sidebarOpen?"none":"flex"}}>
+        {[NAV[0],NAV[1],NAV[2],NAV[3]].map(nav=>{const a=page===nav.id;return(
+          <button key={nav.id} onClick={()=>navTo(nav.id)} className="bottom-nav-item" style={{color:a?T.accent:T.muted}}>
+            <span style={{fontSize:20,lineHeight:1,transition:"transform .15s",transform:a?"scale(1.15)":"scale(1)"}}>{nav.icon}</span>
+            <span style={{fontSize:9,fontWeight:a?800:500}}>{nav.label}</span>
+            {a&&<span style={{width:4,height:4,borderRadius:"50%",background:T.accent,marginTop:1,boxShadow:`0 0 6px ${T.accent}`}}/>}
+          </button>
+        );})}
+        <button onClick={()=>setMoreOpen(true)} className="bottom-nav-item" style={{color:T.muted,position:"relative"}}>
+          <span style={{fontSize:20,lineHeight:1}}>⋯</span>
+          <span style={{fontSize:9,fontWeight:500}}>{t("more")}</span>
+          {notifications.length>0&&<span style={{position:"absolute",top:6,right:"calc(50% - 14px)",background:T.err,color:"white",borderRadius:"50%",width:14,height:14,fontSize:8,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>{Math.min(notifications.length,9)}</span>}
+        </button>
+      </nav>}
+    </div>
+
+      {/* ═══════ FLOATING AI BUTTON + CHAT PANEL ═══════ */}
+      <style>{`
+        @keyframes aiBounceIn {
+          0%{transform:scale(0) translateY(20px);opacity:0;}
+          70%{transform:scale(1.08) translateY(-4px);}
+          100%{transform:scale(1) translateY(0);opacity:1;}
+        }
+        @keyframes aiPulseRing {
+          0%{transform:scale(1);opacity:0.5;}
+          100%{transform:scale(1.6);opacity:0;}
+        }
+        @keyframes aiFadeSlide {
+          from{opacity:0;transform:translateX(100%);}
+          to{opacity:1;transform:translateX(0);}
+        }
+        @keyframes aiTypingDot {
+          0%,80%,100%{transform:scale(0.6);opacity:0.4;}
+          40%{transform:scale(1);opacity:1;}
+        }
+        /* ── Float Button ── */
+        .ai-float-btn {
+          position:fixed;
+          z-index:900;
+          cursor:pointer;
+          background:linear-gradient(135deg,#7C3AED,#5B21B6);
+          color:white;
+          border:none;
+          border-radius:28px;
+          padding:13px 18px;
+          font-size:13px;
+          font-weight:700;
+          font-family:inherit;
+          animation:aiBounceIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both;
+          box-shadow:0 6px 20px rgba(124,58,237,0.45);
+          display:flex;
+          align-items:center;
+          gap:8px;
+          touch-action:manipulation;
+          -webkit-tap-highlight-color:transparent;
+          user-select:none;
+          -webkit-user-select:none;
+          white-space:nowrap;
+          transition:transform 0.15s, box-shadow 0.15s;
+        }
+        .ai-float-btn::before {
+          content:"";
+          position:absolute;
+          inset:0;
+          border-radius:28px;
+          background:linear-gradient(135deg,#7C3AED,#5B21B6);
+          animation:aiPulseRing 2.5s ease-out infinite;
+          z-index:-1;
+        }
+        .ai-float-btn:active { transform:scale(0.94); box-shadow:0 3px 12px rgba(124,58,237,0.4); }
+        @media (hover:hover) {
+          .ai-float-btn:hover { transform:scale(1.04); box-shadow:0 8px 28px rgba(124,58,237,0.6); }
+        }
+        /* ── Panel ── */
+        .ai-panel {
+          position:fixed;
+          right:0;
+          top:0;
+          width:min(380px,100vw);
+          height:100dvh;
+          height:-webkit-fill-available;
+          z-index:1100;
+          display:flex;
+          flex-direction:column;
+          animation:aiFadeSlide 0.28s cubic-bezier(0.32,0.72,0,1);
+          box-shadow:-6px 0 40px rgba(0,0,0,0.22);
+          overscroll-behavior:contain;
+        }
+        /* ── Messages ── */
+        .ai-msg-user {
+          align-self:flex-end;
+          background:linear-gradient(135deg,#7C3AED,#5B21B6);
+          color:white;
+          border-radius:18px 18px 4px 18px;
+          padding:10px 14px;
+          max-width:80%;
+          font-size:13.5px;
+          line-height:1.5;
+          word-break:break-word;
+          box-shadow:0 2px 8px rgba(124,58,237,0.3);
+        }
+        .ai-msg-ai {
+          align-self:flex-start;
+          border-radius:18px 18px 18px 4px;
+          padding:10px 14px;
+          max-width:86%;
+          font-size:13.5px;
+          line-height:1.6;
+          word-break:break-word;
+        }
+        .ai-msgs-wrap {
+          flex:1;
+          overflow-y:auto;
+          -webkit-overflow-scrolling:touch;
+          overscroll-behavior:contain;
+          padding:14px 12px;
+          display:flex;
+          flex-direction:column;
+          gap:10px;
+        }
+        .ai-input-wrap {
+          display:flex;
+          gap:8px;
+          align-items:flex-end;
+          flex-shrink:0;
+        }
+        .ai-textarea {
+          flex:1;
+          border-radius:22px;
+          padding:11px 16px;
+          font-size:16px !important;
+          font-family:inherit;
+          resize:none;
+          outline:none;
+          line-height:1.4;
+          max-height:120px;
+          overflow-y:auto;
+          -webkit-overflow-scrolling:touch;
+          -webkit-appearance:none;
+        }
+        .ai-send-btn {
+          width:44px;
+          height:44px;
+          border-radius:50%;
+          border:none;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-size:18px;
+          cursor:pointer;
+          flex-shrink:0;
+          touch-action:manipulation;
+          -webkit-tap-highlight-color:transparent;
+          transition:transform 0.1s, opacity 0.1s;
+        }
+        .ai-send-btn:active { transform:scale(0.9); }
+        .ai-typing-wrap { align-self:flex-start; display:flex; gap:4px; padding:12px 14px; border-radius:18px 18px 18px 4px; }
+        .ai-typing-wrap span {
+          width:7px; height:7px; border-radius:50%; background:#7C3AED;
+          animation:aiTypingDot 1.3s ease-in-out infinite;
+          display:inline-block;
+        }
+        .ai-typing-wrap span:nth-child(2){animation-delay:0.2s;}
+        .ai-typing-wrap span:nth-child(3){animation-delay:0.4s;}
+        .ai-quick-btn {
+          flex-shrink:0;
+          border:none;
+          border-radius:20px;
+          padding:6px 12px;
+          font-size:11.5px;
+          font-weight:600;
+          cursor:pointer;
+          white-space:nowrap;
+          font-family:inherit;
+          touch-action:manipulation;
+          -webkit-tap-highlight-color:transparent;
+        }
+      `}</style>
+
+      {/* Float Button */}
+      {!aiOpen&&<button
+        className="ai-float-btn"
+        onClick={()=>setAiOpen(true)}
+        style={{
+          bottom:isMobile?"calc(env(safe-area-inset-bottom) + 76px)":"24px",
+          right:isMobile?"12px":"24px",
+        }}
+      >
+        <img src="/icon-192.png" alt="cat" style={{width:22,height:22,borderRadius:6,objectFit:"cover"}}/>
+        <span>Tanya AI</span>
+        <span style={{background:"rgba(255,255,255,0.22)",borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:800,letterSpacing:0.3}}>✨</span>
+      </button>}
+
+      {/* Panel */}
+      {aiOpen&&<>
+        {/* Overlay */}
+        <div style={{
+          position:"fixed",inset:0,
+          background:"rgba(0,0,0,0.45)",
+          zIndex:1099,
+          touchAction:"none",
+          overscrollBehavior:"none",
+        }} onClick={()=>setAiOpen(false)}/>
+
+        <div className="ai-panel" style={{
+          background:dark?"#130929":"#FAFAFA",
+        }}>
+          {/* Header */}
+          <div style={{
+            background:"linear-gradient(135deg,#7C3AED,#4C1D95)",
+            padding:"12px 14px",
+            paddingTop:"calc(env(safe-area-inset-top) + 12px)",
+            display:"flex",alignItems:"center",gap:10,
+            flexShrink:0,
+          }}>
+            <img src="/icon-192.png" alt="AturDuitku" style={{width:38,height:38,borderRadius:"50%",objectFit:"cover",flexShrink:0,border:"2px solid rgba(255,255,255,0.3)"}}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{color:"white",fontWeight:800,fontSize:15,letterSpacing:-0.3}}>AturDuitku AI</div>
+              
+            </div>
+            <button onClick={()=>setAiOpen(false)} style={{
+              background:"rgba(255,255,255,0.15)",
+              border:"1px solid rgba(255,255,255,0.2)",
+              color:"white",borderRadius:10,
+              padding:"7px 12px",cursor:"pointer",
+              fontSize:12,fontWeight:600,fontFamily:"inherit",
+              touchAction:"manipulation",
+              WebkitTapHighlightColor:"transparent",
+              flexShrink:0,
+            }}>✕</button>
+          </div>
+
+          {/* Messages */}
+          <div className="ai-msgs-wrap" ref={aiMsgsRef}>
+            {aiMsgs.map((m,i)=>(
+              <div key={i}
+                className={m.role==="user"?"ai-msg-user":"ai-msg-ai"}
+                style={m.role!=="user"?{
+                  background:dark?"#2D1B69":"#F0EBFF",
+                  color:dark?"#E9D5FF":"#1F1035",
+                  border:`1px solid ${dark?"rgba(124,58,237,0.25)":"rgba(124,58,237,0.12)"}`,
+                }:{}}
+                dangerouslySetInnerHTML={{__html:m.content.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").replace(/\n/g,"<br/>")}}
+              />
+            ))}
+            {aiLoading&&<div className="ai-typing-wrap" style={{background:dark?"#2D1B69":"#F0EBFF"}}><span/><span/><span/></div>}
+          </div>
+
+          {/* Quick actions */}
+          <div style={{padding:"6px 12px 4px",display:"flex",gap:6,overflowX:"auto",flexShrink:0,WebkitOverflowScrolling:"touch"}}>
+            {["📊 Analisis keuanganku","💡 Saran hemat bulan ini","⭐ Review goals","⚠️ Cek budget","📈 Cara tingkatkan saving rate"].map(q=>(
+              <button key={q} className="ai-quick-btn"
+                onClick={()=>{setAiInput(q);}}
+                style={{
+                  background:dark?"#2D1B69":"#EDE9FE",
+                  color:dark?"#C4B5FD":"#5B21B6",
+                }}
+              >{q}</button>
+            ))}
+          </div>
+
+          {/* Input area */}
+          <div style={{
+            padding:"8px 12px",
+            paddingBottom:"calc(env(safe-area-inset-bottom) + 8px)",
+            borderTop:`1px solid ${dark?"rgba(124,58,237,0.2)":"#E9D5FF"}`,
+            background:dark?"#130929":"#fff",
+            flexShrink:0,
+            display:"flex",gap:8,alignItems:"flex-end",
+          }}>
+            <textarea
+              className="ai-textarea"
+              value={aiInput}
+              onChange={e=>{setAiInput(e.target.value);e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,120)+"px";}}
+              onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();handleAiSend();}}}
+              placeholder={lang==="en"?"Message... e.g: paid electricity 50k":"Pesan... cth: bayar listrik 50rb"}
+              rows={1}
+              style={{
+                border:`1.5px solid ${dark?"#5B21B6":"#C4B5FD"}`,
+                background:dark?"#2D1B69":"#F5F3FF",
+                color:dark?"#E9D5FF":"#1F1035",
+              }}
+            />
+            <button
+              className="ai-send-btn"
+              onClick={handleAiSend}
+              disabled={aiLoading||!aiInput.trim()}
+              style={{
+                background:aiLoading||!aiInput.trim()?"#9CA3AF":"linear-gradient(135deg,#7C3AED,#5B21B6)",
+                color:"white",
+                opacity:aiLoading||!aiInput.trim()?0.6:1,
+              }}
+            >➤</button>
+          </div>
+        </div>
+      </>}
+      {/* ═══════ END AI ═══════ */}
+    </ThemeCtx.Provider>
+  );
+}
