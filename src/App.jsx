@@ -6106,6 +6106,16 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                       <span>Provider: {user.authProvider || "-"}</span>
                       <span>Update payment: {user.paymentUpdatedAt ? new Date(user.paymentUpdatedAt).toLocaleString("id-ID") : "-"}</span>
                     </div>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginTop:10,paddingTop:10,borderTop:`1px dashed ${T.border}`}}>
+                      <div style={{fontSize:11,color:T.sub,lineHeight:1.6}}>
+                        <div><strong>Review terakhir:</strong> {user.reviewedAt ? new Date(user.reviewedAt).toLocaleString("id-ID") : "-"}</div>
+                        <div><strong>Direview oleh:</strong> {user.reviewedBy || "-"}</div>
+                      </div>
+                      <div style={{fontSize:11,color:T.sub,lineHeight:1.6}}>
+                        <div><strong>Approved at:</strong> {user.approvedAt ? new Date(user.approvedAt).toLocaleString("id-ID") : "-"}</div>
+                        <div><strong>Approved by:</strong> {user.approvedBy || "-"}</div>
+                      </div>
+                    </div>
                   </div>
                 ))}
                 {!adminFilteredUsers.length&&<div style={{textAlign:"center",padding:"40px 20px",color:T.muted}}>Belum ada user yang cocok dengan filter ini.</div>}
