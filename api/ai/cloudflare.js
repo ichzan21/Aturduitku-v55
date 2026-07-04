@@ -1,5 +1,5 @@
 const DEFAULT_ACCOUNT_ID = "cf3f23d2bbdc60c7f8069d60a734608d";
-const DEFAULT_MODEL = "@cf/meta/llama-3-8b-instruct";
+const DEFAULT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", process.env.ALLOWED_ORIGIN || "*");
