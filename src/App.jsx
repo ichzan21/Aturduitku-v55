@@ -2744,7 +2744,7 @@ export default function App(){
 
 
   // ═══════════════════════════════════════════════════
-  // LLM7 AI + GOOGLE SHEETS SYNC
+  // CLOUDFLARE WORKERS AI + GOOGLE SHEETS SYNC
   // ═══════════════════════════════════════════════════
   const renderAiContent = (content) => String(content || "").split("\n").map((line, lineIdx, lines) => (
     <React.Fragment key={lineIdx}>
@@ -2757,8 +2757,8 @@ export default function App(){
     </React.Fragment>
   ));
 
-  const callGroq = async (messages, systemPrompt) => {
-    const resp = await fetch("/api/ai/llm7", {
+  const callAi = async (messages, systemPrompt) => {
+    const resp = await fetch("/api/ai/cloudflare", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
@@ -2958,7 +2958,7 @@ Untuk chat/analisis/saran → jawab langsung tanpa JSON.
     setAiInput("");
     setAiLoading(true);
     try {
-      const reply = await callGroq(
+      const reply = await callAi(
         newMsgs.filter(m=>m.role!=="system").map(m=>({role:m.role,content:m.content})),
         getAiSystemPrompt()
       );
@@ -3080,8 +3080,8 @@ Saldo amplop bertambah.`}]);
         setAiMsgs(prev=>[...prev,{role:"assistant",content:reply}]);
       }
     } catch(e) {
-      const msg = e?.code === "missing_llm7_api_key"
-        ? "⚠️ AI belum aktif di server. Tambahkan LLM7_API_KEY di Vercel Environment Variables lalu redeploy."
+      const msg = e?.code === "missing_cloudflare_api_token"
+        ? "⚠️ AI belum aktif di server. Tambahkan CLOUDFLARE_API_TOKEN di Vercel Environment Variables lalu redeploy."
         : `⚠️ ${e?.message || "Maaf, terjadi error. Coba lagi ya!"}`;
       setAiMsgs(prev=>[...prev,{role:"assistant",content:msg}]);
     }
