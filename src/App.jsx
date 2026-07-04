@@ -2365,13 +2365,19 @@ export default function App(){
   const [authMode,setAuthMode]=useState("signin");
   const [authBusy,setAuthBusy]=useState(false);
   const [authError,setAuthError]=useState("");
-  const [authForm,setAuthForm]=useState({name:"",email:"",password:""});
+  const [authForm,setAuthForm]=useState({name:"",email:"",password:"",buyerEmail:"",orderId:""});
   const [adminUsers,setAdminUsers]=useState([]);
-  const [adminStats,setAdminStats]=useState({total:0,pending_review:0,approved:0,rejected:0});
+  const [adminStats,setAdminStats]=useState({total:0,pending_review:0,approved:0,rejected:0,payment:{pending_info:0,checking:0,paid:0,problem:0}});
   const [adminLoading,setAdminLoading]=useState(false);
   const [adminFilter,setAdminFilter]=useState("all");
+  const [adminPaymentFilter,setAdminPaymentFilter]=useState("all");
   const [adminQuery,setAdminQuery]=useState("");
   const [adminNotes,setAdminNotes]=useState({});
+  const [adminBuyerEmail,setAdminBuyerEmail]=useState({});
+  const [adminOrderId,setAdminOrderId]=useState({});
+  const [adminPaymentStatus,setAdminPaymentStatus]=useState({});
+  const [paymentForm,setPaymentForm]=useState({buyerEmail:"",orderId:""});
+  const [paymentSaving,setPaymentSaving]=useState(false);
   const [syncStatus,setSyncStatus]=useState("idle"); // idle | saving | saved | error
   const [lang,setLang]=useState(()=>{try{return localStorage.getItem("aturduitku_lang")||"id";}catch(e){return "id";}});
   const t = (key) => TR[lang]?.[key] ?? TR["id"]?.[key] ?? key;
@@ -2433,6 +2439,10 @@ export default function App(){
   const loadAccessProfile = async () => {
     const data = await authedJson("/api/users/me", { method:"GET" });
     setAccessProfile(data.profile || null);
+    setPaymentForm({
+      buyerEmail:data.profile?.buyerEmail || data.profile?.email || "",
+      orderId:data.profile?.orderId || "",
+    });
     return data.profile || null;
   };
 
@@ -2442,8 +2452,11 @@ export default function App(){
     try{
       const data = await authedJson("/api/admin/users", { method:"GET" });
       setAdminUsers(data.users || []);
-      setAdminStats(data.stats || {total:0,pending_review:0,approved:0,rejected:0});
+      setAdminStats(data.stats || {total:0,pending_review:0,approved:0,rejected:0,payment:{pending_info:0,checking:0,paid:0,problem:0}});
       setAdminNotes(Object.fromEntries((data.users||[]).map(u=>[u.uid, u.adminNotes || ""])));
+      setAdminBuyerEmail(Object.fromEntries((data.users||[]).map(u=>[u.uid, u.buyerEmail || u.email || ""])));
+      setAdminOrderId(Object.fromEntries((data.users||[]).map(u=>[u.uid, u.orderId || ""])));
+      setAdminPaymentStatus(Object.fromEntries((data.users||[]).map(u=>[u.uid, u.paymentStatus || "pending_info"])));
     }catch(e){
       showToast(`⚠️ ${e.message || "Gagal memuat user admin"}`);
     }finally{
@@ -2456,7 +2469,14 @@ export default function App(){
     try{
       const data = await authedJson("/api/admin/users", {
         method:"POST",
-        body:JSON.stringify({ uid, approvalStatus, adminNotes: adminNotes[uid] || "" }),
+        body:JSON.stringify({
+          uid,
+          approvalStatus,
+          adminNotes: adminNotes[uid] || "",
+          buyerEmail: adminBuyerEmail[uid] || "",
+          orderId: adminOrderId[uid] || "",
+          paymentStatus: adminPaymentStatus[uid] || "pending_info",
+        }),
       });
       setAdminUsers(prev=>prev.map(user=>user.uid===uid?{...user,...data.user}:user));
       showToast(approvalStatus==="approved"?"✅ User di-approve":"✅ Status user diperbarui");
@@ -2465,6 +2485,33 @@ export default function App(){
       showToast(`⚠️ ${e.message || "Gagal update user"}`);
     }finally{
       setAdminLoading(false);
+    }
+  };
+
+  const savePaymentReference = async () => {
+    if(paymentSaving) return;
+    const buyerEmail = paymentForm.buyerEmail.trim().toLowerCase();
+    const orderId = paymentForm.orderId.trim();
+    if(!buyerEmail || !orderId){
+      showToast("⚠️ Isi email pembeli dan order ID Scalev dulu.");
+      return;
+    }
+    setPaymentSaving(true);
+    try{
+      const data = await authedJson("/api/users/me", {
+        method:"POST",
+        body:JSON.stringify({ buyerEmail, orderId, paymentStatus:"checking" }),
+      });
+      setAccessProfile(prev=>prev?{...prev,...data.profile}:data.profile);
+      setPaymentForm({
+        buyerEmail:data.profile?.buyerEmail || buyerEmail,
+        orderId:data.profile?.orderId || orderId,
+      });
+      showToast("✅ Referensi pembayaran tersimpan.");
+    }catch(e){
+      showToast(`⚠️ ${e.message || "Gagal simpan referensi pembayaran"}`);
+    }finally{
+      setPaymentSaving(false);
     }
   };
 
@@ -2625,11 +2672,19 @@ export default function App(){
   const adminFilteredUsers = useMemo(()=>{
     return adminUsers.filter((user)=>{
       const matchFilter = adminFilter==="all" || (user.approvalStatus || "pending_review")===adminFilter;
+      const matchPaymentFilter = adminPaymentFilter==="all" || (user.paymentStatus || "pending_info")===adminPaymentFilter;
       const q = adminQuery.trim().toLowerCase();
-      const hay = `${user.displayName||""} ${user.email||""}`.toLowerCase();
-      return matchFilter && (!q || hay.includes(q));
+      const hay = `${user.displayName||""} ${user.email||""} ${user.buyerEmail||""} ${user.orderId||""}`.toLowerCase();
+      return matchFilter && matchPaymentFilter && (!q || hay.includes(q));
     });
-  },[adminUsers, adminFilter, adminQuery]);
+  },[adminUsers, adminFilter, adminPaymentFilter, adminQuery]);
+
+  const paymentStatusLabel = (status) => ({
+    pending_info:"Belum kirim referensi",
+    checking:"Perlu dicek",
+    paid:"Sudah cocok",
+    problem:"Bermasalah",
+  }[status || "pending_info"] || status || "Belum kirim referensi");
 
 
   useEffect(()=>{try{localStorage.setItem("aturduitku_dark",dark?"1":"0");}catch(e){}},[ dark]);
@@ -4596,6 +4651,24 @@ Saldo amplop bertambah.`}]);
             ?"Akun ini sudah dicek tapi belum disetujui. Kamu masih bisa hubungi admin dan minta pengecekan ulang."
             :"Akun sudah berhasil dibuat. User belum bisa masuk ke dashboard penuh sampai pembayaran dicek dan akun di-approve manual."}
         </div>
+        <div style={{background:"rgba(255,255,255,.06)",borderRadius:16,padding:14,marginBottom:14,border:"1px solid rgba(255,255,255,.08)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap",marginBottom:10}}>
+            <div style={{color:"white",fontWeight:800,fontSize:14}}>Referensi pembayaran Scalev</div>
+            <div style={{fontSize:11,fontWeight:800,padding:"6px 10px",borderRadius:99,background:(accessProfile?.paymentStatus||"pending_info")==="paid"?"rgba(16,185,129,.16)":(accessProfile?.paymentStatus||"pending_info")==="problem"?"rgba(239,68,68,.16)":"rgba(250,204,21,.14)",color:(accessProfile?.paymentStatus||"pending_info")==="paid"?"#86EFAC":(accessProfile?.paymentStatus||"pending_info")==="problem"?"#FCA5A5":"#FDE68A"}}>
+              {paymentStatusLabel(accessProfile?.paymentStatus)}
+            </div>
+          </div>
+          <div style={{color:"#C4B5FD",fontSize:12,lineHeight:1.6,marginBottom:12}}>
+            Isi email pembeli dan order ID dari Scalev supaya admin bisa cocokkan pembayaran lebih cepat.
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr",gap:10}}>
+            <input value={paymentForm.buyerEmail} onChange={e=>setPaymentForm(f=>({...f,buyerEmail:e.target.value}))} placeholder="Email pembeli di Scalev" type="email" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",outline:"none"}}/>
+            <input value={paymentForm.orderId} onChange={e=>setPaymentForm(f=>({...f,orderId:e.target.value}))} placeholder="Order ID / kode pembayaran" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",outline:"none"}}/>
+            <button onClick={savePaymentReference} style={{padding:"12px 14px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#8B5CF6,#6D28D9)",color:"white",fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>
+              {paymentSaving?"Menyimpan...":"Simpan referensi pembayaran"}
+            </button>
+          </div>
+        </div>
         {accessProfile?.adminNotes&&<div style={{background:"rgba(255,255,255,.06)",borderRadius:14,padding:14,color:"#E9D5FF",fontSize:12,lineHeight:1.6,marginBottom:14}}>
           Catatan admin: {accessProfile.adminNotes}
         </div>}
@@ -5936,16 +6009,36 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 </div>
               ))}
             </div>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:18}}>
+              {[
+                {label:"Belum kirim",value:adminStats.payment?.pending_info || 0,color:T.muted,bg:T.cardAlt},
+                {label:"Perlu dicek",value:adminStats.payment?.checking || 0,color:T.warn,bg:T.warnBg},
+                {label:"Sudah cocok",value:adminStats.payment?.paid || 0,color:T.ok,bg:T.okBg},
+                {label:"Bermasalah",value:adminStats.payment?.problem || 0,color:T.err,bg:T.errBg},
+              ].map((item)=>(
+                <div key={item.label} style={{background:item.bg,borderRadius:14,padding:"14px 16px",border:`1px solid ${T.border}`}}>
+                  <div style={{fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{item.label}</div>
+                  <div style={{fontSize:22,fontWeight:900,color:item.color}}>{item.value}</div>
+                </div>
+              ))}
+            </div>
             <Card ch={<>
               <Sec t="Dashboard Admin" sub="Approve user manual setelah cek pembayaran dari landing page Scalev" right={<Btn onClick={loadAdminUsers} ch={adminLoading?"Memuat...":"Refresh"} c={T.info} outline style={{padding:"6px 12px",fontSize:11}}/>}/>
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"180px 1fr",gap:10,marginBottom:14}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"180px 180px 1fr",gap:10,marginBottom:14}}>
                 <select value={adminFilter} onChange={e=>setAdminFilter(e.target.value)} style={IS}>
                   <option value="all">Semua status</option>
                   <option value="pending_review">Pending</option>
                   <option value="approved">Approved</option>
                   <option value="rejected">Rejected</option>
                 </select>
-                <input value={adminQuery} onChange={e=>setAdminQuery(e.target.value)} placeholder="Cari nama atau email user" style={IS}/>
+                <select value={adminPaymentFilter} onChange={e=>setAdminPaymentFilter(e.target.value)} style={IS}>
+                  <option value="all">Semua pembayaran</option>
+                  <option value="pending_info">Belum kirim referensi</option>
+                  <option value="checking">Perlu dicek</option>
+                  <option value="paid">Sudah cocok</option>
+                  <option value="problem">Bermasalah</option>
+                </select>
+                <input value={adminQuery} onChange={e=>setAdminQuery(e.target.value)} placeholder="Cari nama, email, buyer email, atau order ID" style={IS}/>
               </div>
               <div style={{display:"grid",gap:12}}>
                 {adminFilteredUsers.map((user)=>(
@@ -5955,26 +6048,46 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                         <div style={{fontSize:14,fontWeight:800,color:T.text}}>{user.displayName || "Tanpa nama"}</div>
                         <div style={{fontSize:12,color:T.muted,marginTop:2}}>{user.email || "-"}</div>
                         <div style={{fontSize:10,color:T.muted,marginTop:6}}>UID: {user.uid}</div>
+                        <div style={{display:"grid",gap:6,marginTop:10}}>
+                          <div style={{fontSize:11,color:T.sub}}><strong>Buyer email:</strong> {user.buyerEmail || "-"}</div>
+                          <div style={{fontSize:11,color:T.sub}}><strong>Order ID:</strong> {user.orderId || "-"}</div>
+                        </div>
                       </div>
                       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                         <span style={{fontSize:11,fontWeight:800,padding:"6px 10px",borderRadius:99,background:user.approvalStatus==="approved"?T.okBg:user.approvalStatus==="rejected"?T.errBg:T.warnBg,color:user.approvalStatus==="approved"?T.ok:user.approvalStatus==="rejected"?T.err:T.warn}}>
                           {user.approvalStatus || "pending_review"}
                         </span>
+                        <span style={{fontSize:11,fontWeight:800,padding:"6px 10px",borderRadius:99,background:(user.paymentStatus || "pending_info")==="paid"?T.okBg:(user.paymentStatus || "pending_info")==="problem"?T.errBg:(user.paymentStatus || "pending_info")==="checking"?T.warnBg:T.cardAlt,color:(user.paymentStatus || "pending_info")==="paid"?T.ok:(user.paymentStatus || "pending_info")==="problem"?T.err:(user.paymentStatus || "pending_info")==="checking"?T.warn:T.muted}}>
+                          {paymentStatusLabel(user.paymentStatus)}
+                        </span>
                         {user.role==="admin"&&<span style={{fontSize:11,fontWeight:800,padding:"6px 10px",borderRadius:99,background:T.infoBg,color:T.info}}>admin</span>}
                       </div>
                     </div>
-                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr auto",gap:10,alignItems:"center"}}>
-                      <textarea value={adminNotes[user.uid] || ""} onChange={e=>setAdminNotes(prev=>({...prev,[user.uid]:e.target.value}))} placeholder="Catatan admin atau referensi pembayaran" style={{minHeight:72,resize:"vertical",...IS}}/>
-                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr 1fr":"1fr",gap:8}}>
-                        <Btn onClick={()=>updateAdminApproval(user.uid,"approved")} ch="Approve" c="#16A34A" style={{padding:"9px 12px",fontSize:12}}/>
-                        <Btn onClick={()=>updateAdminApproval(user.uid,"pending_review")} ch="Pending" c="#D97706" outline style={{padding:"9px 12px",fontSize:12}}/>
-                        <Btn onClick={()=>updateAdminApproval(user.uid,"rejected")} ch="Reject" c="#DC2626" outline style={{padding:"9px 12px",fontSize:12}}/>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr",gap:10}}>
+                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
+                        <input value={adminBuyerEmail[user.uid] || ""} onChange={e=>setAdminBuyerEmail(prev=>({...prev,[user.uid]:e.target.value}))} placeholder="Buyer email Scalev" style={IS}/>
+                        <input value={adminOrderId[user.uid] || ""} onChange={e=>setAdminOrderId(prev=>({...prev,[user.uid]:e.target.value}))} placeholder="Order ID Scalev" style={IS}/>
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"220px 1fr auto",gap:10,alignItems:"center"}}>
+                        <select value={adminPaymentStatus[user.uid] || "pending_info"} onChange={e=>setAdminPaymentStatus(prev=>({...prev,[user.uid]:e.target.value}))} style={IS}>
+                          <option value="pending_info">Belum kirim referensi</option>
+                          <option value="checking">Perlu dicek</option>
+                          <option value="paid">Sudah cocok</option>
+                          <option value="problem">Bermasalah</option>
+                        </select>
+                        <textarea value={adminNotes[user.uid] || ""} onChange={e=>setAdminNotes(prev=>({...prev,[user.uid]:e.target.value}))} placeholder="Catatan admin, mismatch, atau detail validasi pembayaran" style={{minHeight:72,resize:"vertical",...IS}}/>
+                        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr 1fr":"1fr",gap:8}}>
+                          <Btn onClick={()=>updateAdminApproval(user.uid,"approved")} ch="Approve" c="#16A34A" style={{padding:"9px 12px",fontSize:12}}/>
+                          <Btn onClick={()=>updateAdminApproval(user.uid,"pending_review")} ch="Pending" c="#D97706" outline style={{padding:"9px 12px",fontSize:12}}/>
+                          <Btn onClick={()=>updateAdminApproval(user.uid,"rejected")} ch="Reject" c="#DC2626" outline style={{padding:"9px 12px",fontSize:12}}/>
+                        </div>
                       </div>
                     </div>
                     <div style={{display:"flex",gap:12,flexWrap:"wrap",fontSize:10,color:T.muted,marginTop:10}}>
                       <span>Dibuat: {user.createdAt ? new Date(user.createdAt).toLocaleString("id-ID") : "-"}</span>
                       <span>Login terakhir: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString("id-ID") : "-"}</span>
                       <span>Provider: {user.authProvider || "-"}</span>
+                      <span>Update payment: {user.paymentUpdatedAt ? new Date(user.paymentUpdatedAt).toLocaleString("id-ID") : "-"}</span>
                     </div>
                   </div>
                 ))}
