@@ -2638,12 +2638,21 @@ export default function App(){
   },[isAdmin]);
 
   const adminFilteredUsers = useMemo(()=>{
-    return adminUsers.filter((user)=>{
+    const filtered = adminUsers.filter((user)=>{
       const matchFilter = adminFilter==="all" || (user.approvalStatus || "pending_review")===adminFilter;
       const matchPaymentFilter = adminPaymentFilter==="all" || (user.paymentStatus || "pending_info")===adminPaymentFilter;
       const q = adminQuery.trim().toLowerCase();
       const hay = `${user.displayName||""} ${user.email||""} ${user.buyerEmail||""} ${user.orderId||""}`.toLowerCase();
       return matchFilter && matchPaymentFilter && (!q || hay.includes(q));
+    });
+    const approvalRank = { pending_review:0, approved:1, rejected:2 };
+    const paymentRank = { checking:0, pending_info:1, problem:2, paid:3 };
+    return filtered.sort((a,b)=>{
+      const approvalDelta = (approvalRank[a.approvalStatus || "pending_review"] ?? 9) - (approvalRank[b.approvalStatus || "pending_review"] ?? 9);
+      if(approvalDelta!==0) return approvalDelta;
+      const paymentDelta = (paymentRank[a.paymentStatus || "pending_info"] ?? 9) - (paymentRank[b.paymentStatus || "pending_info"] ?? 9);
+      if(paymentDelta!==0) return paymentDelta;
+      return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
     });
   },[adminUsers, adminFilter, adminPaymentFilter, adminQuery]);
 
@@ -5974,6 +5983,18 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             </div>
             <Card ch={<>
               <Sec t="Dashboard Admin" sub="Approve user manual setelah cek pembayaran dari landing page Scalev" right={<Btn onClick={loadAdminUsers} ch={adminLoading?"Memuat...":"Refresh"} c={T.info} outline style={{padding:"6px 12px",fontSize:11}}/>}/>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+                {[
+                  {label:"Fokus Pending",onClick:()=>{setAdminFilter("pending_review");setAdminPaymentFilter("all");}},
+                  {label:"Perlu Dicek",onClick:()=>{setAdminFilter("all");setAdminPaymentFilter("checking");}},
+                  {label:"Sudah Cocok",onClick:()=>{setAdminFilter("all");setAdminPaymentFilter("paid");}},
+                  {label:"Reset Filter",onClick:()=>{setAdminFilter("all");setAdminPaymentFilter("all");setAdminQuery("");}},
+                ].map((item)=>(
+                  <button key={item.label} onClick={item.onClick} style={{padding:"8px 12px",borderRadius:999,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.text,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"180px 180px 1fr",gap:10,marginBottom:14}}>
                 <select value={adminFilter} onChange={e=>setAdminFilter(e.target.value)} style={IS}>
                   <option value="all">Semua status</option>
@@ -5990,12 +6011,23 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 </select>
                 <input value={adminQuery} onChange={e=>setAdminQuery(e.target.value)} placeholder="Cari nama, email, buyer email, atau order ID" style={IS}/>
               </div>
+              <div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap",marginBottom:14,padding:"10px 12px",borderRadius:12,background:T.cardAlt,border:`1px solid ${T.border}`}}>
+                <div style={{fontSize:12,color:T.text,fontWeight:700}}>
+                  {adminFilteredUsers.length} user tampil
+                </div>
+                <div style={{fontSize:11,color:T.muted}}>
+                  Urutan otomatis: pending dulu, lalu yang payment-nya masih perlu dicek.
+                </div>
+              </div>
               <div style={{display:"grid",gap:12}}>
                 {adminFilteredUsers.map((user)=>(
                   <div key={user.uid} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:14,padding:14}}>
                     <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start",flexWrap:"wrap",marginBottom:10}}>
                       <div>
-                        <div style={{fontSize:14,fontWeight:800,color:T.text}}>{user.displayName || "Tanpa nama"}</div>
+                        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                          <div style={{fontSize:14,fontWeight:800,color:T.text}}>{user.displayName || "Tanpa nama"}</div>
+                          {(user.approvalStatus || "pending_review")==="pending_review"&&<span style={{fontSize:10,fontWeight:800,padding:"4px 8px",borderRadius:99,background:T.warnBg,color:T.warn}}>Perlu aksi</span>}
+                        </div>
                         <div style={{fontSize:12,color:T.muted,marginTop:2}}>{user.email || "-"}</div>
                         <div style={{fontSize:10,color:T.muted,marginTop:6}}>UID: {user.uid}</div>
                         <div style={{display:"grid",gap:6,marginTop:10}}>
