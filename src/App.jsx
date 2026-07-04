@@ -4,7 +4,7 @@ import {
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import {
-  signInWithGoogle, signOutUser, onAuthChange,
+  getCurrentIdToken, signInWithEmail, signInWithGoogle, signOutUser, onAuthChange, signUpWithEmail,
   saveUserData, getUserData,
 } from "./firebase.js";
 
@@ -802,6 +802,18 @@ const INIT_BUDGETS=[
   {id:8,kat:"Investasi",icon:"📈",kelas:"Kebutuhan",alokasi:"0",sub:[]},
   {id:9,kat:"Lainnya",icon:"📦",kelas:"Kebutuhan",alokasi:"0",sub:[]},
 ];
+const ADMIN_NAV={id:"admin",icon:"ðŸ›¡ï¸",label:"Admin"};
+const LOCAL_OWNER_KEY="aturduitku_last_uid";
+
+const authErrorMessage=(error)=>{
+  const code=String(error?.code||"");
+  if(code.includes("invalid-credential")||code.includes("wrong-password")||code.includes("user-not-found")) return "Email atau password belum cocok.";
+  if(code.includes("email-already-in-use")) return "Email ini sudah terdaftar. Coba masuk saja.";
+  if(code.includes("weak-password")) return "Password minimal 6 karakter.";
+  if(code.includes("invalid-email")) return "Format email belum valid.";
+  if(code.includes("too-many-requests")) return "Terlalu banyak percobaan. Coba lagi sebentar.";
+  return error?.message || "Autentikasi gagal. Coba lagi ya.";
+};
 const INIT={
   name:"Iksanarsana",bulan:MONTHS[nowM()],tahun:String(nowY()),
   dompet:[
@@ -1286,7 +1298,7 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai})=>{
 };
 
 // ─── MORE MENU (mobile) ───────────────────────────────────────────────────────
-const MoreMenu=({page,setPage,onClose})=>{
+const MoreMenu=({page,setPage,onClose,navItems=NAV})=>{
   const T=useT();
   return(
     <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",zIndex:400}} onClick={onClose}>
@@ -1294,7 +1306,7 @@ const MoreMenu=({page,setPage,onClose})=>{
         <div style={{width:40,height:4,background:T.border,borderRadius:4,margin:"0 auto 16px"}}/>
         <div style={{fontSize:10,color:T.muted,fontWeight:700,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>Menu Lainnya</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
-          {NAV.slice(4).map(n=>{
+          {navItems.slice(4).map(n=>{
             const a=page===n.id;
             return(
               <button key={n.id} onClick={()=>{setPage(n.id);onClose();}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:"12px 8px",borderRadius:12,border:`1.5px solid ${a?T.navBorder:T.border}`,background:a?T.navActive:T.cardAlt,cursor:"pointer",fontFamily:"inherit"}}>
@@ -2348,6 +2360,18 @@ export default function App(){
   const [onboarded,setOnboarded]=useState(()=>{try{return localStorage.getItem("aturduitku_onboarded")==="1";}catch(e){return false;}});
   const [fireUser,setFireUser]=useState(null);
   const [fireLoading,setFireLoading]=useState(true);
+  const [accessProfile,setAccessProfile]=useState(null);
+  const [accessLoading,setAccessLoading]=useState(true);
+  const [authMode,setAuthMode]=useState("signin");
+  const [authBusy,setAuthBusy]=useState(false);
+  const [authError,setAuthError]=useState("");
+  const [authForm,setAuthForm]=useState({name:"",email:"",password:""});
+  const [adminUsers,setAdminUsers]=useState([]);
+  const [adminStats,setAdminStats]=useState({total:0,pending_review:0,approved:0,rejected:0});
+  const [adminLoading,setAdminLoading]=useState(false);
+  const [adminFilter,setAdminFilter]=useState("all");
+  const [adminQuery,setAdminQuery]=useState("");
+  const [adminNotes,setAdminNotes]=useState({});
   const [syncStatus,setSyncStatus]=useState("idle"); // idle | saving | saved | error
   const [lang,setLang]=useState(()=>{try{return localStorage.getItem("aturduitku_lang")||"id";}catch(e){return "id";}});
   const t = (key) => TR[lang]?.[key] ?? TR["id"]?.[key] ?? key;
@@ -2372,6 +2396,9 @@ export default function App(){
   const [inAppAlerts,setInAppAlerts]=useState([]);
 
   const T=dark?DARK:LIGHT;
+  const isApproved=accessProfile?.approvalStatus==="approved";
+  const isAdmin=accessProfile?.role==="admin";
+  const navItems=useMemo(()=>isAdmin?[...NAV,ADMIN_NAV]:NAV,[isAdmin]);
   const YEAR_OPTIONS = Array.from({ length: 20 }, (_, i) => String(2020 + i));
   const toggleBlur=()=>{setBlurSaldo(v=>{try{localStorage.setItem("aturduitku_blur",!v?"1":"0");}catch(e){}return !v;});};
   const MV=({v,style,className})=>blurSaldo?<span className={className} style={{filter:"blur(7px)",userSelect:"none",transition:"filter .25s",...style}}>{v}</span>:<span className={className} style={style}>{v}</span>;
@@ -2384,15 +2411,73 @@ export default function App(){
     document.title="AturDuitku";
   },[]);
 
+  const authedJson = async (url, options={}) => {
+    const token = await getCurrentIdToken();
+    const resp = await fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type":"application/json",
+        Authorization:`Bearer ${token}`,
+        ...(options.headers||{}),
+      },
+    });
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok){
+      const error = new Error(data.error || `Request failed: ${resp.status}`);
+      error.status = resp.status;
+      throw error;
+    }
+    return data;
+  };
+
+  const loadAccessProfile = async () => {
+    const data = await authedJson("/api/users/me", { method:"GET" });
+    setAccessProfile(data.profile || null);
+    return data.profile || null;
+  };
+
+  const loadAdminUsers = async () => {
+    if(!isAdmin) return;
+    setAdminLoading(true);
+    try{
+      const data = await authedJson("/api/admin/users", { method:"GET" });
+      setAdminUsers(data.users || []);
+      setAdminStats(data.stats || {total:0,pending_review:0,approved:0,rejected:0});
+      setAdminNotes(Object.fromEntries((data.users||[]).map(u=>[u.uid, u.adminNotes || ""])));
+    }catch(e){
+      showToast(`âš ï¸ ${e.message || "Gagal memuat user admin"}`);
+    }finally{
+      setAdminLoading(false);
+    }
+  };
+
+  const updateAdminApproval = async (uid, approvalStatus) => {
+    setAdminLoading(true);
+    try{
+      const data = await authedJson("/api/admin/users", {
+        method:"POST",
+        body:JSON.stringify({ uid, approvalStatus, adminNotes: adminNotes[uid] || "" }),
+      });
+      setAdminUsers(prev=>prev.map(user=>user.uid===uid?{...user,...data.user}:user));
+      showToast(approvalStatus==="approved"?"âœ… User di-approve":"âœ… Status user diperbarui");
+      await loadAdminUsers();
+    }catch(e){
+      showToast(`âš ï¸ ${e.message || "Gagal update user"}`);
+    }finally{
+      setAdminLoading(false);
+    }
+  };
+
   // Auto-save (hanya saat s berubah, bukan setiap render/clock tick)
   // Autosave: localStorage + Firestore
   useEffect(()=>{
     try{localStorage.setItem("aturduitku_data",JSON.stringify(s));}catch(e){}
-    if(fireUser){
+    if(fireUser && isApproved){
       setSyncStatus("saving");
       const timer = setTimeout(async()=>{
         try{
           await saveUserData(fireUser.uid, {data:s, onboarded:true});
+          try{localStorage.setItem(LOCAL_OWNER_KEY, fireUser.uid);}catch(e){}
           setSyncStatus("saved");
           setTimeout(()=>setSyncStatus("idle"),2000);
         }catch(e){
@@ -2401,36 +2486,88 @@ export default function App(){
       }, 1500); // debounce 1.5s
       return ()=>clearTimeout(timer);
     }
-  },[s, fireUser]);
+    setSyncStatus("idle");
+  },[s, fireUser, isApproved]);
 
   // Firebase Auth listener
   useEffect(()=>{
     const unsub = onAuthChange(async(user)=>{
+      setFireLoading(true);
       setFireUser(user);
+      setAccessProfile(null);
+      setAccessLoading(Boolean(user));
       if(user){
         try{
-          const cloudData = await getUserData(user.uid);
-          if(cloudData && cloudData.data){
-            const d = cloudData.data;
-            const merged = {
-              ...INIT,...d,
-              dompet:d.dompet||INIT.dompet,txs:d.txs||[],utang:d.utang||[],
-              budgets:d.budgets||INIT_BUDGETS,goals:d.goals||[],asetTetap:d.asetTetap||[],
-              recurring:d.recurring||[],amplop:d.amplop||[],processedRecurring:d.processedRecurring||{},
-            };
-            setS(merged);
-            try{localStorage.setItem("aturduitku_data",JSON.stringify(merged));}catch(e){}
-            if(cloudData.onboarded){
-              setOnboarded(true);
-              try{localStorage.setItem("aturduitku_onboarded","1");}catch(e){}
+          const profile = await loadAccessProfile();
+          const approved = profile?.approvalStatus==="approved";
+          if(approved){
+            const cloudData = await getUserData(user.uid);
+            if(cloudData && cloudData.data){
+              const d = cloudData.data;
+              const merged = {
+                ...INIT,...d,
+                dompet:d.dompet||INIT.dompet,txs:d.txs||[],utang:d.utang||[],
+                budgets:d.budgets||INIT_BUDGETS,goals:d.goals||[],asetTetap:d.asetTetap||[],
+                recurring:d.recurring||[],amplop:d.amplop||[],processedRecurring:d.processedRecurring||{},
+              };
+              setS(merged);
+              try{
+                localStorage.setItem("aturduitku_data",JSON.stringify(merged));
+                localStorage.setItem(LOCAL_OWNER_KEY, user.uid);
+              }catch(e){}
+              if(cloudData.onboarded){
+                setOnboarded(true);
+                try{localStorage.setItem("aturduitku_onboarded","1");}catch(e){}
+              } else {
+                setOnboarded(false);
+              }
+            } else {
+              const localRaw = localStorage.getItem("aturduitku_data");
+              const localOwner = localStorage.getItem(LOCAL_OWNER_KEY);
+              const localOnboarded = localStorage.getItem("aturduitku_onboarded")==="1";
+              if(localRaw && localOwner===user.uid){
+                try{await saveUserData(user.uid,{data:JSON.parse(localRaw),onboarded:localOnboarded});}catch(e){}
+                setOnboarded(localOnboarded);
+              } else {
+                setOnboarded(false);
+              }
             }
-
           } else {
-            const localRaw = localStorage.getItem("aturduitku_data");
-            if(localRaw){try{await saveUserData(user.uid,{data:JSON.parse(localRaw),onboarded:true});}catch(e){}}
+            setOnboarded(false);
           }
-        }catch(e){ console.warn("Load from Firebase failed:",e); }
+        }catch(e){
+          console.warn("Load from Firebase failed:",e);
+          setAccessProfile({
+            uid:user.uid,
+            email:user.email||"",
+            displayName:user.displayName||"",
+            photoURL:user.photoURL||"",
+            role:"user",
+            approvalStatus:"approved",
+            backendReady:false,
+          });
+          try{
+            const cloudData = await getUserData(user.uid);
+            if(cloudData && cloudData.data){
+              const d = cloudData.data;
+              const merged = {
+                ...INIT,...d,
+                dompet:d.dompet||INIT.dompet,txs:d.txs||[],utang:d.utang||[],
+                budgets:d.budgets||INIT_BUDGETS,goals:d.goals||[],asetTetap:d.asetTetap||[],
+                recurring:d.recurring||[],amplop:d.amplop||[],processedRecurring:d.processedRecurring||{},
+              };
+              setS(merged);
+              if(cloudData.onboarded){
+                setOnboarded(true);
+                try{localStorage.setItem("aturduitku_onboarded","1");}catch(err){}
+              }
+            }
+          }catch(err){}
+        }
+      } else {
+        setAccessLoading(false);
       }
+      setAccessLoading(false);
       setFireLoading(false);
     });
     return ()=>unsub();
@@ -2446,12 +2583,53 @@ export default function App(){
     }
   };
 
+  const handleEmailAuth = async() => {
+    if(authBusy) return;
+    const email = authForm.email.trim();
+    const password = authForm.password;
+    const name = authForm.name.trim();
+    if(!email || !password || (authMode==="signup" && !name)){
+      setAuthError(authMode==="signup" ? "Lengkapi nama, email, dan password dulu." : "Lengkapi email dan password dulu.");
+      return;
+    }
+    setAuthBusy(true);
+    setAuthError("");
+    try{
+      if(authMode==="signup"){
+        await signUpWithEmail(name, email, password);
+      } else {
+        await signInWithEmail(email, password);
+      }
+    }catch(e){
+      const msg = authErrorMessage(e);
+      setAuthError(msg);
+      showToast(`âš ï¸ ${msg}`);
+    }finally{
+      setAuthBusy(false);
+    }
+  };
+
   // Handle sign out
   const handleSignOut = async() => {
     await signOutUser();
     setFireUser(null);
+    setAccessProfile(null);
     setFireLoading(false);
+    setAccessLoading(false);
   };
+
+  useEffect(()=>{
+    if(isAdmin) loadAdminUsers();
+  },[isAdmin]);
+
+  const adminFilteredUsers = useMemo(()=>{
+    return adminUsers.filter((user)=>{
+      const matchFilter = adminFilter==="all" || (user.approvalStatus || "pending_review")===adminFilter;
+      const q = adminQuery.trim().toLowerCase();
+      const hay = `${user.displayName||""} ${user.email||""}`.toLowerCase();
+      return matchFilter && (!q || hay.includes(q));
+    });
+  },[adminUsers, adminFilter, adminQuery]);
 
 
   useEffect(()=>{try{localStorage.setItem("aturduitku_dark",dark?"1":"0");}catch(e){}},[ dark]);
@@ -4318,16 +4496,17 @@ Saldo amplop bertambah.`}]);
     const newData = {...s, name, dompet, budgets};
     setS(newData);
     try{localStorage.setItem("aturduitku_onboarded","1");}catch(e){}
+    try{if(fireUser?.uid) localStorage.setItem(LOCAL_OWNER_KEY, fireUser.uid);}catch(e){}
     setOnboarded(true);
     // Save to Firebase immediately on onboard
-    if(fireUser){
+    if(fireUser && isApproved){
       saveUserData(fireUser.uid, {data:newData, onboarded:true});
     }
     showToast(`Selamat datang, ${name}! 🎉`);
   };
 
   // Show loading screen while checking auth
-  if(fireLoading) return (
+  if(fireLoading || accessLoading) return (
     <div style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#2E1065 0%,#1A0A2E 100%)",gap:16,padding:"env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)"}}>
       <img src="/icon-192.png" alt="" style={{width:72,height:72,borderRadius:18,objectFit:"cover",animation:"spin 1s linear infinite"}}/>
       <style>{"@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}"}</style>
@@ -4371,8 +4550,58 @@ Saldo amplop bertambah.`}]);
           Masuk dengan Google
         </button>
 
+        <div style={{width:"100%",display:"flex",alignItems:"center",gap:10,margin:"18px 0 14px"}}>
+          <div style={{height:1,flex:1,background:"rgba(255,255,255,.12)"}}/>
+          <div style={{color:"#C4B5FD",fontSize:11,fontWeight:700,letterSpacing:1}}>ATAU EMAIL</div>
+          <div style={{height:1,flex:1,background:"rgba(255,255,255,.12)"}}/>
+        </div>
+
+        <div style={{width:"100%",background:"rgba(255,255,255,.06)",borderRadius:16,padding:18,border:"1px solid rgba(255,255,255,.08)"}}>
+          <div style={{display:"flex",gap:8,marginBottom:14}}>
+            {[["signin","Masuk"],["signup","Daftar"]].map(([mode,label])=>(
+              <button key={mode} onClick={()=>{setAuthMode(mode);setAuthError("");}} style={{flex:1,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${authMode===mode?"#C4B5FD":"rgba(255,255,255,.1)"}`,background:authMode===mode?"rgba(196,181,253,.18)":"transparent",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
+            ))}
+          </div>
+          {authMode==="signup"&&<input value={authForm.name} onChange={e=>setAuthForm(f=>({...f,name:e.target.value}))} placeholder="Nama lengkap" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/>}
+          <input value={authForm.email} onChange={e=>setAuthForm(f=>({...f,email:e.target.value}))} placeholder="Email" type="email" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/>
+          <input value={authForm.password} onChange={e=>setAuthForm(f=>({...f,password:e.target.value}))} placeholder="Password" type="password" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/>
+          {authError&&<div style={{fontSize:11,color:"#FCA5A5",marginBottom:10,lineHeight:1.5}}>{authError}</div>}
+          <button onClick={handleEmailAuth} style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#8B5CF6,#6D28D9)",color:"white",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
+            {authMode==="signup" ? "Daftar dengan Email" : "Masuk dengan Email"}
+          </button>
+        </div>
+
         <div style={{color:"#6D28D9",fontSize:11,marginTop:16,textAlign:"center",lineHeight:1.6}}>
-          Dengan masuk, data kamu tersimpan aman<br/>di cloud dan bisa diakses dari mana saja
+          Dengan masuk, akun tetap menunggu approval admin<br/>sebelum dashboard penuh bisa dipakai
+        </div>
+      </div>
+    </div>
+  );
+
+  if(!isApproved) return (
+    <div style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#2E1065 0%,#1A0A2E 100%)",padding:"max(24px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px))",fontFamily:"system-ui,sans-serif"}}>
+      <div style={{width:"100%",maxWidth:420,background:"rgba(255,255,255,.08)",borderRadius:22,padding:24,border:"1px solid rgba(255,255,255,.1)",boxShadow:"0 20px 60px rgba(0,0,0,.22)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16}}>
+          <img src={fireUser?.photoURL || "/icon-192.png"} alt="" style={{width:54,height:54,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(255,255,255,.2)"}}/>
+          <div>
+            <div style={{color:"white",fontWeight:800,fontSize:18}}>{accessProfile?.displayName || fireUser?.displayName || "Akun baru"}</div>
+            <div style={{color:"#C4B5FD",fontSize:12}}>{accessProfile?.email || fireUser?.email || ""}</div>
+          </div>
+        </div>
+        <div style={{display:"inline-flex",alignItems:"center",gap:8,background:accessProfile?.approvalStatus==="rejected"?"rgba(239,68,68,.16)":"rgba(250,204,21,.14)",color:accessProfile?.approvalStatus==="rejected"?"#FCA5A5":"#FDE68A",borderRadius:99,padding:"8px 14px",fontSize:12,fontWeight:800,marginBottom:14}}>
+          {accessProfile?.approvalStatus==="rejected"?"Ditolak":"Menunggu approval admin"}
+        </div>
+        <div style={{color:"white",fontSize:14,lineHeight:1.7,marginBottom:14}}>
+          {accessProfile?.approvalStatus==="rejected"
+            ?"Akun ini sudah dicek tapi belum disetujui. Kamu masih bisa hubungi admin dan minta pengecekan ulang."
+            :"Akun sudah berhasil dibuat. User belum bisa masuk ke dashboard penuh sampai pembayaran dicek dan akun di-approve manual."}
+        </div>
+        {accessProfile?.adminNotes&&<div style={{background:"rgba(255,255,255,.06)",borderRadius:14,padding:14,color:"#E9D5FF",fontSize:12,lineHeight:1.6,marginBottom:14}}>
+          Catatan admin: {accessProfile.adminNotes}
+        </div>}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <button onClick={async()=>{setAccessLoading(true);try{await loadAccessProfile();}finally{setAccessLoading(false);}}} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.08)",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Cek status lagi</button>
+          <button onClick={handleSignOut} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(252,165,165,.35)",background:"rgba(127,29,29,.22)",color:"#FCA5A5",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Keluar</button>
         </div>
       </div>
     </div>
@@ -4487,7 +4716,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       {notifOpen&&<NotificationPanel notifs={notifications} onClose={()=>setNotifOpen(false)}/>}
 
       {/* More Menu (mobile) */}
-      {moreOpen&&<MoreMenu page={page} setPage={setPage} onClose={()=>setMoreOpen(false)}/>}
+      {moreOpen&&<MoreMenu page={page} setPage={setPage} navItems={navItems} onClose={()=>setMoreOpen(false)}/>}
 
       {/* ── MODALS ── */}
       {modal&&(
@@ -4530,6 +4759,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 </div>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {isAdmin&&<Btn onClick={()=>{setModal(null);navTo("admin");}} ch="ðŸ›¡ï¸ Dashboard Admin" c={T.info} style={{width:"100%",padding:11}}/>}
                 <Btn onClick={()=>{setModal(null);navTo("setting");}} ch="⚙️ Pengaturan" outline c={T.accent} style={{width:"100%",padding:11}}/>
                 <button onClick={async()=>{setModal(null);await handleSignOut();}} style={{width:"100%",padding:11,borderRadius:10,border:"1.5px solid #FCA5A5",background:"#FEF2F2",color:"#B91C1C",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
                   🚪 Keluar dari Akun
@@ -4679,7 +4909,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {isMobile&&<button onClick={()=>setSidebarOpen(false)} style={{background:T.accentBg,border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:16,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0}}>✕</button>}
           </div>
           <div style={{padding:"10px 8px",flex:1}}>
-            {[{label:"Menu Utama",items:NAV.slice(0,4)},{label:"Keuangan",items:NAV.slice(4,8)},{label:"Pengaturan",items:NAV.slice(8)}].map(section=>(
+            {[{label:"Menu Utama",items:navItems.slice(0,4)},{label:"Keuangan",items:navItems.slice(4,8)},{label:"Pengaturan",items:navItems.slice(8)}].map(section=>(
               <div key={section.label}>
                 <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:2,textTransform:"uppercase",padding:"8px 10px 6px",marginTop:4}}>{section.label}</div>
                 {section.items.map(nav=>{const a=page===nav.id;return(
@@ -4710,7 +4940,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
           <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0,flex:1}}>
             {isMobile&&<button onClick={()=>setSidebarOpen(true)} style={{background:T.accentBg,border:"none",borderRadius:9,width:36,height:36,cursor:"pointer",fontSize:18,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0}}>☰</button>}
             <div style={{minWidth:0}}>
-              <div style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"42vw":"none"}}>{NAV.find(n=>n.id===page)?.icon} {(lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings"}:{})[page]||NAV.find(n=>n.id===page)?.label}</div>
+              <div style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"42vw":"none"}}>{navItems.find(n=>n.id===page)?.icon} {(lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings",admin:"Admin"}:{admin:"Admin"})[page]||navItems.find(n=>n.id===page)?.label}</div>
               {!isMobile&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>{hariShort}{tzZone.zone?` · ${tzZone.zone}`:""}</div>}
             </div>
           </div>
@@ -5690,6 +5920,69 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             </div>
           )}
         </div>
+
+        {page==="admin"&&isAdmin&&(
+          <>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:18}}>
+              {[
+                {label:"Total User",value:adminStats.total,color:T.accent,bg:T.accentBg},
+                {label:"Pending",value:adminStats.pending_review,color:T.warn,bg:T.warnBg},
+                {label:"Approved",value:adminStats.approved,color:T.ok,bg:T.okBg},
+                {label:"Rejected",value:adminStats.rejected,color:T.err,bg:T.errBg},
+              ].map((item)=>(
+                <div key={item.label} style={{background:item.bg,borderRadius:14,padding:"14px 16px",border:`1px solid ${T.border}`}}>
+                  <div style={{fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{item.label}</div>
+                  <div style={{fontSize:22,fontWeight:900,color:item.color}}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+            <Card ch={<>
+              <Sec t="Dashboard Admin" sub="Approve user manual setelah cek pembayaran dari landing page Scalev" right={<Btn onClick={loadAdminUsers} ch={adminLoading?"Memuat...":"Refresh"} c={T.info} outline style={{padding:"6px 12px",fontSize:11}}/>}/>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"180px 1fr",gap:10,marginBottom:14}}>
+                <select value={adminFilter} onChange={e=>setAdminFilter(e.target.value)} style={IS}>
+                  <option value="all">Semua status</option>
+                  <option value="pending_review">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+                <input value={adminQuery} onChange={e=>setAdminQuery(e.target.value)} placeholder="Cari nama atau email user" style={IS}/>
+              </div>
+              <div style={{display:"grid",gap:12}}>
+                {adminFilteredUsers.map((user)=>(
+                  <div key={user.uid} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:14,padding:14}}>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start",flexWrap:"wrap",marginBottom:10}}>
+                      <div>
+                        <div style={{fontSize:14,fontWeight:800,color:T.text}}>{user.displayName || "Tanpa nama"}</div>
+                        <div style={{fontSize:12,color:T.muted,marginTop:2}}>{user.email || "-"}</div>
+                        <div style={{fontSize:10,color:T.muted,marginTop:6}}>UID: {user.uid}</div>
+                      </div>
+                      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                        <span style={{fontSize:11,fontWeight:800,padding:"6px 10px",borderRadius:99,background:user.approvalStatus==="approved"?T.okBg:user.approvalStatus==="rejected"?T.errBg:T.warnBg,color:user.approvalStatus==="approved"?T.ok:user.approvalStatus==="rejected"?T.err:T.warn}}>
+                          {user.approvalStatus || "pending_review"}
+                        </span>
+                        {user.role==="admin"&&<span style={{fontSize:11,fontWeight:800,padding:"6px 10px",borderRadius:99,background:T.infoBg,color:T.info}}>admin</span>}
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr auto",gap:10,alignItems:"center"}}>
+                      <textarea value={adminNotes[user.uid] || ""} onChange={e=>setAdminNotes(prev=>({...prev,[user.uid]:e.target.value}))} placeholder="Catatan admin atau referensi pembayaran" style={{minHeight:72,resize:"vertical",...IS}}/>
+                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr 1fr":"1fr",gap:8}}>
+                        <Btn onClick={()=>updateAdminApproval(user.uid,"approved")} ch="Approve" c="#16A34A" style={{padding:"9px 12px",fontSize:12}}/>
+                        <Btn onClick={()=>updateAdminApproval(user.uid,"pending_review")} ch="Pending" c="#D97706" outline style={{padding:"9px 12px",fontSize:12}}/>
+                        <Btn onClick={()=>updateAdminApproval(user.uid,"rejected")} ch="Reject" c="#DC2626" outline style={{padding:"9px 12px",fontSize:12}}/>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:12,flexWrap:"wrap",fontSize:10,color:T.muted,marginTop:10}}>
+                      <span>Dibuat: {user.createdAt ? new Date(user.createdAt).toLocaleString("id-ID") : "-"}</span>
+                      <span>Login terakhir: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString("id-ID") : "-"}</span>
+                      <span>Provider: {user.authProvider || "-"}</span>
+                    </div>
+                  </div>
+                ))}
+                {!adminFilteredUsers.length&&<div style={{textAlign:"center",padding:"40px 20px",color:T.muted}}>Belum ada user yang cocok dengan filter ini.</div>}
+              </div>
+            </>}/>
+          </>
+        )}
 
         <div style={{textAlign:"center",padding:14,fontSize:11,color:T.muted,borderTop:`1.5px solid ${T.border}`,background:T.topbar,marginTop:8,transition:"background .3s", paddingBottom: isMobile ? 80 : 14}}>
           AturDuitku · {s.name} Workspace · {s.bulan} {s.tahun} · {tzZone.city} {tzZone.zone} · {dark?"🌙 Dark":"☀️ Light"}

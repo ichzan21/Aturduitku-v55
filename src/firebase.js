@@ -1,6 +1,15 @@
 // AturDuitku - Firebase Configuration
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+  updateProfile,
+} from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, enableIndexedDbPersistence } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -24,8 +33,20 @@ enableIndexedDbPersistence(db).catch(() => {});
 
 // ── AUTH ──────────────────────────────────────────────────────────
 export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
+export const signInWithEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
+export const signUpWithEmail = async (name, email, password) => {
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
+  if (name?.trim()) {
+    await updateProfile(cred.user, { displayName: name.trim() });
+  }
+  return cred;
+};
 export const signOutUser = () => signOut(auth);
 export const onAuthChange = (cb) => onAuthStateChanged(auth, cb);
+export const getCurrentIdToken = async () => {
+  const user = auth.currentUser;
+  return user ? user.getIdToken() : "";
+};
 
 // ── FIRESTORE ─────────────────────────────────────────────────────
 export const getUserDocRef = (uid) => doc(db, "users", uid);
