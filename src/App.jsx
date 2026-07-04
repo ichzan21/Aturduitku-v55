@@ -2365,7 +2365,7 @@ export default function App(){
   const [authMode,setAuthMode]=useState("signin");
   const [authBusy,setAuthBusy]=useState(false);
   const [authError,setAuthError]=useState("");
-  const [authForm,setAuthForm]=useState({name:"",email:"",password:"",buyerEmail:"",orderId:""});
+  const [authForm,setAuthForm]=useState({name:"",email:"",password:""});
   const [adminUsers,setAdminUsers]=useState([]);
   const [adminStats,setAdminStats]=useState({total:0,pending_review:0,approved:0,rejected:0,payment:{pending_info:0,checking:0,paid:0,problem:0}});
   const [adminLoading,setAdminLoading]=useState(false);
@@ -2376,8 +2376,6 @@ export default function App(){
   const [adminBuyerEmail,setAdminBuyerEmail]=useState({});
   const [adminOrderId,setAdminOrderId]=useState({});
   const [adminPaymentStatus,setAdminPaymentStatus]=useState({});
-  const [paymentForm,setPaymentForm]=useState({buyerEmail:"",orderId:""});
-  const [paymentSaving,setPaymentSaving]=useState(false);
   const [syncStatus,setSyncStatus]=useState("idle"); // idle | saving | saved | error
   const [lang,setLang]=useState(()=>{try{return localStorage.getItem("aturduitku_lang")||"id";}catch(e){return "id";}});
   const t = (key) => TR[lang]?.[key] ?? TR["id"]?.[key] ?? key;
@@ -2439,10 +2437,6 @@ export default function App(){
   const loadAccessProfile = async () => {
     const data = await authedJson("/api/users/me", { method:"GET" });
     setAccessProfile(data.profile || null);
-    setPaymentForm({
-      buyerEmail:data.profile?.buyerEmail || data.profile?.email || "",
-      orderId:data.profile?.orderId || "",
-    });
     return data.profile || null;
   };
 
@@ -2488,32 +2482,6 @@ export default function App(){
     }
   };
 
-  const savePaymentReference = async () => {
-    if(paymentSaving) return;
-    const buyerEmail = paymentForm.buyerEmail.trim().toLowerCase();
-    const orderId = paymentForm.orderId.trim();
-    if(!buyerEmail || !orderId){
-      showToast("⚠️ Isi email pembeli dan order ID Scalev dulu.");
-      return;
-    }
-    setPaymentSaving(true);
-    try{
-      const data = await authedJson("/api/users/me", {
-        method:"POST",
-        body:JSON.stringify({ buyerEmail, orderId, paymentStatus:"checking" }),
-      });
-      setAccessProfile(prev=>prev?{...prev,...data.profile}:data.profile);
-      setPaymentForm({
-        buyerEmail:data.profile?.buyerEmail || buyerEmail,
-        orderId:data.profile?.orderId || orderId,
-      });
-      showToast("✅ Referensi pembayaran tersimpan.");
-    }catch(e){
-      showToast(`⚠️ ${e.message || "Gagal simpan referensi pembayaran"}`);
-    }finally{
-      setPaymentSaving(false);
-    }
-  };
 
   // Auto-save (hanya saat s berubah, bukan setiap render/clock tick)
   // Autosave: localStorage + Firestore
@@ -4650,24 +4618,6 @@ Saldo amplop bertambah.`}]);
           {accessProfile?.approvalStatus==="rejected"
             ?"Akun ini sudah dicek tapi belum disetujui. Kamu masih bisa hubungi admin dan minta pengecekan ulang."
             :"Akun sudah berhasil dibuat. User belum bisa masuk ke dashboard penuh sampai pembayaran dicek dan akun di-approve manual."}
-        </div>
-        <div style={{background:"rgba(255,255,255,.06)",borderRadius:16,padding:14,marginBottom:14,border:"1px solid rgba(255,255,255,.08)"}}>
-          <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap",marginBottom:10}}>
-            <div style={{color:"white",fontWeight:800,fontSize:14}}>Referensi pembayaran Scalev</div>
-            <div style={{fontSize:11,fontWeight:800,padding:"6px 10px",borderRadius:99,background:(accessProfile?.paymentStatus||"pending_info")==="paid"?"rgba(16,185,129,.16)":(accessProfile?.paymentStatus||"pending_info")==="problem"?"rgba(239,68,68,.16)":"rgba(250,204,21,.14)",color:(accessProfile?.paymentStatus||"pending_info")==="paid"?"#86EFAC":(accessProfile?.paymentStatus||"pending_info")==="problem"?"#FCA5A5":"#FDE68A"}}>
-              {paymentStatusLabel(accessProfile?.paymentStatus)}
-            </div>
-          </div>
-          <div style={{color:"#C4B5FD",fontSize:12,lineHeight:1.6,marginBottom:12}}>
-            Isi email pembeli dan order ID dari Scalev supaya admin bisa cocokkan pembayaran lebih cepat.
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr",gap:10}}>
-            <input value={paymentForm.buyerEmail} onChange={e=>setPaymentForm(f=>({...f,buyerEmail:e.target.value}))} placeholder="Email pembeli di Scalev" type="email" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",outline:"none"}}/>
-            <input value={paymentForm.orderId} onChange={e=>setPaymentForm(f=>({...f,orderId:e.target.value}))} placeholder="Order ID / kode pembayaran" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",outline:"none"}}/>
-            <button onClick={savePaymentReference} style={{padding:"12px 14px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#8B5CF6,#6D28D9)",color:"white",fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>
-              {paymentSaving?"Menyimpan...":"Simpan referensi pembayaran"}
-            </button>
-          </div>
         </div>
         {accessProfile?.adminNotes&&<div style={{background:"rgba(255,255,255,.06)",borderRadius:14,padding:14,color:"#E9D5FF",fontSize:12,lineHeight:1.6,marginBottom:14}}>
           Catatan admin: {accessProfile.adminNotes}

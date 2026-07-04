@@ -3,7 +3,7 @@ import { getAdminEmails, requireUser } from "../_lib/auth.js";
 
 function setCors(res) {
   res.setHeader("Access-Control-Allow-Origin", process.env.ALLOWED_ORIGIN || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Cache-Control", "no-store");
 }
@@ -25,48 +25,6 @@ export default async function handler(req, res) {
     const ref = db.collection("users").doc(decoded.uid);
     const snap = await ref.get();
     const existing = snap.exists ? snap.data() : {};
-
-    if (req.method === "POST") {
-      const buyerEmail = String(req.body?.buyerEmail || "").trim().toLowerCase();
-      const orderId = String(req.body?.orderId || "").trim();
-      const paymentStatusInput = String(req.body?.paymentStatus || "").trim();
-      const allowedPaymentStatuses = ["pending_info", "checking", "paid", "problem"];
-      const paymentStatus = allowedPaymentStatuses.includes(paymentStatusInput)
-        ? paymentStatusInput
-        : (existing.paymentStatus || "pending_info");
-      const now = new Date().toISOString();
-
-      const patch = {
-        buyerEmail,
-        orderId,
-        paymentStatus,
-        paymentUpdatedAt: now,
-        paymentSubmittedAt: existing.paymentSubmittedAt || now,
-      };
-
-      await ref.set(patch, { merge: true });
-      const updated = await ref.get();
-      const data = updated.data() || {};
-
-      return res.status(200).json({
-        ok: true,
-        profile: {
-          uid: decoded.uid,
-          email: data.email || decoded.email || "",
-          displayName: data.displayName || decoded.name || "",
-          photoURL: data.photoURL || decoded.picture || "",
-          role: data.role || "user",
-          approvalStatus: data.approvalStatus || "pending_review",
-          createdAt: data.createdAt || null,
-          approvedAt: data.approvedAt || null,
-          adminNotes: data.adminNotes || "",
-          buyerEmail: data.buyerEmail || "",
-          orderId: data.orderId || "",
-          paymentStatus: data.paymentStatus || "pending_info",
-          paymentUpdatedAt: data.paymentUpdatedAt || null,
-        },
-      });
-    }
 
     if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
