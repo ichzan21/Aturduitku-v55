@@ -2371,6 +2371,7 @@ export default function App(){
   const [adminLoading,setAdminLoading]=useState(false);
   const [adminFilter,setAdminFilter]=useState("all");
   const [adminPaymentFilter,setAdminPaymentFilter]=useState("all");
+  const [adminReviewFilter,setAdminReviewFilter]=useState("all");
   const [adminQuery,setAdminQuery]=useState("");
   const [adminPage,setAdminPage]=useState(1);
   const [adminNotes,setAdminNotes]=useState({});
@@ -2642,9 +2643,14 @@ export default function App(){
     const filtered = adminUsers.filter((user)=>{
       const matchFilter = adminFilter==="all" || (user.approvalStatus || "pending_review")===adminFilter;
       const matchPaymentFilter = adminPaymentFilter==="all" || (user.paymentStatus || "pending_info")===adminPaymentFilter;
+      const todayKey = new Date().toISOString().slice(0,10);
+      const reviewedKey = String(user.reviewedAt || "").slice(0,10);
+      const matchReviewFilter = adminReviewFilter==="all"
+        || (adminReviewFilter==="today" && reviewedKey===todayKey)
+        || (adminReviewFilter==="unreviewed" && !user.reviewedAt);
       const q = adminQuery.trim().toLowerCase();
       const hay = `${user.displayName||""} ${user.email||""} ${user.buyerEmail||""} ${user.orderId||""}`.toLowerCase();
-      return matchFilter && matchPaymentFilter && (!q || hay.includes(q));
+      return matchFilter && matchPaymentFilter && matchReviewFilter && (!q || hay.includes(q));
     });
     const approvalRank = { pending_review:0, approved:1, rejected:2 };
     const paymentRank = { checking:0, pending_info:1, problem:2, paid:3 };
@@ -2655,7 +2661,7 @@ export default function App(){
       if(paymentDelta!==0) return paymentDelta;
       return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
     });
-  },[adminUsers, adminFilter, adminPaymentFilter, adminQuery]);
+  },[adminUsers, adminFilter, adminPaymentFilter, adminReviewFilter, adminQuery]);
 
   const paymentStatusLabel = (status) => ({
     pending_info:"Belum kirim referensi",
@@ -2673,7 +2679,7 @@ export default function App(){
 
   useEffect(()=>{
     setAdminPage(1);
-  },[adminFilter, adminPaymentFilter, adminQuery]);
+  },[adminFilter, adminPaymentFilter, adminReviewFilter, adminQuery]);
 
   useEffect(()=>{
     if(adminPage > adminPageCount) setAdminPage(adminPageCount);
@@ -6016,15 +6022,17 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 {[
                   {label:"Fokus Pending",onClick:()=>{setAdminFilter("pending_review");setAdminPaymentFilter("all");}},
                   {label:"Perlu Dicek",onClick:()=>{setAdminFilter("all");setAdminPaymentFilter("checking");}},
+                  {label:"Review Hari Ini",onClick:()=>{setAdminReviewFilter("today");}},
+                  {label:"Belum Direview",onClick:()=>{setAdminReviewFilter("unreviewed");}},
                   {label:"Sudah Cocok",onClick:()=>{setAdminFilter("all");setAdminPaymentFilter("paid");}},
-                  {label:"Reset Filter",onClick:()=>{setAdminFilter("all");setAdminPaymentFilter("all");setAdminQuery("");}},
+                  {label:"Reset Filter",onClick:()=>{setAdminFilter("all");setAdminPaymentFilter("all");setAdminReviewFilter("all");setAdminQuery("");}},
                 ].map((item)=>(
                   <button key={item.label} onClick={item.onClick} style={{padding:"8px 12px",borderRadius:999,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.text,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
                     {item.label}
                   </button>
                 ))}
               </div>
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"180px 180px 1fr",gap:10,marginBottom:14}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"180px 180px 180px 1fr",gap:10,marginBottom:14}}>
                 <select value={adminFilter} onChange={e=>setAdminFilter(e.target.value)} style={IS}>
                   <option value="all">Semua status</option>
                   <option value="pending_review">Pending</option>
@@ -6037,6 +6045,11 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <option value="checking">Perlu dicek</option>
                   <option value="paid">Sudah cocok</option>
                   <option value="problem">Bermasalah</option>
+                </select>
+                <select value={adminReviewFilter} onChange={e=>setAdminReviewFilter(e.target.value)} style={IS}>
+                  <option value="all">Semua review</option>
+                  <option value="today">Direview hari ini</option>
+                  <option value="unreviewed">Belum direview</option>
                 </select>
                 <input value={adminQuery} onChange={e=>setAdminQuery(e.target.value)} placeholder="Cari nama, email, buyer email, atau order ID" style={IS}/>
               </div>
@@ -6056,10 +6069,15 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                           <div style={{fontSize:14,fontWeight:800,color:T.text}}>{user.displayName || "Tanpa nama"}</div>
                           {(user.approvalStatus || "pending_review")==="pending_review"&&<span style={{fontSize:10,fontWeight:800,padding:"4px 8px",borderRadius:99,background:T.warnBg,color:T.warn}}>Perlu aksi</span>}
+                          {!user.reviewedAt&&<span style={{fontSize:10,fontWeight:800,padding:"4px 8px",borderRadius:99,background:T.errBg,color:T.err}}>Belum direview</span>}
                         </div>
                         <div style={{fontSize:12,color:T.muted,marginTop:2}}>{user.email || "-"}</div>
                         <div style={{fontSize:10,color:T.muted,marginTop:6}}>UID: {user.uid}</div>
                         <div style={{display:"grid",gap:6,marginTop:10}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:11,color:T.sub}}>
+                            <strong>Email akun:</strong> <span>{user.email || "-"}</span>
+                            <button onClick={()=>copyAdminField("Email akun", user.email)} style={{padding:"4px 8px",borderRadius:999,border:`1px solid ${T.border}`,background:T.bg,color:T.text,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+                          </div>
                           <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:11,color:T.sub}}>
                             <strong>Buyer email:</strong> <span>{user.buyerEmail || "-"}</span>
                             <button onClick={()=>copyAdminField("Buyer email", user.buyerEmail)} style={{padding:"4px 8px",borderRadius:999,border:`1px solid ${T.border}`,background:T.bg,color:T.text,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
