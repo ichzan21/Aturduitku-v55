@@ -2768,7 +2768,10 @@ export default function App(){
     });
     if(!resp.ok){
       const err = await resp.json().catch(()=>({}));
-      throw new Error(err.error?.message||"Groq error: "+resp.status);
+      const error = new Error(err.error || "AI error: "+resp.status);
+      error.code = err.code;
+      error.status = resp.status;
+      throw error;
     }
     const data = await resp.json();
     return data.reply || "";
@@ -3077,7 +3080,10 @@ Saldo amplop bertambah.`}]);
         setAiMsgs(prev=>[...prev,{role:"assistant",content:reply}]);
       }
     } catch(e) {
-      setAiMsgs(prev=>[...prev,{role:"assistant",content:"⚠️ Maaf, terjadi error. Coba lagi ya!"}]);
+      const msg = e?.code === "missing_llm7_api_key"
+        ? "⚠️ AI belum aktif di server. Tambahkan LLM7_API_KEY di Vercel Environment Variables lalu redeploy."
+        : `⚠️ ${e?.message || "Maaf, terjadi error. Coba lagi ya!"}`;
+      setAiMsgs(prev=>[...prev,{role:"assistant",content:msg}]);
     }
     setAiLoading(false);
   };
