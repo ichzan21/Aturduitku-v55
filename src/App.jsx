@@ -17,7 +17,7 @@ export class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"#0f0a22",color:"#fff",padding:24,fontFamily:"sans-serif"}}>
+        <div style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"#0f0a22",color:"#fff",padding:24,fontFamily:"sans-serif"}}>
           <div style={{fontSize:48,marginBottom:16}}>⚠️</div>
           <div style={{fontSize:20,fontWeight:800,marginBottom:8,color:"#A78BFA"}}>AturDuitku</div>
           <div style={{fontSize:14,color:"#aaa",marginBottom:20,textAlign:"center"}}>Ada yang tidak beres. Coba muat ulang halaman.</div>
@@ -150,7 +150,7 @@ const TR = {
     emergencyFund:"Keamanan & Runway", prediction:"Prediksi Akhir Bulan",
     trend6mo:"Tren 6 Bulan", dailyExpense:"Pengeluaran Harian",
     budgetPerformance:"Performa Anggaran", historicalBalance:"Histori Saldo",
-    comparison:"Komparasi Laporan", exportCSV:"Export CSV", exportSheets:"📊 Export Sheets",aiAssistant:"✨ AturDuitku AI",aiPlaceholder:"Ketik pesan... cth: bayar listrik 150rb",aiSending:"Mengirim...",aiTitle:"AturDuitku AI",aiClose:"Tutup",sheetsUrlLabel:"Google Sheets Script URL",groqKeyLabel:"Groq API Key",aiSyncOk:"✅ Tersinkron ke Google Sheets!",aiSyncFail:"⚠️ Gagal sinkron ke Sheets",aiRecorded:"✅ Transaksi dicatat via AI!", exportPDF:"📄 Export PDF",
+    comparison:"Komparasi Laporan", exportCSV:"Export CSV", exportSheets:"📊 Export Sheets",aiAssistant:"✨ AturDuitku AI",aiPlaceholder:"Ketik pesan... cth: bayar listrik 150rb",aiSending:"Mengirim...",aiTitle:"AturDuitku AI",aiClose:"Tutup",sheetsUrlLabel:"Google Sheets Script URL",aiSyncOk:"✅ Tersinkron ke Google Sheets!",aiSyncFail:"⚠️ Gagal sinkron ke Sheets",aiRecorded:"✅ Transaksi dicatat via AI!", exportPDF:"📄 Export PDF",
     loanCalc:"Kalkulator Cicilan",
     // Settings
     settings:"Pengaturan", profile:"Profil & Preferensi", display:"Tampilan",
@@ -491,7 +491,7 @@ const TR = {
     emergencyFund:"Safety & Runway", prediction:"End-of-Month Forecast",
     trend6mo:"6-Month Trend", dailyExpense:"Daily Expenses",
     budgetPerformance:"Budget Performance", historicalBalance:"Balance History",
-    comparison:"Monthly Comparison", exportCSV:"Export CSV", exportSheets:"📊 Export Sheets",aiAssistant:"✨ AturDuitku AI",aiPlaceholder:"Type message... e.g: paid electricity 150k",aiSending:"Sending...",aiTitle:"AturDuitku AI",aiClose:"Close",sheetsUrlLabel:"Google Sheets Script URL",groqKeyLabel:"Groq API Key",aiSyncOk:"✅ Synced to Google Sheets!",aiSyncFail:"⚠️ Failed to sync to Sheets",aiRecorded:"✅ Transaction recorded via AI!", exportPDF:"📄 Export PDF",
+    comparison:"Monthly Comparison", exportCSV:"Export CSV", exportSheets:"📊 Export Sheets",aiAssistant:"✨ AturDuitku AI",aiPlaceholder:"Type message... e.g: paid electricity 150k",aiSending:"Sending...",aiTitle:"AturDuitku AI",aiClose:"Close",sheetsUrlLabel:"Google Sheets Script URL",aiSyncOk:"✅ Synced to Google Sheets!",aiSyncFail:"⚠️ Failed to sync to Sheets",aiRecorded:"✅ Transaction recorded via AI!", exportPDF:"📄 Export PDF",
     loanCalc:"Loan Calculator",
     // Settings
     settings:"Settings", profile:"Profile & Preferences", display:"Display",
@@ -815,7 +815,6 @@ const INIT={
   recurring:[],
   amplop:[],
   processedRecurring:{},
-  groqKey:"",
   googleEmail:"",
 };
 const NAV=[
@@ -892,7 +891,7 @@ const Calculator=({value,onChange,onClose})=>{
   const keys=["7","8","9","⌫","4","5","6","C","1","2","3","","0",".",""," ✓"];
   return(
     <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:9999}} onClick={onClose}>
-      <div style={{cursor:"pointer",background:T.card,borderRadius:"24px 24px 0 0",padding:22,width:"100%",maxWidth:340,boxShadow:T.shadowMd}} onClick={e=>e.stopPropagation()}>
+      <div style={{cursor:"pointer",background:T.card,borderRadius:"24px 24px 0 0",padding:"22px 22px calc(env(safe-area-inset-bottom, 0px) + 22px)",width:"100%",maxWidth:380,maxHeight:"min(520px, calc(var(--app-height, 100dvh) - 18px))",overflowY:"auto",boxShadow:T.shadowMd}} onClick={e=>e.stopPropagation()}>
         <div style={{textAlign:"right",fontSize:28,fontWeight:900,color:T.text,marginBottom:14,padding:"6px 12px",background:T.cardAlt,borderRadius:10}}>{fmtN(disp)||"0"}</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
           {keys.map((k,i)=>(
@@ -1027,7 +1026,7 @@ const NotificationPanel=({notifs,onClose})=>{
   const colMap={danger:{bg:T.errBg,border:T.errBorder,c:T.err},warning:{bg:T.warnBg,border:T.warnBorder,c:T.warn},success:{bg:T.okBg,border:T.okBorder,c:T.ok},info:{bg:T.infoBg,border:T.infoBorder,c:T.info}};
   return(
     <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",zIndex:500,display:"flex",justifyContent:"flex-end"}} onClick={onClose}>
-      <div style={{cursor:"pointer",width:Math.min(380,window.innerWidth),background:T.card,height:"100%",overflowY:"auto",boxShadow:T.shadowMd,animation:"slideInRight .25s cubic-bezier(.4,0,.2,1)"}} onClick={e=>e.stopPropagation()}>
+      <div style={{cursor:"pointer",width:"min(380px, 100vw)",background:T.card,height:"var(--app-height, 100dvh)",overflowY:"auto",boxShadow:T.shadowMd,animation:"slideInRight .25s cubic-bezier(.4,0,.2,1)",paddingBottom:"env(safe-area-inset-bottom, 0px)"}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:"20px 20px 14px",borderBottom:`1.5px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:T.card,zIndex:1}}>
           <div>
             <div style={{fontWeight:900,fontSize:17,color:T.text}}>🔔 Notifikasi</div>
@@ -1291,7 +1290,7 @@ const MoreMenu=({page,setPage,onClose})=>{
   const T=useT();
   return(
     <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",zIndex:400}} onClick={onClose}>
-      <div style={{cursor:"pointer",position:"absolute",bottom:58,left:0,right:0,background:T.card,borderRadius:"20px 20px 0 0",padding:20,boxShadow:T.shadowMd}} onClick={e=>e.stopPropagation()}>
+      <div style={{cursor:"pointer",position:"absolute",bottom:"calc(58px + env(safe-area-inset-bottom, 0px))",left:0,right:0,background:T.card,borderRadius:"20px 20px 0 0",padding:"20px max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 20px) max(16px, env(safe-area-inset-left))",boxShadow:T.shadowMd,maxHeight:"calc(var(--app-height, 100dvh) - 76px)",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
         <div style={{width:40,height:4,background:T.border,borderRadius:4,margin:"0 auto 16px"}}/>
         <div style={{fontSize:10,color:T.muted,fontWeight:700,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>Menu Lainnya</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
@@ -1820,7 +1819,7 @@ function Onboarding({ onDone, lang="id", changeLang }) {
   const progressPct = (step / 3) * 100;
   const inputSt = {width:"100%",padding:"12px 14px",borderRadius:12,border:"2px solid #E9D5FF",fontSize:15,fontWeight:700,textAlign:"center",outline:"none",background:"#FDFBFF",color:"#1F2937"};
   return (
-    <div style={{minHeight:"100dvh",background:"linear-gradient(135deg,#EDE9FE 0%,#F5F3FF 60%,#FDFBFF 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,fontFamily:"'Nunito',system-ui,sans-serif"}}>
+    <div style={{minHeight:"var(--app-height, 100dvh)",background:"linear-gradient(135deg,#EDE9FE 0%,#F5F3FF 60%,#FDFBFF 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:"max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))",fontFamily:"'Nunito',system-ui,sans-serif"}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}`}</style>
       <div style={{background:"white",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:400,boxShadow:"0 20px 60px rgba(91,33,182,.15)"}}>
         {step>0&&<div style={{marginBottom:20}}>
@@ -2520,7 +2519,22 @@ export default function App(){
 
   // Responsive
   const [vw,setVw]=useState(typeof window!=="undefined"?window.innerWidth:1200);
-  useEffect(()=>{const f=()=>setVw(window.innerWidth);window.addEventListener("resize",f);return()=>window.removeEventListener("resize",f);},[]);
+  useEffect(()=>{
+    const updateViewport=()=>{
+      setVw(window.innerWidth);
+      const h = window.visualViewport?.height || window.innerHeight;
+      document.documentElement.style.setProperty("--app-height", `${h}px`);
+    };
+    updateViewport();
+    window.addEventListener("resize",updateViewport);
+    window.visualViewport?.addEventListener("resize",updateViewport);
+    window.visualViewport?.addEventListener("scroll",updateViewport);
+    return()=>{
+      window.removeEventListener("resize",updateViewport);
+      window.visualViewport?.removeEventListener("resize",updateViewport);
+      window.visualViewport?.removeEventListener("scroll",updateViewport);
+    };
+  },[]);
   const isMobile=vw<768;const isTablet=vw>=768&&vw<1024;
   const navTo=id=>{setPage(id);if(isMobile)setSidebarOpen(false);};
 
@@ -2531,7 +2545,7 @@ export default function App(){
   const [goalForm,setGoalForm]=useState({nama:"",target:"",kumpul:"",deadline:"",icon:"⭐"});
   const [dompetForm,setDompetForm]=useState({tipe:"Bank",nama:"",norek:"",saldo:""});
   const [asetForm,setAsetForm]=useState({nama:"",nilai:"",ket:"",beliDariDompet:false,dompetId:1});
-  const [sfForm,setSfForm]=useState({name:s.name,targetDana:s.targetDana,prevPemasukan:s.prevPemasukan,prevPengeluaran:s.prevPengeluaran,groqKey:s.groqKey||""});
+  const [sfForm,setSfForm]=useState({name:s.name,targetDana:s.targetDana,prevPemasukan:s.prevPemasukan,prevPengeluaran:s.prevPengeluaran});
   const [txSearch,setTxSearch]=useState("");
   const [txFilt,setTxFilt]=useState({dompet:"",tipe:"",sub:""});
   const [txPage,setTxPage]=useState(1);
@@ -2730,21 +2744,26 @@ export default function App(){
 
 
   // ═══════════════════════════════════════════════════
-  // GROQ AI + GOOGLE SHEETS SYNC
+  // LLM7 AI + GOOGLE SHEETS SYNC
   // ═══════════════════════════════════════════════════
+  const renderAiContent = (content) => String(content || "").split("\n").map((line, lineIdx, lines) => (
+    <React.Fragment key={lineIdx}>
+      {line.split(/(\*\*[^*]+\*\*)/g).map((part, partIdx) => (
+        part.startsWith("**") && part.endsWith("**")
+          ? <strong key={partIdx}>{part.slice(2, -2)}</strong>
+          : <React.Fragment key={partIdx}>{part}</React.Fragment>
+      ))}
+      {lineIdx < lines.length - 1 && <br/>}
+    </React.Fragment>
+  ));
+
   const callGroq = async (messages, systemPrompt) => {
-    const apiKey = "REDACTED_GROQ_API_KEY";
-    // Keep last 12 messages for memory (context window)
-    const recentMsgs = messages.slice(-12);
-    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const resp = await fetch("/api/ai/llm7", {
       method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+apiKey},
+      headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
-        model:"llama-3.3-70b-versatile",
-        messages:[{role:"system",content:systemPrompt},...recentMsgs],
-        max_tokens:1500,
-        temperature:0.7,
-        top_p:0.9,
+        messages,
+        systemPrompt,
       })
     });
     if(!resp.ok){
@@ -2752,7 +2771,7 @@ export default function App(){
       throw new Error(err.error?.message||"Groq error: "+resp.status);
     }
     const data = await resp.json();
-    return data.choices?.[0]?.message?.content || "";
+    return data.reply || "";
   };
 
   // ─── Google Sheets OAuth ────────────────────────────────────────
@@ -4303,7 +4322,7 @@ Saldo amplop bertambah.`}]);
 
   // Show loading screen while checking auth
   if(fireLoading) return (
-    <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#2E1065 0%,#1A0A2E 100%)",gap:16}}>
+    <div style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#2E1065 0%,#1A0A2E 100%)",gap:16,padding:"env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)"}}>
       <img src="/icon-192.png" alt="" style={{width:72,height:72,borderRadius:18,objectFit:"cover",animation:"spin 1s linear infinite"}}/>
       <style>{"@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}"}</style>
       <div style={{color:"#A78BFA",fontWeight:700,fontSize:16}}>AturDuitku</div>
@@ -4313,7 +4332,7 @@ Saldo amplop bertambah.`}]);
 
   // Show Google login if not authenticated
   if(!fireUser) return (
-    <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#2E1065 0%,#1A0A2E 100%)",padding:24,fontFamily:"system-ui,sans-serif"}}>
+    <div style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#2E1065 0%,#1A0A2E 100%)",padding:"max(24px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px))",fontFamily:"system-ui,sans-serif"}}>
       <div style={{width:"100%",maxWidth:360,display:"flex",flexDirection:"column",alignItems:"center",gap:0}}>
         {/* Logo */}
         <img src="/icon-192.png" alt="AturDuitku" style={{width:88,height:88,borderRadius:22,objectFit:"cover",marginBottom:20,boxShadow:"0 8px 32px rgba(124,58,237,0.5)"}}/>
@@ -4380,7 +4399,7 @@ Saldo amplop bertambah.`}]);
   return(
     <ThemeCtx.Provider value={T}>
     {/* LAYOUT 100vh FULL (FIX SIDEBAR BOLONG) */}
-    <div style={{display:"flex",height:"100dvh",overflow:"hidden",maxWidth:"100vw",width:"100%",background:T.bg,fontFamily:"'Nunito',system-ui,sans-serif",color:T.text,fontSize:14,position:"relative",transition:"background .3s,color .3s"}}>
+    <div style={{display:"flex",height:"var(--app-height, 100dvh)",overflow:"hidden",maxWidth:"100vw",width:"100%",background:T.bg,fontFamily:"'Nunito',system-ui,sans-serif",color:T.text,fontSize:14,position:"relative",transition:"background .3s,color .3s"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
@@ -4401,10 +4420,11 @@ Saldo amplop bertambah.`}]);
         .card-lift:hover{box-shadow:${T.shadowMd}!important;transform:translateY(-2px);}
         .del-x{transition:color .15s,transform .15s;cursor:pointer;}
         .del-x:hover{color:#F43F5E!important;transform:rotate(12deg);}
-        .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:${T.nav};border-top:1.5px solid ${T.border};display:flex;z-index:200;padding-bottom:max(env(safe-area-inset-bottom),8px);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);box-shadow:0 -4px 20px rgba(0,0,0,.12);}
-        .bottom-nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px 6px;cursor:pointer;gap:3px;transition:all .15s;border:none;background:none;font-family:inherit;min-height:56px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+        .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:${T.nav};border-top:1.5px solid ${T.border};display:flex;z-index:200;padding-bottom:max(env(safe-area-inset-bottom),8px);padding-left:max(env(safe-area-inset-left),4px);padding-right:max(env(safe-area-inset-right),4px);box-shadow:0 -4px 20px rgba(0,0,0,.12);}
+        .bottom-nav-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:9px 2px 6px;cursor:pointer;gap:3px;transition:all .15s;border:none;background:none;font-family:inherit;min-height:56px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+        .bottom-nav-item span:last-child{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
         .bottom-nav-item:active{transform:scale(.9);}
-        .sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:499;backdrop-filter:blur(2px);}
+        .sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:499;backdrop-filter:blur(2px);touch-action:none;}
         @keyframes slideIn{from{transform:translateX(-100%);}to{transform:translateX(0);}}
         @keyframes slideInRight{from{transform:translateX(100%);}to{transform:translateX(0);}}
         .sidebar-slide{animation:slideIn .22s cubic-bezier(.4,0,.2,1);}
@@ -4427,6 +4447,15 @@ Saldo amplop bertambah.`}]);
   .mobile-hide{display:none!important;}
   .mobile-2col{grid-template-columns:1fr 1fr!important;}
   .mobile-1col{grid-template-columns:1fr!important;}
+  .card-lift:hover{transform:none;}
+  .btn-go:hover,.fab:hover,.ai-float-btn:hover{transform:none;}
+  .page-in{animation:none;}
+  input,select,textarea{min-height:40px;}
+}
+@media(max-width:374px){
+  .bottom-nav-item{min-height:54px;padding-top:8px;}
+  .bottom-nav-item span:first-child{font-size:18px!important;}
+  .bottom-nav-item span:nth-child(2){font-size:8px!important;}
 }
 /* iOS input fix: prevent zoom on focus */
 @media screen and (-webkit-min-device-pixel-ratio:0){
@@ -4443,7 +4472,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       `}</style>
 
       {/* Toast */}
-      {toast&&<div className="toast-in" style={{position:"fixed",top:"max(18px, calc(env(safe-area-inset-top) + 8px))",right:"max(22px, env(safe-area-inset-right))",background:`linear-gradient(135deg,${T.accentFg},${T.accent})`,color:"white",padding:"11px 18px",borderRadius:12,fontSize:13,fontWeight:700,zIndex:9999,boxShadow:T.shadowMd,display:"flex",alignItems:"center",gap:8}}><span className="cat-bob"><img src="/icon-192.png" style={{width:20,height:20,borderRadius:5,verticalAlign:"middle"}}/></span>{toast}</div>}
+      {toast&&<div className="toast-in" style={{position:"fixed",top:"max(18px, calc(env(safe-area-inset-top) + 8px))",right:"max(14px, env(safe-area-inset-right))",left:isMobile?"max(14px, env(safe-area-inset-left))":"auto",maxWidth:isMobile?"none":"min(420px, calc(100vw - 28px))",background:`linear-gradient(135deg,${T.accentFg},${T.accent})`,color:"white",padding:"11px 18px",borderRadius:12,fontSize:13,fontWeight:700,zIndex:9999,boxShadow:T.shadowMd,display:"flex",alignItems:"center",gap:8,lineHeight:1.35}}><span className="cat-bob"><img src="/icon-192.png" style={{width:20,height:20,borderRadius:5,verticalAlign:"middle"}}/></span><span style={{minWidth:0,overflowWrap:"anywhere"}}>{toast}</span></div>}
 
       {/* Global Calculator */}
       {showCalc&&calcFor&&<Calculator value={calcFor.cur} onChange={v=>{calcFor.setter(v);setShowCalc(false);setCalcFor(null);}} onClose={()=>{setShowCalc(false);setCalcFor(null);}}/>}
@@ -4457,7 +4486,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       {/* ── MODALS ── */}
       {modal&&(
         <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",zIndex:1000,padding:isMobile?0:"16px"}} onClick={()=>setModal(null)}>
-          <div className="modal-pop" style={{cursor:"pointer",background:T.card,borderRadius:isMobile?"24px 24px 0 0":20,padding:isMobile?"20px 18px calc(env(safe-area-inset-bottom, 0px) + 24px)":"26px",width:"100%",maxWidth:isMobile?"100%":520,maxHeight:isMobile?"88vh":"92vh",overflowY:"auto",overflowX:"hidden",color:T.text,WebkitOverflowScrolling:"touch"}} onClick={e=>e.stopPropagation()}>
+          <div className="modal-pop" style={{cursor:"pointer",background:T.card,borderRadius:isMobile?"24px 24px 0 0":20,padding:isMobile?"20px max(18px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(18px, env(safe-area-inset-left))":"26px",width:"100%",maxWidth:isMobile?"100%":520,maxHeight:isMobile?"min(88svh, calc(var(--app-height, 100dvh) - 12px))":"min(92vh, calc(var(--app-height, 100dvh) - 32px))",overflowY:"auto",overflowX:"hidden",color:T.text,WebkitOverflowScrolling:"touch"}} onClick={e=>e.stopPropagation()}>
 
             {isMobile&&<div style={{width:40,height:4,borderRadius:99,background:"rgba(0,0,0,.15)",margin:"-8px auto 16px",flexShrink:0}}/>}
             {/* Import Mutasi Bank Modal */}
@@ -4634,7 +4663,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       {/* ── SIDEBAR ── */}
       {isMobile&&sidebarOpen&&<div className="sidebar-overlay" style={{cursor:"pointer"}} onClick={()=>setSidebarOpen(false)}/>}
       {(!isMobile||sidebarOpen)&&(
-        <div className={isMobile?"sidebar-slide":""} style={{position:isMobile?"fixed":"relative",top:0,left:0,width:isMobile?270:isTablet?190:220,minWidth:isMobile?270:isTablet?190:220,background:T.nav,borderRight:`1.5px solid ${T.border}`,display:"flex",flexDirection:"column",height:"100dvh",overflowY:"auto",flexShrink:0,zIndex:isMobile?500:10,boxShadow:isMobile?`6px 0 30px rgba(0,0,0,.2)`:T.shadow,transition:"background .3s,border-color .3s"}}>
+        <div className={isMobile?"sidebar-slide":""} style={{position:isMobile?"fixed":"relative",top:0,left:0,width:isMobile?"min(82vw, 300px)":isTablet?190:220,minWidth:isMobile?0:isTablet?190:220,background:T.nav,borderRight:`1.5px solid ${T.border}`,display:"flex",flexDirection:"column",height:"var(--app-height, 100dvh)",overflowY:"auto",flexShrink:0,zIndex:isMobile?500:10,boxShadow:isMobile?`6px 0 30px rgba(0,0,0,.2)`:T.shadow,transition:"background .3s,border-color .3s",paddingTop:isMobile?"env(safe-area-inset-top, 0px)":0,paddingBottom:isMobile?"env(safe-area-inset-bottom, 0px)":0}}>
           <div style={{padding:"18px 16px",borderBottom:`1.5px solid ${T.border}`,display:"flex",alignItems:"center",gap:11}}>
             <img src="/icon-192.png" alt="AturDuitku" style={{width:40,height:40,borderRadius:10,objectFit:"cover",flexShrink:0,boxShadow:`0 4px 14px ${T.accentPop}`}}/>
             <div style={{flex:1}}>
@@ -4669,17 +4698,17 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       )}
 
       {/* ── MAIN CONTENT ── */}
-      <div style={{flex:1,height:"100dvh",overflowY:"auto",overflowX:"hidden",minWidth:0,maxWidth:"100%",width:0,background:T.bg,transition:"background .3s",WebkitOverflowScrolling:"touch"}}>
+      <div style={{flex:1,height:"var(--app-height, 100dvh)",overflowY:"auto",overflowX:"hidden",minWidth:0,maxWidth:"100%",width:0,background:T.bg,transition:"background .3s",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain"}}>
         {/* Topbar */}
         <div className="topbar-safe" style={{background:T.topbar,backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderBottom:`1.5px solid ${T.border}`,padding:isMobile?`10px max(14px,env(safe-area-inset-right)) 10px max(14px,env(safe-area-inset-left))`:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50,transition:"background .3s,border-color .3s"}}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0,flex:1}}>
             {isMobile&&<button onClick={()=>setSidebarOpen(true)} style={{background:T.accentBg,border:"none",borderRadius:9,width:36,height:36,cursor:"pointer",fontSize:18,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0}}>☰</button>}
-            <div>
-              <div style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg}}>{NAV.find(n=>n.id===page)?.icon} {(lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings"}:{})[page]||NAV.find(n=>n.id===page)?.label}</div>
+            <div style={{minWidth:0}}>
+              <div style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"42vw":"none"}}>{NAV.find(n=>n.id===page)?.icon} {(lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings"}:{})[page]||NAV.find(n=>n.id===page)?.label}</div>
               {!isMobile&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>{hariShort}{tzZone.zone?` · ${tzZone.zone}`:""}</div>}
             </div>
           </div>
-          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <div style={{display:"flex",gap:isMobile?6:8,alignItems:"center",flexShrink:0}}>
             {!isMobile&&(page==="trans"||page==="home")&&<Btn onClick={()=>setModal({type:"tx"})} ch={t("addTx")} style={{padding:"8px 14px",fontSize:12}}/>}
             {!isMobile&&page==="trans"&&<Btn onClick={()=>setModal({type:"bulk"})} ch="📋 Massal" c={T.accentSoft} outline style={{padding:"8px 14px",fontSize:12}}/>}
             {!isMobile&&page==="dompet"&&<Btn onClick={()=>setModal({type:"dompet"})} ch={t("addWallet")+" "} style={{padding:"8px 14px",fontSize:12}}/>}
@@ -4687,7 +4716,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {!isMobile&&page==="goals"&&<Btn onClick={()=>setModal({type:"goal"})} ch={t("addGoalBtn")+" "} style={{padding:"8px 14px",fontSize:12}}/>}
             {!isMobile&&page==="aset"&&<Btn onClick={()=>setModal({type:"aset"})} ch={"+ "+t("aset")} style={{padding:"8px 14px",fontSize:12}}/>}
 
-            <button onClick={()=>setModal({type:"kalkulator"})} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s"}}>🧮</button>
+            {!isMobile&&<button onClick={()=>setModal({type:"kalkulator"})} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s"}}>🧮</button>}
 
             {/* Notification Bell */}
             <button onClick={()=>setNotifOpen(true)} className={notifications.length?"notif-bounce":""} style={{position:"relative",background:notifications.length?T.errBg:T.cardAlt,border:`1px solid ${notifications.length?T.errBorder:T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,color:notifications.length?T.err:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .15s"}}>
@@ -4696,9 +4725,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             </button>
 
             {/* Blur saldo toggle */}
-            <button onClick={toggleBlur} title={blurSaldo?t("showBalance"):t("hideBalance")} style={{background:blurSaldo?T.accentBg:T.cardAlt,border:`1px solid ${blurSaldo?T.accent:T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s"}}>
+            {!isMobile&&<button onClick={toggleBlur} title={blurSaldo?t("showBalance"):t("hideBalance")} style={{background:blurSaldo?T.accentBg:T.cardAlt,border:`1px solid ${blurSaldo?T.accent:T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s"}}>
               {blurSaldo?"🙈":"👁️"}
-            </button>
+            </button>}
 
             {/* Dark mode toggle */}
             <button onClick={()=>setDark(!dark)} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s"}}>
@@ -5538,7 +5567,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                     <div style={{fontSize:11,color:T.muted,lineHeight:1.6}}>Gunakan tombol <strong>Export Sheets</strong> atau <strong>Export PDF</strong> di halaman Laporan untuk download data kamu.</div>
                   </div>
                                   </div>
-                <Btn onClick={()=>{setS(p=>({...p,name:sfForm.name,targetDana:sfForm.targetDana,prevPemasukan:sfForm.prevPemasukan,prevPengeluaran:sfForm.prevPengeluaran,groqKey:sfForm.groqKey||""}));showToast("✅ Tersimpan!");}} ch={lang==="en"?"💾 Save Changes":"💾 Simpan Perubahan"} style={{width:"100%",padding:11}}/>
+                <Btn onClick={()=>{setS(p=>({...p,name:sfForm.name,targetDana:sfForm.targetDana,prevPemasukan:sfForm.prevPemasukan,prevPengeluaran:sfForm.prevPengeluaran}));showToast("✅ Tersimpan!");}} ch={lang==="en"?"💾 Save Changes":"💾 Simpan Perubahan"} style={{width:"100%",padding:11}}/>
                 <div style={{marginTop:16,paddingTop:14,borderTop:`1.5px solid ${T.errBorder}`}}>
                   <div style={{fontSize:10,fontWeight:700,color:T.err,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>⚠️ Zona Berbahaya</div>
                   <button onClick={()=>setModal({type:"confirm",title:"Reset Semua Data",msg:"Tindakan ini akan menghapus SEMUA data keuanganmu secara permanen. Yakin ingin melanjutkan?",danger:true,onConfirm:()=>{
@@ -5741,8 +5770,8 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
           right:0;
           top:0;
           width:min(380px,100vw);
-          height:100dvh;
           height:-webkit-fill-available;
+          height:var(--app-height, 100dvh);
           z-index:1100;
           display:flex;
           flex-direction:column;
@@ -5801,6 +5830,11 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
           overflow-y:auto;
           -webkit-overflow-scrolling:touch;
           -webkit-appearance:none;
+        }
+        @media (max-width: 767px) {
+          .ai-panel { width:100vw; }
+          .ai-float-btn { max-width:calc(100vw - 24px); }
+          .ai-msg-user,.ai-msg-ai { max-width:88%; }
         }
         .ai-send-btn {
           width:44px;
@@ -5904,8 +5938,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   color:dark?"#E9D5FF":"#1F1035",
                   border:`1px solid ${dark?"rgba(124,58,237,0.25)":"rgba(124,58,237,0.12)"}`,
                 }:{}}
-                dangerouslySetInnerHTML={{__html:m.content.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").replace(/\n/g,"<br/>")}}
-              />
+              >
+                {renderAiContent(m.content)}
+              </div>
             ))}
             {aiLoading&&<div className="ai-typing-wrap" style={{background:dark?"#2D1B69":"#F0EBFF"}}><span/><span/><span/></div>}
           </div>
