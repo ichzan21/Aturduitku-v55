@@ -802,7 +802,7 @@ const INIT_BUDGETS=[
   {id:8,kat:"Investasi",icon:"📈",kelas:"Kebutuhan",alokasi:"0",sub:[]},
   {id:9,kat:"Lainnya",icon:"📦",kelas:"Kebutuhan",alokasi:"0",sub:[]},
 ];
-const ADMIN_NAV={id:"admin",icon:"ðŸ›¡ï¸",label:"Admin"};
+const ADMIN_NAV={id:"admin",icon:"🛡️",label:"Admin"};
 const LOCAL_OWNER_KEY="aturduitku_last_uid";
 
 const authErrorMessage=(error)=>{
@@ -2445,7 +2445,7 @@ export default function App(){
       setAdminStats(data.stats || {total:0,pending_review:0,approved:0,rejected:0});
       setAdminNotes(Object.fromEntries((data.users||[]).map(u=>[u.uid, u.adminNotes || ""])));
     }catch(e){
-      showToast(`âš ï¸ ${e.message || "Gagal memuat user admin"}`);
+      showToast(`⚠️ ${e.message || "Gagal memuat user admin"}`);
     }finally{
       setAdminLoading(false);
     }
@@ -2459,10 +2459,10 @@ export default function App(){
         body:JSON.stringify({ uid, approvalStatus, adminNotes: adminNotes[uid] || "" }),
       });
       setAdminUsers(prev=>prev.map(user=>user.uid===uid?{...user,...data.user}:user));
-      showToast(approvalStatus==="approved"?"âœ… User di-approve":"âœ… Status user diperbarui");
+      showToast(approvalStatus==="approved"?"✅ User di-approve":"✅ Status user diperbarui");
       await loadAdminUsers();
     }catch(e){
-      showToast(`âš ï¸ ${e.message || "Gagal update user"}`);
+      showToast(`⚠️ ${e.message || "Gagal update user"}`);
     }finally{
       setAdminLoading(false);
     }
@@ -2603,7 +2603,7 @@ export default function App(){
     }catch(e){
       const msg = authErrorMessage(e);
       setAuthError(msg);
-      showToast(`âš ï¸ ${msg}`);
+      showToast(`⚠️ ${msg}`);
     }finally{
       setAuthBusy(false);
     }
@@ -4759,7 +4759,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 </div>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {isAdmin&&<Btn onClick={()=>{setModal(null);navTo("admin");}} ch="ðŸ›¡ï¸ Dashboard Admin" c={T.info} style={{width:"100%",padding:11}}/>}
+                {isAdmin&&<Btn onClick={()=>{setModal(null);navTo("admin");}} ch="Dashboard Admin" c={T.info} style={{width:"100%",padding:11}}/>}
                 <Btn onClick={()=>{setModal(null);navTo("setting");}} ch="⚙️ Pengaturan" outline c={T.accent} style={{width:"100%",padding:11}}/>
                 <button onClick={async()=>{setModal(null);await handleSignOut();}} style={{width:"100%",padding:11,borderRadius:10,border:"1.5px solid #FCA5A5",background:"#FEF2F2",color:"#B91C1C",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
                   🚪 Keluar dari Akun
