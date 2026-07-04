@@ -2372,6 +2372,7 @@ export default function App(){
   const [adminFilter,setAdminFilter]=useState("all");
   const [adminPaymentFilter,setAdminPaymentFilter]=useState("all");
   const [adminQuery,setAdminQuery]=useState("");
+  const [adminPage,setAdminPage]=useState(1);
   const [adminNotes,setAdminNotes]=useState({});
   const [adminBuyerEmail,setAdminBuyerEmail]=useState({});
   const [adminOrderId,setAdminOrderId]=useState({});
@@ -2662,6 +2663,34 @@ export default function App(){
     paid:"Sudah cocok",
     problem:"Bermasalah",
   }[status || "pending_info"] || status || "Belum kirim referensi");
+
+  const ADMIN_PAGE_SIZE = 8;
+  const adminPageCount = Math.max(1, Math.ceil(adminFilteredUsers.length / ADMIN_PAGE_SIZE));
+  const adminPagedUsers = useMemo(()=>{
+    const start = (adminPage - 1) * ADMIN_PAGE_SIZE;
+    return adminFilteredUsers.slice(start, start + ADMIN_PAGE_SIZE);
+  },[adminFilteredUsers, adminPage]);
+
+  useEffect(()=>{
+    setAdminPage(1);
+  },[adminFilter, adminPaymentFilter, adminQuery]);
+
+  useEffect(()=>{
+    if(adminPage > adminPageCount) setAdminPage(adminPageCount);
+  },[adminPage, adminPageCount]);
+
+  const copyAdminField = async (label, value) => {
+    if(!value){
+      showToast(`⚠️ ${label} kosong`);
+      return;
+    }
+    try{
+      await navigator.clipboard.writeText(String(value));
+      showToast(`✅ ${label} disalin`);
+    }catch(e){
+      showToast(`⚠️ Gagal copy ${label.toLowerCase()}`);
+    }
+  };
 
 
   useEffect(()=>{try{localStorage.setItem("aturduitku_dark",dark?"1":"0");}catch(e){}},[ dark]);
@@ -6013,14 +6042,14 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               </div>
               <div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap",marginBottom:14,padding:"10px 12px",borderRadius:12,background:T.cardAlt,border:`1px solid ${T.border}`}}>
                 <div style={{fontSize:12,color:T.text,fontWeight:700}}>
-                  {adminFilteredUsers.length} user tampil
+                  {adminFilteredUsers.length} user tampil, halaman {adminPage} / {adminPageCount}
                 </div>
                 <div style={{fontSize:11,color:T.muted}}>
                   Urutan otomatis: pending dulu, lalu yang payment-nya masih perlu dicek.
                 </div>
               </div>
               <div style={{display:"grid",gap:12}}>
-                {adminFilteredUsers.map((user)=>(
+                {adminPagedUsers.map((user)=>(
                   <div key={user.uid} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:14,padding:14}}>
                     <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start",flexWrap:"wrap",marginBottom:10}}>
                       <div>
@@ -6031,8 +6060,14 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                         <div style={{fontSize:12,color:T.muted,marginTop:2}}>{user.email || "-"}</div>
                         <div style={{fontSize:10,color:T.muted,marginTop:6}}>UID: {user.uid}</div>
                         <div style={{display:"grid",gap:6,marginTop:10}}>
-                          <div style={{fontSize:11,color:T.sub}}><strong>Buyer email:</strong> {user.buyerEmail || "-"}</div>
-                          <div style={{fontSize:11,color:T.sub}}><strong>Order ID:</strong> {user.orderId || "-"}</div>
+                          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:11,color:T.sub}}>
+                            <strong>Buyer email:</strong> <span>{user.buyerEmail || "-"}</span>
+                            <button onClick={()=>copyAdminField("Buyer email", user.buyerEmail)} style={{padding:"4px 8px",borderRadius:999,border:`1px solid ${T.border}`,background:T.bg,color:T.text,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+                          </div>
+                          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:11,color:T.sub}}>
+                            <strong>Order ID:</strong> <span>{user.orderId || "-"}</span>
+                            <button onClick={()=>copyAdminField("Order ID", user.orderId)} style={{padding:"4px 8px",borderRadius:999,border:`1px solid ${T.border}`,background:T.bg,color:T.text,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+                          </div>
                         </div>
                       </div>
                       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
@@ -6075,6 +6110,16 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 ))}
                 {!adminFilteredUsers.length&&<div style={{textAlign:"center",padding:"40px 20px",color:T.muted}}>Belum ada user yang cocok dengan filter ini.</div>}
               </div>
+              {adminFilteredUsers.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginTop:14}}>
+                <div style={{fontSize:11,color:T.muted}}>
+                  Menampilkan {Math.min((adminPage-1)*ADMIN_PAGE_SIZE + 1, adminFilteredUsers.length)} - {Math.min(adminPage*ADMIN_PAGE_SIZE, adminFilteredUsers.length)} dari {adminFilteredUsers.length} user
+                </div>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <button onClick={()=>setAdminPage(p=>Math.max(1, p-1))} disabled={adminPage===1} style={{padding:"8px 12px",borderRadius:10,border:`1px solid ${T.border}`,background:adminPage===1?T.cardAlt:T.bg,color:adminPage===1?T.muted:T.text,fontSize:12,fontWeight:700,cursor:adminPage===1?"default":"pointer",fontFamily:"inherit"}}>Sebelumnya</button>
+                  <div style={{fontSize:12,color:T.text,fontWeight:700,minWidth:72,textAlign:"center"}}>{adminPage} / {adminPageCount}</div>
+                  <button onClick={()=>setAdminPage(p=>Math.min(adminPageCount, p+1))} disabled={adminPage===adminPageCount} style={{padding:"8px 12px",borderRadius:10,border:`1px solid ${T.border}`,background:adminPage===adminPageCount?T.cardAlt:T.bg,color:adminPage===adminPageCount?T.muted:T.text,fontSize:12,fontWeight:700,cursor:adminPage===adminPageCount?"default":"pointer",fontFamily:"inherit"}}>Berikutnya</button>
+                </div>
+              </div>}
             </>}/>
           </>
         )}
