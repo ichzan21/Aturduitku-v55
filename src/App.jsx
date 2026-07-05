@@ -1162,6 +1162,7 @@ const DailyChart=({txBulan,bulan,tahun})=>{
 const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset})=>{
   const T=useT();
   const [showPakai,setShowPakai]=useState(false);
+  const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
   const [pakaiJml,setPakaiJml]=useState("");
   const [pakaiKet,setPakaiKet]=useState("");
   const [showIsi,setShowIsi]=useState(false);
@@ -1173,13 +1174,13 @@ const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset})=>{
   return(
     <div style={{background:T.card,borderRadius:14,padding:18,border:`1.5px solid ${isOver?T.errBorder:pct>80?T.warnBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <div style={{display:"flex",gap:10,alignItems:"center"}}>
+        <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
           <div style={{width:44,height:44,borderRadius:12,background:amp.warna||T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{amp.icon||"✉️"}</div>
           <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{amp.nama}</div><div style={{fontSize:11,color:T.muted}}>Sisa: <strong style={{color:sisa>=0?T.ok:T.err}}>{IDR(Math.max(sisa,0))}</strong></div></div>
         </div>
         <Del onClick={onDelete}/>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:10}}>
         <div style={{background:T.infoBg,borderRadius:8,padding:"8px 10px",border:`1px solid ${T.infoBorder}`}}>
           <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:.6,marginBottom:1}}>ALOKASI</div>
           <div style={{fontWeight:700,color:T.info,fontSize:13}}>{IDR(alokasi)}</div>
@@ -1275,7 +1276,7 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai})=>{
   return(
     <div style={{background:T.card,borderRadius:14,padding:18,border:`1.5px solid ${pct>=100?T.okBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s,border-color .3s"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
-        <div style={{display:"flex",gap:10,alignItems:"center"}}>
+        <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
           <span style={{fontSize:28}}>{g.icon||"⭐"}</span>
           <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{g.nama}</div><div style={{fontSize:11,color:T.muted}}>{g.deadline&&`🗓 ${g.deadline}`}</div></div>
         </div>
@@ -1538,6 +1539,7 @@ const parseBankCSV = (text, bank) => {
 
 // ─── KALKULATOR CICILAN ───────────────────────────────────────────────────────
 function KalkulatorCicilan({ onClose, T }) {
+  const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
   const [harga, setHarga] = useState("");
   const [dp, setDp] = useState("");
   const [tenor, setTenor] = useState("12");
@@ -1593,7 +1595,7 @@ function KalkulatorCicilan({ onClose, T }) {
         <button onClick={onClose} style={{background:T.cardAlt,border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",color:T.muted,fontSize:16}}>X</button>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:10}}>
         <div>
           <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:5}}>Harga / Nilai</div>
           <input value={harga} onChange={e=>setHarga(fmtN(e.target.value))} placeholder="Contoh: 150.000.000" style={IS2}/>
@@ -1815,6 +1817,7 @@ function KomparasiBulanan({ txs, budgets, T, isMobile }) {
 
 // ─── ONBOARDING COMPONENT ─────────────────────────────────────────────────────
 function Onboarding({ onDone, lang="id", changeLang }) {
+  const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
   const t = (key) => TR[lang]?.[key] ?? TR["id"]?.[key] ?? key;
   const [step, setStep] = useState(0);
   const [nama, setNama] = useState("");
@@ -1911,7 +1914,7 @@ function Onboarding({ onDone, lang="id", changeLang }) {
               ))}
             </div>
             <button onClick={addDompet} style={{width:"100%",padding:"8px",borderRadius:9,border:"2px dashed #C4B5FD",background:"transparent",color:"#7C3AED",fontWeight:700,cursor:"pointer",fontSize:12,marginBottom:12}}>{t("ob_addWallet")}</button>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr auto",gap:8}}>
               <button onClick={prevStep} style={{flex:1,padding:"11px",borderRadius:12,border:"2px solid #E9D5FF",background:"white",color:"#6B7280",fontWeight:700,cursor:"pointer",fontSize:13}}>{t("back")}</button>
               <button onClick={nextStep} style={{flex:2,padding:"11px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#5B21B6,#7C3AED)",color:"white",fontWeight:800,cursor:"pointer",fontSize:13}}>{t("next")}</button>
             </div>
@@ -1934,7 +1937,7 @@ function Onboarding({ onDone, lang="id", changeLang }) {
             <div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:9,padding:"9px 13px",fontSize:11,color:"#92400E",marginBottom:14}}>
               💡 {t("ob_budgetTip")}
             </div>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr auto",gap:8}}>
               <button onClick={prevStep} style={{flex:1,padding:"11px",borderRadius:12,border:"2px solid #E9D5FF",background:"white",color:"#6B7280",fontWeight:700,cursor:"pointer",fontSize:13}}>← Kembali</button>
               <button onClick={handleDone} style={{flex:2,padding:"11px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#059669,#10B981)",color:"white",fontWeight:800,cursor:"pointer",fontSize:13,boxShadow:"0 4px 16px rgba(5,150,105,.3)"}}>{t("ob_finish")}</button>
             </div>
@@ -5131,7 +5134,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
 
             {/* Notifications banner */}
             {notifications.length>0&&<div onClick={()=>setNotifOpen(true)} style={{background:T.errBg,border:`1px solid ${T.errBorder}`,borderRadius:12,padding:"11px 16px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
-              <div style={{display:"flex",gap:10,alignItems:"center"}}>
+              <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
                 <span style={{fontSize:11,fontWeight:800,color:T.err,background:"rgba(255,255,255,.5)",borderRadius:999,padding:"4px 8px"}} className="notif-bounce">ALERT</span>
                 <span style={{fontSize:13,fontWeight:700,color:T.err}}>{notifications.length} notifikasi perlu perhatianmu</span>
               </div>
@@ -5267,7 +5270,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               {s.dompet.map(d=>(
                 <div key={d.id} style={{background:T.card,borderRadius:14,padding:18,border:`1px solid ${T.border}`,boxShadow:T.shadow,transition:"background .3s"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
-                    <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                    <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
                       <span style={{fontSize:26}}>{d.icon}</span>
                       <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}{d.norek&&` � ${d.norek}`}</div></div>
                     </div>
@@ -5403,7 +5406,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               return(
                 <div key={kelas} style={{marginBottom:20}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                    <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                    <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
                       <span style={{fontSize:10,fontWeight:800,color:kelas===t("needsCat")?"#2563EB":"#CA8A04",background:kelas===t("needsCat")?"rgba(37,99,235,.12)":"rgba(202,138,4,.12)",borderRadius:999,padding:"4px 8px"}}>{kelas===t("needsCat")?"NEED":"WANT"}</span>
                       <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{kelas}</div><div style={{fontSize:11,color:T.muted}}>Total: {IDR(kelasSpend)} / {IDR(kelasTotal)}</div></div>
                     </div>
@@ -5423,7 +5426,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                               <button onClick={()=>setS(p=>({...p,budgets:p.budgets.filter(x=>x.id!==b.id)}))} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:11,fontWeight:800,padding:"2px 5px",borderRadius:4,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>Hapus</button>
                             </div>
                           </div>
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:10}}>
                             <div><label style={LS}>Alokasi</label><CurIn value={b.alokasi} onChange={v=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,alokasi:v})}))} /></div>
                             <div><label style={LS}>Realisasi</label>
                             <div style={{padding:"9px 12px",borderRadius:8,border:`1.5px dashed ${over?T.errBorder:T.infoBorder}`,background:over?T.errBg:T.infoBg,color:over?T.err:T.info,fontWeight:700,fontSize:13}}>{IDRs(spend)||"Rp 0"}</div></div>
@@ -5446,18 +5449,18 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                           ))}
                           {newSub.katId===b.id
                             ?<div style={{background:T.infoBg,borderRadius:8,padding:10,marginTop:8,border:`1px solid ${T.infoBorder}`}}>
-                              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
                                 <div><label style={{...LS,fontSize:9}}>{t("name")}</label><input placeholder={t("subBillPlaceholder")} value={newSub.nama} onChange={e=>setNewSub(f=>({...f,nama:e.target.value}))} style={{...IS,fontSize:11,padding:"6px 9px"}}/></div>
                                 <div><label style={{...LS,fontSize:9}}>Alokasi</label><CurIn value={newSub.alokasi} onChange={v=>setNewSub(f=>({...f,alokasi:v}))} style={{...IS,fontSize:11,padding:"6px 9px"}}/></div>
                               </div>
-                              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
                                 <div><label style={{...LS,fontSize:9}}>Emoji</label>
                                 <div style={{display:"flex",flexWrap:"wrap",gap:3,padding:5,background:T.card,borderRadius:6,border:`1px solid ${T.infoBorder}`}}>
                                   {ICONS.slice(0,16).map(ic=><button key={ic} onClick={()=>setNewSub(f=>({...f,emoji:ic}))} style={{width:26,height:26,borderRadius:5,border:`1.5px solid ${newSub.emoji===ic?T.accent:"transparent"}`,background:newSub.emoji===ic?T.accentBg:"transparent",cursor:"pointer",fontSize:13,fontFamily:"inherit"}}>{ic}</button>)}
                                 </div></div>
                                 <div><label style={{...LS,fontSize:9}}>Jatuh Tempo (tgl)</label><input type="number" min="1" max="31" placeholder="tgl" value={newSub.tempo} onChange={e=>setNewSub(f=>({...f,tempo:e.target.value}))} style={{...IS,fontSize:11,padding:"6px 9px"}}/></div>
                               </div>
-                              <div style={{display:"flex",gap:8}}>
+                              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr auto",gap:8}}>
                                 <Btn onClick={()=>{if(!newSub.nama){showToast("Isi nama dulu");return;}setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:[...x.sub,{nama:newSub.nama,emoji:newSub.emoji,alokasi:newSub.alokasi||"0",tempo:newSub.tempo||null}]})}));setNewSub({katId:null,nama:"",emoji:"PIN",alokasi:"",tempo:""});showToast("Subkategori ditambahkan!");}} ch="Simpan" c="#0369A1" style={{fontSize:11,padding:"6px 12px"}}/>
                                 <Btn onClick={()=>setNewSub({katId:null,nama:"",emoji:"PIN",alokasi:"",tempo:""})} ch="Batal" c={T.muted} outline style={{fontSize:11,padding:"6px 12px"}}/>
                               </div>
@@ -5508,7 +5511,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <div><label style={LS}>{t("envelopeName")}</label><input placeholder="Makan, Bensin, Hiburan..." value={amplopForm.nama} onChange={e=>setAmplopForm(f=>({...f,nama:e.target.value}))} style={IS}/></div>
                 <div><label style={LS}>{t("envelopeAlloc")}</label><CurIn value={amplopForm.alokasi} onChange={v=>setAmplopForm(f=>({...f,alokasi:v}))} placeholder="0" style={IS}/></div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:14}}>
                 <div><label style={LS}>{t("envelopeSource")}</label>
                 <select value={amplopForm.dompetId} onChange={e=>setAmplopForm(f=>({...f,dompetId:Number(e.target.value)}))} style={IS}>
                   {s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama} ({IDRs(N(d.saldo))})</option>)}
@@ -5520,7 +5523,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   ))}
                 </div></div>
               </div>
-              <div style={{display:"flex",gap:8}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr auto",gap:8}}>
                 <Btn onClick={addAmplop} ch={t("createTransfer")} style={{padding:"10px 18px"}}/>
                 <Btn onClick={()=>setShowAddAmplop(false)} ch={t("cancel")} c={T.muted} outline style={{padding:"10px 14px"}}/>
               </div>
@@ -5605,7 +5608,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <Sec t={t("walletSection")} right={<button onClick={()=>setPage("dompet")} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Kelola →</button>}/>
                 {s.dompet.map(d=>(
                   <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
-                    <div style={{display:"flex",gap:10,alignItems:"center"}}><span style={{fontSize:20}}>{d.icon}</span><div><div style={{fontSize:13,fontWeight:600,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}</div></div></div>
+                    <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}><span style={{fontSize:20}}>{d.icon}</span><div><div style={{fontSize:13,fontWeight:600,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}</div></div></div>
                     <span style={{fontWeight:700,color:T.text}}><MV v={IDR(N(d.saldo))}/></span>
                   </div>
                 ))}
@@ -5644,7 +5647,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:20,marginBottom:20}}>
               <Card ch={<>
                 <Sec t={t("debtTitle")}/>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginBottom:12}}>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:6,marginBottom:12}}>
                   {[{v:"utang",l:t("debtType_utang")},{v:"piutang",l:t("debtType_piutang")},{v:"piutangBisnis",l:t("debtType_biz")}].map(({v,l})=>(
                     <button key={v} onClick={()=>setUtForm(f=>({...f,tipe:v}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${utForm.tipe===v?T.accent:T.inputBorder}`,background:utForm.tipe===v?T.accentBg:T.input,color:utForm.tipe===v?T.accent:T.sub}}>{l}</button>
                   ))}
@@ -5787,7 +5790,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:18}}>
               <Card ch={<>
                 <Sec t={t("prediction")}/>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:16}}>
                   <div style={{background:T.errBg,borderRadius:10,padding:"12px 14px"}}>
                     <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>{t("prediksiPengeluaran")}</div>
                     <div style={{fontWeight:800,color:T.err,fontSize:16}}>{IDR(prediksiOut)}</div>
@@ -5818,7 +5821,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             <Card ch={<>
               <Sec t={t("histBalance")} sub={lang==="en"?"Balance estimated from transactions":"Saldo tiap dompet diestimasi berdasarkan transaksi historis"}/>
               <div style={{overflowX:"auto",border:`1px solid ${T.border}`,borderRadius:12,background:T.cardAlt}}>
-                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:400}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:isMobile?320:400}}>
                   <thead>
                     <tr style={{background:T.cardAlt}}>
                       <th style={{padding:"8px 12px",textAlign:"left",fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",borderBottom:`1.5px solid ${T.border}`}}>Bulan</th>
@@ -5907,7 +5910,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 </div>
 
                 <Sec t={t("laporanPeriod")}/>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:14}}>
                   <div><label style={LS}>{t("bulanShort")}</label><select value={s.bulan} onChange={e=>setS(p=>({...p,bulan:e.target.value}))} style={IS}>{MONTHS.map(m=><option key={m}>{m}</option>)}</select></div>
                   <div><label style={LS}>{t("year")}</label><select value={s.tahun} onChange={e=>setS(p=>({...p,tahun:e.target.value}))} style={IS}>{YEAR_OPTIONS.map(y=><option key={y}>{y}</option>)}</select></div>
                 </div>
@@ -5969,11 +5972,11 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <div style={{fontSize:11,color:T.sub,marginBottom:12}}>{t("recurringDesc2")} Proses akan masuk otomatis ke bulan aktif.</div>
 
                   {showAddRecurring&&<div style={{background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:10,padding:14,marginBottom:14}}>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
                       <div><label style={{...LS,fontSize:9}}>{t("name")}</label><input placeholder={t("recurringPlaceholder")} value={recurringForm.nama} onChange={e=>setRecurringForm(f=>({...f,nama:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></div>
                       <div><label style={{...LS,fontSize:9}}>{t("amount")}</label><CurIn value={recurringForm.jml} onChange={v=>setRecurringForm(f=>({...f,jml:v}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></div>
                     </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:10}}>
                       <div><label style={{...LS,fontSize:9}}>{t("type")}</label>
                       <select value={recurringForm.tipe} onChange={e=>setRecurringForm(f=>({...f,tipe:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}>
                         <option value="pengeluaran">{t("expense")}</option>
@@ -5995,7 +5998,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                     </div>
                     {s.recurring.map(r=>(
                       <div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${T.borderLight}`}}>
-                        <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                        <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
                           <div style={{width:32,height:32,borderRadius:8,background:r.tipe==="pemasukan"?T.okBg:r.tipe==="tabungan"?T.infoBg:T.errBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
                             {r.tipe==="pemasukan"?"IN":r.tipe==="tabungan"?"SAVE":"OUT"}
                           </div>
@@ -6021,7 +6024,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   {notifications.length===0
                     ?<div style={{textAlign:"center",padding:20,color:T.muted,fontSize:12}}>{t("noNotif")}</div>
                     :notifications.slice(0,3).map((n,i)=>(
-                      <div key={i} style={{display:"flex",gap:10,alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.borderLight}`}}>
+                      <div key={i} style={{display:"flex",gap:10,alignItems:"center",minWidth:0,padding:"8px 0",borderBottom:`1px solid ${T.borderLight}`}}>
                         <span style={{fontSize:18}}>{n.icon}</span>
                         <div style={{flex:1}}>
                           <div style={{fontSize:12,fontWeight:700,color:n.color==="danger"?T.err:T.warn}}>{n.title}</div>
