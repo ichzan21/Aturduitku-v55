@@ -882,14 +882,16 @@ const Btn=({onClick,ch,c,outline,style={}})=>{
   const T=useT();const bc=c||T.accent;
   return <button onClick={onClick} className="btn-go" style={{padding:"9px 18px",borderRadius:10,border:outline?`1.5px solid ${bc}`:"none",cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit",background:outline?"transparent":bc,color:outline?bc:"white",...style}}>{ch}</button>;
 };
-const LaunchEmpty=({title,desc,actionLabel,onAction,secondaryLabel,onSecondary,style={}})=>{
+const LaunchEmpty=({title,desc,actionLabel,onAction,secondaryLabel,onSecondary,icon="✨",kicker="Mulai dari sini",style={}})=>{
   const T=useT();
   return(
-    <div style={{textAlign:"center",padding:"28px 20px",borderRadius:18,background:T.cardAlt,border:`1px dashed ${T.border}`,color:T.muted,boxShadow:"inset 0 1px 0 rgba(255,255,255,.25)",...style}}>
-      <div style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"5px 10px",borderRadius:999,background:T.accentBg,color:T.accent,fontSize:10,fontWeight:800,letterSpacing:.8,textTransform:"uppercase",marginBottom:12}}>Start dari sini</div>
-      <div style={{fontSize:15,fontWeight:800,color:T.text,marginBottom:8}}>{title}</div>
-      <div style={{fontSize:12,lineHeight:1.7,maxWidth:380,margin:"0 auto 18px"}}>{desc}</div>
-      <div style={{display:"flex",justifyContent:"center",gap:10,flexWrap:"wrap"}}>
+    <div className="empty-polish" style={{position:"relative",overflow:"hidden",textAlign:"center",padding:"30px 20px",borderRadius:18,background:`linear-gradient(180deg,${T.cardAlt},${T.card})`,border:`1.5px dashed ${T.border}`,color:T.muted,boxShadow:"inset 0 1px 0 rgba(255,255,255,.32)",...style}}>
+      <div style={{position:"absolute",inset:"auto -28px -44px auto",width:120,height:120,borderRadius:"50%",background:T.accentBg,opacity:.65,pointerEvents:"none"}}/>
+      <div style={{position:"relative",display:"inline-flex",alignItems:"center",justifyContent:"center",width:48,height:48,borderRadius:16,background:T.accentBg,color:T.accent,fontSize:23,boxShadow:`0 10px 26px ${T.accentPop}`,marginBottom:12}}>{icon}</div>
+      <div style={{position:"relative",display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"5px 10px",borderRadius:999,background:T.accentBg,color:T.accent,fontSize:10,fontWeight:800,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>{kicker}</div>
+      <div style={{position:"relative",fontSize:16,fontWeight:900,color:T.text,marginBottom:8}}>{title}</div>
+      <div style={{position:"relative",fontSize:12,lineHeight:1.75,maxWidth:420,margin:"0 auto 18px"}}>{desc}</div>
+      <div style={{position:"relative",display:"flex",justifyContent:"center",gap:10,flexWrap:"wrap"}}>
         {actionLabel&&<Btn onClick={onAction} ch={actionLabel} c={T.accent} style={{padding:"10px 16px",minWidth:150}}/>}
         {secondaryLabel&&<Btn onClick={onSecondary} ch={secondaryLabel} c={T.info} outline style={{padding:"10px 16px",minWidth:150}}/>}
       </div>
@@ -4743,9 +4745,14 @@ Saldo amplop bertambah.`}]);
         input,select,textarea{transition:border-color .15s,box-shadow .15s;}
         input:focus,select:focus,textarea:focus{outline:none!important;border-color:${T.accent}!important;box-shadow:0 0 0 3px ${T.accentPop}!important;}
         button:focus{outline:none;}
+        .topbar-safe{box-shadow:0 8px 28px rgba(31,20,70,.06);}
+        .icon-action{transition:all .15s cubic-bezier(.4,0,.2,1);-webkit-tap-highlight-color:transparent;}
+        .icon-action:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(139,92,246,.14);}
+        .icon-action:active{transform:scale(.95);}
         .nav-item{transition:all .18s cubic-bezier(.4,0,.2,1);}
         .nav-item:hover{background:${T.navHover}!important;color:${T.accentSoft}!important;}
         .nav-item:active{transform:scale(.97);}
+        .empty-polish{animation:fadeUp .25s ease-out both;}
         .btn-go{transition:all .15s cubic-bezier(.4,0,.2,1);}
         .btn-go:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 6px 18px rgba(139,92,246,.25)!important;}
         .btn-go:active{transform:scale(.96);filter:brightness(.95);}
@@ -4753,9 +4760,10 @@ Saldo amplop bertambah.`}]);
         .card-lift:hover{box-shadow:${T.shadowMd}!important;transform:translateY(-2px);}
         .del-x{transition:color .15s,transform .15s;cursor:pointer;}
         .del-x:hover{color:#F43F5E!important;transform:rotate(12deg);}
-        .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:${T.nav};border-top:1.5px solid ${T.border};display:flex;z-index:200;padding-bottom:max(env(safe-area-inset-bottom),8px);padding-left:max(env(safe-area-inset-left),4px);padding-right:max(env(safe-area-inset-right),4px);box-shadow:0 -4px 20px rgba(0,0,0,.12);}
-        .bottom-nav-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:9px 2px 6px;cursor:pointer;gap:3px;transition:all .15s;border:none;background:none;font-family:inherit;min-height:56px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+        .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:${T.nav};border-top:1.5px solid ${T.border};display:flex;z-index:200;padding-bottom:max(env(safe-area-inset-bottom),8px);padding-left:max(env(safe-area-inset-left),6px);padding-right:max(env(safe-area-inset-right),6px);box-shadow:0 -8px 28px rgba(31,20,70,.14);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);}
+        .bottom-nav-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:9px 2px 7px;cursor:pointer;gap:4px;transition:all .15s;border:none;background:none;font-family:inherit;min-height:58px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;border-radius:14px;margin:5px 1px;}
         .bottom-nav-item span:last-child{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .bottom-nav-item:hover{background:${T.navHover};}
         .bottom-nav-item:active{transform:scale(.9);}
         .sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:499;backdrop-filter:blur(2px);touch-action:none;}
         @keyframes slideIn{from{transform:translateX(-100%);}to{transform:translateX(0);}}
@@ -4805,7 +4813,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       `}</style>
 
       {/* Toast */}
-      {toast&&<div className="toast-in" style={{position:"fixed",top:"max(18px, calc(env(safe-area-inset-top) + 8px))",right:"max(14px, env(safe-area-inset-right))",left:isMobile?"max(14px, env(safe-area-inset-left))":"auto",maxWidth:isMobile?"none":"min(420px, calc(100vw - 28px))",background:`linear-gradient(135deg,${T.accentFg},${T.accent})`,color:"white",padding:"11px 18px",borderRadius:12,fontSize:13,fontWeight:700,zIndex:9999,boxShadow:T.shadowMd,display:"flex",alignItems:"center",gap:8,lineHeight:1.35}}><span className="cat-bob"><img src="/icon-192.png" style={{width:20,height:20,borderRadius:5,verticalAlign:"middle"}}/></span><span style={{minWidth:0,overflowWrap:"anywhere"}}>{toast}</span></div>}
+      {toast&&<div className="toast-in" style={{position:"fixed",top:"max(18px, calc(env(safe-area-inset-top) + 8px))",right:"max(14px, env(safe-area-inset-right))",left:isMobile?"max(14px, env(safe-area-inset-left))":"auto",maxWidth:isMobile?"none":"min(430px, calc(100vw - 28px))",background:T.card,color:T.text,padding:"12px 15px",borderRadius:14,fontSize:13,fontWeight:800,zIndex:9999,boxShadow:T.shadowMd,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:10,lineHeight:1.35}}><span style={{width:28,height:28,borderRadius:9,background:T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><img src="/icon-192.png" style={{width:22,height:22,borderRadius:6,verticalAlign:"middle"}}/></span><span style={{minWidth:0,overflowWrap:"anywhere"}}>{toast}</span></div>}
 
       {/* Global Calculator */}
       {showCalc&&calcFor&&<Calculator value={calcFor.cur} onChange={v=>{calcFor.setter(v);setShowCalc(false);setCalcFor(null);}} onClose={()=>{setShowCalc(false);setCalcFor(null);}}/>}
@@ -5036,7 +5044,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
         {/* Topbar */}
         <div className="topbar-safe" style={{background:T.topbar,backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderBottom:`1.5px solid ${T.border}`,padding:isMobile?`10px max(14px,env(safe-area-inset-right)) 10px max(14px,env(safe-area-inset-left))`:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50,transition:"background .3s,border-color .3s"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0,flex:1}}>
-            {isMobile&&<button onClick={()=>setSidebarOpen(true)} style={{background:T.accentBg,border:"none",borderRadius:9,minWidth:44,height:36,cursor:"pointer",fontSize:11,fontWeight:800,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0,padding:"0 10px"}}>Menu</button>}
+            {isMobile&&<button className="icon-action" onClick={()=>setSidebarOpen(true)} title="Menu" aria-label="Menu" style={{background:T.accentBg,border:"none",borderRadius:9,minWidth:44,height:36,cursor:"pointer",fontSize:18,fontWeight:800,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0,padding:"0 10px"}}>☰</button>}
             <div style={{minWidth:0}}>
               <div style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"42vw":"none"}}>{page==="admin"?"Admin":((lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings",admin:"Admin"}:{admin:"Admin"})[page]||navItems.find(n=>n.id===page)?.label||"")}</div>
               {!isMobile&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>{hariShort}{tzZone.zone?` • ${tzZone.zone}`:""}</div>}
@@ -5050,21 +5058,21 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {!isMobile&&page==="goals"&&<Btn onClick={()=>setModal({type:"goal"})} ch={t("addGoalBtn")+" "} style={{padding:"8px 14px",fontSize:12}}/>}
             {!isMobile&&page==="aset"&&<Btn onClick={()=>setModal({type:"aset"})} ch={"+ "+t("aset")} style={{padding:"8px 14px",fontSize:12}}/>}
 
-            {!isMobile&&<button onClick={()=>setModal({type:"kalkulator"})} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,minWidth:44,height:36,cursor:"pointer",fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s",padding:"0 8px"}} title="Kalkulator" aria-label="Kalkulator">🧮</button>}
+            {!isMobile&&<button className="icon-action" onClick={()=>setModal({type:"kalkulator"})} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,minWidth:44,height:36,cursor:"pointer",fontSize:17,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s",padding:"0 8px"}} title="Kalkulator" aria-label="Kalkulator">🧮</button>}
 
             {/* Notification Bell */}
-            <button onClick={()=>setNotifOpen(true)} className={notifications.length?"notif-bounce":""} style={{position:"relative",background:notifications.length?T.errBg:T.cardAlt,border:`1px solid ${notifications.length?T.errBorder:T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,color:notifications.length?T.err:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .15s"}}>
+            <button onClick={()=>setNotifOpen(true)} className={`icon-action ${notifications.length?"notif-bounce":""}`} title="Notifikasi" aria-label="Notifikasi" style={{position:"relative",background:notifications.length?T.errBg:T.cardAlt,border:`1px solid ${notifications.length?T.errBorder:T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,color:notifications.length?T.err:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .15s"}}>
               🔔
               {notifications.length>0&&<span style={{position:"absolute",top:-3,right:-3,background:T.err,color:"white",borderRadius:"50%",width:16,height:16,fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${T.nav}`}}>{Math.min(notifications.length,9)}</span>}
             </button>
 
             {/* Blur saldo toggle */}
-            {!isMobile&&<button onClick={toggleBlur} title={blurSaldo?t("showBalance"):t("hideBalance")} style={{background:blurSaldo?T.accentBg:T.cardAlt,border:`1px solid ${blurSaldo?T.accent:T.border}`,borderRadius:10,minWidth:56,height:36,cursor:"pointer",fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s",padding:"0 8px"}}>
+            {!isMobile&&<button className="icon-action" onClick={toggleBlur} title={blurSaldo?t("showBalance"):t("hideBalance")} aria-label={blurSaldo?t("showBalance"):t("hideBalance")} style={{background:blurSaldo?T.accentBg:T.cardAlt,border:`1px solid ${blurSaldo?T.accent:T.border}`,borderRadius:10,minWidth:44,height:36,cursor:"pointer",fontSize:16,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s",padding:"0 8px"}}>
               {blurSaldo?"👁️":"🙈"}
             </button>}
 
             {/* Dark mode toggle */}
-            <button onClick={()=>setDark(!dark)} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,minWidth:56,height:36,cursor:"pointer",fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s",padding:"0 8px"}}>
+            <button className="icon-action" onClick={()=>setDark(!dark)} title={dark?"Mode terang":"Mode gelap"} aria-label={dark?"Mode terang":"Mode gelap"} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,minWidth:44,height:36,cursor:"pointer",fontSize:16,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s",padding:"0 8px"}}>
               {dark?"☀️":"🌙"}
             </button>
 
@@ -5155,6 +5163,34 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               <span style={{fontSize:12,color:T.err,fontWeight:700}}>Buka</span>
             </div>}
 
+            {(s.txs.length===0||totalSaldo===0||!s.budgets.some(b=>N(b.alokasi)>0||(b.sub||[]).some(x=>N(x.alokasi)>0)))&&<Card ch={<>
+              <div style={{display:"flex",alignItems:isMobile?"flex-start":"center",justifyContent:"space-between",gap:16,flexDirection:isMobile?"column":"row"}}>
+                <div style={{display:"flex",gap:12,alignItems:"flex-start",minWidth:0}}>
+                  <div style={{width:44,height:44,borderRadius:14,background:T.accentBg,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:23,boxShadow:`0 10px 24px ${T.accentPop}`,flexShrink:0}}>🚀</div>
+                  <div style={{minWidth:0}}>
+                    <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",marginBottom:4}}>Setup cepat</div>
+                    <div style={{fontSize:16,fontWeight:900,color:T.text,marginBottom:5}}>Bikin dashboard kamu hidup dalam 2 menit</div>
+                    <div style={{fontSize:12,color:T.muted,lineHeight:1.6,maxWidth:560}}>Tambahkan dompet, catat transaksi pertama, lalu isi budget dasar. Setelah itu laporan, insight, dan AI akan jauh lebih akurat.</div>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:isMobile?"flex-start":"flex-end",width:isMobile?"100%":"auto"}}>
+                  <Btn onClick={()=>setModal({type:"dompet"})} ch="👛 Dompet" c={T.accent} outline style={{padding:"9px 12px",fontSize:12,flex:isMobile?"1 1 130px":"0 0 auto"}}/>
+                  <Btn onClick={()=>setModal({type:"tx"})} ch="🧾 Transaksi" style={{padding:"9px 12px",fontSize:12,flex:isMobile?"1 1 130px":"0 0 auto"}}/>
+                  <Btn onClick={()=>setPage("budget")} ch="📊 Budget" c={T.info} outline style={{padding:"9px 12px",fontSize:12,flex:isMobile?"1 1 130px":"0 0 auto"}}/>
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:8,marginTop:14}}>
+                {[
+                  {ok:s.dompet.some(d=>N(d.saldo)>0),t:"Saldo awal",d:"Isi saldo dompet utama"},
+                  {ok:s.txs.length>0,t:"Transaksi pertama",d:"Catat pemasukan/pengeluaran"},
+                  {ok:s.budgets.some(b=>N(b.alokasi)>0||(b.sub||[]).some(x=>N(x.alokasi)>0)),t:"Budget dasar",d:"Tentukan batas bulanan"},
+                ].map(step=><div key={step.t} style={{display:"flex",gap:8,alignItems:"center",background:step.ok?T.okBg:T.cardAlt,border:`1px solid ${step.ok?T.okBorder:T.border}`,borderRadius:11,padding:"10px 12px"}}>
+                  <span style={{width:24,height:24,borderRadius:999,display:"flex",alignItems:"center",justifyContent:"center",background:step.ok?T.ok:T.accentBg,color:step.ok?"white":T.accent,fontSize:12,fontWeight:900}}>{step.ok?"✓":"•"}</span>
+                  <span style={{minWidth:0}}><span style={{display:"block",fontSize:12,fontWeight:800,color:T.text}}>{step.t}</span><span style={{display:"block",fontSize:10,color:T.muted}}>{step.d}</span></span>
+                </div>)}
+              </div>
+            </>} style={{marginBottom:18,padding:isMobile?16:"18px 20px"}}/>}
+
             {/* Stats Row */}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:18}}>
               {[
@@ -5206,6 +5242,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 {txBulan.length
                   ? [...txBulan].sort((a,b)=>new Date(b.tgl)-new Date(a.tgl)).slice(0,6).map(t=>renderTxItem(t))
                   : <LaunchEmpty
+                      icon="🧾"
                       title="Belum ada transaksi bulan ini"
                       desc="Mulai dari satu pemasukan atau satu pengeluaran dulu. Setelah itu dashboard bakal langsung terasa hidup."
                       actionLabel="Tambah transaksi pertama"
@@ -5244,6 +5281,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   </div>
                   );
                 }) : <LaunchEmpty
+                  icon="🗓️"
                   title={t("noBills")}
                   desc="Belum ada tagihan terjadwal. Tambahkan subkategori budget dengan tanggal jatuh tempo supaya pengingat otomatis mulai bekerja."
                   actionLabel="Buka budget"
@@ -5365,6 +5403,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <div style={{textAlign:"center",paddingTop:12,fontSize:11,color:T.muted}}>{filtTx.length} transaksi ditampilkan</div>
                 )}
               </>:<LaunchEmpty
+                icon="🔎"
                 title="Tidak ada transaksi yang cocok"
                 desc="Coba ganti filter, pindah bulan, atau tambah transaksi baru supaya riwayat keuanganmu mulai kebentuk."
                 actionLabel="Tambah transaksi baru"
@@ -5546,6 +5585,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
 
             {/* Daftar Amplop */}
             {s.amplop.length===0&&!showAddAmplop&&<LaunchEmpty
+              icon="✉️"
               title={t("noEnvelope")}
               desc="Mulai dengan satu amplop sederhana seperti makan, tagihan, atau dana mingguan supaya pengeluaran harian lebih terarah."
               actionLabel="Buat amplop pertama"
@@ -5585,6 +5625,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
               {s.goals.map(g=><GoalCard key={g.id} g={g} dompetList={s.dompet} onDelete={()=>setS(p=>({...p,goals:p.goals.filter(x=>x.id!==g.id)}))} onTambah={tambahGoalDana} onSelesai={id=>setS(p=>({...p,goals:p.goals.map(x=>x.id!==id?x:{...x,selesai:true})}))}/>)}
               {!s.goals.length&&<div style={{gridColumn:"1/-1"}}><LaunchEmpty
+                icon="🎯"
                 title={t("noGoal")}
                 desc="Bikin target pertama seperti dana darurat, motor, laptop, atau liburan. Progress kecil bakal bikin kamu lebih semangat balik lagi."
                 actionLabel="Tambah goal pertama"
@@ -5644,6 +5685,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   </div>
                 ))}
                 {!s.asetTetap.length&&<LaunchEmpty
+                  icon="💎"
                   title="Belum ada aset tetap"
                   desc="Catat aset seperti rumah, kendaraan, emas, atau laptop kerja supaya net worth kamu terlihat lebih utuh."
                   actionLabel="Tambah aset pertama"
@@ -5772,7 +5814,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <Sec t={t("spendDetail")}/>
                 {pieData.length?<ResponsiveContainer width="100%" height={isMobile?150:200}>
                   <PieChart><Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={80} innerRadius={40} label={({percent})=>`${(percent*100).toFixed(0)}%`}>{pieData.map((_,i)=><Cell key={i} fill={PIE_C[i%PIE_C.length]}/>)}</Pie><Tooltip formatter={v=>IDR(v)} contentStyle={{borderRadius:8,fontSize:12,background:T.card,border:`1px solid ${T.border}`,color:T.text}}/></PieChart>
-                </ResponsiveContainer>:<LaunchEmpty title="Belum ada distribusi pengeluaran" desc="Tambahkan beberapa transaksi pengeluaran di bulan ini supaya kategori belanja, pola spending, dan insight laporan mulai terbentuk." actionLabel="Tambah transaksi" onAction={()=>setModal({type:"tx"})} secondaryLabel="Buka transaksi" onSecondary={()=>setPage("trans")} style={{padding:"28px 16px"}}/>}
+                </ResponsiveContainer>:<LaunchEmpty icon="📊" title="Belum ada distribusi pengeluaran" desc="Tambahkan beberapa transaksi pengeluaran di bulan ini supaya kategori belanja, pola spending, dan insight laporan mulai terbentuk." actionLabel="Tambah transaksi" onAction={()=>setModal({type:"tx"})} secondaryLabel="Buka transaksi" onSecondary={()=>setPage("trans")} style={{padding:"28px 16px"}}/>}
               </>}/>
               <Card ch={<>
                 <Sec t={t("dailyExpense")} sub={s.bulan}/>
@@ -6033,6 +6075,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                         ))}
                       </div>
                     ) : (!showAddRecurring&&<LaunchEmpty
+                      icon="🔁"
                       title="Belum ada transaksi rutin"
                       desc="Tambahkan transaksi bulanan seperti gaji, listrik, internet, atau cicilan supaya pencatatan berulang jalan otomatis."
                       actionLabel="Tambah transaksi rutin"
@@ -6050,6 +6093,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                     <Sec t={t("notifSummary")} right={<button onClick={()=>setNotifOpen(true)} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:700}}>Lihat Semua</button>}/>
                     {notifications.length===0 ? (
                       <LaunchEmpty
+                        icon="🔔"
                         title="Belum ada notifikasi aktif"
                         desc="Kalau budget, tagihan, atau transaksi rutin mulai terisi, pengingat penting akan muncul di sini."
                         actionLabel="Buka budget"
@@ -6227,7 +6271,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                     </div>
                   </div>
                 ))}
-                {!adminFilteredUsers.length&&<LaunchEmpty title="Tidak ada user yang cocok" desc="Filter yang aktif sedang tidak menemukan akun. Coba reset filter atau cari dengan email akun, buyer email, atau order ID lain." actionLabel="Reset filter" onAction={()=>{setAdminFilter("all");setAdminPaymentFilter("all");setAdminReviewFilter("all");setAdminQuery("");}} secondaryLabel="Refresh data" onSecondary={loadAdminUsers} style={{padding:"34px 18px"}}/>}
+                {!adminFilteredUsers.length&&<LaunchEmpty icon="🛡️" title="Tidak ada user yang cocok" desc="Filter yang aktif sedang tidak menemukan akun. Coba reset filter atau cari dengan email akun, buyer email, atau order ID lain." actionLabel="Reset filter" onAction={()=>{setAdminFilter("all");setAdminPaymentFilter("all");setAdminReviewFilter("all");setAdminQuery("");}} secondaryLabel="Refresh data" onSecondary={loadAdminUsers} style={{padding:"34px 18px"}}/>}
               </div>
               {adminFilteredUsers.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginTop:14}}>
                 <div style={{fontSize:11,color:T.muted}}>
@@ -6258,7 +6302,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
           </button>
         );})}
         <button onClick={()=>setMoreOpen(true)} className="bottom-nav-item" style={{color:T.muted,position:"relative"}}>
-          <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:T.cardAlt,color:T.muted,fontSize:10,fontWeight:800,letterSpacing:.4,lineHeight:1}}>MORE</span>
+          <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:T.cardAlt,color:T.muted,fontSize:16,fontWeight:700,letterSpacing:0,lineHeight:1}}>⋯</span>
           <span style={{fontSize:9,fontWeight:500}}>{t("more")}</span>
           {notifications.length>0&&<span style={{position:"absolute",top:6,right:"calc(50% - 14px)",background:T.err,color:"white",borderRadius:"50%",width:14,height:14,fontSize:8,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>{Math.min(notifications.length,9)}</span>}
         </button>
