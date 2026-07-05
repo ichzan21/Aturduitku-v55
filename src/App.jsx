@@ -873,6 +873,19 @@ const Btn=({onClick,ch,c,outline,style={}})=>{
   const T=useT();const bc=c||T.accent;
   return <button onClick={onClick} className="btn-go" style={{padding:"9px 18px",borderRadius:10,border:outline?`1.5px solid ${bc}`:"none",cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit",background:outline?"transparent":bc,color:outline?bc:"white",...style}}>{ch}</button>;
 };
+const LaunchEmpty=({title,desc,actionLabel,onAction,secondaryLabel,onSecondary,style={}})=>{
+  const T=useT();
+  return(
+    <div style={{textAlign:"center",padding:"28px 20px",borderRadius:16,background:T.cardAlt,border:`1px dashed ${T.border}`,color:T.muted,...style}}>
+      <div style={{fontSize:15,fontWeight:800,color:T.text,marginBottom:8}}>{title}</div>
+      <div style={{fontSize:12,lineHeight:1.7,maxWidth:380,margin:"0 auto 16px"}}>{desc}</div>
+      <div style={{display:"flex",justifyContent:"center",gap:10,flexWrap:"wrap"}}>
+        {actionLabel&&<Btn onClick={onAction} ch={actionLabel} c={T.accent} style={{padding:"10px 16px"}}/>}
+        {secondaryLabel&&<Btn onClick={onSecondary} ch={secondaryLabel} c={T.info} outline style={{padding:"10px 16px"}}/>}
+      </div>
+    </div>
+  );
+};
 const Del=({onClick})=>{
   const T=useT();
   return <button onClick={onClick} className="del-x" style={{background:"none",border:"none",color:T.muted,padding:"2px 6px",fontSize:14,fontFamily:"inherit",borderRadius:4,cursor:"pointer"}}>X</button>;
@@ -5171,15 +5184,25 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <CalendarView txs={txBulan} bulan={s.bulan} tahun={s.tahun} liveDay={now.getDate()} liveMonth={now.getMonth()} liveYear={now.getFullYear()}/>
               </>}/>
               <Card ch={<>
-                <Sec t={t("recentTx")} right={<button onClick={()=>setPage("trans")} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Lihat semua →</button>}/>
-                {txBulan.length?[...txBulan].sort((a,b)=>new Date(b.tgl)-new Date(a.tgl)).slice(0,6).map(t=>renderTxItem(t)):<div style={{textAlign:"center",padding:"24px",color:T.muted,fontSize:12}}>Belum ada transaksi bulan ini</div>}
+                <Sec t={t("recentTx")} right={<button onClick={()=>setPage("trans")} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Lihat semua</button>}/>
+                {txBulan.length
+                  ? [...txBulan].sort((a,b)=>new Date(b.tgl)-new Date(a.tgl)).slice(0,6).map(t=>renderTxItem(t))
+                  : <LaunchEmpty
+                      title="Belum ada transaksi bulan ini"
+                      desc="Mulai dari satu pemasukan atau satu pengeluaran dulu. Setelah itu dashboard bakal langsung terasa hidup."
+                      actionLabel="+ Tambah transaksi"
+                      onAction={()=>setModal({type:"tx"})}
+                      secondaryLabel="Buka AI"
+                      onSecondary={()=>setAiOpen(true)}
+                      style={{padding:"24px 16px"}}
+                    />}
               </>}/>
             </div>
 
             {/* Daily Spending + Tagihan + Top Spending */}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":`${isMobile?"1fr":"1fr 1fr 1fr"}`,gap:18,marginBottom:18}}>
               <Card ch={<>
-                <Sec t={"📊 "+t("dailyExpense")} sub={s.bulan}/>
+                <Sec t={`Ringkasan ${t("dailyExpense")}`} sub={s.bulan}/>
                 <DailyChart txBulan={txBulan} bulan={s.bulan} tahun={s.tahun}/>
               </>}/>
               <Card ch={<>
@@ -5201,7 +5224,13 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                       </div>
                     </div>
                   </div>
-                )}):<div style={{textAlign:"center",padding:20,color:T.muted,fontSize:12}}>{t("noBills")}<br/><span style={{fontSize:10}}>Tambah di Budget → Subkategori</span></div>}
+                )}:<LaunchEmpty
+                  title={t("noBills")}
+                  desc="Belum ada tagihan terjadwal. Tambahkan subkategori budget dengan tanggal jatuh tempo supaya pengingat otomatis mulai bekerja."
+                  actionLabel="Atur budget"
+                  onAction={()=>setPage("budget")}
+                  style={{padding:"22px 16px"}}
+                />}
               </>}/>
               <Card ch={<>
                 <Sec t={t("topExpense")}/>
@@ -5316,7 +5345,14 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 {filtTx.length>TX_PER_PAGE&&txPage*TX_PER_PAGE>=filtTx.length&&(
                   <div style={{textAlign:"center",paddingTop:12,fontSize:11,color:T.muted}}>{t("showAll").replace("All","")||""}{filtTx.length} {t("txCount").toLowerCase()}saksi ditampilkan</div>
                 )}
-              </>:<div style={{textAlign:"center",padding:40,color:T.muted}}><div style={{fontSize:32,marginBottom:8}}>🔍</div>Tidak ada transaksi ditemukan</div>}
+              </>:<LaunchEmpty
+                title="Tidak ada transaksi yang cocok"
+                desc="Coba ganti filter, pindah bulan, atau tambah transaksi baru supaya riwayat keuanganmu mulai kebentuk."
+                actionLabel="+ Tambah transaksi"
+                onAction={()=>setModal({type:"tx"})}
+                secondaryLabel="Reset ke bulan ini"
+                onSecondary={()=>{setBln(MONTHS[now.getMonth()]);setThn(String(now.getFullYear()));}}
+              />}
             </>}/>
           </>}
 
@@ -5490,12 +5526,15 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             </>} style={{marginBottom:18}}/>}
 
             {/* Daftar Amplop */}
-            {s.amplop.length===0&&!showAddAmplop&&<div style={{textAlign:"center",padding:"60px 20px",color:T.muted}}>
-              <div style={{fontSize:48,marginBottom:12}}>✉️</div>
-              <div style={{fontSize:16,fontWeight:600,color:T.sub}}>{t("noEnvelope")}</div>
-              <div style={{fontSize:13,marginTop:6,marginBottom:20}}>Buat amplop pertamamu untuk mulai budgeting!</div>
-              <Btn onClick={()=>setShowAddAmplop(true)} ch={t("createFirst")} style={{padding:"12px 24px"}}/>
-            </div>}
+            {s.amplop.length===0&&!showAddAmplop&&<LaunchEmpty
+              title={t("noEnvelope")}
+              desc="Mulai dengan satu amplop sederhana seperti makan, tagihan, atau dana mingguan supaya pengeluaran harian lebih terarah."
+              actionLabel={t("createFirst")}
+              onAction={()=>setShowAddAmplop(true)}
+              secondaryLabel="Lihat budget"
+              onSecondary={()=>setPage("budget")}
+              style={{padding:"52px 20px",marginBottom:4}}
+            />}
 
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
               {s.amplop.map(amp=>(
@@ -5526,12 +5565,15 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
               {s.goals.map(g=><GoalCard key={g.id} g={g} dompetList={s.dompet} onDelete={()=>setS(p=>({...p,goals:p.goals.filter(x=>x.id!==g.id)}))} onTambah={tambahGoalDana} onSelesai={id=>setS(p=>({...p,goals:p.goals.map(x=>x.id!==id?x:{...x,selesai:true})}))}/>)}
-              {!s.goals.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:"60px 20px",color:T.muted}}>
-                <div style={{fontSize:48,marginBottom:12}}>🌟</div>
-                <div style={{fontSize:16,fontWeight:600,color:T.sub}}>{t("noGoal")}</div>
-                <div style={{fontSize:13,marginTop:6,marginBottom:20,color:T.muted}}>{t("goalsAdd")}</div>
-                <Btn onClick={()=>setModal({type:"goal"})} ch={t("addFirstGoal")} style={{padding:"12px 24px"}}/>
-              </div>}
+              {!s.goals.length&&<div style={{gridColumn:"1/-1"}}><LaunchEmpty
+                title={t("noGoal")}
+                desc="Bikin target pertama seperti dana darurat, motor, laptop, atau liburan. Progress kecil bakal bikin kamu lebih semangat balik lagi."
+                actionLabel={t("addFirstGoal")}
+                onAction={()=>setModal({type:"goal"})}
+                secondaryLabel="Buka AI"
+                onSecondary={()=>setAiOpen(true)}
+                style={{padding:"52px 20px"}}
+              /></div>}
             </div>
             {s.goals.length>0&&<div style={{marginTop:16,textAlign:"right"}}><Btn onClick={()=>setModal({type:"goal"})} ch={t("addGoalBtn")} style={{padding:"10px 20px"}}/></div>}
           </>}
@@ -5582,7 +5624,13 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                     </div>
                   </div>
                 ))}
-                {!s.asetTetap.length&&<div style={{textAlign:"center",padding:24,color:T.muted,fontSize:12}}>Belum ada aset tetap<br/><span style={{fontSize:10}}>Rumah, Kendaraan, Emas dll</span></div>}
+                {!s.asetTetap.length&&<LaunchEmpty
+                  title="Belum ada aset tetap"
+                  desc="Catat aset seperti rumah, kendaraan, emas, atau laptop kerja supaya net worth kamu terlihat lebih utuh."
+                  actionLabel="+ Tambah aset"
+                  onAction={()=>setModal({type:"aset"})}
+                  style={{padding:"24px 16px",marginTop:6}}
+                />}
                 <div style={{marginTop:10}}><Btn onClick={()=>setModal({type:"aset"})} ch={"+ "+t("aset")} c={T.accent} outline style={{padding:"8px 14px",fontSize:12}}/></div>
               </>}/>
             </div>
