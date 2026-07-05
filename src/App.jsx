@@ -6034,8 +6034,8 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 {/* Notification Summary */}
                 <Card ch={<>
                   <Sec t={t("notifSummary")} right={<button onClick={()=>setNotifOpen(true)} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:700}}>Lihat Semua</button>}/>
-                  {notifications.length===0
-                    ?<LaunchEmpty
+                  {notifications.length===0 ? (
+                    <LaunchEmpty
                       title="Belum ada notifikasi aktif"
                       desc="Kalau budget, tagihan, atau transaksi rutin mulai terisi, pengingat penting akan muncul di sini."
                       actionLabel="Buka budget"
@@ -6044,17 +6044,20 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                       onSecondary={()=>setModal({type:"tx"})}
                       style={{padding:"24px 16px"}}
                     />
-                    :notifications.slice(0,3).map((n,i)=>(
-                      <div key={i} style={{display:"flex",gap:10,alignItems:"center",minWidth:0,padding:"8px 0",borderBottom:`1px solid ${T.borderLight}`}}>
-                        <span style={{fontSize:18}}>{n.icon}</span>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:12,fontWeight:700,color:n.color==="danger"?T.err:T.warn}}>{n.title}</div>
-                          <div style={{fontSize:11,color:T.muted}}>{n.msg}</div>
+                  ) : (
+                    <>
+                      {notifications.slice(0,3).map((n,i)=>( 
+                        <div key={i} style={{display:"flex",gap:10,alignItems:"center",minWidth:0,padding:"8px 0",borderBottom:`1px solid ${T.borderLight}`}}>
+                          <span style={{fontSize:18}}>{n.icon}</span>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:12,fontWeight:700,color:n.color==="danger"?T.err:T.warn}}>{n.title}</div>
+                            <div style={{fontSize:11,color:T.muted}}>{n.msg}</div>
+                          </div>
                         </div>
-                      </div>
-                    ))
-                  }
-                  {notifications.length>3&&<div style={{textAlign:"center",fontSize:11,color:T.accent,fontWeight:700,marginTop:8,cursor:"pointer"}} onClick={()=>setNotifOpen(true)}>+{notifications.length-3} notifikasi lainnya</div>}
+                      ))}
+                      {notifications.length>3&&<div style={{textAlign:"center",fontSize:11,color:T.accent,fontWeight:700,marginTop:8,cursor:"pointer"}} onClick={()=>setNotifOpen(true)}>+{notifications.length-3} notifikasi lainnya</div>}
+                    </>
+                  )}
                 </>}/>
               </div>
             </div>
