@@ -5971,63 +5971,16 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 </>} style={{marginBottom:14}}/>
 
                 {/* Recurring Transactions */}
-                <Card ch={<>
-                  <Sec t={t("recurringTx")} right={<Btn onClick={()=>setShowAddRecurring(!showAddRecurring)} ch={showAddRecurring?"Tutup":t("add")} c={T.accent} outline style={{padding:"5px 12px",fontSize:11}}/>}/>
-                  <div style={{fontSize:11,color:T.sub,marginBottom:12}}>{t("recurringDesc2")} Proses akan masuk otomatis ke bulan aktif.</div>
-
-                  {showAddRecurring&&<div style={{background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:10,padding:14,marginBottom:14}}>
-                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
-                      <div><label style={{...LS,fontSize:9}}>{t("name")}</label><input placeholder={t("recurringPlaceholder")} value={recurringForm.nama} onChange={e=>setRecurringForm(f=>({...f,nama:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></div>
-                      <div><label style={{...LS,fontSize:9}}>{t("amount")}</label><CurIn value={recurringForm.jml} onChange={v=>setRecurringForm(f=>({...f,jml:v}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></div>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:10}}>
-                      <div><label style={{...LS,fontSize:9}}>{t("type")}</label>
-                      <select value={recurringForm.tipe} onChange={e=>setRecurringForm(f=>({...f,tipe:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}>
-                        <option value="pengeluaran">{t("expense")}</option>
-                        <option value="pemasukan">{t("income")}</option>
-                        <option value="tabungan">{t("savingShort")}</option>
-                      </select></div>
-                      <div><label style={{...LS,fontSize:9}}>{t("recurringDay")}</label><input type="number" min="1" max="31" placeholder="tgl" value={recurringForm.hari} onChange={e=>setRecurringForm(f=>({...f,hari:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></div>
-                      <div><label style={{...LS,fontSize:9}}>{t("dompet")}</label>
-                      <select value={recurringForm.dompetId} onChange={e=>setRecurringForm(f=>({...f,dompetId:Number(e.target.value)}))} style={{...IS,fontSize:11,padding:"7px 9px"}}>
-                        {s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama}</option>)}
-                      </select></div>
-                    </div>
-                    <Btn onClick={addRecurring} ch={t("recurringAdd")} style={{padding:"8px 16px",fontSize:12}}/>
-                  </div>}
-
-                  {s.recurring.length>0&&<>
-                    <div style={{marginBottom:10}}>
-                      <Btn onClick={prosesRecurring} ch={`${t("processAll")} ${s.bulan} ${s.tahun}`} c="#D97706" style={{width:"100%",padding:"10px 14px",fontSize:12}}/>
-                    </div>
-                    {s.recurring.map(r=>(
-                      <div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${T.borderLight}`}}>
-                        <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
-                          <div style={{width:32,height:32,borderRadius:8,background:r.tipe==="pemasukan"?T.okBg:r.tipe==="tabungan"?T.infoBg:T.errBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
-                            {r.tipe==="pemasukan"?"IN":r.tipe==="tabungan"?"SAVE":"OUT"}
-                          </div>
-                          <div>
-                            <div style={{fontSize:12,fontWeight:700,color:T.text}}>{r.nama}</div>
-                            <div style={{fontSize:10,color:T.muted}}>Tgl {r.hari} tiap bulan • {s.dompet.find(d=>d.id===r.dompetId)?.nama}</div>
-                          </div>
-                        </div>
-                        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                          <span style={{fontSize:12,fontWeight:700,color:r.tipe==="pemasukan"?T.ok:r.tipe==="tabungan"?T.info:T.err}}>{IDRs(N(r.jml))}</span>
-                          <button onClick={()=>setS(p=>({...p,recurring:p.recurring.map(x=>x.id!==r.id?x:{...x,aktif:!x.aktif})}))} style={{padding:"3px 8px",borderRadius:6,border:`1px solid ${r.aktif?T.okBorder:T.border}`,background:r.aktif?T.okBg:T.cardAlt,color:r.aktif?T.ok:T.muted,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>{r.aktif?"Aktif":"Nonaktif"}</button>
-                          <Del onClick={()=>setS(p=>({...p,recurring:p.recurring.filter(x=>x.id!==r.id)}))}/>
-                        </div>
-                      </div>
-                    ))}
-                  {!s.recurring.length&&!showAddRecurring&&<LaunchEmpty
-                    title="Belum ada transaksi rutin"
-                    desc="Tambahkan transaksi bulanan seperti gaji, listrik, internet, atau cicilan supaya pencatatan berulang jalan otomatis."
-                    actionLabel="Tambah transaksi rutin"
-                    onAction={()=>setShowAddRecurring(true)}
-                    secondaryLabel="Lihat laporan"
-                    onSecondary={()=>setPage("laporan")}
-                    style={{padding:"24px 16px"}}
-                  />}
-                </>} style={{marginBottom:14}}/>
+                {/* Recurring Transactions */}
+                <Card ch={<LaunchEmpty
+                  title="Transaksi rutin"
+                  desc="Panel transaksi rutin sedang dirapikan. Untuk sementara, catat transaksi berkala secara manual dari menu transaksi biasa."
+                  actionLabel="Tambah transaksi"
+                  onAction={()=>setModal({type:"tx"})}
+                  secondaryLabel="Buka laporan"
+                  onSecondary={()=>setPage("laporan")}
+                  style={{padding:"24px 16px"}}
+                />} style={{marginBottom:14}}/>
 
                 {/* Notification Summary */}
                 <Card ch={<LaunchEmpty
