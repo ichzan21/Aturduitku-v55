@@ -875,7 +875,7 @@ const Btn=({onClick,ch,c,outline,style={}})=>{
 };
 const Del=({onClick})=>{
   const T=useT();
-  return <button onClick={onClick} className="del-x" style={{background:"none",border:"none",color:T.muted,padding:"2px 6px",fontSize:14,fontFamily:"inherit",borderRadius:4,cursor:"pointer"}}>✕</button>;
+  return <button onClick={onClick} className="del-x" style={{background:"none",border:"none",color:T.muted,padding:"2px 6px",fontSize:14,fontFamily:"inherit",borderRadius:4,cursor:"pointer"}}>X</button>;
 };
 const CurIn=({value,onChange,placeholder="0",style={}})=>{
   const T=useT();
@@ -1044,7 +1044,7 @@ const NotificationPanel=({notifs,onClose})=>{
             <div style={{fontWeight:900,fontSize:17,color:T.text}}>🔔 Notifikasi</div>
             <div style={{fontSize:11,color:T.muted,marginTop:1}}>{notifs.length} peringatan aktif</div>
           </div>
-          <button onClick={onClose} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:9,width:32,height:32,cursor:"pointer",fontSize:15,color:T.sub,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+          <button onClick={onClose} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:9,width:32,height:32,cursor:"pointer",fontSize:15,color:T.sub,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center"}}>X</button>
         </div>
         <div style={{padding:16}}>
           {notifs.length===0?(
@@ -1576,7 +1576,7 @@ function KalkulatorCicilan({ onClose, T }) {
           <div style={{fontSize:17,fontWeight:800,color:T.text}}>🧮 Kalkulator Cicilan</div>
           <div style={{fontSize:11,color:T.muted,marginTop:2}}>Hitung cicilan kredit / KPR / kendaraan</div>
         </div>
-        <button onClick={onClose} style={{background:T.cardAlt,border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",color:T.muted,fontSize:16}}>✕</button>
+        <button onClick={onClose} style={{background:T.cardAlt,border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",color:T.muted,fontSize:16}}>X</button>
       </div>
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
@@ -1892,7 +1892,7 @@ function Onboarding({ onDone, lang="id", changeLang }) {
                       <input value={d.saldo} onChange={e=>updateDompet(d.id,"saldo",fmtN(e.target.value))} placeholder={t("initialBalance")} style={{flex:1,border:"1.5px solid #E9D5FF",borderRadius:7,padding:"4px 8px",fontSize:12,color:"#5B21B6",fontWeight:700,background:"white",outline:"none"}}/>
                     </div>
                   </div>
-                  {dompetList.length>1&&<button onClick={()=>removeDompet(d.id)} style={{background:"#FEE2E2",border:"none",borderRadius:7,padding:"5px 8px",cursor:"pointer",color:"#DC2626",fontSize:13}}>✕</button>}
+                  {dompetList.length>1&&<button onClick={()=>removeDompet(d.id)} style={{background:"#FEE2E2",border:"none",borderRadius:7,padding:"5px 8px",cursor:"pointer",color:"#DC2626",fontSize:13}}>X</button>}
                 </div>
               ))}
             </div>
@@ -2032,7 +2032,7 @@ function YearInReview({ s, T, lang, onClose }) {
           <div style={{fontSize:18,fontWeight:900,color:T.text}}>🎊 {t("yearReview")} {year}</div>
           <div style={{fontSize:11,color:T.muted,marginTop:2}}>{totalTx} {t("txTotal")}</div>
         </div>
-        <button onClick={onClose} style={{background:T.cardAlt,border:"none",borderRadius:8,padding:"5px 10px",cursor:"pointer",color:T.muted,fontSize:16}}>✕</button>
+        <button onClick={onClose} style={{background:T.cardAlt,border:"none",borderRadius:8,padding:"5px 10px",cursor:"pointer",color:T.muted,fontSize:16}}>X</button>
       </div>
 
       {/* Annual Score Hero */}
@@ -2252,7 +2252,7 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
           <div style={{fontSize:16,fontWeight:800,color:T.text}}>🏦 Import Mutasi Bank</div>
           <div style={{fontSize:11,color:T.muted,marginTop:2}}>{step===0?"Upload file CSV dari m-banking atau internet banking":`${parsed.length} transaksi ditemukan dari ${fileName}`}</div>
         </div>
-        <button onClick={onClose} style={{background:T.cardAlt,border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",color:T.muted,fontSize:16}}>✕</button>
+        <button onClick={onClose} style={{background:T.cardAlt,border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",color:T.muted,fontSize:16}}>X</button>
       </div>
       {step===0&&<>
         <div style={{marginBottom:12}}>
@@ -3046,7 +3046,7 @@ export default function App(){
 
   const [aiOpen,setAiOpen]=useState(false);
   const aiMsgsRef = useRef(null);
-  const [aiMsgs,setAiMsgs]=useState([{role:"assistant",content:"Halo! 👋 Saya **AturDuitku AI**, financial advisor pribadi kamu.\n\nSaya bisa membantu:\n📝 **Catat** transaksi, utang, goals, aset\n📊 **Analisis** kesehatan keuangan kamu\n💡 **Saran** konkret untuk hemat & investasi\n⚠️ **Peringatkan** jika ada masalah finansial\n\nCoba tanya: \'Analisis keuanganku\' atau \'Bagaimana kondisi finansialku?\' 🚀"}]);
+  const [aiMsgs,setAiMsgs]=useState([{role:"assistant",content:"Halo! Saya **AturDuitku AI**. Aku siap bantu kamu memahami kondisi keuangan dengan cara yang simpel, hangat, dan langsung bisa dipakai.\n\nAku bisa bantu:\n- Mencatat transaksi, utang, goals, dan aset\n- Menganalisis kesehatan keuangan bulanan\n- Memberi saran hemat, nabung, dan prioritas pengeluaran\n- Mengingatkan kalau ada budget atau cashflow yang mulai berisiko\n\nCoba mulai dengan: `Analisis keuanganku` atau `Bagaimana kondisi finansialku bulan ini?`"}]);
   const [aiInput,setAiInput]=useState("");
   const [aiLoading,setAiLoading]=useState(false);
 
@@ -3063,7 +3063,7 @@ export default function App(){
       const spent = txBulan.filter(t=>t.tipe==="pengeluaran"&&t.katId===b.id).reduce((a,t)=>a+Number(t.jml),0);
       const alloc = Number(b.alokasi||0)+b.sub.reduce((a,x)=>a+Number(x.alokasi||0),0);
       const pct = alloc>0 ? Math.round(spent/alloc*100) : 0;
-      const status = pct>=100?"🔴 LEWATI":pct>=85?"🟡 HAMPIR":pct>=50?"🟠 SETENGAH":"🟢 AMAN";
+      const status = pct>=100?"LEWATI":pct>=85?"HAMPIR":pct>=50?"WASPADA":"AMAN";
       return `${b.kat}: ${status} ${pct}% (Rp ${spent.toLocaleString("id-ID")}/${alloc.toLocaleString("id-ID")})`;
     }).join("\n  ");
 
@@ -4589,18 +4589,18 @@ Saldo amplop bertambah.`}]);
         {/* Logo */}
         <img src="/icon-192.png" alt="AturDuitku" style={{width:88,height:88,borderRadius:22,objectFit:"cover",marginBottom:20,boxShadow:"0 8px 32px rgba(124,58,237,0.5)"}}/>
         <div style={{color:"white",fontWeight:800,fontSize:28,marginBottom:6,letterSpacing:-0.5}}>AturDuitku</div>
-        <div style={{color:"#A78BFA",fontSize:14,marginBottom:36,textAlign:"center",lineHeight:1.6}}>Aplikasi keuangan personal<br/>yang cerdas & mudah</div>
+        <div style={{color:"#A78BFA",fontSize:14,marginBottom:36,textAlign:"center",lineHeight:1.6}}>Teman finansial harian<br/>buat catat, paham, dan tumbuh lebih rapi</div>
 
         {/* Features */}
         <div style={{width:"100%",background:"rgba(124,58,237,0.15)",borderRadius:16,padding:20,marginBottom:28,border:"1px solid rgba(124,58,237,0.3)"}}>
           {[
-            ["📊","Catat & lacak pengeluaran otomatis"],
-            ["🤖","AI Assistant untuk analisis keuangan"],
-            ["☁️","Sync otomatis ke semua perangkat"],
-            ["📈","Laporan & insight keuangan lengkap"],
+            ["CATAT","Catat pemasukan dan pengeluaran dengan cepat"],
+            ["AI","AI bantu analisis kondisi keuanganmu"],
+            ["SYNC","Sinkron otomatis ke semua perangkat"],
+            ["INFO","Laporan dan insight yang gampang dipahami"],
           ].map(([icon,txt])=>(
             <div key={txt} style={{display:"flex",alignItems:"center",gap:12,marginBottom:12,lastChild:{marginBottom:0}}}>
-              <span style={{fontSize:20,width:28,textAlign:"center"}}>{icon}</span>
+              <span style={{minWidth:50,padding:"4px 8px",borderRadius:999,background:"rgba(255,255,255,.09)",border:"1px solid rgba(255,255,255,.14)",color:"#DDD6FE",fontSize:10,fontWeight:800,letterSpacing:.4,textAlign:"center"}}>{icon}</span>
               <span style={{color:"#E9D5FF",fontSize:13}}>{txt}</span>
             </div>
           ))}
@@ -4639,7 +4639,7 @@ Saldo amplop bertambah.`}]);
         </div>
 
         <div style={{color:"#6D28D9",fontSize:11,marginTop:16,textAlign:"center",lineHeight:1.6}}>
-          Dengan masuk, akun tetap menunggu approval admin<br/>sebelum dashboard penuh bisa dipakai
+          Setelah daftar, akunmu akan dicek admin dulu<br/>supaya akses penuh tetap rapi dan aman
         </div>
       </div>
     </div>
@@ -4660,14 +4660,14 @@ Saldo amplop bertambah.`}]);
         </div>
         <div style={{color:"white",fontSize:14,lineHeight:1.7,marginBottom:14}}>
           {accessProfile?.approvalStatus==="rejected"
-            ?"Akun ini sudah dicek tapi belum disetujui. Kamu masih bisa hubungi admin dan minta pengecekan ulang."
-            :"Akun sudah berhasil dibuat. User belum bisa masuk ke dashboard penuh sampai pembayaran dicek dan akun di-approve manual."}
+            ?"Akun ini sudah direview tetapi belum bisa diaktifkan. Kamu masih bisa hubungi admin untuk minta pengecekan ulang."
+            :"Akun berhasil dibuat. Sekarang admin akan cek pembayaran dan mengaktifkan akses penuh setelah semuanya sesuai."}
         </div>
         {accessProfile?.adminNotes&&<div style={{background:"rgba(255,255,255,.06)",borderRadius:14,padding:14,color:"#E9D5FF",fontSize:12,lineHeight:1.6,marginBottom:14}}>
           Catatan admin: {accessProfile.adminNotes}
         </div>}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          <button onClick={async()=>{setAccessLoading(true);try{await loadAccessProfile();}finally{setAccessLoading(false);}}} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.08)",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Cek status lagi</button>
+          <button onClick={async()=>{setAccessLoading(true);try{await loadAccessProfile();}finally{setAccessLoading(false);}}} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.08)",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Cek status sekarang</button>
           <button onClick={handleSignOut} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(252,165,165,.35)",background:"rgba(127,29,29,.22)",color:"#FCA5A5",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Keluar</button>
         </div>
       </div>
@@ -4973,7 +4973,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               <div style={{fontWeight:900,fontSize:15,color:T.text,letterSpacing:-.3}}>AturDuitku</div>
               <div style={{fontSize:10,color:T.accent,fontWeight:600,marginTop:1}}>{s.name} Workspace</div>
             </div>
-            {isMobile&&<button onClick={()=>setSidebarOpen(false)} style={{background:T.accentBg,border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:16,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0}}>✕</button>}
+            {isMobile&&<button onClick={()=>setSidebarOpen(false)} style={{background:T.accentBg,border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:16,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0}}>X</button>}
           </div>
           <div style={{padding:"10px 8px",flex:1}}>
             {[{label:"Menu Utama",items:navItems.slice(0,4)},{label:"Keuangan",items:navItems.slice(4,8)},{label:"Pengaturan",items:navItems.slice(8)}].map(section=>(
@@ -5077,7 +5077,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                     <div style={{fontSize:12,fontWeight:800,color:a.type==="danger"?T.err:a.type==="warn"?T.warn:T.info,marginBottom:2}}>{a.title}</div>
                     <div style={{fontSize:11,color:T.sub}}>{a.body}</div>
                   </div>
-                  <button onClick={()=>setInAppAlerts(p=>p.filter((_,j)=>j!==i))} style={{background:"transparent",border:"none",cursor:"pointer",color:T.muted,fontSize:14,padding:"0 2px",flexShrink:0}}>✕</button>
+                  <button onClick={()=>setInAppAlerts(p=>p.filter((_,j)=>j!==i))} style={{background:"transparent",border:"none",cursor:"pointer",color:T.muted,fontSize:14,padding:"0 2px",flexShrink:0}}>X</button>
                 </div>
               ))}
               {inAppAlerts.length>3&&<div style={{fontSize:11,color:T.muted,textAlign:"center",padding:"4px 0"}}>+{inAppAlerts.length-3} notifikasi lainnya</div>}
@@ -5403,7 +5403,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                               </div>
                               <div style={{display:"flex",gap:8,alignItems:"center"}}>
                                 <span style={{fontSize:12,fontWeight:700,color:T.text}}>{IDRs(N(sb.alokasi))}</span>
-                                <button onClick={()=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:x.sub.filter((_,j)=>j!==si)})}))} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:12,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>✕</button>
+                                <button onClick={()=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:x.sub.filter((_,j)=>j!==si)})}))} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:12,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>X</button>
                               </div>
                             </div>
                           ))}
@@ -6352,8 +6352,8 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
         }}
       >
         <img src="/icon-192.png" alt="cat" style={{width:22,height:22,borderRadius:6,objectFit:"cover"}}/>
-        <span>Tanya AI</span>
-        <span style={{background:"rgba(255,255,255,0.22)",borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:800,letterSpacing:0.3}}>✨</span>
+        <span>Konsultasi AI</span>
+        <span style={{background:"rgba(255,255,255,0.22)",borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:800,letterSpacing:0.3}}>AI</span>
       </button>}
 
       {/* Panel */}
@@ -6392,7 +6392,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               touchAction:"manipulation",
               WebkitTapHighlightColor:"transparent",
               flexShrink:0,
-            }}>✕</button>
+            }}>X</button>
           </div>
 
           {/* Messages */}
@@ -6414,7 +6414,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
 
           {/* Quick actions */}
           <div style={{padding:"6px 12px 4px",display:"flex",gap:6,overflowX:"auto",flexShrink:0,WebkitOverflowScrolling:"touch"}}>
-            {["📊 Analisis keuanganku","💡 Saran hemat bulan ini","⭐ Review goals","⚠️ Cek budget","📈 Cara tingkatkan saving rate"].map(q=>(
+            {["Analisis keuanganku","Saran hemat bulan ini","Review goals","Cek budget","Cara tingkatkan saving rate"].map(q=>(
               <button key={q} className="ai-quick-btn"
                 onClick={()=>{setAiInput(q);}}
                 style={{
@@ -6439,7 +6439,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               value={aiInput}
               onChange={e=>{setAiInput(e.target.value);e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,120)+"px";}}
               onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();handleAiSend();}}}
-              placeholder={lang==="en"?"Message... e.g: paid electricity 50k":"Pesan... cth: bayar listrik 50rb"}
+              placeholder={lang==="en"?"Message... e.g: paid electricity 50k":"Tulis pertanyaanmu... misalnya: cara nabung 500 ribu per bulan"}
               rows={1}
               style={{
                 border:`1.5px solid ${dark?"#5B21B6":"#C4B5FD"}`,
@@ -6464,3 +6464,4 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
     </ThemeCtx.Provider>
   );
 }
+
