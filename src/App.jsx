@@ -4986,15 +4986,15 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               <div style={{fontWeight:900,fontSize:15,color:T.text,letterSpacing:-.3}}>AturDuitku</div>
               <div style={{fontSize:10,color:T.accent,fontWeight:600,marginTop:1}}>{s.name} Workspace</div>
             </div>
-            {isMobile&&<button onClick={()=>setSidebarOpen(false)} style={{background:T.accentBg,border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:16,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0}}>X</button>}
+            {isMobile&&<button onClick={()=>setSidebarOpen(false)} style={{background:T.accentBg,border:"none",borderRadius:8,minWidth:44,height:32,cursor:"pointer",fontSize:10,fontWeight:800,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0,padding:"0 10px"}}>Tutup</button>}
           </div>
           <div style={{padding:"10px 8px",flex:1}}>
             {[{label:"Menu Utama",items:navItems.slice(0,4)},{label:"Keuangan",items:navItems.slice(4,8)},{label:"Pengaturan",items:navItems.slice(8)}].map(section=>(
               <div key={section.label}>
                 <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:2,textTransform:"uppercase",padding:"8px 10px 6px",marginTop:4}}>{section.label}</div>
                 {section.items.map(nav=>{const a=page===nav.id;return(
-                  <div key={nav.id} onClick={()=>navTo(nav.id)} className="nav-item" style={{display:"flex",alignItems:"center",gap:nav.id==="admin"?0:10,padding:"11px 12px",borderRadius:11,cursor:"pointer",marginBottom:2,background:a?T.navActive:"transparent",color:a?T.accent:T.sub,fontWeight:a?800:600,fontSize:13,borderLeft:a?`3px solid ${T.navBorder}`:"3px solid transparent",transition:"background .15s,color .15s"}}>
-                    {nav.id!=="admin"&&<span style={{fontSize:17}}>{nav.icon}</span>}
+                  <div key={nav.id} onClick={()=>navTo(nav.id)} className="nav-item" style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",borderRadius:11,cursor:"pointer",marginBottom:4,background:a?T.navActive:"transparent",color:a?T.accent:T.sub,fontWeight:a?800:600,fontSize:13,borderLeft:a?`3px solid ${T.navBorder}`:"3px solid transparent",transition:"background .15s,color .15s"}}>
+                    <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,fontSize:10,fontWeight:800,letterSpacing:.4,textAlign:"center"}}>{nav.icon}</span>
                     <span>{nav.label}</span>
                     {a&&<span style={{marginLeft:"auto",width:6,height:6,borderRadius:"50%",background:T.accent,display:"block",boxShadow:`0 0 7px ${T.accent}`}}/>}
                   </div>
@@ -6209,13 +6209,13 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       {isMobile&&<nav className="bottom-nav" style={{background:T.nav,borderTopColor:T.border,display:sidebarOpen?"none":"flex"}}>
         {[NAV[0],NAV[1],NAV[2],NAV[3]].map(nav=>{const a=page===nav.id;return(
           <button key={nav.id} onClick={()=>navTo(nav.id)} className="bottom-nav-item" style={{color:a?T.accent:T.muted}}>
-            <span style={{fontSize:20,lineHeight:1,transition:"transform .15s",transform:a?"scale(1.15)":"scale(1)"}}>{nav.icon}</span>
+            <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,fontSize:10,fontWeight:800,letterSpacing:.4,lineHeight:1,transition:"transform .15s",transform:a?"scale(1.05)":"scale(1)"}}>{nav.icon}</span>
             <span style={{fontSize:9,fontWeight:a?800:500}}>{nav.label}</span>
             {a&&<span style={{width:4,height:4,borderRadius:"50%",background:T.accent,marginTop:1,boxShadow:`0 0 6px ${T.accent}`}}/>}
           </button>
         );})}
         <button onClick={()=>setMoreOpen(true)} className="bottom-nav-item" style={{color:T.muted,position:"relative"}}>
-          <span style={{fontSize:20,lineHeight:1}}>⋯</span>
+          <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:T.cardAlt,color:T.muted,fontSize:10,fontWeight:800,letterSpacing:.4,lineHeight:1}}>MORE</span>
           <span style={{fontSize:9,fontWeight:500}}>{t("more")}</span>
           {notifications.length>0&&<span style={{position:"absolute",top:6,right:"calc(50% - 14px)",background:T.err,color:"white",borderRadius:"50%",width:14,height:14,fontSize:8,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>{Math.min(notifications.length,9)}</span>}
         </button>
