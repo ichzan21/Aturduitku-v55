@@ -876,12 +876,13 @@ const Btn=({onClick,ch,c,outline,style={}})=>{
 const LaunchEmpty=({title,desc,actionLabel,onAction,secondaryLabel,onSecondary,style={}})=>{
   const T=useT();
   return(
-    <div style={{textAlign:"center",padding:"28px 20px",borderRadius:16,background:T.cardAlt,border:`1px dashed ${T.border}`,color:T.muted,...style}}>
+    <div style={{textAlign:"center",padding:"28px 20px",borderRadius:18,background:T.cardAlt,border:`1px dashed ${T.border}`,color:T.muted,boxShadow:"inset 0 1px 0 rgba(255,255,255,.25)",...style}}>
+      <div style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"5px 10px",borderRadius:999,background:T.accentBg,color:T.accent,fontSize:10,fontWeight:800,letterSpacing:.8,textTransform:"uppercase",marginBottom:12}}>Start dari sini</div>
       <div style={{fontSize:15,fontWeight:800,color:T.text,marginBottom:8}}>{title}</div>
-      <div style={{fontSize:12,lineHeight:1.7,maxWidth:380,margin:"0 auto 16px"}}>{desc}</div>
+      <div style={{fontSize:12,lineHeight:1.7,maxWidth:380,margin:"0 auto 18px"}}>{desc}</div>
       <div style={{display:"flex",justifyContent:"center",gap:10,flexWrap:"wrap"}}>
-        {actionLabel&&<Btn onClick={onAction} ch={actionLabel} c={T.accent} style={{padding:"10px 16px"}}/>}
-        {secondaryLabel&&<Btn onClick={onSecondary} ch={secondaryLabel} c={T.info} outline style={{padding:"10px 16px"}}/>}
+        {actionLabel&&<Btn onClick={onAction} ch={actionLabel} c={T.accent} style={{padding:"10px 16px",minWidth:150}}/>}
+        {secondaryLabel&&<Btn onClick={onSecondary} ch={secondaryLabel} c={T.info} outline style={{padding:"10px 16px",minWidth:150}}/>}
       </div>
     </div>
   );
@@ -5194,9 +5195,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   : <LaunchEmpty
                       title="Belum ada transaksi bulan ini"
                       desc="Mulai dari satu pemasukan atau satu pengeluaran dulu. Setelah itu dashboard bakal langsung terasa hidup."
-                      actionLabel="+ Tambah transaksi"
+                      actionLabel="Tambah transaksi pertama"
                       onAction={()=>setModal({type:"tx"})}
-                      secondaryLabel="Buka AI"
+                      secondaryLabel="Tanya AI"
                       onSecondary={()=>setAiOpen(true)}
                       style={{padding:"24px 16px"}}
                     />}
@@ -5231,7 +5232,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 )}:<LaunchEmpty
                   title={t("noBills")}
                   desc="Belum ada tagihan terjadwal. Tambahkan subkategori budget dengan tanggal jatuh tempo supaya pengingat otomatis mulai bekerja."
-                  actionLabel="Atur budget"
+                  actionLabel="Buka budget"
                   onAction={()=>setPage("budget")}
                   style={{padding:"22px 16px"}}
                 />}
@@ -5347,14 +5348,14 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   </div>
                 )}
                 {filtTx.length>TX_PER_PAGE&&txPage*TX_PER_PAGE>=filtTx.length&&(
-                  <div style={{textAlign:"center",paddingTop:12,fontSize:11,color:T.muted}}>{t("showAll").replace("All","")||""}{filtTx.length} {t("txCount").toLowerCase()}saksi ditampilkan</div>
+                  <div style={{textAlign:"center",paddingTop:12,fontSize:11,color:T.muted}}>{filtTx.length} transaksi ditampilkan</div>
                 )}
               </>:<LaunchEmpty
                 title="Tidak ada transaksi yang cocok"
                 desc="Coba ganti filter, pindah bulan, atau tambah transaksi baru supaya riwayat keuanganmu mulai kebentuk."
-                actionLabel="+ Tambah transaksi"
+                actionLabel="Tambah transaksi baru"
                 onAction={()=>setModal({type:"tx"})}
-                secondaryLabel="Reset ke bulan ini"
+                secondaryLabel="Bulan ini"
                 onSecondary={()=>{setBln(MONTHS[now.getMonth()]);setThn(String(now.getFullYear()));}}
               />}
             </>}/>
@@ -5533,9 +5534,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {s.amplop.length===0&&!showAddAmplop&&<LaunchEmpty
               title={t("noEnvelope")}
               desc="Mulai dengan satu amplop sederhana seperti makan, tagihan, atau dana mingguan supaya pengeluaran harian lebih terarah."
-              actionLabel={t("createFirst")}
+              actionLabel="Buat amplop pertama"
               onAction={()=>setShowAddAmplop(true)}
-              secondaryLabel="Lihat budget"
+              secondaryLabel="Buka budget"
               onSecondary={()=>setPage("budget")}
               style={{padding:"52px 20px",marginBottom:4}}
             />}
@@ -5572,9 +5573,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               {!s.goals.length&&<div style={{gridColumn:"1/-1"}}><LaunchEmpty
                 title={t("noGoal")}
                 desc="Bikin target pertama seperti dana darurat, motor, laptop, atau liburan. Progress kecil bakal bikin kamu lebih semangat balik lagi."
-                actionLabel={t("addFirstGoal")}
+                actionLabel="Tambah goal pertama"
                 onAction={()=>setModal({type:"goal"})}
-                secondaryLabel="Buka AI"
+                secondaryLabel="Tanya AI"
                 onSecondary={()=>setAiOpen(true)}
                 style={{padding:"52px 20px"}}
               /></div>}
@@ -5631,7 +5632,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 {!s.asetTetap.length&&<LaunchEmpty
                   title="Belum ada aset tetap"
                   desc="Catat aset seperti rumah, kendaraan, emas, atau laptop kerja supaya net worth kamu terlihat lebih utuh."
-                  actionLabel="+ Tambah aset"
+                  actionLabel="Tambah aset pertama"
                   onAction={()=>setModal({type:"aset"})}
                   style={{padding:"24px 16px",marginTop:6}}
                 />}
@@ -6014,15 +6015,30 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                         </div>
                       </div>
                     ))}
-                  </>}
-                  {!s.recurring.length&&!showAddRecurring&&<div style={{textAlign:"center",padding:"16px 0",color:T.muted,fontSize:12}}>{lang==="en"?"No recurring transactions yet":"Belum ada transaksi rutin"}</div>}
+                  {!s.recurring.length&&!showAddRecurring&&<LaunchEmpty
+                    title="Belum ada transaksi rutin"
+                    desc="Tambahkan transaksi bulanan seperti gaji, listrik, internet, atau cicilan supaya pencatatan berulang jalan otomatis."
+                    actionLabel="Tambah transaksi rutin"
+                    onAction={()=>setShowAddRecurring(true)}
+                    secondaryLabel="Lihat laporan"
+                    onSecondary={()=>setPage("laporan")}
+                    style={{padding:"24px 16px"}}
+                  />}
                 </>} style={{marginBottom:14}}/>
 
                 {/* Notification Summary */}
                 <Card ch={<>
                   <Sec t={t("notifSummary")} right={<button onClick={()=>setNotifOpen(true)} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:700}}>Lihat Semua</button>}/>
                   {notifications.length===0
-                    ?<div style={{textAlign:"center",padding:20,color:T.muted,fontSize:12}}>{t("noNotif")}</div>
+                    ?<LaunchEmpty
+                      title="Belum ada notifikasi aktif"
+                      desc="Kalau budget, tagihan, atau transaksi rutin mulai terisi, pengingat penting akan muncul di sini."
+                      actionLabel="Buka budget"
+                      onAction={()=>setPage("budget")}
+                      secondaryLabel="Tambah transaksi"
+                      onSecondary={()=>setModal({type:"tx"})}
+                      style={{padding:"24px 16px"}}
+                    />
                     :notifications.slice(0,3).map((n,i)=>(
                       <div key={i} style={{display:"flex",gap:10,alignItems:"center",minWidth:0,padding:"8px 0",borderBottom:`1px solid ${T.borderLight}`}}>
                         <span style={{fontSize:18}}>{n.icon}</span>
