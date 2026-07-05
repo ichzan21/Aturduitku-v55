@@ -1112,12 +1112,12 @@ const TrendChart=({trendData,isMobile})=>{
           </linearGradient>
           <linearGradient id="gOut" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
-                      <span>Lokasi</span><span style={{fontWeight:600}}>{tzZone.city}</span>
+            <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
           </linearGradient>
           <linearGradient id="gSave" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3}/>
-                    <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>Masuk {IDRs(totalIn)}</div>
-                    <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>Keluar {IDRs(totalOut)}</div>
+            <stop offset="95%" stopColor="#6366F1" stopOpacity={0}/>
+          </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke={T.borderLight} vertical={false}/>
         <XAxis dataKey="label" tick={{fontSize:10,fill:T.muted}} axisLine={false} tickLine={false}/>
@@ -1131,27 +1131,28 @@ const TrendChart=({trendData,isMobile})=>{
   );
 };
 
-// ─── DAILY SPEND CHART ────────────────────────────────────────────────────────
+// DAILY SPEND CHART
 const DailyChart=({txBulan,bulan,tahun})=>{
-                <span style={{fontSize:11,fontWeight:800,color:T.err,background:"rgba(255,255,255,.5)",borderRadius:999,padding:"4px 8px"}} className="notif-bounce">ALERT</span>
-  const mIdx=MONTHS.indexOf(bulan);const yr=Number(tahun);
+  const T=useT();
+  const now_=new Date();
+  const isCurrentMonth=MONTHS[now_.getMonth()]===bulan && now_.getFullYear()===Number(tahun);
+  const mIdx=MONTHS.indexOf(bulan);
+  const yr=Number(tahun);
   const daysInMonth=new Date(yr,mIdx+1,0).getDate();
-              <span style={{fontSize:12,color:T.err,fontWeight:700}}>Buka</span>
+  const data=[];
   for(let d=1;d<=daysInMonth;d++){
     const key=`${yr}-${String(mIdx+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
     const val=txBulan.filter(t=>t.tipe==="pengeluaran"&&t.tgl===key).reduce((a,b)=>a+N(b.jml),0);
     data.push({d:String(d),val});
   }
-                {l:"Saving Rate",v:savRate>999?"999%+":PCT(savRate),vc:savRate>=20?T.ok:T.err,bg:savRate>=20?T.okBg:T.errBg,sub:savRate>=20?"Ideal >= 20%":"Di bawah target 20%"},
-                {l:t("netCashLabel"),v:IDRs(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg,sub:netCash>=0?"Surplus bulan ini":"Defisit bulan ini"},
-  const today_num=isCurrentMonth?now_.getDate():-1;
-                {l:"Pengeluaran Terbesar",v:topKat[0]?topKat[0].nama:"-",vc:T.warn,bg:T.warnBg,sub:topKat[0]?IDRs(topKat[0].nilai):"Belum ada data"},
+  const todayNum=isCurrentMonth?now_.getDate():-1;
+  return(
     <ResponsiveContainer width="100%" height={130}>
       <BarChart data={data} margin={{top:4,right:4,bottom:0,left:0}}>
         <Tooltip formatter={v=>IDR(v)} labelFormatter={l=>`Tgl ${l}`} contentStyle={{borderRadius:8,fontSize:11,background:T.card,border:`1px solid ${T.border}`,color:T.text}}/>
         <Bar dataKey="val" radius={[3,3,0,0]}>
           {data.map((entry,i)=>(
-            <Cell key={i} fill={i+1===today_num?"#8B5CF6":entry.val>0?"#6366F1":T.borderLight}/>
+            <Cell key={i} fill={i+1===todayNum?"#8B5CF6":entry.val>0?"#6366F1":T.borderLight}/>
           ))}
         </Bar>
       </BarChart>
