@@ -152,7 +152,7 @@ const TR = {
     emergencyFund:"Keamanan & Runway", prediction:"Prediksi Akhir Bulan",
     trend6mo:"Tren 6 Bulan", dailyExpense:"Pengeluaran Harian",
     budgetPerformance:"Performa Anggaran", historicalBalance:"Histori Saldo",
-    comparison:"Komparasi Laporan", exportCSV:"Export CSV", exportSheets:"Export Sheets",aiAssistant:"AturDuitku AI",aiPlaceholder:"Ketik pesan... cth: bayar listrik 150rb",aiSending:"Mengirim...",aiTitle:"AturDuitku AI",aiClose:"Tutup",sheetsUrlLabel:"Google Sheets Script URL",aiSyncOk:"Tersinkron ke Google Sheets!",aiSyncFail:"Gagal sinkron ke Sheets",aiRecorded:"Transaksi dicatat via AI!", exportPDF:"Export PDF",
+    comparison:"Komparasi Laporan", exportCSV:"Export CSV", exportSheets:"Export Sheets",aiAssistant:"Dokter Keuangan",aiPlaceholder:"Ketik pesan... cth: bayar listrik 150rb",aiSending:"Mengirim...",aiTitle:"Dokter Keuangan",aiClose:"Tutup",sheetsUrlLabel:"Google Sheets Script URL",aiSyncOk:"Tersinkron ke Google Sheets!",aiSyncFail:"Gagal sinkron ke Sheets",aiRecorded:"Transaksi dicatat via AI!", exportPDF:"Export PDF",
     loanCalc:"Kalkulator Cicilan",
     // Settings
     settings:"Pengaturan", profile:"Profil & Preferensi", display:"Tampilan",
@@ -493,7 +493,7 @@ const TR = {
     emergencyFund:"Safety & Runway", prediction:"End-of-Month Forecast",
     trend6mo:"6-Month Trend", dailyExpense:"Daily Expenses",
     budgetPerformance:"Budget Performance", historicalBalance:"Balance History",
-    comparison:"Monthly Comparison", exportCSV:"Export CSV", exportSheets:"Export Sheets",aiAssistant:"AturDuitku AI",aiPlaceholder:"Type message... e.g: paid electricity 150k",aiSending:"Sending...",aiTitle:"AturDuitku AI",aiClose:"Close",sheetsUrlLabel:"Google Sheets Script URL",aiSyncOk:"Synced to Google Sheets!",aiSyncFail:"Failed to sync to Sheets",aiRecorded:"Transaction recorded via AI!", exportPDF:"Export PDF",
+    comparison:"Monthly Comparison", exportCSV:"Export CSV", exportSheets:"Export Sheets",aiAssistant:"Dokter Keuangan",aiPlaceholder:"Type message... e.g: paid electricity 150k",aiSending:"Sending...",aiTitle:"Dokter Keuangan",aiClose:"Close",sheetsUrlLabel:"Google Sheets Script URL",aiSyncOk:"Synced to Google Sheets!",aiSyncFail:"Failed to sync to Sheets",aiRecorded:"Transaction recorded via AI!", exportPDF:"Export PDF",
     loanCalc:"Loan Calculator",
     // Settings
     settings:"Settings", profile:"Profile & Preferences", display:"Display",
@@ -2568,30 +2568,13 @@ export default function App(){
       setAccessLoading(Boolean(user));
       if(user){
         try{
-          const profile = await loadAccessProfile();
+          const [profile, cloudData] = await Promise.all([
+            loadAccessProfile(),
+            loadCloudData(user.uid).catch(e=>{console.warn("Cloud data preload failed:",e);return null;}),
+          ]);
           const approved = profile?.approvalStatus==="approved";
           if(approved){
-            const cloudData = await loadCloudData(user.uid);
-            if(cloudData && cloudData.data){
-              const d = cloudData.data;
-              const merged = {
-                ...INIT,...d,
-                dompet:d.dompet||INIT.dompet,txs:d.txs||[],utang:d.utang||[],
-                budgets:d.budgets||INIT_BUDGETS,goals:d.goals||[],asetTetap:d.asetTetap||[],
-                recurring:d.recurring||[],amplop:d.amplop||[],habits:d.habits||[],processedRecurring:d.processedRecurring||{},
-              };
-              setS(merged);
-              try{
-                localStorage.setItem("aturduitku_data",JSON.stringify(merged));
-                localStorage.setItem(LOCAL_OWNER_KEY, user.uid);
-              }catch(e){}
-              if(cloudData.onboarded){
-                setOnboarded(true);
-                try{localStorage.setItem("aturduitku_onboarded","1");}catch(e){}
-              } else {
-                setOnboarded(false);
-              }
-            } else {
+            if(!applyLoadedUserData(user, cloudData)){
               const localRaw = localStorage.getItem("aturduitku_data");
               const localOwner = localStorage.getItem(LOCAL_OWNER_KEY);
               const localOnboarded = localStorage.getItem("aturduitku_onboarded")==="1";
@@ -2618,20 +2601,7 @@ export default function App(){
           });
           try{
             const cloudData = await loadCloudData(user.uid);
-            if(cloudData && cloudData.data){
-              const d = cloudData.data;
-              const merged = {
-                ...INIT,...d,
-                dompet:d.dompet||INIT.dompet,txs:d.txs||[],utang:d.utang||[],
-                budgets:d.budgets||INIT_BUDGETS,goals:d.goals||[],asetTetap:d.asetTetap||[],
-                recurring:d.recurring||[],amplop:d.amplop||[],habits:d.habits||[],processedRecurring:d.processedRecurring||{},
-              };
-              setS(merged);
-              if(cloudData.onboarded){
-                setOnboarded(true);
-                try{localStorage.setItem("aturduitku_onboarded","1");}catch(err){}
-              }
-            }
+            applyLoadedUserData(user, cloudData);
           }catch(err){}
         }
       } else {
@@ -2937,6 +2907,28 @@ export default function App(){
     while(done.has(cursor)){count++;cursor=dateAdd(cursor,-1);}
     return count;
   };
+
+  const mergeUserData=(d={})=>({
+    ...INIT,...d,
+    dompet:d.dompet||INIT.dompet,txs:d.txs||[],utang:d.utang||[],
+    budgets:d.budgets||INIT_BUDGETS,goals:d.goals||[],asetTetap:d.asetTetap||[],
+    recurring:d.recurring||[],amplop:d.amplop||[],habits:d.habits||[],processedRecurring:d.processedRecurring||{},
+  });
+
+  const applyLoadedUserData=(user, cloudData)=>{
+    if(cloudData && cloudData.data){
+      const merged=mergeUserData(cloudData.data);
+      setS(merged);
+      try{
+        localStorage.setItem("aturduitku_data",JSON.stringify(merged));
+        localStorage.setItem(LOCAL_OWNER_KEY, user.uid);
+      }catch(e){}
+      setOnboarded(Boolean(cloudData.onboarded));
+      try{localStorage.setItem("aturduitku_onboarded",cloudData.onboarded?"1":"0");}catch(e){}
+      return true;
+    }
+    return false;
+  };
   const habitBestStreak=(h)=>{
     const days=[...new Set(h.doneDates||[])].sort();
     let best=0,cur=0,prev="";
@@ -3193,7 +3185,7 @@ export default function App(){
 
   const [aiOpen,setAiOpen]=useState(false);
   const aiMsgsRef = useRef(null);
-  const [aiMsgs,setAiMsgs]=useState([{role:"assistant",content:"Halo! Saya **AturDuitku AI**. Saya bisa bantu kamu membaca kondisi keuangan, mencatat transaksi, dan kasih saran yang lebih praktis buat dipakai setiap hari.\n\nYang bisa kita bahas sekarang:\n- Catat transaksi, utang, goals, dan aset\n- Analisis cashflow, budget, dan saving rate\n- Susun langkah hemat dan target nabung\n- Cek risiko kalau pengeluaran mulai terlalu tinggi\n\nMulai cepat dengan: `Analisis keuanganku` atau `Bagaimana kondisi finansialku bulan ini?`"}]);
+  const [aiMsgs,setAiMsgs]=useState([{role:"assistant",content:"Halo! Saya **Dokter Keuangan**. Saya bisa bantu kamu membaca kondisi keuangan, mencatat transaksi, dan kasih saran yang lebih praktis buat dipakai setiap hari.\n\nYang bisa kita bahas sekarang:\n- Catat transaksi, utang, goals, dan aset\n- Analisis cashflow, budget, dan saving rate\n- Susun langkah hemat dan target nabung\n- Cek risiko kalau pengeluaran mulai terlalu tinggi\n\nMulai cepat dengan: `Analisis keuanganku` atau `Bagaimana kondisi finansialku bulan ini?`"}]);
   const [aiInput,setAiInput]=useState("");
   const [aiLoading,setAiLoading]=useState(false);
 
@@ -3268,7 +3260,7 @@ export default function App(){
     );
     const healthLabel = healthScore>=80?"🌟 Sangat Baik":healthScore>=60?"✅ Baik":healthScore>=40?"🟡 Cukup":"⚠️ Perlu Perhatian";
 
-    return `Kamu adalah **AturDuitku AI** — financial advisor pribadi yang cerdas, empatik, dan proaktif.
+    return `Kamu adalah **Dokter Keuangan AturDuitku** — financial advisor pribadi yang cerdas, empatik, dan proaktif.
 
 Kamu BUKAN sekadar chatbot. Kamu adalah teman finansial terpercaya yang:
 - Memahami kondisi keuangan user secara mendalam
@@ -4721,11 +4713,15 @@ Saldo amplop bertambah.`}]);
 
   // Show loading screen while checking auth
   if(fireLoading || accessLoading) return (
-    <div style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#2E1065 0%,#1A0A2E 100%)",gap:16,padding:"env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)"}}>
-      <img src="/icon-192.png" alt="" style={{width:72,height:72,borderRadius:18,objectFit:"cover",animation:"spin 1s linear infinite"}}/>
-      <style>{"@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}"}</style>
-      <div style={{color:"#A78BFA",fontWeight:700,fontSize:16}}>AturDuitku</div>
-      <div style={{color:"#7C3AED",fontSize:12}}>Memuat...</div>
+    <div style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"radial-gradient(circle at 50% 20%,#5B21B6 0%,#2E1065 42%,#13051F 100%)",gap:16,padding:"env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)",fontFamily:"system-ui,sans-serif"}}>
+      <style>{`@keyframes loadCat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-10px) rotate(2deg)}}@keyframes loadBar{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}`}</style>
+      <img src="/icon-192.png" alt="" style={{width:84,height:84,borderRadius:24,objectFit:"cover",animation:"loadCat 1.6s ease-in-out infinite",boxShadow:"0 18px 42px rgba(124,58,237,.45)"}}/>
+      <div style={{color:"white",fontWeight:900,fontSize:20,letterSpacing:-.3}}>AturDuitku</div>
+      <div style={{color:"#DDD6FE",fontSize:12,fontWeight:700}}>Menyiapkan data akunmu...</div>
+      <div style={{width:190,height:7,borderRadius:99,background:"rgba(255,255,255,.14)",overflow:"hidden",border:"1px solid rgba(255,255,255,.12)"}}>
+        <div style={{width:70,height:"100%",borderRadius:99,background:"linear-gradient(90deg,transparent,#C4B5FD,transparent)",animation:"loadBar 1.15s ease-in-out infinite"}}/>
+      </div>
+      <div style={{color:"#A78BFA",fontSize:11}}>Sinkronisasi cloud berjalan otomatis</div>
     </div>
   );
 
@@ -5175,7 +5171,10 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
           <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0,flex:1}}>
             {isMobile&&<button className="icon-action" onClick={()=>setSidebarOpen(true)} title="Menu" aria-label="Menu" style={{background:T.accentBg,border:"none",borderRadius:9,minWidth:44,height:36,cursor:"pointer",fontSize:18,fontWeight:800,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0,padding:"0 10px"}}>☰</button>}
             <div style={{minWidth:0}}>
-              <div style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"42vw":"none"}}>{page==="admin"?"Admin":((lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",habit:"Habit",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings",admin:"Admin"}:{admin:"Admin",habit:"Habit"})[page]||navItems.find(n=>n.id===page)?.label||"")}</div>
+              <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+                <img className="cat-mascot" src="/icon-192.png" alt="" style={{width:isMobile?24:28,height:isMobile?24:28,borderRadius:8,objectFit:"cover",flexShrink:0,boxShadow:`0 4px 12px ${T.accentPop}`}}/>
+                <div style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"38vw":"none"}}>{page==="admin"?"Admin":((lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",habit:"Habit",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings",admin:"Admin"}:{admin:"Admin",habit:"Habit"})[page]||navItems.find(n=>n.id===page)?.label||"")}</div>
+              </div>
               {!isMobile&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>{hariShort}{tzZone.zone?` • ${tzZone.zone}`:""}</div>}
             </div>
           </div>
@@ -6773,7 +6772,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       `}</style>
 
       {/* Float Button */}
-      {!aiOpen&&<button
+      {!aiOpen&&!moreOpen&&<button
         className="ai-float-btn"
         onClick={()=>setAiOpen(true)}
         style={{
@@ -6782,7 +6781,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
         }}
       >
         <img src="/icon-192.png" alt="cat" style={{width:22,height:22,borderRadius:6,objectFit:"cover"}}/>
-        <span>Teman AI</span>
+        <span>Dokter Keuangan</span>
         <span style={{background:"rgba(255,255,255,0.22)",borderRadius:20,padding:"2px 8px",fontSize:13,fontWeight:800,letterSpacing:0.3}}>🤖</span>
       </button>}
 
@@ -6810,7 +6809,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
           }}>
             <img src="/icon-192.png" alt="AturDuitku" style={{width:38,height:38,borderRadius:"50%",objectFit:"cover",flexShrink:0,border:"2px solid rgba(255,255,255,0.3)"}}/>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{color:"white",fontWeight:800,fontSize:15,letterSpacing:-0.3}}>AturDuitku AI</div><div style={{color:"rgba(255,255,255,0.78)",fontSize:11,marginTop:2}}>Analisis cepat, catat transaksi, dan tanya strategi uangmu.</div>
+              <div style={{color:"white",fontWeight:800,fontSize:15,letterSpacing:-0.3}}>Dokter Keuangan</div><div style={{color:"rgba(255,255,255,0.78)",fontSize:11,marginTop:2}}>Analisis cepat, catat transaksi, dan tanya strategi uangmu.</div>
               
             </div>
             <button onClick={()=>setAiOpen(false)} style={{
