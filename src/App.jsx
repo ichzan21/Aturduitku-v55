@@ -3060,7 +3060,7 @@ export default function App(){
 
   const [aiOpen,setAiOpen]=useState(false);
   const aiMsgsRef = useRef(null);
-  const [aiMsgs,setAiMsgs]=useState([{role:"assistant",content:"Halo! Saya **AturDuitku AI**. Aku siap bantu kamu memahami kondisi keuangan dengan cara yang simpel, hangat, dan langsung bisa dipakai.\n\nAku bisa bantu:\n- Mencatat transaksi, utang, goals, dan aset\n- Menganalisis kesehatan keuangan bulanan\n- Memberi saran hemat, nabung, dan prioritas pengeluaran\n- Mengingatkan kalau ada budget atau cashflow yang mulai berisiko\n\nCoba mulai dengan: `Analisis keuanganku` atau `Bagaimana kondisi finansialku bulan ini?`"}]);
+  const [aiMsgs,setAiMsgs]=useState([{role:"assistant",content:"Halo! Saya **AturDuitku AI**. Saya bisa bantu kamu membaca kondisi keuangan, mencatat transaksi, dan kasih saran yang lebih praktis buat dipakai setiap hari.\n\nYang bisa kita bahas sekarang:\n- Catat transaksi, utang, goals, dan aset\n- Analisis cashflow, budget, dan saving rate\n- Susun langkah hemat dan target nabung\n- Cek risiko kalau pengeluaran mulai terlalu tinggi\n\nMulai cepat dengan: `Analisis keuanganku` atau `Bagaimana kondisi finansialku bulan ini?`"}]);
   const [aiInput,setAiInput]=useState("");
   const [aiLoading,setAiLoading]=useState(false);
 
@@ -6322,10 +6322,10 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
           overflow-y:auto;
           -webkit-overflow-scrolling:touch;
           overscroll-behavior:contain;
-          padding:14px 12px;
+          padding:16px 14px;
           display:flex;
           flex-direction:column;
-          gap:10px;
+          gap:12px;
         }
         .ai-input-wrap {
           display:flex;
@@ -6379,10 +6379,10 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
         .ai-quick-btn {
           flex-shrink:0;
           border:none;
-          border-radius:20px;
-          padding:6px 12px;
-          font-size:11.5px;
-          font-weight:600;
+          border-radius:999px;
+          padding:8px 12px;
+          font-size:11px;
+          font-weight:700;
           cursor:pointer;
           white-space:nowrap;
           font-family:inherit;
@@ -6401,7 +6401,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
         }}
       >
         <img src="/icon-192.png" alt="cat" style={{width:22,height:22,borderRadius:6,objectFit:"cover"}}/>
-        <span>Konsultasi AI</span>
+        <span>Teman AI</span>
         <span style={{background:"rgba(255,255,255,0.22)",borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:800,letterSpacing:0.3}}>AI</span>
       </button>}
 
@@ -6429,7 +6429,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
           }}>
             <img src="/icon-192.png" alt="AturDuitku" style={{width:38,height:38,borderRadius:"50%",objectFit:"cover",flexShrink:0,border:"2px solid rgba(255,255,255,0.3)"}}/>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{color:"white",fontWeight:800,fontSize:15,letterSpacing:-0.3}}>AturDuitku AI</div>
+              <div style={{color:"white",fontWeight:800,fontSize:15,letterSpacing:-0.3}}>AturDuitku AI</div><div style={{color:"rgba(255,255,255,0.78)",fontSize:11,marginTop:2}}>Analisis cepat, catat transaksi, dan tanya strategi uangmu.</div>
               
             </div>
             <button onClick={()=>setAiOpen(false)} style={{
@@ -6437,11 +6437,11 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               border:"1px solid rgba(255,255,255,0.2)",
               color:"white",borderRadius:10,
               padding:"7px 12px",cursor:"pointer",
-              fontSize:12,fontWeight:600,fontFamily:"inherit",
+              fontSize:12,fontWeight:700,fontFamily:"inherit",minWidth:44,height:36,
               touchAction:"manipulation",
               WebkitTapHighlightColor:"transparent",
               flexShrink:0,
-            }}>X</button>
+            }}>Tutup</button>
           </div>
 
           {/* Messages */}
@@ -6455,22 +6455,22 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   border:`1px solid ${dark?"rgba(124,58,237,0.25)":"rgba(124,58,237,0.12)"}`,
                 }:{}}
               >
-                {renderAiContent(m.content)}
+                {m.role!=="user"&&i===0?<div style={{display:"inline-flex",alignItems:"center",gap:6,marginBottom:10,padding:"5px 10px",borderRadius:999,background:dark?"rgba(124,58,237,0.16)":"rgba(124,58,237,0.08)",color:dark?"#C4B5FD":"#6D28D9",fontSize:10,fontWeight:800}}>SIAP BANTU</div>:null}{renderAiContent(m.content)}
               </div>
             ))}
             {aiLoading&&<div className="ai-typing-wrap" style={{background:dark?"#2D1B69":"#F0EBFF"}}><span/><span/><span/></div>}
           </div>
 
           {/* Quick actions */}
-          <div style={{padding:"6px 12px 4px",display:"flex",gap:6,overflowX:"auto",flexShrink:0,WebkitOverflowScrolling:"touch"}}>
-            {["Analisis keuanganku","Saran hemat bulan ini","Review goals","Cek budget","Cara tingkatkan saving rate"].map(q=>(
+          <div style={{padding:"6px 12px 4px",display:"flex",gap:8,overflowX:"auto",flexShrink:0,WebkitOverflowScrolling:"touch"}}>
+            {[{q:"Analisis keuanganku",tag:"ANALISIS"},{q:"Saran hemat bulan ini",tag:"HEMAT"},{q:"Review goals",tag:"GOALS"},{q:"Cek budget",tag:"BUDGET"},{q:"Cara tingkatkan saving rate",tag:"SAVING"}].map(({q,tag})=>(
               <button key={q} className="ai-quick-btn"
                 onClick={()=>{setAiInput(q);}}
                 style={{
                   background:dark?"#2D1B69":"#EDE9FE",
                   color:dark?"#C4B5FD":"#5B21B6",
                 }}
-              >{q}</button>
+              ><span style={{display:"inline-block",padding:"2px 6px",borderRadius:999,background:dark?"rgba(255,255,255,0.08)":"rgba(255,255,255,0.55)",fontSize:9,fontWeight:800,marginRight:6}}>{tag}</span>{q}</button>
             ))}
           </div>
 
@@ -6488,7 +6488,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               value={aiInput}
               onChange={e=>{setAiInput(e.target.value);e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,120)+"px";}}
               onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();handleAiSend();}}}
-              placeholder={lang==="en"?"Message... e.g: paid electricity 50k":"Tulis pertanyaanmu... misalnya: cara nabung 500 ribu per bulan"}
+              placeholder={lang==="en"?"Message... e.g: paid electricity 50k":"Tulis pesan... misalnya: bantu atur budget makan bulan ini"}
               rows={1}
               style={{
                 border:`1.5px solid ${dark?"#5B21B6":"#C4B5FD"}`,
@@ -6505,7 +6505,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 color:"white",
                 opacity:aiLoading||!aiInput.trim()?0.6:1,
               }}
-            >➤</button>
+            ><span style={{fontSize:12,fontWeight:900}}>Kirim</span></button>
           </div>
         </div>
       </>}
