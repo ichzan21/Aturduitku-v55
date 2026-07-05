@@ -802,7 +802,7 @@ const INIT_BUDGETS=[
   {id:8,kat:"Investasi",icon:"INV",kelas:"Kebutuhan",alokasi:"0",sub:[]},
   {id:9,kat:"Lainnya",icon:"ETC",kelas:"Kebutuhan",alokasi:"0",sub:[]},
 ];
-const ADMIN_NAV={id:"admin",icon:"ADM",label:"Admin"};
+const ADMIN_NAV={id:"admin",icon:"🛡️",label:"Admin"};
 const LOCAL_OWNER_KEY="aturduitku_last_uid";
 
 const authErrorMessage=(error)=>{
@@ -830,19 +830,28 @@ const INIT={
   googleEmail:"",
 };
 const NAV=[
-  {id:"home",icon:"HM",label:"Home"},
-  {id:"dompet",icon:"WL",label:"Dompet"},
-  {id:"trans",icon:"TX",label:"Transaksi"},
-  {id:"budget",icon:"BG",label:"Budget"},
-  {id:"amplop",icon:"ENV",label:"Amplop"},
-  {id:"goals",icon:"GL",label:"Goals"},
-  {id:"aset",icon:"AS",label:"Aset"},
-  {id:"utang",icon:"UT",label:"Utang"},
-  {id:"laporan",icon:"RP",label:"Laporan"},
-  {id:"setting",icon:"ST",label:"Setting"},
+  {id:"home",icon:"🏠",label:"Home"},
+  {id:"dompet",icon:"👛",label:"Dompet"},
+  {id:"trans",icon:"🧾",label:"Transaksi"},
+  {id:"budget",icon:"📊",label:"Budget"},
+  {id:"amplop",icon:"✉️",label:"Amplop"},
+  {id:"goals",icon:"🎯",label:"Goals"},
+  {id:"aset",icon:"💎",label:"Aset"},
+  {id:"utang",icon:"💸",label:"Utang"},
+  {id:"laporan",icon:"📈",label:"Laporan"},
+  {id:"setting",icon:"⚙️",label:"Setting"},
 ];
 
 // ─── REUSABLE COMPONENTS ──────────────────────────────────────────────────────
+const ICON_CODE_MAP={
+  BANK:"🏦",PAY:"💳",CASH:"💵",
+  FOOD:"🍽️",MOVE:"🚗",BILL:"🧾",HEAL:"🏥",SHOP:"🛍️",FUN:"🎮",EDU:"🎓",INV:"📈",ETC:"📦",
+  ENV:"✉️",FOD:"🍽️",MOV:"🚗",SHP:"🛍️",IDEA:"💡",HLT:"🏥",TRP:"✈️",HOME:"🏠",STYL:"👕",
+  WORK:"💼",MUS:"🎵",CAFE:"☕",GIFT:"🎁",FIT:"🏋️",PLNT:"🌱",STDY:"📚",PHN:"📱",CARE:"🧴",
+  GOAL:"🎯",ASSET:"💎",DEBT:"💸",ADM:"🛡️",HM:"🏠",WL:"👛",TX:"🧾",BG:"📊",GL:"🎯",AS:"💎",UT:"💸",RP:"📈",ST:"⚙️",
+};
+const uiIcon=(icon)=>ICON_CODE_MAP[String(icon||"").trim()]||icon||"";
+
 const Card=({ch,style={},lift})=>{
   const T=useT();
   return <div className={lift?"card-lift":""} style={{background:T.card,borderRadius:16,padding:"18px 20px",boxShadow:T.shadow,border:`1.5px solid ${T.border}`,transition:"background .3s,border-color .3s,box-shadow .3s",...style}}>{ch}</div>;
@@ -1072,7 +1081,7 @@ const NotificationPanel=({notifs,onClose})=>{
             const col=colMap[n.color]||colMap.info;
             return(
               <div key={i} style={{background:col.bg,border:`1px solid ${col.border}`,borderRadius:12,padding:"12px 14px",marginBottom:10,display:"flex",gap:12,alignItems:"flex-start"}}>
-                <span style={{fontSize:22,flexShrink:0,marginTop:1}}>{n.icon}</span>
+                <span style={{fontSize:22,flexShrink:0,marginTop:1}}>{uiIcon(n.icon)}</span>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,fontSize:13,color:col.c,marginBottom:3}}>{n.title}</div>
                   <div style={{fontSize:12,color:T.sub}}>{n.msg}</div>
@@ -1213,7 +1222,7 @@ const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset})=>{
       {showIsi&&<div style={{padding:10,background:T.okBg,borderRadius:8,border:`1px solid ${T.okBorder}`}}>
         <div style={{fontSize:11,color:T.ok,fontWeight:700,marginBottom:6}}>Top-up dari Dompet</div>
         <select value={isiDompetId} onChange={e=>setIsiDompetId(Number(e.target.value))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1.5px solid ${T.inputBorder}`,background:T.input,color:T.text,fontSize:12,outline:"none",marginBottom:6,fontFamily:"inherit"}}>
-          {dompetList.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama} ({IDRs(N(d.saldo))})</option>)}
+          {dompetList.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama} ({IDRs(N(d.saldo))})</option>)}
         </select>
         <div style={{display:"flex",gap:6}}>
           <CurIn value={isiJml} onChange={setIsiJml} placeholder="Jumlah..." style={{flex:1}}/>
@@ -1257,7 +1266,7 @@ const UtangCard=({u,dompetList,onDelete,onCicilan})=>{
           <button onClick={()=>setShowCalc(true)} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14}}>🔢</button>
         </div>
         <select value={dompetId} onChange={e=>setDompetId(Number(e.target.value))} style={{width:80, padding:"8px", borderRadius:8, border:`1.5px solid ${T.inputBorder}`, background:T.input, color:T.text, fontSize:12, outline:"none"}}>
-           {dompetList.map(d=><option key={d.id} value={d.id}>{d.icon}</option>)}
+           {dompetList.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)}</option>)}
         </select>
         {showCalc&&<Calculator value={inp} onChange={v=>{setInp(v);setShowCalc(false);}} onClose={()=>setShowCalc(false)}/>}
         <Btn onClick={()=>{if(inp){onCicilan(u.id,inp,dompetId);setInp("");}}} ch="+ Bayar" c="#16A34A" style={{padding:"8px 12px",fontSize:12,whiteSpace:"nowrap"}}/>
@@ -1304,7 +1313,7 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai})=>{
             <button onClick={()=>setShowCalc(true)} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14}}>🔢</button>
           </div>
           <select value={dompetId} onChange={e=>setDompetId(Number(e.target.value))} style={{width:60, padding:"8px", borderRadius:8, border:`1.5px solid ${T.inputBorder}`, background:T.input, color:T.text, fontSize:12, outline:"none"}}>
-             {dompetList.map(d=><option key={d.id} value={d.id}>{d.icon}</option>)}
+             {dompetList.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)}</option>)}
           </select>
           {showCalc&&<Calculator value={inp} onChange={v=>{setInp(v);setShowCalc(false);}} onClose={()=>setShowCalc(false)}/>}
           <Btn onClick={()=>{if(inp){onTambah(g.id,inp,dompetId);setInp("");}}} ch="+ Dana" style={{padding:"8px 12px",fontSize:12}}/>
@@ -1327,7 +1336,7 @@ const MoreMenu=({page,setPage,onClose,navItems=NAV})=>{
             const a=page===n.id;
             return(
               <button key={n.id} onClick={()=>{setPage(n.id);onClose();}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:"12px 8px",borderRadius:12,border:`1.5px solid ${a?T.navBorder:T.border}`,background:a?T.navActive:T.cardAlt,cursor:"pointer",fontFamily:"inherit"}}>
-                <span style={{fontSize:22}}>{n.icon}</span>
+                <span style={{fontSize:22}}>{uiIcon(n.icon)}</span>
                 <span style={{fontSize:10,fontWeight:700,color:a?T.accent:T.sub}}>{n.label}</span>
               </button>
             );
@@ -1797,7 +1806,7 @@ function KomparasiBulanan({ txs, budgets, T, isMobile }) {
               const delta=v1-v2;
               return (
                 <div key={b.id} style={{display:"grid",gridTemplateColumns:"1fr 90px 90px 70px",padding:"7px 10px",borderBottom:`1px solid ${T.borderLight}`,gap:6,alignItems:"center"}}>
-                  <span style={{fontSize:11,color:T.text,fontWeight:600}}>{b.icon} {b.kat}</span>
+                  <span style={{fontSize:11,color:T.text,fontWeight:600}}>{uiIcon(b.icon)} {b.kat}</span>
                   <span style={{fontSize:11,fontWeight:700,color:T.accent}}>{v1?idr(v1):"-"}</span>
                   <span style={{fontSize:11,fontWeight:700,color:"#059669"}}>{v2?idr(v2):"-"}</span>
                   <span style={{fontSize:10,fontWeight:700,color:delta>0?T.err:delta<0?T.ok:T.muted}}>{delta>0?"↑+":"↓"}{idr(Math.abs(delta))}</span>
@@ -1903,7 +1912,7 @@ function Onboarding({ onDone, lang="id", changeLang }) {
             <div style={{display:"flex",flexDirection:"column",gap:7,maxHeight:260,overflowY:"auto",marginBottom:10}}>
               {dompetList.map(d=>(
                 <div key={d.id} style={{background:"#F5F3FF",borderRadius:11,padding:"9px 11px",display:"flex",gap:7,alignItems:"center"}}>
-                  <div style={{fontSize:20,minWidth:28,textAlign:"center"}}>{d.icon}</div>
+                  <div style={{fontSize:20,minWidth:28,textAlign:"center"}}>{uiIcon(d.icon)}</div>
                   <div style={{flex:1}}>
                     <input value={d.nama} onChange={e=>updateDompet(d.id,"nama",e.target.value)} placeholder={lang==="en"?"Account name":"Nama rekening"} style={{width:"100%",border:"1.5px solid #E9D5FF",borderRadius:7,padding:"4px 8px",fontSize:12,fontWeight:700,color:"#1F2937",background:"white",outline:"none",marginBottom:3}}/>
                     <div style={{display:"flex",gap:5,alignItems:"center"}}>
@@ -2291,7 +2300,7 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
         <div style={{marginBottom:12}}>
           <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:5}}>Masukkan ke Dompet</div>
           <select value={dompetId} onChange={e=>setDompetId(e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:9,border:`1.5px solid ${T.inputBorder}`,background:T.input,color:T.text,fontSize:13,fontWeight:600,outline:"none"}}>
-            {dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama}</option>)}
+            {dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}
           </select>
         </div>
         <label style={{display:"block",cursor:"pointer"}}
@@ -4542,11 +4551,11 @@ Saldo amplop bertambah.`}]);
       <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
           <div style={{width:36,height:36,borderRadius:10,background:isIn?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="transfer"?T.accentBg:T.errBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>
-            {isIn?"📈":t.tipe==="tabungan"?"🏦":t.tipe==="transfer"?"↔️":kat?kat.icon:"📉"}
+            {isIn?"📈":t.tipe==="tabungan"?"🏦":t.tipe==="transfer"?"↔️":kat?uiIcon(kat.icon):"📉"}
           </div>
           <div style={{minWidth:0}}>
             <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.ket||t.tipe}</div>
-            <div style={{fontSize:11,color:T.muted}}>{t.tgl}{dompet&&` · ${dompet.icon} ${dompet.nama}`}{kat&&` · ${kat.kat}`}{t.subKat&&` › ${t.subKat}`}</div>
+            <div style={{fontSize:11,color:T.muted}}>{t.tgl}{dompet&&` · ${uiIcon(dompet.icon)} ${dompet.nama}`}{kat&&` · ${kat.kat}`}{t.subKat&&` › ${t.subKat}`}</div>
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
@@ -4884,16 +4893,16 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               <label style={LS}>{t("amount")} (Rp)</label>
               <div style={{position:"relative",marginBottom:10}}>
                 <CurIn value={txForm.jml} onChange={v=>setTxForm(f=>({...f,jml:v}))} placeholder="0" style={{paddingRight:40}}/>
-                <button onClick={()=>openCalc("jml",txForm.jml,v=>setTxForm(f=>({...f,jml:v})))} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:12,fontWeight:800,color:T.accent}}>Calc</button>
+                <button onClick={()=>openCalc("jml",txForm.jml,v=>setTxForm(f=>({...f,jml:v})))} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:12,fontWeight:800,color:T.accent}} title="Kalkulator" aria-label="Kalkulator">🧮</button>
               </div>
               <label style={LS}>{t("description")}</label><input placeholder={t("txDescPlaceholder")} value={txForm.ket} onChange={e=>setTxForm(f=>({...f,ket:e.target.value}))} style={{...IS,marginBottom:10}}/>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
                 <div><label style={LS}>{txForm.tipe==="transfer"?t("fromWallet"):t("dompet")}</label>
-                <select value={txForm.dompetId} onChange={e=>setTxForm(f=>({...f,dompetId:Number(e.target.value)}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama}</option>)}</select></div>
-                {txForm.tipe==="pengeluaran"&&<div><label style={LS}>{t("category")}</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:Number(e.target.value),subKat:""}))} style={IS}><option value="">-- Pilih --</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{b.icon} {b.kat}</option>)}</select></div>}
-                {txForm.tipe==="transfer"&&<div><label style={LS}>{t("toWallet")}</label><select value={txForm.dompetTo} onChange={e=>setTxForm(f=>({...f,dompetTo:Number(e.target.value)}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama}</option>)}</select></div>}
+                <select value={txForm.dompetId} onChange={e=>setTxForm(f=>({...f,dompetId:Number(e.target.value)}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>
+                {txForm.tipe==="pengeluaran"&&<div><label style={LS}>{t("category")}</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:Number(e.target.value),subKat:""}))} style={IS}><option value="">-- Pilih --</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{uiIcon(b.icon)} {b.kat}</option>)}</select></div>}
+                {txForm.tipe==="transfer"&&<div><label style={LS}>{t("toWallet")}</label><select value={txForm.dompetTo} onChange={e=>setTxForm(f=>({...f,dompetTo:Number(e.target.value)}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>}
                 {txForm.tipe==="pemasukan"&&<div><label style={LS}>Kategori</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:e.target.value}))} style={IS}>{KAT_IN.map(k=><option key={k}>{k}</option>)}</select></div>}
-                {txForm.tipe==="tabungan"&&<div><label style={LS}>Goal</label><select value={txForm.goalId} onChange={e=>setTxForm(f=>({...f,goalId:e.target.value}))} style={IS}><option value="">-- Pilih Goal --</option>{s.goals.filter(g=>!g.selesai).map(g=><option key={g.id} value={g.id}>{g.icon} {g.nama}</option>)}</select></div>}
+                {txForm.tipe==="tabungan"&&<div><label style={LS}>Goal</label><select value={txForm.goalId} onChange={e=>setTxForm(f=>({...f,goalId:e.target.value}))} style={IS}><option value="">-- Pilih Goal --</option>{s.goals.filter(g=>!g.selesai).map(g=><option key={g.id} value={g.id}>{uiIcon(g.icon)} {g.nama}</option>)}</select></div>}
               </div>
               {txForm.tipe==="pengeluaran"&&txForm.katId&&s.budgets.find(b=>b.id===txForm.katId)?.sub?.length>0&&(
                 <div style={{marginBottom:10}}><label style={LS}>Subkategori</label>
@@ -4949,7 +4958,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{t("addGoalTitle")}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>Buat target yang jelas supaya tabungan terasa punya arah.</div>
               <label style={LS}>Pilih ikon</label>
               <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:10,border:`1.5px solid ${T.inputBorder}`,borderRadius:8,marginBottom:10,maxHeight:isMobile?170:"none",overflowY:isMobile?"auto":"visible"}}>
-                {DREAM_ICONS.map(ico=><button key={ico} onClick={()=>setGoalForm(f=>({...f,icon:ico}))} style={{padding:"5px 7px",borderRadius:7,border:`2px solid ${goalForm.icon===ico?T.accent:"transparent"}`,background:goalForm.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:20,fontFamily:"inherit"}}>{ico}</button>)}
+                {DREAM_ICONS.map(ico=><button key={ico} onClick={()=>setGoalForm(f=>({...f,icon:ico}))} style={{padding:"5px 7px",borderRadius:7,border:`2px solid ${goalForm.icon===ico?T.accent:"transparent"}`,background:goalForm.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:20,fontFamily:"inherit"}}>{uiIcon(ico)}</button>)}
               </div>
               <label style={LS}>{t("goalName")}</label><input placeholder={t("goalPlaceholder")} value={goalForm.nama} onChange={e=>setGoalForm(f=>({...f,nama:e.target.value}))} style={{...IS,marginBottom:10}}/>
               <label style={LS}>{t("goalTarget")}</label><CurIn value={goalForm.target} onChange={v=>setGoalForm(f=>({...f,target:v}))} placeholder="0" style={{...IS,marginBottom:10}}/>
@@ -4974,7 +4983,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                  </div>
                  {asetForm.beliDariDompet && (
                     <select value={asetForm.dompetId} onChange={e=>setAsetForm(f=>({...f,dompetId:Number(e.target.value)}))} style={IS}>
-                       {s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama}</option>)}
+                       {s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}
                     </select>
                  )}
               </div>
@@ -5003,7 +5012,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:2,textTransform:"uppercase",padding:"8px 10px 6px",marginTop:4}}>{section.label}</div>
                 {section.items.map(nav=>{const a=page===nav.id;return(
                   <div key={nav.id} onClick={()=>navTo(nav.id)} className="nav-item" style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",borderRadius:11,cursor:"pointer",marginBottom:4,background:a?T.navActive:"transparent",color:a?T.accent:T.sub,fontWeight:a?800:600,fontSize:13,borderLeft:a?`3px solid ${T.navBorder}`:"3px solid transparent",transition:"background .15s,color .15s"}}>
-                    <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,fontSize:10,fontWeight:800,letterSpacing:.4,textAlign:"center"}}>{nav.icon}</span>
+                    <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,fontSize:16,fontWeight:700,letterSpacing:0,textAlign:"center",lineHeight:1}}>{uiIcon(nav.icon)}</span>
                     <span>{nav.label}</span>
                     {a&&<span style={{marginLeft:"auto",width:6,height:6,borderRadius:"50%",background:T.accent,display:"block",boxShadow:`0 0 7px ${T.accent}`}}/>}
                   </div>
@@ -5041,22 +5050,22 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {!isMobile&&page==="goals"&&<Btn onClick={()=>setModal({type:"goal"})} ch={t("addGoalBtn")+" "} style={{padding:"8px 14px",fontSize:12}}/>}
             {!isMobile&&page==="aset"&&<Btn onClick={()=>setModal({type:"aset"})} ch={"+ "+t("aset")} style={{padding:"8px 14px",fontSize:12}}/>}
 
-            {!isMobile&&<button onClick={()=>setModal({type:"kalkulator"})} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,minWidth:44,height:36,cursor:"pointer",fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s",padding:"0 8px"}}>Calc</button>}
+            {!isMobile&&<button onClick={()=>setModal({type:"kalkulator"})} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,minWidth:44,height:36,cursor:"pointer",fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s",padding:"0 8px"}} title="Kalkulator" aria-label="Kalkulator">🧮</button>}
 
             {/* Notification Bell */}
             <button onClick={()=>setNotifOpen(true)} className={notifications.length?"notif-bounce":""} style={{position:"relative",background:notifications.length?T.errBg:T.cardAlt,border:`1px solid ${notifications.length?T.errBorder:T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,color:notifications.length?T.err:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .15s"}}>
-              N
+              🔔
               {notifications.length>0&&<span style={{position:"absolute",top:-3,right:-3,background:T.err,color:"white",borderRadius:"50%",width:16,height:16,fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${T.nav}`}}>{Math.min(notifications.length,9)}</span>}
             </button>
 
             {/* Blur saldo toggle */}
             {!isMobile&&<button onClick={toggleBlur} title={blurSaldo?t("showBalance"):t("hideBalance")} style={{background:blurSaldo?T.accentBg:T.cardAlt,border:`1px solid ${blurSaldo?T.accent:T.border}`,borderRadius:10,minWidth:56,height:36,cursor:"pointer",fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s",padding:"0 8px"}}>
-              {blurSaldo?"Show":"Hide"}
+              {blurSaldo?"👁️":"🙈"}
             </button>}
 
             {/* Dark mode toggle */}
             <button onClick={()=>setDark(!dark)} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,minWidth:56,height:36,cursor:"pointer",fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s",padding:"0 8px"}}>
-              {dark?"Light":"Dark"}
+              {dark?"☀️":"🌙"}
             </button>
 
             {!isMobile&&<div style={{textAlign:"right",fontSize:12}}>
@@ -5277,7 +5286,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <div key={d.id} style={{background:T.card,borderRadius:14,padding:18,border:`1px solid ${T.border}`,boxShadow:T.shadow,transition:"background .3s"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
                     <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
-                      <span style={{fontSize:26}}>{d.icon}</span>
+                      <span style={{fontSize:26}}>{uiIcon(d.icon)}</span>
                       <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}{d.norek&&` • ${d.norek}`}</div></div>
                     </div>
                     <Del onClick={()=>setModal({type:"confirm",title:`${t("deleteWallet")}: "${d.nama}"?`,msg:`${t("deleteWalletMsg")} ${IDR(N(d.saldo))} akan dihapus. Transaksi yang terhubung tetap ada tapi tidak lagi menunjuk ke dompet ini.`,danger:true,onConfirm:()=>{setS(p=>({...p,dompet:p.dompet.filter(x=>x.id!==d.id)}));setModal(null);showToast(`Dompet ${d.nama} dihapus!`);}})} />
@@ -5324,7 +5333,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",fontSize:11,fontWeight:800,color:T.muted}}>Cari</span>
                 </div>
                 <select value={txFilt.dompet} onChange={e=>{setTxFilt(f=>({...f,dompet:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
-                  <option value="">{t("allWallets")}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama}</option>)}
+                  <option value="">{t("allWallets")}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}
                 </select>
                 <select value={txFilt.tipe} onChange={e=>{setTxFilt(f=>({...f,tipe:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
                   <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="transfer">Transfer</option>
@@ -5399,7 +5408,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 </div>
                 <label style={LS}>Pilih ikon</label>
                 <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:10,background:T.card,borderRadius:8,border:`1.5px solid ${T.infoBorder}`,marginBottom:12}}>
-                  {ICONS.slice(0,28).map(ico=><button key={ico} onClick={()=>setNewKat(f=>({...f,icon:ico}))} style={{width:34,height:34,borderRadius:7,border:`2px solid ${newKat.icon===ico?T.accent:"transparent"}`,background:newKat.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:17,fontFamily:"inherit"}}>{ico}</button>)}
+                  {ICONS.slice(0,28).map(ico=><button key={ico} onClick={()=>setNewKat(f=>({...f,icon:ico}))} style={{width:34,height:34,borderRadius:7,border:`2px solid ${newKat.icon===ico?T.accent:"transparent"}`,background:newKat.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:17,fontFamily:"inherit"}}>{uiIcon(ico)}</button>)}
                 </div>
                 <Btn onClick={()=>{if(!newKat.kat.trim()){showToast(t("toast_fillName"));return;}setS(p=>({...p,budgets:[...p.budgets,{id:Date.now(),kat:newKat.kat,icon:newKat.icon,kelas:newKat.kelas,alokasi:"0",sub:[]}]}));setNewKat({kat:"",icon:"ETC",kelas:"Kebutuhan"});setShowAddKat(false);showToast("Kategori ditambahkan!");}} ch="Simpan kategori" style={{padding:"10px 20px"}}/>
               </div>}
@@ -5426,7 +5435,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                       return(
                         <div key={b.id} style={{background:T.card,borderRadius:13,padding:16,border:`1px solid ${over?T.errBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s"}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                            <div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:20}}>{b.icon}</span><span style={{fontWeight:700,fontSize:13,color:T.text}}>{b.kat}</span></div>
+                            <div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:20}}>{uiIcon(b.icon)}</span><span style={{fontWeight:700,fontSize:13,color:T.text}}>{b.kat}</span></div>
                             <div style={{display:"flex",gap:6,alignItems:"center"}}>
                               <Pill c={over?"red":pct>80?"yellow":"green"} ch={over?t("overLabel"):pct>80?t("almostLabel"):t("safeLabel")} xs/>
                               <button onClick={()=>setS(p=>({...p,budgets:p.budgets.filter(x=>x.id!==b.id)}))} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:11,fontWeight:800,padding:"2px 5px",borderRadius:4,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>Hapus</button>
@@ -5520,12 +5529,12 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:14}}>
                 <div><label style={LS}>{t("envelopeSource")}</label>
                 <select value={amplopForm.dompetId} onChange={e=>setAmplopForm(f=>({...f,dompetId:Number(e.target.value)}))} style={IS}>
-                  {s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama} ({IDRs(N(d.saldo))})</option>)}
+                  {s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama} ({IDRs(N(d.saldo))})</option>)}
                 </select></div>
                 <div><label style={LS}>Pilih ikon</label>
                 <div style={{display:"flex",flexWrap:"wrap",gap:4,padding:8,background:T.cardAlt,borderRadius:8,border:`1.5px solid ${T.inputBorder}`}}>
                   {["ENV","FOD","MOV","SHP","IDEA","HLT","FUN","EDU","TRP","HOME","STYL","WORK","MUS","CAFE","GIFT","FIT","PLNT","STDY","PHN","CARE"].map(ico=>(
-                    <button key={ico} onClick={()=>setAmplopForm(f=>({...f,icon:ico}))} style={{minWidth:44,height:28,padding:"0 6px",borderRadius:6,border:`2px solid ${amplopForm.icon===ico?T.accent:"transparent"}`,background:amplopForm.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:10,fontWeight:800,fontFamily:"inherit"}}>{ico}</button>
+                    <button key={ico} onClick={()=>setAmplopForm(f=>({...f,icon:ico}))} style={{minWidth:44,height:28,padding:"0 6px",borderRadius:6,border:`2px solid ${amplopForm.icon===ico?T.accent:"transparent"}`,background:amplopForm.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:10,fontWeight:800,fontFamily:"inherit"}}>{uiIcon(ico)}</button>
                   ))}
                 </div></div>
               </div>
@@ -5614,7 +5623,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <Sec t={t("walletSection")} right={<button onClick={()=>setPage("dompet")} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Kelola →</button>}/>
                 {s.dompet.map(d=>(
                   <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
-                    <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}><span style={{fontSize:20}}>{d.icon}</span><div><div style={{fontSize:13,fontWeight:600,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}</div></div></div>
+                    <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}><span style={{fontSize:20}}>{uiIcon(d.icon)}</span><div><div style={{fontSize:13,fontWeight:600,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}</div></div></div>
                     <span style={{fontWeight:700,color:T.text}}><MV v={IDR(N(d.saldo))}/></span>
                   </div>
                 ))}
@@ -5663,7 +5672,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <label style={LS}>{t("amount")} (Rp)</label>
                 <div style={{position:"relative",marginBottom:10}}>
                   <CurIn value={utForm.jml} onChange={v=>setUtForm(f=>({...f,jml:v}))} placeholder="0" style={{paddingRight:40}}/>
-                  <button onClick={()=>openCalc("utjml",utForm.jml,v=>setUtForm(f=>({...f,jml:v})))} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:12,fontWeight:800,color:T.accent}}>Calc</button>
+                  <button onClick={()=>openCalc("utjml",utForm.jml,v=>setUtForm(f=>({...f,jml:v})))} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:12,fontWeight:800,color:T.accent}} title="Kalkulator" aria-label="Kalkulator">🧮</button>
                 </div>
                 <label style={LS}>Jatuh Tempo</label><input type="date" value={utForm.tempo} onChange={e=>setUtForm(f=>({...f,tempo:e.target.value}))} style={{...IS,marginBottom:10}}/>
                 <label style={LS}>Keterangan</label><input placeholder={t("ketOpsional")} value={utForm.ket} onChange={e=>setUtForm(f=>({...f,ket:e.target.value}))} style={{...IS,marginBottom:14}}/>
@@ -5782,7 +5791,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 const spend=spendByKat[b.id]||0;const pct=alloc>0?spend/alloc*100:0;const over=alloc>0&&spend>alloc;
                 return(
                   <div key={b.id} style={{display:"grid",gridTemplateColumns:"1fr 100px 100px minmax(120px,1fr) 70px",padding:"9px 0",borderBottom:`1px solid ${T.borderLight}`,gap:8,alignItems:"center"}}>
-                    <span style={{fontSize:12,display:"flex",gap:6,alignItems:"center",color:T.text}}><span>{b.icon}</span>{b.kat}</span>
+                    <span style={{fontSize:12,display:"flex",gap:6,alignItems:"center",color:T.text}}><span>{uiIcon(b.icon)}</span>{b.kat}</span>
                     <span style={{fontSize:12,color:T.sub}}>{IDRs(alloc)}</span>
                     <span style={{fontSize:12,fontWeight:600,color:over?T.err:T.text}}>{IDRs(spend)}</span>
                     <PBar pct={Math.min(pct,100)} c={over?"#EF4444":pct>80?"#F59E0B":"#22C55E"}/>
@@ -5813,7 +5822,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <Sec t={t("tipPerCat")}/>
                 {saranList.length?saranList.map((saran,i)=>(
                   <div key={i} style={{background:saran.type==="over"?T.errBg:T.warnBg,border:`1px solid ${saran.type==="over"?T.errBorder:T.warnBorder}`,borderRadius:10,padding:"10px 12px",marginBottom:8}}>
-                    <div style={{fontSize:13,marginBottom:3,color:T.text}}>{saran.icon} <strong>{saran.kat}</strong></div>
+                    <div style={{fontSize:13,marginBottom:3,color:T.text}}>{uiIcon(saran.icon)} <strong>{saran.kat}</strong></div>
                     <div style={{fontSize:12,color:saran.type==="over"?T.err:T.warn}}>{saran.msg}</div>
                   </div>
                 )):<div style={{background:T.okBg,border:`1px solid ${T.okBorder}`,borderRadius:10,padding:16,textAlign:"center"}}>
@@ -5993,7 +6002,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                         <div><label style={{...LS,fontSize:9}}>{t("recurringDay")}</label><input type="number" min="1" max="31" placeholder="tgl" value={recurringForm.hari} onChange={e=>setRecurringForm(f=>({...f,hari:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></div>
                         <div><label style={{...LS,fontSize:9}}>{t("dompet")}</label>
                         <select value={recurringForm.dompetId} onChange={e=>setRecurringForm(f=>({...f,dompetId:Number(e.target.value)}))} style={{...IS,fontSize:11,padding:"7px 9px"}}>
-                          {s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama}</option>)}
+                          {s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}
                         </select></div>
                       </div>
                       <Btn onClick={addRecurring} ch={t("recurringAdd")} style={{padding:"8px 16px",fontSize:12}}/>
@@ -6053,7 +6062,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                       <div>
                         {notifications.slice(0,3).map((n,i)=>(
                           <div key={i} style={{display:"flex",gap:10,alignItems:"center",minWidth:0,padding:"8px 0",borderBottom:`1px solid ${T.borderLight}`}}>
-                            <span style={{fontSize:18}}>{n.icon}</span>
+                            <span style={{fontSize:18}}>{uiIcon(n.icon)}</span>
                             <div style={{flex:1}}>
                               <div style={{fontSize:12,fontWeight:700,color:n.color==="danger"?T.err:T.warn}}>{n.title}</div>
                               <div style={{fontSize:11,color:T.muted}}>{n.msg}</div>
@@ -6243,7 +6252,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       {isMobile&&<nav className="bottom-nav" style={{background:T.nav,borderTopColor:T.border,display:sidebarOpen?"none":"flex"}}>
         {[NAV[0],NAV[1],NAV[2],NAV[3]].map(nav=>{const a=page===nav.id;return(
           <button key={nav.id} onClick={()=>navTo(nav.id)} className="bottom-nav-item" style={{color:a?T.accent:T.muted}}>
-            <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,fontSize:10,fontWeight:800,letterSpacing:.4,lineHeight:1,transition:"transform .15s",transform:a?"scale(1.05)":"scale(1)"}}>{nav.icon}</span>
+            <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,fontSize:16,fontWeight:700,letterSpacing:0,lineHeight:1,transition:"transform .15s",transform:a?"scale(1.05)":"scale(1)"}}>{uiIcon(nav.icon)}</span>
             <span style={{fontSize:9,fontWeight:a?800:500}}>{nav.label}</span>
             {a&&<span style={{width:4,height:4,borderRadius:"50%",background:T.accent,marginTop:1,boxShadow:`0 0 6px ${T.accent}`}}/>}
           </button>
