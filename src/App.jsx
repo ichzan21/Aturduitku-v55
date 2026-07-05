@@ -5018,48 +5018,48 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
         {/* Topbar */}
         <div className="topbar-safe" style={{background:T.topbar,backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderBottom:`1.5px solid ${T.border}`,padding:isMobile?`10px max(14px,env(safe-area-inset-right)) 10px max(14px,env(safe-area-inset-left))`:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50,transition:"background .3s,border-color .3s"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0,flex:1}}>
-            {isMobile&&<button onClick={()=>setSidebarOpen(true)} style={{background:T.accentBg,border:"none",borderRadius:9,width:36,height:36,cursor:"pointer",fontSize:18,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0}}>☰</button>}
+            {isMobile&&<button onClick={()=>setSidebarOpen(true)} style={{background:T.accentBg,border:"none",borderRadius:9,minWidth:44,height:36,cursor:"pointer",fontSize:11,fontWeight:800,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0,padding:"0 10px"}}>Menu</button>}
             <div style={{minWidth:0}}>
-              <div style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"42vw":"none"}}>{page==="admin"?"Admin":`${navItems.find(n=>n.id===page)?.icon||""} ${(lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings",admin:"Admin"}:{admin:"Admin"})[page]||navItems.find(n=>n.id===page)?.label}`.trim()}</div>
-              {!isMobile&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>{hariShort}{tzZone.zone?` · ${tzZone.zone}`:""}</div>}
+              <div style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"42vw":"none"}}>{page==="admin"?"Admin":((lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings",admin:"Admin"}:{admin:"Admin"})[page]||navItems.find(n=>n.id===page)?.label||"")}</div>
+              {!isMobile&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>{hariShort}{tzZone.zone?` � ${tzZone.zone}`:""}</div>}
             </div>
           </div>
           <div style={{display:"flex",gap:isMobile?6:8,alignItems:"center",flexShrink:0}}>
             {!isMobile&&(page==="trans"||page==="home")&&<Btn onClick={()=>setModal({type:"tx"})} ch={t("addTx")} style={{padding:"8px 14px",fontSize:12}}/>}
-            {!isMobile&&page==="trans"&&<Btn onClick={()=>setModal({type:"bulk"})} ch="📋 Massal" c={T.accentSoft} outline style={{padding:"8px 14px",fontSize:12}}/>}
+            {!isMobile&&page==="trans"&&<Btn onClick={()=>setModal({type:"bulk"})} ch="Input Massal" c={T.accentSoft} outline style={{padding:"8px 14px",fontSize:12}}/>}
             {!isMobile&&page==="dompet"&&<Btn onClick={()=>setModal({type:"dompet"})} ch={t("addWallet")+" "} style={{padding:"8px 14px",fontSize:12}}/>}
-            {!isMobile&&page==="dompet"&&<Btn onClick={()=>setModal({type:"importMutasi"})} ch={"🏦 "+(lang==="en"?"Import Statement":t("importMutasi").split(" ")[1]||"Mutasi")} c={T.accentSoft} outline style={{padding:"8px 14px",fontSize:12}}/>}
+            {!isMobile&&page==="dompet"&&<Btn onClick={()=>setModal({type:"importMutasi"})} ch={lang==="en"?"Import Statement":"Import Mutasi"} c={T.accentSoft} outline style={{padding:"8px 14px",fontSize:12}}/>}
             {!isMobile&&page==="goals"&&<Btn onClick={()=>setModal({type:"goal"})} ch={t("addGoalBtn")+" "} style={{padding:"8px 14px",fontSize:12}}/>}
             {!isMobile&&page==="aset"&&<Btn onClick={()=>setModal({type:"aset"})} ch={"+ "+t("aset")} style={{padding:"8px 14px",fontSize:12}}/>}
 
-            {!isMobile&&<button onClick={()=>setModal({type:"kalkulator"})} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s"}}>🧮</button>}
+            {!isMobile&&<button onClick={()=>setModal({type:"kalkulator"})} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,minWidth:44,height:36,cursor:"pointer",fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s",padding:"0 8px"}}>Calc</button>}
 
             {/* Notification Bell */}
             <button onClick={()=>setNotifOpen(true)} className={notifications.length?"notif-bounce":""} style={{position:"relative",background:notifications.length?T.errBg:T.cardAlt,border:`1px solid ${notifications.length?T.errBorder:T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,color:notifications.length?T.err:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .15s"}}>
-              🔔
+              N
               {notifications.length>0&&<span style={{position:"absolute",top:-3,right:-3,background:T.err,color:"white",borderRadius:"50%",width:16,height:16,fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${T.nav}`}}>{Math.min(notifications.length,9)}</span>}
             </button>
 
             {/* Blur saldo toggle */}
-            {!isMobile&&<button onClick={toggleBlur} title={blurSaldo?t("showBalance"):t("hideBalance")} style={{background:blurSaldo?T.accentBg:T.cardAlt,border:`1px solid ${blurSaldo?T.accent:T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s"}}>
-              {blurSaldo?"🙈":"👁️"}
+            {!isMobile&&<button onClick={toggleBlur} title={blurSaldo?t("showBalance"):t("hideBalance")} style={{background:blurSaldo?T.accentBg:T.cardAlt,border:`1px solid ${blurSaldo?T.accent:T.border}`,borderRadius:10,minWidth:56,height:36,cursor:"pointer",fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s",padding:"0 8px"}}>
+              {blurSaldo?"Show":"Hide"}
             </button>}
 
             {/* Dark mode toggle */}
-            <button onClick={()=>setDark(!dark)} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s"}}>
-              {dark?"☀️":"🌙"}
+            <button onClick={()=>setDark(!dark)} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,minWidth:56,height:36,cursor:"pointer",fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s",padding:"0 8px"}}>
+              {dark?"Light":"Dark"}
             </button>
 
             {!isMobile&&<div style={{textAlign:"right",fontSize:12}}>
               <div style={{fontWeight:700,color:T.text,marginBottom:2}}>{t(greetingWord)}, {s.name}! {greetingEmoji}</div>
               <div style={{fontSize:11,color:T.sub,display:"flex",alignItems:"center",gap:4,justifyContent:"flex-end"}}>
                 <span>{hariShort}</span>
-                {tzZone.city&&<><span style={{opacity:.4}}>·</span><span style={{color:tzZone.color,fontWeight:700}}>{tzZone.city} {tzZone.zone}</span></>}
+                {tzZone.city&&<><span style={{opacity:.4}}>�</span><span style={{color:tzZone.color,fontWeight:700}}>{tzZone.city} {tzZone.zone}</span></>}
               </div>
             </div>}
             {/* Sync status */}
             {fireUser&&syncStatus!=="idle"&&<div style={{fontSize:10,color:syncStatus==="saving"?T.warn:syncStatus==="saved"?"#10B981":T.err,fontWeight:600,flexShrink:0}}>
-              {syncStatus==="saving"?"⏳ sync...":syncStatus==="saved"?"✅ tersimpan":"⚠️ error"}
+              {syncStatus==="saving"?"sync...":syncStatus==="saved"?"tersimpan":"error"}
             </div>}
             {/* Google avatar + logout */}
             <div style={{position:"relative",flexShrink:0}} className="avatar-menu-wrap">
@@ -5073,7 +5073,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
 
         {/* Mobile FAB */}
         {isMobile&&(page==="home"||page==="trans")&&(
-          <button className="fab" onClick={()=>setModal({type:"tx"})}>➕</button>
+          <button className="fab" onClick={()=>setModal({type:"tx"})}>+</button>
         )}
 
         <div className="page-in" style={{padding:isMobile?`14px max(14px,env(safe-area-inset-right)) calc(80px + max(env(safe-area-inset-bottom),0px)) max(14px,env(safe-area-inset-left))`:"22px 28px 40px",maxWidth:1340,margin:"0 auto"}}>
@@ -5259,7 +5259,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               <div style={{fontSize:30,fontWeight:900,marginBottom:4}}><MV v={IDR(totalSaldo)}/></div>
               <div style={{display:"flex",gap:16,fontSize:12,opacity:.7}}>
                 <span>{t("scoreLabel")}: {getLabel(skorTotal)} ({skorTotal}/100)</span>
-                <span>🏦 {s.dompet.length} akun aktif</span>
+                <span>{s.dompet.length} akun aktif</span>
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(280px,1fr))",gap:14,marginBottom:20}}>
@@ -5268,12 +5268,12 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
                     <div style={{display:"flex",gap:10,alignItems:"center"}}>
                       <span style={{fontSize:26}}>{d.icon}</span>
-                      <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}{d.norek&&` · ${d.norek}`}</div></div>
+                      <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}{d.norek&&` � ${d.norek}`}</div></div>
                     </div>
-                    <Del onClick={()=>setModal({type:"confirm",title:`${t("deleteWallet")}: "${d.nama}"?`,msg:`${t("deleteWalletMsg")} ${IDR(N(d.saldo))} akan dihapus. Transaksi yang terhubung tetap ada tapi tidak lagi menunjuk ke dompet ini.`,danger:true,onConfirm:()=>{setS(p=>({...p,dompet:p.dompet.filter(x=>x.id!==d.id)}));setModal(null);showToast(`🗑️ Dompet ${d.nama} dihapus!`);}})} />
+                    <Del onClick={()=>setModal({type:"confirm",title:`${t("deleteWallet")}: "${d.nama}"?`,msg:`${t("deleteWalletMsg")} ${IDR(N(d.saldo))} akan dihapus. Transaksi yang terhubung tetap ada tapi tidak lagi menunjuk ke dompet ini.`,danger:true,onConfirm:()=>{setS(p=>({...p,dompet:p.dompet.filter(x=>x.id!==d.id)}));setModal(null);showToast(`Dompet ${d.nama} dihapus!`);}})} />
                   </div>
                   <div style={{fontSize:20,fontWeight:900,color:N(d.saldo)<0?T.err:T.text,marginBottom:8}}>
-                    {N(d.saldo)<0&&<span style={{fontSize:12,background:T.errBg,color:T.err,borderRadius:6,padding:"1px 7px",marginRight:6,fontWeight:700}}>⚠ Negatif</span>}
+                    {N(d.saldo)<0&&<span style={{fontSize:12,background:T.errBg,color:T.err,borderRadius:6,padding:"1px 7px",marginRight:6,fontWeight:700}}>Minus</span>}
                     <MV v={IDR(N(d.saldo))}/>
                   </div>
                   <div style={{height:4,background:T.border,borderRadius:4,marginBottom:12,overflow:"hidden"}}>
@@ -5292,7 +5292,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                             }));
                             setEditSaldo(p=>{const np={...p}; delete np[d.id]; return np;});
                             showToast(t("toast_balanceOk"));
-                        }} ch="✓" c="#16A34A" />
+                        }} ch="Simpan" c="#16A34A" />
                     )}
                   </div>
                 </div>
