@@ -83,6 +83,7 @@ const pN   = v=>String(v).replace(/\./g,"");
 const N    = v=>Number(String(v||0).replace(/\./g,""))||0;
 const PCT  = v=>Number(v||0).toFixed(1)+"%";
 const today= ()=>new Date().toISOString().slice(0,10);
+const dateAdd=(key,days)=>{const d=new Date(`${key}T00:00:00`);d.setDate(d.getDate()+days);return d.toISOString().slice(0,10);};
 const nowM = ()=>new Date().getMonth();
 const nowY = ()=>new Date().getFullYear();
 const MONTHS=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
@@ -826,6 +827,7 @@ const INIT={
   prevPemasukan:"0",prevPengeluaran:"0",
   recurring:[],
   amplop:[],
+  habits:[],
   processedRecurring:{},
   googleEmail:"",
 };
@@ -836,6 +838,7 @@ const NAV=[
   {id:"budget",icon:"📊",label:"Budget"},
   {id:"amplop",icon:"✉️",label:"Amplop"},
   {id:"goals",icon:"🎯",label:"Goals"},
+  {id:"habit",icon:"🐾",label:"Habit"},
   {id:"aset",icon:"💎",label:"Aset"},
   {id:"utang",icon:"💸",label:"Utang"},
   {id:"laporan",icon:"📈",label:"Laporan"},
@@ -2383,7 +2386,7 @@ export default function App(){
   const [s,setS]=useState(()=>{
     try{
       const saved=localStorage.getItem("aturduitku_data");
-      if(saved){const p=JSON.parse(saved);return{...INIT,...p,dompet:p.dompet||INIT.dompet,txs:p.txs||[],utang:p.utang||[],budgets:p.budgets||INIT_BUDGETS,goals:p.goals||[],asetTetap:p.asetTetap||[],recurring:p.recurring||[],amplop:p.amplop||[],processedRecurring:p.processedRecurring||{}};}
+      if(saved){const p=JSON.parse(saved);return{...INIT,...p,dompet:p.dompet||INIT.dompet,txs:p.txs||[],utang:p.utang||[],budgets:p.budgets||INIT_BUDGETS,goals:p.goals||[],asetTetap:p.asetTetap||[],recurring:p.recurring||[],amplop:p.amplop||[],habits:p.habits||[],processedRecurring:p.processedRecurring||{}};}
     }catch(e){}
     return INIT;
   });
@@ -2555,7 +2558,7 @@ export default function App(){
                 ...INIT,...d,
                 dompet:d.dompet||INIT.dompet,txs:d.txs||[],utang:d.utang||[],
                 budgets:d.budgets||INIT_BUDGETS,goals:d.goals||[],asetTetap:d.asetTetap||[],
-                recurring:d.recurring||[],amplop:d.amplop||[],processedRecurring:d.processedRecurring||{},
+                recurring:d.recurring||[],amplop:d.amplop||[],habits:d.habits||[],processedRecurring:d.processedRecurring||{},
               };
               setS(merged);
               try{
@@ -2601,7 +2604,7 @@ export default function App(){
                 ...INIT,...d,
                 dompet:d.dompet||INIT.dompet,txs:d.txs||[],utang:d.utang||[],
                 budgets:d.budgets||INIT_BUDGETS,goals:d.goals||[],asetTetap:d.asetTetap||[],
-                recurring:d.recurring||[],amplop:d.amplop||[],processedRecurring:d.processedRecurring||{},
+                recurring:d.recurring||[],amplop:d.amplop||[],habits:d.habits||[],processedRecurring:d.processedRecurring||{},
               };
               setS(merged);
               if(cloudData.onboarded){
@@ -2833,6 +2836,8 @@ export default function App(){
   const [newKat,setNewKat]=useState({kat:"",icon:"📦",kelas:"Kebutuhan"});
   const [showAddKat,setShowAddKat]=useState(false);
   const [newSub,setNewSub]=useState({katId:null,nama:"",emoji:"📌",alokasi:"",tempo:""});
+  const [habitForm,setHabitForm]=useState({nama:"Catat pengeluaran",icon:"🧾",target:"1x per hari"});
+  const [habitCelebrate,setHabitCelebrate]=useState(false);
 
 
   // ── Computed ────────────────────────────────────────────────────────────────
@@ -2901,6 +2906,37 @@ export default function App(){
   },[s.txs,txSearch,txFilt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pieData=s.budgets.filter(b=>spendByKat[b.id]>0).map(b=>({name:b.icon+" "+b.kat,value:spendByKat[b.id]||0}));
+
+  const habitDay=today();
+  const activeHabits=useMemo(()=>s.habits.filter(h=>h.active!==false),[s.habits]);
+  const habitDone=(h,day=habitDay)=>new Set(h.doneDates||[]).has(day);
+  const habitStreak=(h,day=habitDay)=>{
+    const done=new Set(h.doneDates||[]);
+    let cursor=done.has(day)?day:dateAdd(day,-1);
+    let count=0;
+    while(done.has(cursor)){count++;cursor=dateAdd(cursor,-1);}
+    return count;
+  };
+  const habitBestStreak=(h)=>{
+    const days=[...new Set(h.doneDates||[])].sort();
+    let best=0,cur=0,prev="";
+    days.forEach(d=>{cur=prev&&dateAdd(prev,1)===d?cur+1:1;best=Math.max(best,cur);prev=d;});
+    return best;
+  };
+  const habitDoneToday=activeHabits.filter(h=>habitDone(h)).length;
+  const habitTotalToday=activeHabits.length;
+  const habitTodayPct=habitTotalToday?habitDoneToday/habitTotalToday*100:0;
+  const habitTotalDone=s.habits.reduce((a,h)=>a+(h.doneDates?.length||0),0);
+  const habitBestAll=s.habits.reduce((a,h)=>Math.max(a,habitBestStreak(h)),0);
+  const habitXP=habitTotalDone*15+habitBestAll*10;
+  const habitLevel=Math.floor(habitXP/120)+1;
+  const habitLevelPct=(habitXP%120)/120*100;
+  const perfectDayStreak=useMemo(()=>{
+    if(!activeHabits.length) return 0;
+    let cursor=habitDay,count=0;
+    while(activeHabits.every(h=>habitDone(h,cursor))){count++;cursor=dateAdd(cursor,-1);}
+    return count;
+  },[activeHabits,habitDay]);
 
 
   // Notifications
@@ -3016,6 +3052,26 @@ export default function App(){
   // Handlers
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(""),2500);};
   const openCalc=(field,cur,setter)=>{setCalcFor({field,cur,setter});setShowCalc(true);};
+  const addHabit=()=>{
+    const nama=habitForm.nama.trim();
+    if(!nama){showToast("⚠️ Isi nama habit dulu");return;}
+    setS(p=>({...p,habits:[{id:Date.now(),nama,icon:habitForm.icon||"🐾",target:habitForm.target||"1x per hari",createdAt:today(),active:true,doneDates:[]},...(p.habits||[])]}));
+    setHabitForm({nama:"",icon:"🐾",target:"1x per hari"});
+    showToast("🐾 Habit baru ditambahkan!");
+  };
+  const toggleHabit=(id)=>{
+    const day=today();
+    let completed=false;
+    setS(p=>({...p,habits:(p.habits||[]).map(h=>{
+      if(h.id!==id) return h;
+      const done=new Set(h.doneDates||[]);
+      if(done.has(day)){done.delete(day);completed=false;}
+      else {done.add(day);completed=true;}
+      return {...h,doneDates:[...done].sort()};
+    })}));
+    if(completed){setHabitCelebrate(true);setTimeout(()=>setHabitCelebrate(false),900);showToast("🔥 Habit selesai! Streak naik.");}
+  };
+  const deleteHabit=(id)=>setModal({type:"confirm",title:"Hapus habit?",msg:"Riwayat streak habit ini akan ikut terhapus.",danger:true,onConfirm:()=>{setS(p=>({...p,habits:(p.habits||[]).filter(h=>h.id!==id)}));setModal(null);showToast("Habit dihapus");}});
 
 
   // ═══════════════════════════════════════════════════
@@ -4291,7 +4347,7 @@ Saldo amplop bertambah.`}]);
         const parsed=JSON.parse(e.target.result);
         // Validasi minimal field
         if(!parsed.dompet||!parsed.txs){showToast("❌ File tidak valid!");return;}
-        setS({...INIT,...parsed,dompet:parsed.dompet||INIT.dompet,txs:parsed.txs||[],utang:parsed.utang||[],budgets:parsed.budgets||INIT_BUDGETS,goals:parsed.goals||[],asetTetap:parsed.asetTetap||[],recurring:parsed.recurring||[],amplop:parsed.amplop||[],processedRecurring:parsed.processedRecurring||{}});
+        setS({...INIT,...parsed,dompet:parsed.dompet||INIT.dompet,txs:parsed.txs||[],utang:parsed.utang||[],budgets:parsed.budgets||INIT_BUDGETS,goals:parsed.goals||[],asetTetap:parsed.asetTetap||[],recurring:parsed.recurring||[],amplop:parsed.amplop||[],habits:parsed.habits||[],processedRecurring:parsed.processedRecurring||{}});
         showToast("✅ Data berhasil di-restore!");
         setModal(null);
       }catch(err){showToast("❌ File rusak atau format salah!");}
@@ -4617,7 +4673,7 @@ Saldo amplop bertambah.`}]);
     <div style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#2E1065 0%,#1A0A2E 100%)",padding:"max(24px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px))",fontFamily:"system-ui,sans-serif"}}>
       <div style={{width:"100%",maxWidth:360,display:"flex",flexDirection:"column",alignItems:"center",gap:0}}>
         {/* Logo */}
-        <img src="/icon-192.png" alt="AturDuitku" style={{width:88,height:88,borderRadius:22,objectFit:"cover",marginBottom:20,boxShadow:"0 8px 32px rgba(124,58,237,0.5)"}}/>
+        <img className="cat-mascot" src="/icon-192.png" alt="AturDuitku" style={{width:88,height:88,borderRadius:22,objectFit:"cover",marginBottom:20,boxShadow:"0 8px 32px rgba(124,58,237,0.5)"}}/>
         <div style={{color:"white",fontWeight:800,fontSize:28,marginBottom:6,letterSpacing:-0.5}}>AturDuitku</div>
         <div style={{color:"#A78BFA",fontSize:14,marginBottom:36,textAlign:"center",lineHeight:1.6}}>Teman finansial harian<br/>buat catat, paham, dan tumbuh lebih rapi</div>
 
@@ -4777,6 +4833,15 @@ Saldo amplop bertambah.`}]);
         .toast-in{animation:toastSlide .25s ease-out;}
         @keyframes catBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
         .cat-bob{display:inline-block;animation:catBob 2.2s ease-in-out infinite;}
+        @keyframes catFloat{0%,100%{transform:translateY(0) rotate(-1deg);}50%{transform:translateY(-8px) rotate(1deg);}}
+        @keyframes catJump{0%{transform:translateY(0) scale(1);}35%{transform:translateY(-20px) scale(1.08) rotate(-4deg);}70%{transform:translateY(2px) scale(.98) rotate(3deg);}100%{transform:translateY(0) scale(1);}}
+        @keyframes premiumShine{0%{transform:translateX(-120%) skewX(-18deg);opacity:0;}25%{opacity:.28;}60%{opacity:.12;}100%{transform:translateX(180%) skewX(-18deg);opacity:0;}}
+        @keyframes checkPop{0%{transform:scale(.86);box-shadow:0 0 0 0 ${T.accentPop};}55%{transform:scale(1.04);box-shadow:0 0 0 8px rgba(34,197,94,.12);}100%{transform:scale(1);box-shadow:none;}}
+        .cat-mascot{animation:catFloat 3.8s ease-in-out infinite;transform-origin:center bottom;}
+        .cat-mascot.win{animation:catJump .85s cubic-bezier(.2,.9,.24,1.2) both;}
+        .premium-panel{position:relative;overflow:hidden;}
+        .premium-panel:after{content:"";position:absolute;top:-40%;bottom:-40%;width:70px;left:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);animation:premiumShine 5.5s ease-in-out infinite;pointer-events:none;}
+        .habit-complete{animation:checkPop .32s ease-out both;}
         @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
         .pulse{animation:pulse 2s infinite;}
         @keyframes notifBounce{0%,100%{transform:translateY(0);}30%{transform:translateY(-4px);}60%{transform:translateY(-2px);}}
@@ -5007,7 +5072,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       {(!isMobile||sidebarOpen)&&(
         <div className={isMobile?"sidebar-slide":""} style={{position:isMobile?"fixed":"relative",top:0,left:0,width:isMobile?"min(82vw, 300px)":isTablet?190:220,minWidth:isMobile?0:isTablet?190:220,background:T.nav,borderRight:`1.5px solid ${T.border}`,display:"flex",flexDirection:"column",height:"var(--app-height, 100dvh)",overflowY:"auto",flexShrink:0,zIndex:isMobile?500:10,boxShadow:isMobile?`6px 0 30px rgba(0,0,0,.2)`:T.shadow,transition:"background .3s,border-color .3s",paddingTop:isMobile?"env(safe-area-inset-top, 0px)":0,paddingBottom:isMobile?"env(safe-area-inset-bottom, 0px)":0}}>
           <div style={{padding:"18px 16px",borderBottom:`1.5px solid ${T.border}`,display:"flex",alignItems:"center",gap:11}}>
-            <img src="/icon-192.png" alt="AturDuitku" style={{width:40,height:40,borderRadius:10,objectFit:"cover",flexShrink:0,boxShadow:`0 4px 14px ${T.accentPop}`}}/>
+            <img className="cat-mascot" src="/icon-192.png" alt="AturDuitku" style={{width:40,height:40,borderRadius:10,objectFit:"cover",flexShrink:0,boxShadow:`0 4px 14px ${T.accentPop}`}}/>
             <div style={{flex:1}}>
               <div style={{fontWeight:900,fontSize:15,color:T.text,letterSpacing:-.3}}>AturDuitku</div>
               <div style={{fontSize:10,color:T.accent,fontWeight:600,marginTop:1}}>{s.name} Workspace</div>
@@ -5015,7 +5080,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {isMobile&&<button onClick={()=>setSidebarOpen(false)} style={{background:T.accentBg,border:"none",borderRadius:8,minWidth:44,height:32,cursor:"pointer",fontSize:10,fontWeight:800,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0,padding:"0 10px"}}>Tutup</button>}
           </div>
           <div style={{padding:"10px 8px",flex:1}}>
-            {[{label:"Menu Utama",items:navItems.slice(0,4)},{label:"Keuangan",items:navItems.slice(4,8)},{label:"Pengaturan",items:navItems.slice(8)}].map(section=>(
+            {[{label:"Menu Utama",items:navItems.slice(0,4)},{label:"Keuangan",items:navItems.slice(4,9)},{label:"Pengaturan",items:navItems.slice(9)}].map(section=>(
               <div key={section.label}>
                 <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:2,textTransform:"uppercase",padding:"8px 10px 6px",marginTop:4}}>{section.label}</div>
                 {section.items.map(nav=>{const a=page===nav.id;return(
@@ -5046,7 +5111,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
           <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0,flex:1}}>
             {isMobile&&<button className="icon-action" onClick={()=>setSidebarOpen(true)} title="Menu" aria-label="Menu" style={{background:T.accentBg,border:"none",borderRadius:9,minWidth:44,height:36,cursor:"pointer",fontSize:18,fontWeight:800,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0,padding:"0 10px"}}>☰</button>}
             <div style={{minWidth:0}}>
-              <div style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"42vw":"none"}}>{page==="admin"?"Admin":((lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings",admin:"Admin"}:{admin:"Admin"})[page]||navItems.find(n=>n.id===page)?.label||"")}</div>
+              <div style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"42vw":"none"}}>{page==="admin"?"Admin":((lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",habit:"Habit",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings",admin:"Admin"}:{admin:"Admin",habit:"Habit"})[page]||navItems.find(n=>n.id===page)?.label||"")}</div>
               {!isMobile&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>{hariShort}{tzZone.zone?` • ${tzZone.zone}`:""}</div>}
             </div>
           </div>
@@ -5636,6 +5701,132 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               /></div>}
             </div>
             {s.goals.length>0&&<div style={{marginTop:16,textAlign:"right"}}><Btn onClick={()=>setModal({type:"goal"})} ch={t("addGoalBtn")} style={{padding:"10px 20px"}}/></div>}
+          </>}
+
+          {page==="habit"&&<>
+            <div className="premium-panel" style={{background:T.hero,borderRadius:18,padding:isMobile?"20px 18px":"26px 30px",marginBottom:18,color:"white",boxShadow:T.shadowMd,border:"1px solid rgba(255,255,255,.14)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:18,flexWrap:"wrap"}}>
+                <div style={{display:"flex",gap:16,alignItems:"center",minWidth:0}}>
+                  <img className={`cat-mascot ${habitCelebrate?"win":""}`} src="/icon-192.png" alt="AturDuitku Habit" style={{width:isMobile?64:76,height:isMobile?64:76,borderRadius:20,objectFit:"cover",boxShadow:"0 14px 32px rgba(0,0,0,.28)",flexShrink:0}}/>
+                  <div style={{minWidth:0}}>
+                    <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",opacity:.72,fontWeight:900,marginBottom:5}}>Daily habit game</div>
+                    <div style={{fontSize:isMobile?24:30,fontWeight:900,letterSpacing:-.4,marginBottom:5}}>Naik level bareng kucingmu</div>
+                    <div style={{fontSize:13,opacity:.82,lineHeight:1.6,maxWidth:560}}>Selesaikan habit harian, jaga streak, kumpulkan XP, dan bikin rutinitas finansial terasa seperti game kecil yang nagih.</div>
+                  </div>
+                </div>
+                <div style={{background:"rgba(0,0,0,.22)",border:"1px solid rgba(255,255,255,.12)",borderRadius:16,padding:"14px 18px",minWidth:isMobile?"100%":190}}>
+                  <div style={{fontSize:10,opacity:.65,letterSpacing:1.3,textTransform:"uppercase",fontWeight:800,marginBottom:4}}>Level {habitLevel}</div>
+                  <div style={{fontSize:26,fontWeight:900,marginBottom:8}}>{habitXP} XP</div>
+                  <div style={{height:8,borderRadius:99,background:"rgba(255,255,255,.18)",overflow:"hidden"}}>
+                    <div style={{width:`${habitLevelPct}%`,height:"100%",borderRadius:99,background:"white",transition:"width .45s ease"}}/>
+                  </div>
+                  <div style={{fontSize:10,opacity:.72,marginTop:6}}>{120-(habitXP%120)} XP menuju level berikutnya</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:18}}>
+              {[
+                {l:"Hari ini",v:`${habitDoneToday}/${habitTotalToday||0}`,sub:"habit selesai",c:T.accent,bg:T.accentBg},
+                {l:"Perfect streak",v:`${perfectDayStreak} hari`,sub:"semua habit beres",c:T.ok,bg:T.okBg},
+                {l:"Best streak",v:`${habitBestAll} hari`,sub:"rekor terbaik",c:T.info,bg:T.infoBg},
+                {l:"Total clear",v:habitTotalDone,sub:"check sepanjang waktu",c:T.warn,bg:T.warnBg},
+              ].map(x=><div key={x.l} style={{background:x.bg,border:`1px solid ${x.c}22`,borderRadius:14,padding:"14px 16px"}}>
+                <div style={{fontSize:9,color:T.muted,fontWeight:900,letterSpacing:1.1,textTransform:"uppercase",marginBottom:6}}>{x.l}</div>
+                <div style={{fontSize:18,fontWeight:900,color:x.c,marginBottom:2}}>{x.v}</div>
+                <div style={{fontSize:10,color:T.muted}}>{x.sub}</div>
+              </div>)}
+            </div>
+
+            <Card ch={<>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:14,flexWrap:"wrap"}}>
+                <div>
+                  <div style={{fontSize:16,fontWeight:900,color:T.text}}>Quest hari ini</div>
+                  <div style={{fontSize:12,color:T.muted,marginTop:2}}>Progress harian reset otomatis besok. Streak tetap hidup kalau kamu konsisten.</div>
+                </div>
+                <div style={{minWidth:isMobile?"100%":220}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11,fontWeight:800,color:T.accent,marginBottom:5}}>
+                    <span>Daily progress</span><span>{Math.round(habitTodayPct)}%</span>
+                  </div>
+                  <PBar pct={habitTodayPct} c={T.accent} h={9}/>
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.2fr .9fr .7fr auto",gap:10,alignItems:"center"}}>
+                <input value={habitForm.nama} onChange={e=>setHabitForm(f=>({...f,nama:e.target.value}))} placeholder="Nama habit, contoh: Catat transaksi malam" style={IS}/>
+                <input value={habitForm.target} onChange={e=>setHabitForm(f=>({...f,target:e.target.value}))} placeholder="Target, contoh: 5 menit" style={IS}/>
+                <select value={habitForm.icon} onChange={e=>setHabitForm(f=>({...f,icon:e.target.value}))} style={IS}>
+                  {["🧾","💧","🏃","📚","🧘","💰","🍽️","😴","🐾","🔥","⭐","🎯"].map(i=><option key={i}>{i}</option>)}
+                </select>
+                <Btn onClick={addHabit} ch="Tambah quest" style={{padding:"10px 16px",whiteSpace:"nowrap"}}/>
+              </div>
+            </>} style={{marginBottom:18}}/>
+
+            {habitTotalToday===0&&<LaunchEmpty
+              icon="🐾"
+              title="Belum ada habit harian"
+              desc="Mulai dari rutinitas kecil dulu. Habit yang cocok untuk AturDuitku: catat pengeluaran, cek saldo, minum air, baca 5 menit, atau review budget."
+              actionLabel="Buat habit pertama"
+              onAction={()=>addHabit()}
+              secondaryLabel="Pakai starter"
+              onSecondary={()=>setS(p=>({...p,habits:[
+                {id:Date.now()+1,nama:"Catat pengeluaran malam",icon:"🧾",target:"1x per hari",createdAt:today(),active:true,doneDates:[]},
+                {id:Date.now()+2,nama:"Cek saldo dompet",icon:"💰",target:"2 menit",createdAt:today(),active:true,doneDates:[]},
+                {id:Date.now()+3,nama:"Minum air",icon:"💧",target:"6 gelas",createdAt:today(),active:true,doneDates:[]},
+              ]}))}
+              style={{marginBottom:18}}
+            />}
+
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14,marginBottom:18}}>
+              {activeHabits.map(h=>{
+                const done=habitDone(h);
+                const streak=habitStreak(h);
+                const best=habitBestStreak(h);
+                return(
+                  <div key={h.id} className={done?"habit-complete":""} style={{background:T.card,border:`1.5px solid ${done?T.okBorder:T.border}`,borderRadius:16,padding:16,boxShadow:done?`0 10px 28px rgba(34,197,94,.12)`:T.shadow,transition:"all .2s"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",marginBottom:12}}>
+                      <button onClick={()=>toggleHabit(h.id)} style={{width:48,height:48,borderRadius:16,border:`2px solid ${done?T.ok:T.border}`,background:done?T.okBg:T.cardAlt,cursor:"pointer",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .18s"}} title={done?"Batalkan selesai":"Tandai selesai"}>
+                        {done?"✅":h.icon||"🐾"}
+                      </button>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:14,fontWeight:900,color:T.text,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.nama}</div>
+                        <div style={{fontSize:11,color:T.muted}}>{h.target||"1x per hari"}</div>
+                      </div>
+                      <Del onClick={()=>deleteHabit(h.id)}/>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+                      <div style={{background:T.accentBg,borderRadius:11,padding:"9px 10px"}}>
+                        <div style={{fontSize:9,color:T.accent,fontWeight:900,textTransform:"uppercase",letterSpacing:.8}}>Streak</div>
+                        <div style={{fontSize:17,fontWeight:900,color:T.accent}}>🔥 {streak}</div>
+                      </div>
+                      <div style={{background:T.infoBg,borderRadius:11,padding:"9px 10px"}}>
+                        <div style={{fontSize:9,color:T.info,fontWeight:900,textTransform:"uppercase",letterSpacing:.8}}>Best</div>
+                        <div style={{fontSize:17,fontWeight:900,color:T.info}}>🏆 {best}</div>
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5}}>
+                      {Array.from({length:7},(_,i)=>dateAdd(habitDay,i-6)).map(day=>{
+                        const dDone=habitDone(h,day);
+                        return <div key={day} title={day} style={{height:28,borderRadius:8,background:dDone?T.okBg:T.cardAlt,border:`1px solid ${dDone?T.okBorder:T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:900,color:dDone?T.ok:T.muted}}>{dDone?"✓":Number(day.slice(8))}</div>;
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {habitTotalToday>0&&<Card ch={<>
+              <Sec t="Reward board" sub="Gamifikasi kecil supaya user punya alasan balik setiap hari"/>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:10}}>
+                {[
+                  {icon:"🐣",t:"Pemula konsisten",d:"Selesaikan 3 habit total",ok:habitTotalDone>=3},
+                  {icon:"🔥",t:"Streak keeper",d:"Jaga streak 3 hari",ok:habitBestAll>=3},
+                  {icon:"👑",t:"Perfect week",d:"7 perfect day berturut-turut",ok:perfectDayStreak>=7},
+                ].map(b=><div key={b.t} style={{display:"flex",gap:10,alignItems:"center",padding:"12px 13px",borderRadius:13,border:`1px solid ${b.ok?T.okBorder:T.border}`,background:b.ok?T.okBg:T.cardAlt}}>
+                  <span style={{fontSize:24,filter:b.ok?"none":"grayscale(1)",opacity:b.ok?1:.55}}>{b.icon}</span>
+                  <span><span style={{display:"block",fontSize:12,fontWeight:900,color:b.ok?T.ok:T.text}}>{b.t}</span><span style={{display:"block",fontSize:10,color:T.muted}}>{b.d}</span></span>
+                </div>)}
+              </div>
+            </>} />}
           </>}
 
           {/* ══════════════════════════════════════════════════════════
