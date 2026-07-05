@@ -933,6 +933,7 @@ const Calculator=({value,onChange,onClose})=>{
 // ─── KALKULATOR FINANSIAL (NEW) ────────────────────────────────────────────────
 const KalkulatorFinansial = ({onClose}) => {
   const T=useT();
+  const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
   const [tab, setTab] = useState("investasi");
   const [inv, setInv] = useState({awal: "1000000", rutin: "500000", bunga: "8", tahun: "5"});
   const [pinj, setPinj] = useState({pokok: "10000000", bunga: "10", tenor: "12"});
@@ -963,7 +964,7 @@ const KalkulatorFinansial = ({onClose}) => {
       {tab==="investasi" && <div>
          <label style={LS}>Modal Awal (Rp)</label><CurIn value={inv.awal} onChange={v=>setInv({...inv,awal:v})} style={IS}/>
          <label style={LS}>Nabung Rutin per Bulan (Rp)</label><CurIn value={inv.rutin} onChange={v=>setInv({...inv,rutin:v})} style={IS}/>
-         <div style={{display:"flex",gap:10}}>
+         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
            <div style={{flex:1}}><label style={LS}>Bunga Tahunan (%)</label><input type="number" value={inv.bunga} onChange={e=>setInv({...inv,bunga:e.target.value})} style={IS}/></div>
            <div style={{flex:1}}><label style={LS}>Lama (Tahun)</label><input type="number" value={inv.tahun} onChange={e=>setInv({...inv,tahun:e.target.value})} style={IS}/></div>
          </div>
@@ -974,7 +975,7 @@ const KalkulatorFinansial = ({onClose}) => {
       </div>}
       {tab==="pinjaman" && <div>
          <label style={LS}>Pokok Pinjaman (Rp)</label><CurIn value={pinj.pokok} onChange={v=>setPinj({...pinj,pokok:v})} style={IS}/>
-         <div style={{display:"flex",gap:10}}>
+         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
            <div style={{flex:1}}><label style={LS}>Bunga Tahunan (%)</label><input type="number" value={pinj.bunga} onChange={e=>setPinj({...pinj,bunga:e.target.value})} style={IS}/></div>
            <div style={{flex:1}}><label style={LS}>Tenor (Bulan)</label><input type="number" value={pinj.tenor} onChange={e=>setPinj({...pinj,tenor:e.target.value})} style={IS}/></div>
          </div>
@@ -4800,7 +4801,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
 
       {/* ── MODALS ── */}
       {modal&&(
-        <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",zIndex:1000,padding:isMobile?0:"16px"}} onClick={()=>setModal(null)}>
+        <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",zIndex:1000,padding:isMobile?0:"16px",paddingTop:isMobile?"max(12px, env(safe-area-inset-top))":undefined}} onClick={()=>setModal(null)}>
           <div className="modal-pop" style={{cursor:"pointer",background:T.card,borderRadius:isMobile?"24px 24px 0 0":20,padding:isMobile?"20px max(18px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(18px, env(safe-area-inset-left))":"26px",width:"100%",maxWidth:isMobile?"100%":520,maxHeight:isMobile?"min(88svh, calc(var(--app-height, 100dvh) - 12px))":"min(92vh, calc(var(--app-height, 100dvh) - 32px))",overflowY:"auto",overflowX:"hidden",color:T.text,WebkitOverflowScrolling:"touch"}} onClick={e=>e.stopPropagation()}>
 
             {isMobile&&<div style={{width:40,height:4,borderRadius:99,background:"rgba(0,0,0,.15)",margin:"-8px auto 16px",flexShrink:0}}/>}
@@ -4815,10 +4816,10 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {modal.type==="importJSON"&&<>
               <div style={{fontSize:16,fontWeight:800,marginBottom:8,color:T.text}}>{t("restoreTitle")}</div>
               <div style={{fontSize:12,color:T.muted,marginBottom:16,background:T.warnBg,padding:12,borderRadius:10,border:`1px solid ${T.warnBorder}`}}>
-                ⚠️ Import akan <strong>mengganti semua data</strong> yang ada sekarang dengan data dari file backup. Pastikan file backup adalah dari AturDuitku.
+                Import akan <strong>mengganti semua data</strong> yang ada sekarang dengan data dari file backup. Pastikan file backup memang berasal dari AturDuitku.
               </div>
               <label style={{display:"block",padding:"40px 20px",border:`2px dashed ${T.accent}`,borderRadius:12,textAlign:"center",cursor:"pointer",background:T.accentBg,color:T.accent,fontWeight:700,fontSize:13}}>
-                📁 Klik untuk pilih file .json
+                Pilih file backup .json
                 <input type="file" accept=".json" style={{display:"none"}} onChange={e=>importJSON(e.target.files[0])}/>
               </label>
               <Btn onClick={()=>setModal(null)} ch={t("cancel")} c={T.muted} outline style={{width:"100%",padding:10,marginTop:12}}/>
@@ -4854,7 +4855,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <div style={{fontSize:17,fontWeight:800,color:T.text,marginBottom:8}}>{modal.title}</div>
                 <div style={{fontSize:13,color:T.sub,lineHeight:1.6}}>{modal.msg}</div>
               </div>
-              <div style={{display:"flex",gap:10}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
                 <Btn onClick={()=>setModal(null)} ch={t("cancel")} c={T.muted} outline style={{flex:1,padding:11}}/>
                 <Btn onClick={modal.onConfirm} ch={t("confirmBtn")} c={modal.danger?"#B91C1C":T.accent} style={{flex:1,padding:11}}/>
               </div>
@@ -4866,7 +4867,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {/* TX Modal */}
             {modal.type==="tx"&&<>
               <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{t("newTx")}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>Catat transaksi baru dengan detail yang cukup supaya laporan tetap akurat.</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
                 {[{v:"pengeluaran",l:t("outflow2")},{v:"pemasukan",l:t("inflow2")},{v:"tabungan",l:t("savingShort")},{v:"transfer",l:"Transfer"}].map(({v,l})=>(
                   <button key={v} onClick={()=>setTxForm(f=>({...f,tipe:v}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${txForm.tipe===v?T.accent:T.inputBorder}`,background:txForm.tipe===v?T.accentBg:T.input,color:txForm.tipe===v?T.accent:T.sub}}>{l}</button>
                 ))}
@@ -4878,7 +4879,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <button onClick={()=>openCalc("jml",txForm.jml,v=>setTxForm(f=>({...f,jml:v})))} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:12,fontWeight:800,color:T.accent}}>Calc</button>
               </div>
               <label style={LS}>{t("description")}</label><input placeholder={t("txDescPlaceholder")} value={txForm.ket} onChange={e=>setTxForm(f=>({...f,ket:e.target.value}))} style={{...IS,marginBottom:10}}/>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
                 <div><label style={LS}>{txForm.tipe==="transfer"?t("fromWallet"):t("dompet")}</label>
                 <select value={txForm.dompetId} onChange={e=>setTxForm(f=>({...f,dompetId:Number(e.target.value)}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama}</option>)}</select></div>
                 {txForm.tipe==="pengeluaran"&&<div><label style={LS}>{t("category")}</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:Number(e.target.value),subKat:""}))} style={IS}><option value="">-- Pilih --</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{b.icon} {b.kat}</option>)}</select></div>}
@@ -4901,7 +4902,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {modal.type==="bulk"&&<>
               <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{t("bulkTitle")}</div>
               <div style={{fontSize:12,color:T.muted,marginBottom:16}}>Masukkan beberapa transaksi sekaligus dengan format yang rapi. Cocok untuk input histori harian atau pindahan catatan lama.</div>
-              <div style={{overflowX:"auto"}}>
+              <div style={{overflowX:"auto",border:`1px solid ${T.border}`,borderRadius:12,background:T.cardAlt}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                   <thead><tr style={{background:T.cardAlt}}>{[lang==="en"?[t("txHead1"),t("amount"),t("type"),t("dompet"),t("txHead2"),""]:["Tanggal","Jumlah","Tipe","Dompet","Keterangan",""]].map(h=><th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,borderBottom:`1px solid ${T.border}`}}>{h}</th>)}</tr></thead>
                   <tbody>{bulkRows.map((r,i)=>(
@@ -4916,7 +4917,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   ))}</tbody>
                 </table>
               </div>
-              <div style={{display:"flex",justifyContent:"space-between",marginTop:12}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr auto",gap:10,marginTop:12,alignItems:"center"}}>
                 <Btn onClick={()=>setBulkRows([...bulkRows,{tgl:bulkRows[bulkRows.length-1]?.tgl||today(),jml:"",tipe:bulkRows[bulkRows.length-1]?.tipe||"pengeluaran",dompetId:bulkRows[bulkRows.length-1]?.dompetId||1,katId:"",ket:""}])} ch="+ Tambah baris" c={T.accent} outline style={{padding:"10px 14px"}}/>
                 <Btn onClick={addBulk} ch={`Simpan ${bulkRows.filter(r=>r.jml).length} transaksi`} style={{padding:"10px 18px"}}/>
               </div>
@@ -4939,7 +4940,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {modal.type==="goal"&&<>
               <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{t("addGoalTitle")}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>Buat target yang jelas supaya tabungan terasa punya arah.</div>
               <label style={LS}>Pilih ikon</label>
-              <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:10,border:`1.5px solid ${T.inputBorder}`,borderRadius:8,marginBottom:10}}>
+              <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:10,border:`1.5px solid ${T.inputBorder}`,borderRadius:8,marginBottom:10,maxHeight:isMobile?170:"none",overflowY:isMobile?"auto":"visible"}}>
                 {DREAM_ICONS.map(ico=><button key={ico} onClick={()=>setGoalForm(f=>({...f,icon:ico}))} style={{padding:"5px 7px",borderRadius:7,border:`2px solid ${goalForm.icon===ico?T.accent:"transparent"}`,background:goalForm.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:20,fontFamily:"inherit"}}>{ico}</button>)}
               </div>
               <label style={LS}>{t("goalName")}</label><input placeholder={t("goalPlaceholder")} value={goalForm.nama} onChange={e=>setGoalForm(f=>({...f,nama:e.target.value}))} style={{...IS,marginBottom:10}}/>
@@ -4959,9 +4960,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               
               <div style={{background:T.cardAlt, padding:14, borderRadius:10, border:`1.5px dashed ${T.border}`, marginBottom:16}}>
                  <label style={{...LS, color:T.text}}>{t("useWalletBal")}</label>
-                 <div style={{display:"flex", gap:10, marginBottom:asetForm.beliDariDompet?10:0, alignItems:"center"}}>
+                 <div style={{display:"flex", gap:10, marginBottom:asetForm.beliDariDompet?10:0, alignItems:"flex-start"}}>
                     <input type="checkbox" checked={asetForm.beliDariDompet} onChange={e=>setAsetForm(f=>({...f,beliDariDompet:e.target.checked}))} style={{width:18, height:18}}/>
-                    <span style={{fontSize:13, fontWeight:600}}>Potong saldo dari dompet terpilih</span>
+                    <span style={{fontSize:13, fontWeight:600,lineHeight:1.45}}>Potong saldo dari dompet terpilih</span>
                  </div>
                  {asetForm.beliDariDompet && (
                     <select value={asetForm.dompetId} onChange={e=>setAsetForm(f=>({...f,dompetId:Number(e.target.value)}))} style={IS}>
@@ -5816,7 +5817,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {/* Riwayat Saldo Per Bulan */}
             <Card ch={<>
               <Sec t={t("histBalance")} sub={lang==="en"?"Balance estimated from transactions":"Saldo tiap dompet diestimasi berdasarkan transaksi historis"}/>
-              <div style={{overflowX:"auto"}}>
+              <div style={{overflowX:"auto",border:`1px solid ${T.border}`,borderRadius:12,background:T.cardAlt}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:400}}>
                   <thead>
                     <tr style={{background:T.cardAlt}}>
@@ -6512,5 +6513,4 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
     </ThemeCtx.Provider>
   );
 }
-
 
