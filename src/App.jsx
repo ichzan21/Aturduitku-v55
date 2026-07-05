@@ -813,6 +813,7 @@ const authErrorMessage=(error)=>{
   if(code.includes("email-already-in-use")) return "Email ini sudah terdaftar. Coba masuk saja.";
   if(code.includes("weak-password")) return "Password minimal 6 karakter.";
   if(code.includes("invalid-email")) return "Format email belum valid.";
+  if(code.includes("operation-not-allowed")) return "Login email belum aktif. Admin perlu mengaktifkan Email/Password di Firebase Authentication dulu.";
   if(code.includes("too-many-requests")) return "Terlalu banyak percobaan. Coba lagi sebentar.";
   return error?.message || "Autentikasi gagal. Coba lagi ya.";
 };
@@ -4760,10 +4761,13 @@ Saldo amplop bertambah.`}]);
           {authMode==="signup"&&<input value={authForm.name} onChange={e=>setAuthForm(f=>({...f,name:e.target.value}))} placeholder="Nama lengkap" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/>}
           <input value={authForm.email} onChange={e=>setAuthForm(f=>({...f,email:e.target.value}))} placeholder="Email" type="email" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/>
           <input value={authForm.password} onChange={e=>setAuthForm(f=>({...f,password:e.target.value}))} placeholder="Password" type="password" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/>
-          {authError&&<div style={{fontSize:11,color:"#FCA5A5",marginBottom:10,lineHeight:1.5}}>{authError}</div>}
+          {authError&&<div style={{fontSize:11,color:"#FCA5A5",marginBottom:10,lineHeight:1.5,background:"rgba(127,29,29,.22)",border:"1px solid rgba(252,165,165,.26)",borderRadius:10,padding:"9px 11px"}}>{authError}</div>}
           <button onClick={handleEmailAuth} style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#8B5CF6,#6D28D9)",color:"white",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
             {authMode==="signup" ? "Daftar dengan Email" : "Masuk dengan Email"}
           </button>
+          <div style={{fontSize:10,color:"#A78BFA",lineHeight:1.55,marginTop:10,textAlign:"center"}}>
+            Google dan Email bisa dipakai setelah provider aktif di Firebase.
+          </div>
         </div>
 
         <div style={{color:"#6D28D9",fontSize:11,marginTop:16,textAlign:"center",lineHeight:1.6}}>
