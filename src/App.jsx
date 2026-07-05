@@ -792,17 +792,17 @@ const getMShort = (lang) => lang==="en" ? MSHORT_EN : ["Jan","Feb","Mar","Apr","
 
 // ─── DEFAULT DATA ─────────────────────────────────────────────────────────────
 const INIT_BUDGETS=[
-  {id:1,kat:"Makan & Minum",icon:"🍜",kelas:"Kebutuhan",alokasi:"0",sub:[]},
-  {id:2,kat:"Transportasi",icon:"🚗",kelas:"Kebutuhan",alokasi:"0",sub:[]},
-  {id:3,kat:"Tagihan & Utilitas",icon:"💡",kelas:"Kebutuhan",alokasi:"0",sub:[{nama:"Listrik",emoji:"⚡",alokasi:"0",tempo:null},{nama:"Internet",emoji:"📶",alokasi:"0",tempo:null}]},
-  {id:4,kat:"Kesehatan",icon:"💊",kelas:"Kebutuhan",alokasi:"0",sub:[]},
-  {id:5,kat:"Belanja",icon:"🛍️",kelas:"Keinginan",alokasi:"0",sub:[]},
-  {id:6,kat:"Hiburan",icon:"🎮",kelas:"Keinginan",alokasi:"0",sub:[]},
-  {id:7,kat:"Pendidikan",icon:"📚",kelas:"Keinginan",alokasi:"0",sub:[]},
-  {id:8,kat:"Investasi",icon:"📈",kelas:"Kebutuhan",alokasi:"0",sub:[]},
-  {id:9,kat:"Lainnya",icon:"📦",kelas:"Kebutuhan",alokasi:"0",sub:[]},
+  {id:1,kat:"Makan & Minum",icon:"FOOD",kelas:"Kebutuhan",alokasi:"0",sub:[]},
+  {id:2,kat:"Transportasi",icon:"MOVE",kelas:"Kebutuhan",alokasi:"0",sub:[]},
+  {id:3,kat:"Tagihan & Utilitas",icon:"BILL",kelas:"Kebutuhan",alokasi:"0",sub:[{nama:"Listrik",emoji:"PAY",alokasi:"0",tempo:null},{nama:"Internet",emoji:"NET",alokasi:"0",tempo:null}]},
+  {id:4,kat:"Kesehatan",icon:"HEAL",kelas:"Kebutuhan",alokasi:"0",sub:[]},
+  {id:5,kat:"Belanja",icon:"SHOP",kelas:"Keinginan",alokasi:"0",sub:[]},
+  {id:6,kat:"Hiburan",icon:"FUN",kelas:"Keinginan",alokasi:"0",sub:[]},
+  {id:7,kat:"Pendidikan",icon:"EDU",kelas:"Keinginan",alokasi:"0",sub:[]},
+  {id:8,kat:"Investasi",icon:"INV",kelas:"Kebutuhan",alokasi:"0",sub:[]},
+  {id:9,kat:"Lainnya",icon:"ETC",kelas:"Kebutuhan",alokasi:"0",sub:[]},
 ];
-const ADMIN_NAV={id:"admin",icon:"🛡️",label:"Admin"};
+const ADMIN_NAV={id:"admin",icon:"ADM",label:"Admin"};
 const LOCAL_OWNER_KEY="aturduitku_last_uid";
 
 const authErrorMessage=(error)=>{
@@ -817,9 +817,9 @@ const authErrorMessage=(error)=>{
 const INIT={
   name:"Iksanarsana",bulan:MONTHS[nowM()],tahun:String(nowY()),
   dompet:[
-    {id:1,tipe:"Bank",nama:"BCA",norek:"",saldo:"0",icon:"🏦"},
-    {id:2,tipe:"E-Wallet",nama:"GoPay",norek:"",saldo:"0",icon:"📱"},
-    {id:3,tipe:"Tunai",nama:"Tunai",norek:"",saldo:"0",icon:"💵"},
+    {id:1,tipe:"Bank",nama:"BCA",norek:"",saldo:"0",icon:"BANK"},
+    {id:2,tipe:"E-Wallet",nama:"GoPay",norek:"",saldo:"0",icon:"PAY"},
+    {id:3,tipe:"Tunai",nama:"Tunai",norek:"",saldo:"0",icon:"CASH"},
   ],
   txs:[],utang:[],budgets:INIT_BUDGETS,
   goals:[],asetTetap:[],targetDana:"0",
@@ -830,16 +830,16 @@ const INIT={
   googleEmail:"",
 };
 const NAV=[
-  {id:"home",icon:"🏠",label:"Home"},
-  {id:"dompet",icon:"💳",label:"Dompet"},
-  {id:"trans",icon:"🔄",label:"Transaksi"},
-  {id:"budget",icon:"📊",label:"Budget"},
-  {id:"amplop",icon:"✉️",label:"Amplop"},
-  {id:"goals",icon:"⭐",label:"Goals"},
-  {id:"aset",icon:"🏛️",label:"Aset"},
-  {id:"utang",icon:"📋",label:"Utang"},
-  {id:"laporan",icon:"📈",label:"Laporan"},
-  {id:"setting",icon:"⚙️",label:"Setting"},
+  {id:"home",icon:"HM",label:"Home"},
+  {id:"dompet",icon:"WL",label:"Dompet"},
+  {id:"trans",icon:"TX",label:"Transaksi"},
+  {id:"budget",icon:"BG",label:"Budget"},
+  {id:"amplop",icon:"ENV",label:"Amplop"},
+  {id:"goals",icon:"GL",label:"Goals"},
+  {id:"aset",icon:"AS",label:"Aset"},
+  {id:"utang",icon:"UT",label:"Utang"},
+  {id:"laporan",icon:"RP",label:"Laporan"},
+  {id:"setting",icon:"ST",label:"Setting"},
 ];
 
 // ─── REUSABLE COMPONENTS ──────────────────────────────────────────────────────
@@ -1054,7 +1054,7 @@ const NotificationPanel=({notifs,onClose})=>{
       <div style={{cursor:"pointer",width:"min(380px, 100vw)",background:T.card,height:"var(--app-height, 100dvh)",overflowY:"auto",boxShadow:T.shadowMd,animation:"slideInRight .25s cubic-bezier(.4,0,.2,1)",paddingBottom:"env(safe-area-inset-bottom, 0px)"}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:"20px 20px 14px",borderBottom:`1.5px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:T.card,zIndex:1}}>
           <div>
-            <div style={{fontWeight:900,fontSize:17,color:T.text}}>🔔 Notifikasi</div>
+            <div style={{fontWeight:900,fontSize:17,color:T.text}}>Notifikasi</div>
             <div style={{fontSize:11,color:T.muted,marginTop:1}}>{notifs.length} peringatan aktif</div>
           </div>
           <button onClick={onClose} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:9,width:32,height:32,cursor:"pointer",fontSize:15,color:T.sub,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center"}}>X</button>
@@ -1110,12 +1110,12 @@ const TrendChart=({trendData,isMobile})=>{
           </linearGradient>
           <linearGradient id="gOut" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
-            <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
+                      <span>Lokasi</span><span style={{fontWeight:600}}>{tzZone.city}</span>
           </linearGradient>
           <linearGradient id="gSave" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3}/>
-            <stop offset="95%" stopColor="#6366F1" stopOpacity={0}/>
-          </linearGradient>
+                    <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>Masuk {IDRs(totalIn)}</div>
+                    <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>Keluar {IDRs(totalOut)}</div>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke={T.borderLight} vertical={false}/>
         <XAxis dataKey="label" tick={{fontSize:10,fill:T.muted}} axisLine={false} tickLine={false}/>
@@ -1131,19 +1131,19 @@ const TrendChart=({trendData,isMobile})=>{
 
 // ─── DAILY SPEND CHART ────────────────────────────────────────────────────────
 const DailyChart=({txBulan,bulan,tahun})=>{
-  const T=useT();
+                <span style={{fontSize:11,fontWeight:800,color:T.err,background:"rgba(255,255,255,.5)",borderRadius:999,padding:"4px 8px"}} className="notif-bounce">ALERT</span>
   const mIdx=MONTHS.indexOf(bulan);const yr=Number(tahun);
   const daysInMonth=new Date(yr,mIdx+1,0).getDate();
-  const data=[];
+              <span style={{fontSize:12,color:T.err,fontWeight:700}}>Buka</span>
   for(let d=1;d<=daysInMonth;d++){
     const key=`${yr}-${String(mIdx+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
     const val=txBulan.filter(t=>t.tipe==="pengeluaran"&&t.tgl===key).reduce((a,b)=>a+N(b.jml),0);
     data.push({d:String(d),val});
   }
-  const now_=new Date();
-  const isCurrentMonth=mIdx===now_.getMonth()&&yr===now_.getFullYear();
+                {l:"Saving Rate",v:savRate>999?"999%+":PCT(savRate),vc:savRate>=20?T.ok:T.err,bg:savRate>=20?T.okBg:T.errBg,sub:savRate>=20?"Ideal >= 20%":"Di bawah target 20%"},
+                {l:t("netCashLabel"),v:IDRs(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg,sub:netCash>=0?"Surplus bulan ini":"Defisit bulan ini"},
   const today_num=isCurrentMonth?now_.getDate():-1;
-  return(
+                {l:"Pengeluaran Terbesar",v:topKat[0]?topKat[0].nama:"-",vc:T.warn,bg:T.warnBg,sub:topKat[0]?IDRs(topKat[0].nilai):"Belum ada data"},
     <ResponsiveContainer width="100%" height={130}>
       <BarChart data={data} margin={{top:4,right:4,bottom:0,left:0}}>
         <Tooltip formatter={v=>IDR(v)} labelFormatter={l=>`Tgl ${l}`} contentStyle={{borderRadius:8,fontSize:11,background:T.card,border:`1px solid ${T.border}`,color:T.text}}/>
@@ -5110,12 +5110,12 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                       {tzZone.zone&&<span style={{fontSize:11,fontWeight:700,background:"rgba(255,255,255,.2)",borderRadius:5,padding:"2px 7px",letterSpacing:.5}}>{tzZone.zone}</span>}
                     </div>
                     {tzZone.city&&<div style={{display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,.1)",borderRadius:8,padding:"5px 12px",fontSize:12,opacity:.9}}>
-                      <span>📍</span><span style={{fontWeight:600}}>{tzZone.city}</span>
+                      <span>Zona</span><span style={{fontWeight:600}}>{tzZone.city}</span>
                     </div>}
                   </div>
                   <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>↑ {IDRs(totalIn)}</div>
-                    <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>↓ {IDRs(totalOut)}</div>
+                    <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>Masuk {IDRs(totalIn)}</div>
+                    <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>Keluar {IDRs(totalOut)}</div>
                     <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>{sisaHari} {t("days")}</div>
                   </div>
                 </div>
@@ -5131,19 +5131,19 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {/* Notifications banner */}
             {notifications.length>0&&<div onClick={()=>setNotifOpen(true)} style={{background:T.errBg,border:`1px solid ${T.errBorder}`,borderRadius:12,padding:"11px 16px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
               <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                <span style={{fontSize:18}} className="notif-bounce">🔔</span>
+                <span style={{fontSize:11,fontWeight:800,color:T.err,background:"rgba(255,255,255,.5)",borderRadius:999,padding:"4px 8px"}} className="notif-bounce">ALERT</span>
                 <span style={{fontSize:13,fontWeight:700,color:T.err}}>{notifications.length} notifikasi perlu perhatianmu</span>
               </div>
-              <span style={{fontSize:12,color:T.err,fontWeight:700}}>Lihat →</span>
+              <span style={{fontSize:12,color:T.err,fontWeight:700}}>Buka</span>
             </div>}
 
             {/* Stats Row */}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:18}}>
               {[
-                {l:"Saving Rate",v:savRate>999?"999%+":PCT(savRate),vc:savRate>=20?T.ok:T.err,bg:savRate>=20?T.okBg:T.errBg,sub:savRate>=20?"✓ Ideal ≥ 20%":"⚠ Kurang dari 20%"},
-                {l:t("netCashLabel"),v:IDRs(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg,sub:netCash>=0?"Surplus bulan ini":"⚠ Defisit bulan ini"},
+                {l:"Saving Rate",v:savRate>999?"999%+":PCT(savRate),vc:savRate>=20?T.ok:T.err,bg:savRate>=20?T.okBg:T.errBg,sub:savRate>=20?"Ideal >= 20%":"Di bawah target 20%"},
+                {l:t("netCashLabel"),v:IDRs(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg,sub:netCash>=0?"Surplus bulan ini":"Defisit bulan ini"},
                 {l:t("runwayLabel"),v:`${runwayReal} ${t("runwayMonths")}`,vc:T.info,bg:T.infoBg,sub:t("runwayDesc")},
-                {l:"Pengeluaran Terbesar",v:topKat[0]?topKat[0].nama:"—",vc:T.warn,bg:T.warnBg,sub:topKat[0]?IDRs(topKat[0].nilai):"Belum ada data"},
+                {l:"Pengeluaran Terbesar",v:topKat[0]?topKat[0].nama:"-",vc:T.warn,bg:T.warnBg,sub:topKat[0]?IDRs(topKat[0].nilai):"Belum ada data"},
               ].map(x=>(
                 <div key={x.l} style={{background:x.bg,borderRadius:13,padding:"14px 16px",border:`1px solid ${x.vc}22`,transition:"background .3s"}}>
                   <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1.2,marginBottom:6}}>{x.l}</div>
@@ -5311,7 +5311,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
                 <div style={{position:"relative",flex:1,minWidth:200}}>
                   <input placeholder={t("searchTx")} value={txSearch} onChange={e=>{setTxSearch(e.target.value);setTxPage(1);}} style={{...IS,paddingLeft:36,width:"100%"}}/>
-                  <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",fontSize:14}}>🔍</span>
+                  <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",fontSize:11,fontWeight:800,color:T.muted}}>Cari</span>
                 </div>
                 <select value={txFilt.dompet} onChange={e=>{setTxFilt(f=>({...f,dompet:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
                   <option value="">{t("allWallets")}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{d.icon} {d.nama}</option>)}
@@ -5319,9 +5319,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <select value={txFilt.tipe} onChange={e=>{setTxFilt(f=>({...f,tipe:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
                   <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="transfer">Transfer</option>
                 </select>
-                {(txSearch||txFilt.dompet||txFilt.tipe)&&<Btn onClick={()=>{setTxSearch("");setTxFilt({dompet:"",tipe:"",sub:""});setTxPage(1);}} ch="✕ Reset" c={T.err} outline style={{padding:"7px 12px",fontSize:12}}/>}
-                <Btn onClick={exportCSV} ch="📥 Export" c="#16A34A" outline style={{padding:"7px 12px",fontSize:12}}/>
-                <Btn onClick={()=>setModal({type:"importMutasi"})} ch="🏦 Import Mutasi" c={T.accent} style={{padding:"7px 12px",fontSize:12}}/>
+                {(txSearch||txFilt.dompet||txFilt.tipe)&&<Btn onClick={()=>{setTxSearch("");setTxFilt({dompet:"",tipe:"",sub:""});setTxPage(1);}} ch="Reset" c={T.err} outline style={{padding:"7px 12px",fontSize:12}}/>}
+                <Btn onClick={exportCSV} ch="Export" c="#16A34A" outline style={{padding:"7px 12px",fontSize:12}}/>
+                <Btn onClick={()=>setModal({type:"importMutasi"})} ch="Import Mutasi" c={T.accent} style={{padding:"7px 12px",fontSize:12}}/>
               </div>
             </>} style={{marginBottom:16}}/>
 
@@ -5486,12 +5486,12 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>{t("totalEnvFunds")}</div>
                   <div style={{fontSize:28,fontWeight:900,marginBottom:4}}>{IDR(amplopTotal)}</div>
                   <div style={{display:"flex",gap:10,fontSize:12,flexWrap:"wrap"}}>
-                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px"}}>✉️ {s.amplop.length} amplop</div>
-                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px"}}>💸 Terpakai: {IDRs(amplopTerpakai)}</div>
-                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px"}}>💰 {t("envelopeLeft")}: {IDRs(amplopTotal-amplopTerpakai)}</div>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px"}}>Amplop: {s.amplop.length}</div>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px"}}>Terpakai: {IDRs(amplopTerpakai)}</div>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px"}}>{t("envelopeLeft")}: {IDRs(amplopTotal-amplopTerpakai)}</div>
                   </div>
                 </div>
-                <Btn onClick={()=>setShowAddAmplop(!showAddAmplop)} ch={showAddAmplop?"✕ "+t("cancel"):t("createEnvelope")} style={{padding:"10px 18px",background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.4)",color:"white"}}/>
+                <Btn onClick={()=>setShowAddAmplop(!showAddAmplop)} ch={showAddAmplop?"Tutup form":t("createEnvelope")} style={{padding:"10px 18px",background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.4)",color:"white"}}/>
               </div>
             </div>
 
@@ -5514,8 +5514,8 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 </select></div>
                 <div><label style={LS}>Pilih Icon</label>
                 <div style={{display:"flex",flexWrap:"wrap",gap:4,padding:8,background:T.cardAlt,borderRadius:8,border:`1.5px solid ${T.inputBorder}`}}>
-                  {["✉️","🍜","🚗","🛍️","💡","💊","🎮","📚","✈️","🏠","👗","💻","🎵","☕","🎁","🏋️","🌿","🎓","📱","🚿"].map(ico=>(
-                    <button key={ico} onClick={()=>setAmplopForm(f=>({...f,icon:ico}))} style={{width:28,height:28,borderRadius:6,border:`2px solid ${amplopForm.icon===ico?T.accent:"transparent"}`,background:amplopForm.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:14,fontFamily:"inherit"}}>{ico}</button>
+                  {["ENV","FOD","MOV","SHP","IDEA","HLT","FUN","EDU","TRP","HOME","STYL","WORK","MUS","CAFE","GIFT","FIT","PLNT","STDY","PHN","CARE"].map(ico=>(
+                    <button key={ico} onClick={()=>setAmplopForm(f=>({...f,icon:ico}))} style={{minWidth:44,height:28,padding:"0 6px",borderRadius:6,border:`2px solid ${amplopForm.icon===ico?T.accent:"transparent"}`,background:amplopForm.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:10,fontWeight:800,fontFamily:"inherit"}}>{ico}</button>
                   ))}
                 </div></div>
               </div>
@@ -5588,9 +5588,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>{lang==="en"?"Total Net Worth":t("assetHero")+" Bersih (Net Worth)"}</div>
                   <div style={{fontSize:30,fontWeight:900,marginBottom:8}}>{IDR(totalAset)}</div>
                   <div style={{display:"flex",gap:10,fontSize:12,flexWrap:"wrap"}}>
-                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"6px 12px"}}>💳 {t("assetLiquid")}: {IDRs(totalSaldo)}</div>
-                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"6px 12px"}}>🏠 Tetap: {IDRs(s.asetTetap.reduce((a,b)=>a+N(b.nilai),0))}</div>
-                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"6px 12px"}}>📋 {t("assetDebt")}: -{IDRs(totalUtangAktif)}</div>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"6px 12px"}}>{t("assetLiquid")}: {IDRs(totalSaldo)}</div>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"6px 12px"}}>Aset Tetap: {IDRs(s.asetTetap.reduce((a,b)=>a+N(b.nilai),0))}</div>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"6px 12px"}}>{t("assetDebt")}: -{IDRs(totalUtangAktif)}</div>
                   </div>
                 </div>
                 <div style={{textAlign:"center",background:"rgba(0,0,0,.2)",borderRadius:12,padding:"14px 20px"}}>
