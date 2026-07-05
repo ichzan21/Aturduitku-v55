@@ -5364,7 +5364,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               <div>
                 <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>{t("budgetMonthly")}</div>
                 <div style={{fontSize:isMobile?20:28,fontWeight:900,marginBottom:4}}>{IDR(totalBudget)}</div>
-                <div style={{fontSize:12,opacity:.7}}>{t("budgetUsed")} {IDR(totalOut)} · {t("budgetLeft")} {IDR(Math.max(totalBudget-totalOut,0))}</div>
+                <div style={{fontSize:12,opacity:.78}}>{t("budgetUsed")} {IDR(totalOut)} � {t("budgetLeft")} {IDR(Math.max(totalBudget-totalOut,0))}</div>
               </div>
               <div style={{textAlign:"right"}}>
                 <div style={{fontSize:11,opacity:.6,marginBottom:4}}>{t("budgetDisc")}</div>
@@ -5380,7 +5380,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             <Card ch={<>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:showAddKat?14:0}}>
                 <div style={{fontSize:10,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:T.muted}}>{t("manageCategory")}</div>
-                <Btn onClick={()=>setShowAddKat(!showAddKat)} ch={showAddKat?"✕ "+t("cancel"):"+ "+t("addCategory2")} c={T.accent} outline style={{padding:"7px 14px",fontSize:12}}/>
+                <Btn onClick={()=>setShowAddKat(!showAddKat)} ch={showAddKat?"Tutup form":"+ Tambah kategori"} c={T.accent} outline style={{padding:"7px 14px",fontSize:12}}/>
               </div>
               {showAddKat&&<div style={{background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:12,padding:16,marginTop:10}}>
                 <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:10,marginBottom:12}}>
@@ -5391,7 +5391,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:10,background:T.card,borderRadius:8,border:`1.5px solid ${T.infoBorder}`,marginBottom:12}}>
                   {ICONS.slice(0,28).map(ico=><button key={ico} onClick={()=>setNewKat(f=>({...f,icon:ico}))} style={{width:34,height:34,borderRadius:7,border:`2px solid ${newKat.icon===ico?T.accent:"transparent"}`,background:newKat.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:17,fontFamily:"inherit"}}>{ico}</button>)}
                 </div>
-                <Btn onClick={()=>{if(!newKat.kat.trim()){showToast(t("toast_fillName"));return;}setS(p=>({...p,budgets:[...p.budgets,{id:Date.now(),kat:newKat.kat,icon:newKat.icon,kelas:newKat.kelas,alokasi:"0",sub:[]}]}));setNewKat({kat:"",icon:"📦",kelas:"Kebutuhan"});setShowAddKat(false);showToast("✅ Kategori ditambahkan!");}} ch="+ Tambah" style={{padding:"10px 20px"}}/>
+                <Btn onClick={()=>{if(!newKat.kat.trim()){showToast(t("toast_fillName"));return;}setS(p=>({...p,budgets:[...p.budgets,{id:Date.now(),kat:newKat.kat,icon:newKat.icon,kelas:newKat.kelas,alokasi:"0",sub:[]}]}));setNewKat({kat:"",icon:"ETC",kelas:"Kebutuhan"});setShowAddKat(false);showToast("Kategori ditambahkan!");}} ch="Simpan kategori" style={{padding:"10px 20px"}}/>
               </div>}
             </>} style={{marginBottom:20}}/>
 
@@ -5403,7 +5403,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <div key={kelas} style={{marginBottom:20}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
                     <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                      <span style={{fontSize:16}}>{kelas===t("needsCat")?"🔵":"🟡"}</span>
+                      <span style={{fontSize:10,fontWeight:800,color:kelas===t("needsCat")?"#2563EB":"#CA8A04",background:kelas===t("needsCat")?"rgba(37,99,235,.12)":"rgba(202,138,4,.12)",borderRadius:999,padding:"4px 8px"}}>{kelas===t("needsCat")?"NEED":"WANT"}</span>
                       <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{kelas}</div><div style={{fontSize:11,color:T.muted}}>Total: {IDR(kelasSpend)} / {IDR(kelasTotal)}</div></div>
                     </div>
                     <Pill c={kelas==="Kebutuhan"?"blue":"yellow"} ch={`${cats.length} ${lang==="en"?"categories":"kategori"}`}/>
@@ -5419,7 +5419,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                             <div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:20}}>{b.icon}</span><span style={{fontWeight:700,fontSize:13,color:T.text}}>{b.kat}</span></div>
                             <div style={{display:"flex",gap:6,alignItems:"center"}}>
                               <Pill c={over?"red":pct>80?"yellow":"green"} ch={over?t("overLabel"):pct>80?t("almostLabel"):t("safeLabel")} xs/>
-                              <button onClick={()=>setS(p=>({...p,budgets:p.budgets.filter(x=>x.id!==b.id)}))} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:13,padding:"2px 5px",borderRadius:4,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>🗑</button>
+                              <button onClick={()=>setS(p=>({...p,budgets:p.budgets.filter(x=>x.id!==b.id)}))} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:11,fontWeight:800,padding:"2px 5px",borderRadius:4,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>Hapus</button>
                             </div>
                           </div>
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
@@ -5457,11 +5457,11 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                                 <div><label style={{...LS,fontSize:9}}>Jatuh Tempo (tgl)</label><input type="number" min="1" max="31" placeholder="tgl" value={newSub.tempo} onChange={e=>setNewSub(f=>({...f,tempo:e.target.value}))} style={{...IS,fontSize:11,padding:"6px 9px"}}/></div>
                               </div>
                               <div style={{display:"flex",gap:8}}>
-                                <Btn onClick={()=>{if(!newSub.nama){showToast("⚠️ Isi nama!");return;}setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:[...x.sub,{nama:newSub.nama,emoji:newSub.emoji,alokasi:newSub.alokasi||"0",tempo:newSub.tempo||null}]})}));setNewSub({katId:null,nama:"",emoji:"📌",alokasi:"",tempo:""});showToast("✅ Subkategori ditambahkan!");}} ch="Simpan" c="#0369A1" style={{fontSize:11,padding:"6px 12px"}}/>
-                                <Btn onClick={()=>setNewSub({katId:null,nama:"",emoji:"📌",alokasi:"",tempo:""})} ch="Batal" c={T.muted} outline style={{fontSize:11,padding:"6px 12px"}}/>
+                                <Btn onClick={()=>{if(!newSub.nama){showToast("Isi nama dulu");return;}setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:[...x.sub,{nama:newSub.nama,emoji:newSub.emoji,alokasi:newSub.alokasi||"0",tempo:newSub.tempo||null}]})}));setNewSub({katId:null,nama:"",emoji:"PIN",alokasi:"",tempo:""});showToast("Subkategori ditambahkan!");}} ch="Simpan" c="#0369A1" style={{fontSize:11,padding:"6px 12px"}}/>
+                                <Btn onClick={()=>setNewSub({katId:null,nama:"",emoji:"PIN",alokasi:"",tempo:""})} ch="Batal" c={T.muted} outline style={{fontSize:11,padding:"6px 12px"}}/>
                               </div>
                             </div>
-                            :<button onClick={()=>setNewSub({katId:b.id,nama:"",emoji:"📌",alokasi:"",tempo:""})} style={{width:"100%",padding:7,borderRadius:8,border:`1.5px dashed ${T.infoBorder}`,background:T.infoBg,color:T.info,fontWeight:600,fontSize:11,cursor:"pointer",fontFamily:"inherit",marginTop:6}}>+ Tambah Subkategori</button>
+                            :<button onClick={()=>setNewSub({katId:b.id,nama:"",emoji:"PIN",alokasi:"",tempo:""})} style={{width:"100%",padding:7,borderRadius:8,border:`1.5px dashed ${T.infoBorder}`,background:T.infoBg,color:T.info,fontWeight:600,fontSize:11,cursor:"pointer",fontFamily:"inherit",marginTop:6}}>+ Tambah Subkategori</button>
                           }
                         </div>
                       );
@@ -5690,7 +5690,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             
             <div style={{marginBottom:18, display:"flex", justifyContent:"flex-end", gap:8, flexWrap:"wrap"}}>
               <Btn onClick={()=>setModal({type:"yearReview"})} ch={t("yearReviewBtn")} c={T.accentSoft} outline style={{padding:"7px 14px",fontSize:12}}/>
-              <Btn onClick={()=>setModal({type:"kalkulator"})} ch={"🧮 "+t("loanCalc")} c={T.accentSoft} outline style={{padding:"7px 14px",fontSize:12}}/>
+              <Btn onClick={()=>setModal({type:"kalkulator"})} ch={t("loanCalc")} c={T.accentSoft} outline style={{padding:"7px 14px",fontSize:12}}/>
               <Btn onClick={exportCSV} ch={t("exportCSV")} c="#16A34A" outline style={{padding:"7px 14px",fontSize:12}}/>
               <Btn onClick={exportSheets} ch={t("exportSheets")} c="#0F9D58" style={{padding:"7px 14px",fontSize:12}}/>
               <Btn onClick={exportPDF} ch={t("exportPDF")} c="#5B21B6" style={{padding:"7px 14px",fontSize:12}}/>
@@ -5700,7 +5700,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             <KomparasiBulanan txs={s.txs} budgets={s.budgets} T={T} isMobile={isMobile}/>
 
             <Card ch={<>
-              <Sec t={"❤️ "+t("healthScore")} sub="Dihitung dari rasio tabungan, disiplin anggaran, dan dana darurat"/>
+              <Sec t={t("healthScore")} sub="Dihitung dari rasio tabungan, disiplin anggaran, dan dana darurat"/>
               <div style={{display:"flex",gap:24,alignItems:"center",flexWrap:"wrap"}}>
                 <CircleGauge value={skorTotal} c={getC(skorTotal)} label="SKOR" size={120}/>
                 <div style={{flex:1,minWidth:200}}>
@@ -5710,7 +5710,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                     <div key={x.l} style={{marginBottom:10}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                         <span style={{fontSize:12,color:T.text,fontWeight:600}}>{x.l}</span>
-                        <span style={{fontSize:11,color:x.c,fontWeight:700}}>{Math.round(x.v)}/100 <span style={{color:T.muted,fontWeight:400}}>· {x.hint}</span></span>
+                        <span style={{fontSize:11,color:x.c,fontWeight:700}}>{Math.round(x.v)}/100 <span style={{color:T.muted,fontWeight:400}}>� {x.hint}</span></span>
                       </div>
                       <PBar pct={x.v} c={x.c}/>
                     </div>
@@ -5721,11 +5721,11 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
 
             {/* Trend 6 bulan */}
             <Card ch={<>
-              <Sec t={"📈 "+t("trend6mo")} right={
+              <Sec t={t("trend6mo")} right={
                 <div style={{display:"flex",gap:10,fontSize:10}}>
-                  <span style={{color:"#22C55E",fontWeight:700}}>● Masuk</span>
-                  <span style={{color:"#EF4444",fontWeight:700}}>● Keluar</span>
-                  <span style={{color:"#6366F1",fontWeight:700}}>● Tabung</span>
+                  <span style={{color:"#22C55E",fontWeight:700}}>IN</span>
+                  <span style={{color:"#EF4444",fontWeight:700}}>OUT</span>
+                  <span style={{color:"#6366F1",fontWeight:700}}>SAVE</span>
                 </div>
               }/>
               <TrendChart trendData={trendData} isMobile={isMobile}/>
@@ -5763,7 +5763,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
 
             {/* Performa Anggaran */}
             <Card ch={<>
-              <Sec t={"📊 "+t("budgetPerformance")} sub="Alokasi vs realisasi per kategori"/>
+              <Sec t={t("budgetPerformance")} sub="Alokasi vs realisasi per kategori"/>
               <div style={{display:"grid",gridTemplateColumns:"1fr 100px 100px minmax(120px,1fr) 70px",padding:"6px 0",borderBottom:`1.5px solid ${T.border}`,marginBottom:4,gap:8}}>
                 {[lang==="en"?["Category","Allocation","Realized","Progress","% Used"]:["Kategori","Alokasi","Realisasi","Progress","% Terpakai"]].map(h=><span key={h} style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8}}>{h}</span>)}
               </div>
@@ -5785,7 +5785,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {/* Prediksi + Saran */}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:18}}>
               <Card ch={<>
-                <Sec t={"🔮 "+t("prediction")}/>
+                <Sec t={t("prediction")}/>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
                   <div style={{background:T.errBg,borderRadius:10,padding:"12px 14px"}}>
                     <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>{t("prediksiPengeluaran")}</div>
@@ -5807,7 +5807,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                     <div style={{fontSize:12,color:saran.type==="over"?T.err:T.warn}}>{saran.msg}</div>
                   </div>
                 )):<div style={{background:T.okBg,border:`1px solid ${T.okBorder}`,borderRadius:10,padding:16,textAlign:"center"}}>
-                  <div style={{fontSize:24,marginBottom:8}}>🎉</div>
+                  <div style={{fontSize:20,marginBottom:8}}>Aman</div>
                   <div style={{fontSize:13,fontWeight:700,color:T.ok}}>{t("allSafe")}</div>
                 </div>}
               </>}/>
@@ -5821,7 +5821,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <thead>
                     <tr style={{background:T.cardAlt}}>
                       <th style={{padding:"8px 12px",textAlign:"left",fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",borderBottom:`1.5px solid ${T.border}`}}>Bulan</th>
-                      {s.dompet.map(d=><th key={d.id} style={{padding:"8px 12px",textAlign:"right",fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",borderBottom:`1.5px solid ${T.border}`}}>{d.icon} {d.nama}</th>)}
+                      {s.dompet.map(d=><th key={d.id} style={{padding:"8px 12px",textAlign:"right",fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",borderBottom:`1.5px solid ${T.border}`}}>{d.nama}</th>)}
                       <th style={{padding:"8px 12px",textAlign:"right",fontSize:10,color:T.accent,fontWeight:700,textTransform:"uppercase",borderBottom:`1.5px solid ${T.border}`}}>Total</th>
                     </tr>
                   </thead>
