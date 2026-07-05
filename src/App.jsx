@@ -6032,7 +6032,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 </>} style={{marginBottom:14}}/>
 
                 {/* Notification Summary */}
-                <Card ch={
+                <Card ch={(
                   <div>
                     <Sec t={t("notifSummary")} right={<button onClick={()=>setNotifOpen(true)} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:700}}>Lihat Semua</button>}/>
                     {notifications.length===0 ? (
@@ -6060,7 +6060,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                       </div>
                     )}
                   </div>
-                }/>
+                )}/>
               </div>
             </div>
           )}
