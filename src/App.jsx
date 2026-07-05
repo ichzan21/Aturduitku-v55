@@ -82,8 +82,9 @@ const fmtN = v=>{const n=String(v).replace(/\D/g,"");return n?n.replace(/\B(?=(\
 const pN   = v=>String(v).replace(/\./g,"");
 const N    = v=>Number(String(v||0).replace(/\./g,""))||0;
 const PCT  = v=>Number(v||0).toFixed(1)+"%";
-const today= ()=>new Date().toISOString().slice(0,10);
-const dateAdd=(key,days)=>{const d=new Date(`${key}T00:00:00`);d.setDate(d.getDate()+days);return d.toISOString().slice(0,10);};
+const dateKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const today= ()=>dateKey();
+const dateAdd=(key,days)=>{const [y,m,d]=String(key).split("-").map(Number);const dt=new Date(y,(m||1)-1,d||1);dt.setDate(dt.getDate()+days);return dateKey(dt);};
 const nowM = ()=>new Date().getMonth();
 const nowY = ()=>new Date().getFullYear();
 const MONTHS=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
@@ -2676,7 +2677,7 @@ export default function App(){
     const filtered = adminUsers.filter((user)=>{
       const matchFilter = adminFilter==="all" || (user.approvalStatus || "pending_review")===adminFilter;
       const matchPaymentFilter = adminPaymentFilter==="all" || (user.paymentStatus || "pending_info")===adminPaymentFilter;
-      const todayKey = new Date().toISOString().slice(0,10);
+      const todayKey = today();
       const reviewedKey = String(user.reviewedAt || "").slice(0,10);
       const matchReviewFilter = adminReviewFilter==="all"
         || (adminReviewFilter==="today" && reviewedKey===todayKey)
@@ -2925,6 +2926,8 @@ export default function App(){
   };
   const habitDoneToday=activeHabits.filter(h=>habitDone(h)).length;
   const habitTotalToday=activeHabits.length;
+  const habitOpenToday=activeHabits.filter(h=>!habitDone(h));
+  const habitCompletedToday=activeHabits.filter(h=>habitDone(h));
   const habitTodayPct=habitTotalToday?habitDoneToday/habitTotalToday*100:0;
   const habitTotalDone=s.habits.reduce((a,h)=>a+(h.doneDates?.length||0),0);
   const habitBestAll=s.habits.reduce((a,h)=>Math.max(a,habitBestStreak(h)),0);
@@ -3072,6 +3075,45 @@ export default function App(){
     if(completed){setHabitCelebrate(true);setTimeout(()=>setHabitCelebrate(false),900);showToast("🔥 Habit selesai! Streak naik.");}
   };
   const deleteHabit=(id)=>setModal({type:"confirm",title:"Hapus habit?",msg:"Riwayat streak habit ini akan ikut terhapus.",danger:true,onConfirm:()=>{setS(p=>({...p,habits:(p.habits||[]).filter(h=>h.id!==id)}));setModal(null);showToast("Habit dihapus");}});
+  const renderHabitCard=(h)=>{
+    const done=habitDone(h);
+    const streak=habitStreak(h);
+    const best=habitBestStreak(h);
+    return(
+      <div key={h.id} className={done?"habit-complete":""} style={{background:T.card,border:`1.5px solid ${done?T.okBorder:T.border}`,borderRadius:16,padding:16,boxShadow:done?`0 10px 28px rgba(34,197,94,.12)`:T.shadow,transition:"all .2s",position:"relative",overflow:"hidden",opacity:done?.92:1}}>
+        {done&&<div style={{position:"absolute",top:12,right:12,fontSize:9,fontWeight:900,letterSpacing:.9,textTransform:"uppercase",color:T.ok,background:T.okBg,border:`1px solid ${T.okBorder}`,borderRadius:999,padding:"4px 8px"}}>Selesai</div>}
+        <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",marginBottom:12}}>
+          <button onClick={()=>toggleHabit(h.id)} style={{width:52,height:52,borderRadius:17,border:`2px solid ${done?T.ok:T.border}`,background:done?T.okBg:T.cardAlt,cursor:"pointer",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .18s",boxShadow:done?`0 8px 18px rgba(34,197,94,.14)`:"none"}} title={done?"Batalkan selesai":"Tandai selesai"}>
+            {done?"✅":h.icon||"🐾"}
+          </button>
+          <div style={{flex:1,minWidth:0,paddingRight:done?70:0}}>
+            <div style={{fontSize:14,fontWeight:900,color:done?T.muted:T.text,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:done?"line-through":"none",textDecorationThickness:2}}>{h.nama}</div>
+            <div style={{fontSize:11,color:T.muted,textDecoration:done?"line-through":"none"}}>{h.target||"1x per hari"}</div>
+            <button onClick={()=>toggleHabit(h.id)} style={{marginTop:8,padding:"6px 10px",borderRadius:999,border:`1px solid ${done?T.okBorder:T.accent}`,background:done?T.okBg:T.accentBg,color:done?T.ok:T.accent,fontSize:11,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>
+              {done?"✓ Sudah selesai hari ini":"Ceklis selesai"}
+            </button>
+          </div>
+          <Del onClick={()=>deleteHabit(h.id)}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+          <div style={{background:T.accentBg,borderRadius:11,padding:"9px 10px"}}>
+            <div style={{fontSize:9,color:T.accent,fontWeight:900,textTransform:"uppercase",letterSpacing:.8}}>Streak</div>
+            <div style={{fontSize:17,fontWeight:900,color:T.accent}}>🔥 {streak}</div>
+          </div>
+          <div style={{background:T.infoBg,borderRadius:11,padding:"9px 10px"}}>
+            <div style={{fontSize:9,color:T.info,fontWeight:900,textTransform:"uppercase",letterSpacing:.8}}>Best</div>
+            <div style={{fontSize:17,fontWeight:900,color:T.info}}>🏆 {best}</div>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5}}>
+          {Array.from({length:7},(_,i)=>dateAdd(habitDay,i-6)).map(day=>{
+            const dDone=habitDone(h,day);
+            return <div key={day} title={day} style={{height:28,borderRadius:8,background:dDone?T.okBg:T.cardAlt,border:`1px solid ${dDone?T.okBorder:T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:900,color:dDone?T.ok:T.muted}}>{dDone?"✓":Number(day.slice(8))}</div>;
+          })}
+        </div>
+      </div>
+    );
+  };
 
 
   // ═══════════════════════════════════════════════════
@@ -5834,47 +5876,25 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               </div>
             </>} style={{marginBottom:18}}/>}
 
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14,marginBottom:18}}>
-              {activeHabits.map(h=>{
-                const done=habitDone(h);
-                const streak=habitStreak(h);
-                const best=habitBestStreak(h);
-                return(
-                  <div key={h.id} className={done?"habit-complete":""} style={{background:T.card,border:`1.5px solid ${done?T.okBorder:T.border}`,borderRadius:16,padding:16,boxShadow:done?`0 10px 28px rgba(34,197,94,.12)`:T.shadow,transition:"all .2s",position:"relative",overflow:"hidden"}}>
-                    {done&&<div style={{position:"absolute",top:12,right:12,fontSize:9,fontWeight:900,letterSpacing:.9,textTransform:"uppercase",color:T.ok,background:T.okBg,border:`1px solid ${T.okBorder}`,borderRadius:999,padding:"4px 8px"}}>Selesai</div>}
-                    <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",marginBottom:12}}>
-                      <button onClick={()=>toggleHabit(h.id)} style={{width:52,height:52,borderRadius:17,border:`2px solid ${done?T.ok:T.border}`,background:done?T.okBg:T.cardAlt,cursor:"pointer",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .18s",boxShadow:done?`0 8px 18px rgba(34,197,94,.14)`:"none"}} title={done?"Batalkan selesai":"Tandai selesai"}>
-                        {done?"✅":h.icon||"🐾"}
-                      </button>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:14,fontWeight:900,color:done?T.muted:T.text,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:done?"line-through":"none",textDecorationThickness:2}}>{h.nama}</div>
-                        <div style={{fontSize:11,color:T.muted,textDecoration:done?"line-through":"none"}}>{h.target||"1x per hari"}</div>
-                        <button onClick={()=>toggleHabit(h.id)} style={{marginTop:8,padding:"6px 10px",borderRadius:999,border:`1px solid ${done?T.okBorder:T.accent}`,background:done?T.okBg:T.accentBg,color:done?T.ok:T.accent,fontSize:11,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>
-                          {done?"✓ Sudah selesai hari ini":"Ceklis selesai"}
-                        </button>
-                      </div>
-                      <Del onClick={()=>deleteHabit(h.id)}/>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-                      <div style={{background:T.accentBg,borderRadius:11,padding:"9px 10px"}}>
-                        <div style={{fontSize:9,color:T.accent,fontWeight:900,textTransform:"uppercase",letterSpacing:.8}}>Streak</div>
-                        <div style={{fontSize:17,fontWeight:900,color:T.accent}}>🔥 {streak}</div>
-                      </div>
-                      <div style={{background:T.infoBg,borderRadius:11,padding:"9px 10px"}}>
-                        <div style={{fontSize:9,color:T.info,fontWeight:900,textTransform:"uppercase",letterSpacing:.8}}>Best</div>
-                        <div style={{fontSize:17,fontWeight:900,color:T.info}}>🏆 {best}</div>
-                      </div>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5}}>
-                      {Array.from({length:7},(_,i)=>dateAdd(habitDay,i-6)).map(day=>{
-                        const dDone=habitDone(h,day);
-                        return <div key={day} title={day} style={{height:28,borderRadius:8,background:dDone?T.okBg:T.cardAlt,border:`1px solid ${dDone?T.okBorder:T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:900,color:dDone?T.ok:T.muted}}>{dDone?"✓":Number(day.slice(8))}</div>;
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            {habitOpenToday.length>0&&<>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"2px 0 10px"}}>
+                <div style={{fontSize:11,color:T.accent,fontWeight:900,letterSpacing:1.3,textTransform:"uppercase"}}>Quest belum selesai</div>
+                <div style={{fontSize:11,color:T.muted,fontWeight:800}}>{habitOpenToday.length} tersisa</div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14,marginBottom:18}}>
+                {habitOpenToday.map(renderHabitCard)}
+              </div>
+            </>}
+
+            {habitCompletedToday.length>0&&<>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"2px 0 10px"}}>
+                <div style={{fontSize:11,color:T.ok,fontWeight:900,letterSpacing:1.3,textTransform:"uppercase"}}>Selesai hari ini</div>
+                <div style={{fontSize:11,color:T.muted,fontWeight:800}}>Besok muncul lagi sebagai quest baru</div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14,marginBottom:18}}>
+                {habitCompletedToday.map(renderHabitCard)}
+              </div>
+            </>}
 
             {habitTotalToday>0&&<Card ch={<>
               <Sec t="Reward board" sub="Gamifikasi kecil supaya user punya alasan balik setiap hari"/>
