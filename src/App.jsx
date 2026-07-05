@@ -4682,11 +4682,14 @@ Saldo amplop bertambah.`}]);
             ?"Akun ini sudah direview tetapi belum bisa diaktifkan. Kamu masih bisa hubungi admin untuk minta pengecekan ulang."
             :"Akun berhasil dibuat. Sekarang admin akan cek pembayaran dan mengaktifkan akses penuh setelah semuanya sesuai."}
         </div>
+        {accessProfile?.approvalStatus!=="rejected"&&<div style={{display:"grid",gridTemplateColumns:"1fr",gap:8,marginBottom:14}}>
+          {["Akun berhasil dibuat","Admin cek kecocokan pembayaran","Akses penuh dibuka setelah valid"].map((item,i)=><div key={item} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:12,padding:"10px 12px",color:i===2?"#C4B5FD":"white",fontSize:12,fontWeight:700}}><span style={{width:22,height:22,borderRadius:999,display:"inline-flex",alignItems:"center",justifyContent:"center",background:i===0?"rgba(134,239,172,.18)":i===1?"rgba(250,204,21,.18)":"rgba(196,181,253,.18)",color:i===0?"#86EFAC":i===1?"#FDE68A":"#C4B5FD",fontSize:11}}>{i+1}</span>{item}</div>)}
+        </div>}
         {accessProfile?.adminNotes&&<div style={{background:"rgba(255,255,255,.06)",borderRadius:14,padding:14,color:"#E9D5FF",fontSize:12,lineHeight:1.6,marginBottom:14}}>
           Catatan admin: {accessProfile.adminNotes}
         </div>}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          <button onClick={async()=>{setAccessLoading(true);try{await loadAccessProfile();}finally{setAccessLoading(false);}}} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.08)",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Cek status sekarang</button>
+          <button onClick={async()=>{setAccessLoading(true);try{await loadAccessProfile();}finally{setAccessLoading(false);}}} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.08)",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{accessLoading?"Mengecek...":"Cek status lagi"}</button>
           <button onClick={handleSignOut} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(252,165,165,.35)",background:"rgba(127,29,29,.22)",color:"#FCA5A5",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Keluar</button>
         </div>
       </div>
@@ -5759,7 +5762,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <Sec t={t("spendDetail")}/>
                 {pieData.length?<ResponsiveContainer width="100%" height={isMobile?150:200}>
                   <PieChart><Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={80} innerRadius={40} label={({percent})=>`${(percent*100).toFixed(0)}%`}>{pieData.map((_,i)=><Cell key={i} fill={PIE_C[i%PIE_C.length]}/>)}</Pie><Tooltip formatter={v=>IDR(v)} contentStyle={{borderRadius:8,fontSize:12,background:T.card,border:`1px solid ${T.border}`,color:T.text}}/></PieChart>
-                </ResponsiveContainer>:<div style={{textAlign:"center",padding:40,color:T.muted,fontSize:12}}>{t("noTxData")}</div>}
+                </ResponsiveContainer>:<LaunchEmpty title="Belum ada distribusi pengeluaran" desc="Tambahkan beberapa transaksi pengeluaran di bulan ini supaya kategori belanja, pola spending, dan insight laporan mulai terbentuk." actionLabel="Tambah transaksi" onAction={()=>setModal({type:"tx"})} secondaryLabel="Buka transaksi" onSecondary={()=>setPage("trans")} style={{padding:"28px 16px"}}/>}
               </>}/>
               <Card ch={<>
                 <Sec t={t("dailyExpense")} sub={s.bulan}/>
@@ -6205,7 +6208,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                     </div>
                   </div>
                 ))}
-                {!adminFilteredUsers.length&&<div style={{textAlign:"center",padding:"40px 20px",color:T.muted}}>Tidak ada user yang cocok dengan filter saat ini.</div>}
+                {!adminFilteredUsers.length&&<LaunchEmpty title="Tidak ada user yang cocok" desc="Filter yang aktif sedang tidak menemukan akun. Coba reset filter atau cari dengan email akun, buyer email, atau order ID lain." actionLabel="Reset filter" onAction={()=>{setAdminFilter("all");setAdminPaymentFilter("all");setAdminReviewFilter("all");setAdminQuery("");}} secondaryLabel="Refresh data" onSecondary={loadAdminUsers} style={{padding:"34px 18px"}}/>}
               </div>
               {adminFilteredUsers.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginTop:14}}>
                 <div style={{fontSize:11,color:T.muted}}>
