@@ -5865,7 +5865,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <Sec t={t("display")}/>
                 {/* Language Selector */}
                 <div style={{marginBottom:14}}>
-                  <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:8}}>🌐 {t("language")}</div>
+                  <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:8}}>Bahasa</div>
                   <div style={{display:"flex",gap:6}}>
                     {[{code:"id",flag:"🇮🇩",label:"Indonesia"},{code:"en",flag:"🇺🇸",label:"English"}].map(l=>(
                       <button key={l.code} onClick={()=>changeLang(l.code)} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"9px 12px",borderRadius:10,border:`2px solid ${lang===l.code?T.accent:T.border}`,background:lang===l.code?T.accentBg:T.card,color:lang===l.code?T.accent:T.sub,fontWeight:700,fontSize:13,cursor:"pointer",transition:"all .2s"}}>
@@ -5887,7 +5887,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 {/* Blur saldo toggle */}
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",background:T.cardAlt,borderRadius:10,border:`1px solid ${T.border}`,marginBottom:14}}>
                   <div>
-                    <div style={{fontWeight:700,fontSize:13,color:T.text}}>👁️ {t("blurBalance")}</div>
+                    <div style={{fontWeight:700,fontSize:13,color:T.text}}>{t("blurBalance")}</div>
                     <div style={{fontSize:11,color:T.muted}}>{t("blurDesc")}</div>
                   </div>
                   <button onClick={toggleBlur} style={{width:52,height:28,borderRadius:99,background:blurSaldo?T.accent:T.border,border:"none",cursor:"pointer",position:"relative",transition:"background .3s"}}>
@@ -5898,7 +5898,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 {/* Notification permission */}
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",background:T.cardAlt,borderRadius:10,border:`1px solid ${T.border}`,marginBottom:14}}>
                   <div>
-                    <div style={{fontWeight:700,fontSize:13,color:T.text}}>🔔 {t("notifications")}</div>
+                    <div style={{fontWeight:700,fontSize:13,color:T.text}}>{t("notifications")}</div>
                     <div style={{fontSize:11,color:T.muted}}>{t("notifDesc")}</div>
                   </div>
                   <button onClick={requestNotifPermission} style={{padding:"6px 14px",borderRadius:99,border:`1.5px solid ${T.accent}`,background:T.accentBg,color:T.accent,fontWeight:700,fontSize:11,cursor:"pointer"}}>
@@ -5913,15 +5913,15 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 </div>
                 
                 <div style={{marginBottom:12}}>
-                  <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>🟢 GOOGLE SHEETS</div>
+                  <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>EXPORT DATA</div>
                   <div style={{background:dark?"#1F1035":"#F0EBFF",borderRadius:10,padding:"12px",border:`1px solid ${T.border}`}}>
-                    <div style={{fontSize:12,fontWeight:700,color:T.accent,marginBottom:4}}>📊 Export Data</div>
+                    <div style={{fontSize:12,fontWeight:700,color:T.accent,marginBottom:4}}>Export laporan</div>
                     <div style={{fontSize:11,color:T.muted,lineHeight:1.6}}>Gunakan tombol <strong>Export Sheets</strong> atau <strong>Export PDF</strong> di halaman Laporan untuk download data kamu.</div>
                   </div>
                                   </div>
-                <Btn onClick={()=>{setS(p=>({...p,name:sfForm.name,targetDana:sfForm.targetDana,prevPemasukan:sfForm.prevPemasukan,prevPengeluaran:sfForm.prevPengeluaran}));showToast("✅ Tersimpan!");}} ch={lang==="en"?"💾 Save Changes":"💾 Simpan Perubahan"} style={{width:"100%",padding:11}}/>
+                <Btn onClick={()=>{setS(p=>({...p,name:sfForm.name,targetDana:sfForm.targetDana,prevPemasukan:sfForm.prevPemasukan,prevPengeluaran:sfForm.prevPengeluaran}));showToast("✅ Tersimpan!");}} ch={lang==="en"?"Save Changes":"Simpan perubahan"} style={{width:"100%",padding:11}}/>
                 <div style={{marginTop:16,paddingTop:14,borderTop:`1.5px solid ${T.errBorder}`}}>
-                  <div style={{fontSize:10,fontWeight:700,color:T.err,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>⚠️ Zona Berbahaya</div>
+                  <div style={{fontSize:10,fontWeight:700,color:T.err,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Zona berbahaya</div>
                   <button onClick={()=>setModal({type:"confirm",title:"Reset Semua Data",msg:"Tindakan ini akan menghapus SEMUA data keuanganmu secara permanen. Yakin ingin melanjutkan?",danger:true,onConfirm:()=>{
               localStorage.removeItem("aturduitku_data");
               localStorage.removeItem("aturduitku_onboarded");
@@ -5929,21 +5929,21 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               setOnboarded(false);
               setModal(null);
               if(fireUser){ saveUserData(fireUser.uid,{data:INIT,onboarded:false}); }
-              showToast("🗑️ Semua data direset!");
+              showToast("Semua data berhasil direset!");
             }})} style={{width:"100%",padding:10,borderRadius:10,border:`1.5px solid ${T.errBorder}`,background:T.errBg,color:T.err,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
-                    🗑️ Reset Semua Data
+                    Reset semua data
                   </button>
                 </div>
               </>}/>
               <div style={{display:"grid",gap:14,alignContent:"start"}}>
                 <Card ch={<>
-                  <Sec t="📤 Export Data"/>
+                  <Sec t="Export Data" sub="Akses export cepat tanpa perlu cari dari halaman lain."/>
                   <div style={{fontSize:12,color:T.muted,lineHeight:1.7}}>
                     Download data keuanganmu kapanpun:<br/>
-                    <strong style={{color:T.text}}>📊 Export Sheets</strong> → buka di Google Sheets<br/>
-                    <strong style={{color:T.text}}>📄 Export PDF</strong> → laporan siap cetak
+                    <strong style={{color:T.text}}>Export Sheets</strong> -> buka di Google Sheets<br/>
+                    <strong style={{color:T.text}}>Export PDF</strong> -> laporan siap cetak
                   </div>
-                  <Btn onClick={()=>navTo("laporan")} ch="Buka Laporan →" style={{marginTop:8,padding:"8px 14px",fontSize:12}}/>
+                  <Btn onClick={()=>navTo("laporan")} ch="Buka laporan" style={{marginTop:8,padding:"8px 14px",fontSize:12}}/>
                 </>}/>
 
                 <Card ch={<>
@@ -5957,16 +5957,16 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <Sec t={t("backupRestore")}/>
                   <div style={{fontSize:12,color:T.sub,marginBottom:14,lineHeight:1.5}}>Export semua data ke file JSON untuk backup, atau import kembali dari file backup sebelumnya.</div>
                   <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                    <Btn onClick={exportJSON} ch="📤 Export JSON" c="#16A34A" style={{flex:1,padding:"10px 14px"}}/>
-                    <Btn onClick={()=>setModal({type:"importJSON"})} ch="📥 Import JSON" c={T.info} outline style={{flex:1,padding:"10px 14px"}}/>
+                    <Btn onClick={exportJSON} ch="Export JSON" c="#16A34A" style={{flex:1,padding:"10px 14px"}}/>
+                    <Btn onClick={()=>setModal({type:"importJSON"})} ch="Import JSON" c={T.info} outline style={{flex:1,padding:"10px 14px"}}/>
                   </div>
                   <div style={{marginTop:10,fontSize:11,color:T.muted}}>{t("csvHint")}</div>
                 </>} style={{marginBottom:14}}/>
 
                 {/* Recurring Transactions */}
                 <Card ch={<>
-                  <Sec t={t("recurringTx")} right={<Btn onClick={()=>setShowAddRecurring(!showAddRecurring)} ch={showAddRecurring?"✕":t("add")} c={T.accent} outline style={{padding:"5px 12px",fontSize:11}}/>}/>
-                  <div style={{fontSize:11,color:T.sub,marginBottom:12}}>{t("recurringDesc2")} //langganan). Proses otomatis ke bulan aktif.</div>
+                  <Sec t={t("recurringTx")} right={<Btn onClick={()=>setShowAddRecurring(!showAddRecurring)} ch={showAddRecurring?"Tutup":t("add")} c={T.accent} outline style={{padding:"5px 12px",fontSize:11}}/>}/>
+                  <div style={{fontSize:11,color:T.sub,marginBottom:12}}>{t("recurringDesc2")} Proses akan masuk otomatis ke bulan aktif.</div>
 
                   {showAddRecurring&&<div style={{background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:10,padding:14,marginBottom:14}}>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
@@ -5976,8 +5976,8 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
                       <div><label style={{...LS,fontSize:9}}>{t("type")}</label>
                       <select value={recurringForm.tipe} onChange={e=>setRecurringForm(f=>({...f,tipe:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}>
-                        <option value="pengeluaran">↓ {t("expense")}</option>
-                        <option value="pemasukan">↑ {t("income")}</option>
+                        <option value="pengeluaran">{t("expense")}</option>
+                        <option value="pemasukan">{t("income")}</option>
                         <option value="tabungan">{t("savingShort")}</option>
                       </select></div>
                       <div><label style={{...LS,fontSize:9}}>{t("recurringDay")}</label><input type="number" min="1" max="31" placeholder="tgl" value={recurringForm.hari} onChange={e=>setRecurringForm(f=>({...f,hari:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></div>
@@ -5991,13 +5991,13 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
 
                   {s.recurring.length>0&&<>
                     <div style={{marginBottom:10}}>
-                      <Btn onClick={prosesRecurring} ch={`⚡ ${t("processAll")} ${s.bulan} ${s.tahun}`} c="#D97706" style={{width:"100%",padding:"10px 14px",fontSize:12}}/>
+                      <Btn onClick={prosesRecurring} ch={`${t("processAll")} ${s.bulan} ${s.tahun}`} c="#D97706" style={{width:"100%",padding:"10px 14px",fontSize:12}}/>
                     </div>
                     {s.recurring.map(r=>(
                       <div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${T.borderLight}`}}>
                         <div style={{display:"flex",gap:10,alignItems:"center"}}>
                           <div style={{width:32,height:32,borderRadius:8,background:r.tipe==="pemasukan"?T.okBg:r.tipe==="tabungan"?T.infoBg:T.errBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
-                            {r.tipe==="pemasukan"?"📈":r.tipe==="tabungan"?"🏦":"📉"}
+                            {r.tipe==="pemasukan"?"IN":r.tipe==="tabungan"?"SAVE":"OUT"}
                           </div>
                           <div>
                             <div style={{fontSize:12,fontWeight:700,color:T.text}}>{r.nama}</div>
@@ -6066,7 +6066,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               ))}
             </div>
             <Card ch={<>
-              <Sec t="Dashboard Admin" sub="Approve user manual setelah cek pembayaran dari landing page Scalev" right={<Btn onClick={loadAdminUsers} ch={adminLoading?"Memuat...":"Refresh"} c={T.info} outline style={{padding:"6px 12px",fontSize:11}}/>}/>
+              <Sec t="Dashboard Admin" sub="Review akun baru, cek status pembayaran, lalu approve manual setelah pembayaran cocok." right={<Btn onClick={loadAdminUsers} ch={adminLoading?"Memuat...":"Refresh data"} c={T.info} outline style={{padding:"6px 12px",fontSize:11}}/>}/>
               <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
                 {[
                   {label:"Fokus Pending",onClick:()=>{setAdminFilter("pending_review");setAdminPaymentFilter("all");}},
@@ -6100,14 +6100,14 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <option value="today">Direview hari ini</option>
                   <option value="unreviewed">Belum direview</option>
                 </select>
-                <input value={adminQuery} onChange={e=>setAdminQuery(e.target.value)} placeholder="Cari nama, email, buyer email, atau order ID" style={IS}/>
+                <input value={adminQuery} onChange={e=>setAdminQuery(e.target.value)} placeholder="Cari nama, email akun, buyer email, atau order ID" style={IS}/>
               </div>
-              <div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap",marginBottom:14,padding:"10px 12px",borderRadius:12,background:T.cardAlt,border:`1px solid ${T.border}`}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr auto",gap:12,marginBottom:14,padding:"12px 14px",borderRadius:12,background:T.cardAlt,border:`1px solid ${T.border}`}}>
                 <div style={{fontSize:12,color:T.text,fontWeight:700}}>
                   {adminFilteredUsers.length} user tampil, halaman {adminPage} / {adminPageCount}
                 </div>
                 <div style={{fontSize:11,color:T.muted}}>
-                  Urutan otomatis: pending dulu, lalu yang payment-nya masih perlu dicek.
+                  Urutan otomatis memprioritaskan user pending dan pembayaran yang masih perlu dicek.
                 </div>
               </div>
               <div style={{display:"grid",gap:12}}>
@@ -6185,7 +6185,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                     </div>
                   </div>
                 ))}
-                {!adminFilteredUsers.length&&<div style={{textAlign:"center",padding:"40px 20px",color:T.muted}}>Belum ada user yang cocok dengan filter ini.</div>}
+                {!adminFilteredUsers.length&&<div style={{textAlign:"center",padding:"40px 20px",color:T.muted}}>Tidak ada user yang cocok dengan filter saat ini.</div>}
               </div>
               {adminFilteredUsers.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginTop:14}}>
                 <div style={{fontSize:11,color:T.muted}}>
@@ -6202,7 +6202,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
         )}
 
         <div style={{textAlign:"center",padding:14,fontSize:11,color:T.muted,borderTop:`1.5px solid ${T.border}`,background:T.topbar,marginTop:8,transition:"background .3s", paddingBottom: isMobile ? 80 : 14}}>
-          AturDuitku · {s.name} Workspace · {s.bulan} {s.tahun} · {tzZone.city} {tzZone.zone} · {dark?"🌙 Dark":"☀️ Light"}
+          AturDuitku � {s.name} Workspace � {s.bulan} {s.tahun} � {tzZone.city} {tzZone.zone} � {dark?"Dark":"Light"}
         </div>
       </div>
 
