@@ -2761,7 +2761,7 @@ export default function App(){
         const urgent=alerts.filter(a=>a.type==="danger"||a.type==="warn");
         if(urgent.length>0){
           const a=urgent[0];
-          try{new Notification(a.title,{body:a.body,icon:"/favicon.svg"});}catch(e){}
+          try{new Notification(a.title,{body:a.body,icon:"/icon-192.png"});}catch(e){}
         }
       }
     };

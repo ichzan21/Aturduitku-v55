@@ -1,1 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#6D28D9"/><image href="/icon-192.png" x="5" y="5" width="90" height="90"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="22" fill="#6D28D9"/>
+  <path d="M25 39 21 18c-.6-3 2.8-5.1 5.2-3.3L42 26h16l15.8-11.3c2.4-1.8 5.8.3 5.2 3.3l-4 21c4.9 6 7.5 13.8 6.4 22.2C79.6 75.9 66.4 86 50 86S20.4 75.9 18.6 61.2C17.5 52.8 20.1 45 25 39Z" fill="#FDBA74"/>
+  <path d="M29.4 23.5 33 36.2 39.8 30 29.4 23.5ZM70.6 23.5 60.2 30 67 36.2l3.6-12.7Z" fill="#7C2D12"/>
+  <path d="M27 52c3.9-3.1 8.2-4.3 13-3.6M73 52c-3.9-3.1-8.2-4.3-13-3.6" fill="none" stroke="#7C2D12" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="37" cy="56" r="4.4" fill="#1F1035"/>
+  <circle cx="63" cy="56" r="4.4" fill="#1F1035"/>
+  <path d="M50 60.5c-3.8 0-6.2 2.1-6.2 4.2 0 2.3 2.6 3.4 6.2 3.4s6.2-1.1 6.2-3.4c0-2.1-2.4-4.2-6.2-4.2Z" fill="#7C2D12"/>
+  <path d="M50 67.3v4.1M50 71.4c-3.8 3.4-8.4 3.4-11.4-.2M50 71.4c3.8 3.4 8.4 3.4 11.4-.2" fill="none" stroke="#7C2D12" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M20 58h14M18 66h16M80 58H66M82 66H66" fill="none" stroke="#7C2D12" stroke-width="3.3" stroke-linecap="round" opacity=".75"/>
+</svg>
