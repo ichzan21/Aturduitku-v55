@@ -176,8 +176,8 @@ const TR = {
     ob_feat4:"Laporan bergaya bank",
     ob_feat5:"Import mutasi bank",
     ob_start:"Mulai Setup",
-    ob_steps:"Setup cepat • 3 langkah • < 1 menit",
-    ob_local:"Data tersimpan lokal • Tidak ada server",
+    ob_steps:"Setup cepat â€¢ 3 langkah â€¢ < 1 menit",
+    ob_local:"Data tersimpan lokal â€¢ Tidak ada server",
     ob_nameQ:"Siapa namamu?",
     ob_nameHint:"Biar AturDuitku bisa menyapa kamu secara personal",
     ob_namePh:"Masukkan namamu...",
@@ -196,12 +196,12 @@ const TR = {
     importMutasiDesc:"Upload file CSV dari m-banking atau internet banking",
     bankFormat:"Format Bank", targetWallet:"Masukkan ke Dompet",
     clickOrDrop:"Klik atau drag & drop file CSV",
-    supportedBanks:"BCA • Mandiri • BNI • BRI • CIMB • Jenius • OVO • GoPay • Dana • ShopeePay • BSI",
+    supportedBanks:"BCA â€¢ Mandiri â€¢ BNI â€¢ BRI â€¢ CIMB â€¢ Jenius â€¢ OVO â€¢ GoPay â€¢ Dana â€¢ ShopeePay â€¢ BSI",
     importTips:"Cara download mutasi CSV:",
     importBtn:"Import", importSelected:"Transaksi",
     reupload:"Ulang",
     allTx:"Semua", inflow:"Masuk", outflow:"Keluar",
-    selectedOf:"dipilih • Kategori otomatis",
+    selectedOf:"dipilih â€¢ Kategori otomatis",
     autoCategory:"Kategori otomatis, bisa diedit setelah import",
     // Greeting
     morning:"Selamat Pagi", afternoon:"Selamat Siang",
@@ -517,8 +517,8 @@ const TR = {
     ob_feat4:"Bank-style reports",
     ob_feat5:"Import bank statements",
     ob_start:"Get Started",
-    ob_steps:"Quick setup • 3 steps • < 1 min",
-    ob_local:"Data stored locally • No server",
+    ob_steps:"Quick setup â€¢ 3 steps â€¢ < 1 min",
+    ob_local:"Data stored locally â€¢ No server",
     ob_nameQ:"What's your name?",
     ob_nameHint:"So AturDuitku can greet you personally",
     ob_namePh:"Enter your name...",
@@ -537,7 +537,7 @@ const TR = {
     importMutasiDesc:"Upload CSV file from mobile or internet banking",
     bankFormat:"Bank Format", targetWallet:"Import to Wallet",
     clickOrDrop:"Click or drag & drop CSV file",
-    supportedBanks:"BCA • Mandiri • BNI • BRI • CIMB • Jenius • OVO • GoPay • Dana • ShopeePay • BSI",
+    supportedBanks:"BCA â€¢ Mandiri â€¢ BNI â€¢ BRI â€¢ CIMB â€¢ Jenius â€¢ OVO â€¢ GoPay â€¢ Dana â€¢ ShopeePay â€¢ BSI",
     importTips:"How to download bank statement CSV:",
     importBtn:"ðŸ“¥ Import", importSelected:"Transactions",
     reupload:"â† Re-upload",
@@ -5030,7 +5030,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {isMobile&&<button onClick={()=>setSidebarOpen(true)} style={{background:T.accentBg,border:"none",borderRadius:9,minWidth:44,height:36,cursor:"pointer",fontSize:11,fontWeight:800,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0,padding:"0 10px"}}>Menu</button>}
             <div style={{minWidth:0}}>
               <div style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"42vw":"none"}}>{page==="admin"?"Admin":((lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings",admin:"Admin"}:{admin:"Admin"})[page]||navItems.find(n=>n.id===page)?.label||"")}</div>
-              {!isMobile&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>{hariShort}{tzZone.zone?` • ${tzZone.zone}`:""}</div>}
+              {!isMobile&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>{hariShort}{tzZone.zone?` â€¢ ${tzZone.zone}`:""}</div>}
             </div>
           </div>
           <div style={{display:"flex",gap:isMobile?6:8,alignItems:"center",flexShrink:0}}>
@@ -5063,7 +5063,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               <div style={{fontWeight:700,color:T.text,marginBottom:2}}>{t(greetingWord)}, {s.name}! {greetingEmoji}</div>
               <div style={{fontSize:11,color:T.sub,display:"flex",alignItems:"center",gap:4,justifyContent:"flex-end"}}>
                 <span>{hariShort}</span>
-                {tzZone.city&&<><span style={{opacity:.4}}>•</span><span style={{color:tzZone.color,fontWeight:700}}>{tzZone.city} {tzZone.zone}</span></>}
+                {tzZone.city&&<><span style={{opacity:.4}}>â€¢</span><span style={{color:tzZone.color,fontWeight:700}}>{tzZone.city} {tzZone.zone}</span></>}
               </div>
             </div>}
             {/* Sync status */}
@@ -5278,7 +5278,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
                     <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
                       <span style={{fontSize:26}}>{d.icon}</span>
-                      <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}{d.norek&&` • ${d.norek}`}</div></div>
+                      <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}{d.norek&&` â€¢ ${d.norek}`}</div></div>
                     </div>
                     <Del onClick={()=>setModal({type:"confirm",title:`${t("deleteWallet")}: "${d.nama}"?`,msg:`${t("deleteWalletMsg")} ${IDR(N(d.saldo))} akan dihapus. Transaksi yang terhubung tetap ada tapi tidak lagi menunjuk ke dompet ini.`,danger:true,onConfirm:()=>{setS(p=>({...p,dompet:p.dompet.filter(x=>x.id!==d.id)}));setModal(null);showToast(`Dompet ${d.nama} dihapus!`);}})} />
                   </div>
@@ -5374,7 +5374,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               <div>
                 <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>{t("budgetMonthly")}</div>
                 <div style={{fontSize:isMobile?20:28,fontWeight:900,marginBottom:4}}>{IDR(totalBudget)}</div>
-                <div style={{fontSize:12,opacity:.78}}>{t("budgetUsed")} {IDR(totalOut)} • {t("budgetLeft")} {IDR(Math.max(totalBudget-totalOut,0))}</div>
+                <div style={{fontSize:12,opacity:.78}}>{t("budgetUsed")} {IDR(totalOut)} â€¢ {t("budgetLeft")} {IDR(Math.max(totalBudget-totalOut,0))}</div>
               </div>
               <div style={{textAlign:"right"}}>
                 <div style={{fontSize:11,opacity:.6,marginBottom:4}}>{t("budgetDisc")}</div>
@@ -5720,7 +5720,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                     <div key={x.l} style={{marginBottom:10}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                         <span style={{fontSize:12,color:T.text,fontWeight:600}}>{x.l}</span>
-                        <span style={{fontSize:11,color:x.c,fontWeight:700}}>{Math.round(x.v)}/100 <span style={{color:T.muted,fontWeight:400}}>• {x.hint}</span></span>
+                        <span style={{fontSize:11,color:x.c,fontWeight:700}}>{Math.round(x.v)}/100 <span style={{color:T.muted,fontWeight:400}}>â€¢ {x.hint}</span></span>
                       </div>
                       <PBar pct={x.v} c={x.c}/>
                     </div>
@@ -6010,7 +6010,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                           </div>
                           <div>
                             <div style={{fontSize:12,fontWeight:700,color:T.text}}>{r.nama}</div>
-                            <div style={{fontSize:10,color:T.muted}}>Tgl {r.hari} tiap bulan • {s.dompet.find(d=>d.id===r.dompetId)?.nama}</div>
+                            <div style={{fontSize:10,color:T.muted}}>Tgl {r.hari} tiap bulan â€¢ {s.dompet.find(d=>d.id===r.dompetId)?.nama}</div>
                           </div>
                         </div>
                         <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -6226,7 +6226,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
         )}
 
         <div style={{textAlign:"center",padding:14,fontSize:11,color:T.muted,borderTop:`1.5px solid ${T.border}`,background:T.topbar,marginTop:8,transition:"background .3s", paddingBottom: isMobile ? 80 : 14}}>
-          AturDuitku • {s.name} Workspace • {s.bulan} {s.tahun} • {tzZone.city} {tzZone.zone} • {dark?"Dark":"Light"}
+          AturDuitku â€¢ {s.name} Workspace â€¢ {s.bulan} {s.tahun} â€¢ {tzZone.city} {tzZone.zone} â€¢ {dark?"Dark":"Light"}
         </div>
       </div>
 
