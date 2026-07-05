@@ -2477,6 +2477,24 @@ export default function App(){
     return data.profile || null;
   };
 
+  const loadCloudData = async (uid) => {
+    try{
+      return await authedJson("/api/users/data", { method:"GET" });
+    }catch(e){
+      console.warn("Server data sync load failed, falling back to client Firestore:", e);
+      return uid ? await getUserData(uid) : null;
+    }
+  };
+
+  const saveCloudData = async (uid, payload) => {
+    try{
+      return await authedJson("/api/users/data", { method:"POST", body:JSON.stringify(payload) });
+    }catch(e){
+      console.warn("Server data sync save failed, falling back to client Firestore:", e);
+      return uid ? await saveUserData(uid, payload) : null;
+    }
+  };
+
   const loadAdminUsers = async () => {
     if(!isAdmin) return;
     setAdminLoading(true);
@@ -2528,7 +2546,7 @@ export default function App(){
       setSyncStatus("saving");
       const timer = setTimeout(async()=>{
         try{
-          await saveUserData(fireUser.uid, {data:s, onboarded:true});
+          await saveCloudData(fireUser.uid, {data:s, onboarded:true});
           try{localStorage.setItem(LOCAL_OWNER_KEY, fireUser.uid);}catch(e){}
           setSyncStatus("saved");
           setTimeout(()=>setSyncStatus("idle"),2000);
@@ -2553,7 +2571,7 @@ export default function App(){
           const profile = await loadAccessProfile();
           const approved = profile?.approvalStatus==="approved";
           if(approved){
-            const cloudData = await getUserData(user.uid);
+            const cloudData = await loadCloudData(user.uid);
             if(cloudData && cloudData.data){
               const d = cloudData.data;
               const merged = {
@@ -2578,7 +2596,7 @@ export default function App(){
               const localOwner = localStorage.getItem(LOCAL_OWNER_KEY);
               const localOnboarded = localStorage.getItem("aturduitku_onboarded")==="1";
               if(localRaw && localOwner===user.uid){
-                try{await saveUserData(user.uid,{data:JSON.parse(localRaw),onboarded:localOnboarded});}catch(e){}
+                try{await saveCloudData(user.uid,{data:JSON.parse(localRaw),onboarded:localOnboarded});}catch(e){}
                 setOnboarded(localOnboarded);
               } else {
                 setOnboarded(false);
@@ -2599,7 +2617,7 @@ export default function App(){
             backendReady:false,
           });
           try{
-            const cloudData = await getUserData(user.uid);
+            const cloudData = await loadCloudData(user.uid);
             if(cloudData && cloudData.data){
               const d = cloudData.data;
               const merged = {
@@ -4696,7 +4714,7 @@ Saldo amplop bertambah.`}]);
     setOnboarded(true);
     // Save to Firebase immediately on onboard
     if(fireUser && isApproved){
-      saveUserData(fireUser.uid, {data:newData, onboarded:true});
+      saveCloudData(fireUser.uid, {data:newData, onboarded:true});
     }
     showToast(`Selamat datang, ${name}! 🎉`);
   };
@@ -6265,7 +6283,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               setS(INIT);
               setOnboarded(false);
               setModal(null);
-              if(fireUser){ saveUserData(fireUser.uid,{data:INIT,onboarded:false}); }
+              if(fireUser){ saveCloudData(fireUser.uid,{data:INIT,onboarded:false}); }
               showToast("Semua data berhasil direset!");
             }})} style={{width:"100%",padding:10,borderRadius:10,border:`1.5px solid ${T.errBorder}`,background:T.errBg,color:T.err,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
                     Reset semua data
