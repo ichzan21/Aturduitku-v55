@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, createContext, useContext } from "react";
+﻿import React, { useState, useEffect, useMemo, useRef, createContext, useContext } from "react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
@@ -9,7 +9,7 @@ import {
 } from "./firebase.js";
 
 
-// ─── ERROR BOUNDARY ───────────────────────────────────────────────────────────
+// â”€â”€â”€ ERROR BOUNDARY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null }; }
   static getDerivedStateFromError(error) { return { hasError: true, error }; }
@@ -18,11 +18,11 @@ export class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"#0f0a22",color:"#fff",padding:24,fontFamily:"sans-serif"}}>
-          <div style={{fontSize:48,marginBottom:16}}>⚠️</div>
+          <div style={{fontSize:48,marginBottom:16}}>âš ï¸</div>
           <div style={{fontSize:20,fontWeight:800,marginBottom:8,color:"#A78BFA"}}>AturDuitku</div>
           <div style={{fontSize:14,color:"#aaa",marginBottom:20,textAlign:"center"}}>Ada yang tidak beres. Coba muat ulang halaman.</div>
           <button onClick={()=>window.location.reload()} style={{padding:"12px 28px",borderRadius:12,border:"none",background:"#6D28D9",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>
-            🔄 Muat Ulang
+            ðŸ”„ Muat Ulang
           </button>
           {this.state.error&&<details style={{marginTop:20,fontSize:10,color:"#666",maxWidth:500}}>
             <summary style={{cursor:"pointer",color:"#888"}}>Detail Error (untuk developer)</summary>
@@ -36,7 +36,7 @@ export class ErrorBoundary extends React.Component {
 }
 
 
-// ─── THEME CONTEXT ────────────────────────────────────────────────────────────
+// â”€â”€â”€ THEME CONTEXT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ThemeCtx = createContext({});
 const useT = () => useContext(ThemeCtx);
 
@@ -75,7 +75,7 @@ const DARK = {
   p:{"green":["#052E16","#22C55E"],"red":["#1F0909","#F87171"],"blue":["#1C1238","#A78BFA"],"indigo":["#1C1238","#C4B5FD"],"yellow":["#1C1000","#FBBF24"],"gray":["#1C1238","#A78BFA"],"purple":["#052E16","#22C55E"],"orange":["#1C0800","#FB923C"]},
 };
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const IDR  = v=>"Rp "+Number(v||0).toLocaleString("id-ID");
 const IDRs = v=>{const n=Number(v||0),a=Math.abs(n);if(a>=1e9)return(n<0?"-":"")+"Rp "+(a/1e9).toFixed(1)+"M";if(a>=1e6)return(n<0?"-":"")+"Rp "+(a/1e6).toFixed(1)+"jt";if(a>=1e3)return(n<0?"-":"")+"Rp "+(a/1e3).toFixed(0)+"rb";return"Rp "+n;};
 const fmtN = v=>{const n=String(v).replace(/\D/g,"");return n?n.replace(/\B(?=(\d{3})+(?!\d))/g,"."):"";};
@@ -89,13 +89,13 @@ const MONTHS=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus"
 const MSHORT=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
 const DAYS_SHORT=["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
 const KAT_IN=["Gaji","Bonus","Freelance","Transfer Masuk","Investasi","Bisnis","Lainnya"];
-const ICONS=["🍜","🚗","🛍️","💡","💊","🎮","📚","📈","🏦","📦","✈️","🏠","👗","💻","🎵","🐾","🍕","☕","🎁","💰","🏋️","💅","🎓","🌿","🎯","📱","🚿","🎭","🍷","🎸","🏀","⚽","🚌","🧴","🎬","🧘","🍔","🌮","🎪","💈"];
-const DREAM_ICONS=["⭐","🏠","🚗","✈️","💻","👗","🎓","💍","🐾","🎵","🏋️","🌿","🍕","📸","🎮","💎","🏖️","🎯","🚀","🎺","🏄","🌏","🎭","🏕️","🛶"];
+const ICONS=["ðŸœ","ðŸš—","ðŸ›ï¸","ðŸ’¡","ðŸ’Š","ðŸŽ®","ðŸ“š","ðŸ“ˆ","ðŸ¦","ðŸ“¦","âœˆï¸","ðŸ ","ðŸ‘—","ðŸ’»","ðŸŽµ","ðŸ¾","ðŸ•","â˜•","ðŸŽ","ðŸ’°","ðŸ‹ï¸","ðŸ’…","ðŸŽ“","ðŸŒ¿","ðŸŽ¯","ðŸ“±","ðŸš¿","ðŸŽ­","ðŸ·","ðŸŽ¸","ðŸ€","âš½","ðŸšŒ","ðŸ§´","ðŸŽ¬","ðŸ§˜","ðŸ”","ðŸŒ®","ðŸŽª","ðŸ’ˆ"];
+const DREAM_ICONS=["â­","ðŸ ","ðŸš—","âœˆï¸","ðŸ’»","ðŸ‘—","ðŸŽ“","ðŸ’","ðŸ¾","ðŸŽµ","ðŸ‹ï¸","ðŸŒ¿","ðŸ•","ðŸ“¸","ðŸŽ®","ðŸ’Ž","ðŸ–ï¸","ðŸŽ¯","ðŸš€","ðŸŽº","ðŸ„","ðŸŒ","ðŸŽ­","ðŸ•ï¸","ðŸ›¶"];
 const PIE_C=["#6366F1","#22C55E","#F59E0B","#EF4444","#3B82F6","#EC4899","#14B8A6","#8B5CF6","#F97316","#06B6D4","#84CC16","#A855F7"];
 const DOMPET_TIPE=["Bank","E-Wallet","Tunai","Investasi","Lainnya"];
-const DOMPET_ICONS={"Bank":"🏦","E-Wallet":"📱","Tunai":"💵","Investasi":"📈","Lainnya":"💳"};
+const DOMPET_ICONS={"Bank":"ðŸ¦","E-Wallet":"ðŸ“±","Tunai":"ðŸ’µ","Investasi":"ðŸ“ˆ","Lainnya":"ðŸ’³"};
 
-// ─── TRANSLATIONS (i18n) ─────────────────────────────────────────────────────
+// â”€â”€â”€ TRANSLATIONS (i18n) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MONTHS_EN=["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MSHORT_EN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const DAYS_SHORT_EN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -108,7 +108,7 @@ const TR = {
     laporan:"Laporan", setting:"Pengaturan",
     // Common
     save:"Simpan", cancel:"Batal", delete:"Hapus", edit:"Edit", add:"Tambah",
-    back:"← Kembali", next:"Lanjut →", done:"Selesai", close:"Tutup",
+    back:"â† Kembali", next:"Lanjut â†’", done:"Selesai", close:"Tutup",
     confirm:"Konfirmasi", yes:"Ya", no:"Tidak", search:"Cari...",
     loading:"Memuat...", empty:"Belum ada data", all:"Semua",
     export:"Export", import:"Import", reset:"Reset",
@@ -176,8 +176,8 @@ const TR = {
     ob_feat4:"Laporan bergaya bank",
     ob_feat5:"Import mutasi bank",
     ob_start:"Mulai Setup",
-    ob_steps:"Setup cepat � 3 langkah � < 1 menit",
-    ob_local:"Data tersimpan lokal � Tidak ada server",
+    ob_steps:"Setup cepat • 3 langkah • < 1 menit",
+    ob_local:"Data tersimpan lokal • Tidak ada server",
     ob_nameQ:"Siapa namamu?",
     ob_nameHint:"Biar AturDuitku bisa menyapa kamu secara personal",
     ob_namePh:"Masukkan namamu...",
@@ -196,12 +196,12 @@ const TR = {
     importMutasiDesc:"Upload file CSV dari m-banking atau internet banking",
     bankFormat:"Format Bank", targetWallet:"Masukkan ke Dompet",
     clickOrDrop:"Klik atau drag & drop file CSV",
-    supportedBanks:"BCA � Mandiri � BNI � BRI � CIMB � Jenius � OVO � GoPay � Dana � ShopeePay � BSI",
+    supportedBanks:"BCA • Mandiri • BNI • BRI • CIMB • Jenius • OVO • GoPay • Dana • ShopeePay • BSI",
     importTips:"Cara download mutasi CSV:",
     importBtn:"Import", importSelected:"Transaksi",
     reupload:"Ulang",
     allTx:"Semua", inflow:"Masuk", outflow:"Keluar",
-    selectedOf:"dipilih � Kategori otomatis",
+    selectedOf:"dipilih • Kategori otomatis",
     autoCategory:"Kategori otomatis, bisa diedit setelah import",
     // Greeting
     morning:"Selamat Pagi", afternoon:"Selamat Siang",
@@ -517,8 +517,8 @@ const TR = {
     ob_feat4:"Bank-style reports",
     ob_feat5:"Import bank statements",
     ob_start:"Get Started",
-    ob_steps:"Quick setup � 3 steps � < 1 min",
-    ob_local:"Data stored locally � No server",
+    ob_steps:"Quick setup • 3 steps • < 1 min",
+    ob_local:"Data stored locally • No server",
     ob_nameQ:"What's your name?",
     ob_nameHint:"So AturDuitku can greet you personally",
     ob_namePh:"Enter your name...",
@@ -537,12 +537,12 @@ const TR = {
     importMutasiDesc:"Upload CSV file from mobile or internet banking",
     bankFormat:"Bank Format", targetWallet:"Import to Wallet",
     clickOrDrop:"Click or drag & drop CSV file",
-    supportedBanks:"BCA � Mandiri � BNI � BRI � CIMB � Jenius � OVO � GoPay � Dana � ShopeePay � BSI",
+    supportedBanks:"BCA • Mandiri • BNI • BRI • CIMB • Jenius • OVO • GoPay • Dana • ShopeePay • BSI",
     importTips:"How to download bank statement CSV:",
-    importBtn:"📥 Import", importSelected:"Transactions",
-    reupload:"← Re-upload",
-    allTx:"All", inflow:"↑ Income", outflow:"↓ Expense",
-    selectedOf:"selected · Auto-categorized",
+    importBtn:"ðŸ“¥ Import", importSelected:"Transactions",
+    reupload:"â† Re-upload",
+    allTx:"All", inflow:"â†‘ Income", outflow:"â†“ Expense",
+    selectedOf:"selected Â· Auto-categorized",
     autoCategory:"Auto-categorized, editable after import",
     // Greeting
     morning:"Good Morning", afternoon:"Good Afternoon",
@@ -563,7 +563,7 @@ const TR = {
     kat_shop:"Shopping", kat_fun:"Entertainment", kat_edu:"Education",
     kat_invest:"Investment", kat_other:"Other",
     in_salary:"Salary", in_bonus:"Bonus", in_freelance:"Freelance",
-    yearReview:"Year in Review", yearReviewBtn:"🎊 Year in Review",
+    yearReview:"Year in Review", yearReviewBtn:"ðŸŽŠ Year in Review",
     yearIncome:"Total Income", yearExpense:"Total Expenses",
     yearSaving:"Total Savings", yearNet:"Net Cashflow This Year",
     bestMonth:"Best Month", worstMonth:"Worst Month",
@@ -574,59 +574,59 @@ const TR = {
     bankJenius:"Jenius", bankOVO:"OVO", bankGoPay:"GoPay",
     bankDana:"Dana", bankShopeePay:"ShopeePay", bankPermata:"Permata",
     bankBTN:"BTN", bankBSI:"BSI",
-    importGuideJenius:"Jenius → Account → History → Export CSV",
-    importGuideOVO:"OVO → Transactions → Filter → Download",
-    importGuideGoPay:"GoPay (Gojek) → Transactions → Download History",
-    importGuideDana:"Dana → Transaction History → Export",
-    importGuideShopeePay:"Shopee → Me → ShopeePay → History → Export",
-    importGuideBSI:"BSIm → Account → Mutation → Download CSV",
+    importGuideJenius:"Jenius â†’ Account â†’ History â†’ Export CSV",
+    importGuideOVO:"OVO â†’ Transactions â†’ Filter â†’ Download",
+    importGuideGoPay:"GoPay (Gojek) â†’ Transactions â†’ Download History",
+    importGuideDana:"Dana â†’ Transaction History â†’ Export",
+    importGuideShopeePay:"Shopee â†’ Me â†’ ShopeePay â†’ History â†’ Export",
+    importGuideBSI:"BSIm â†’ Account â†’ Mutation â†’ Download CSV",
     noTxYear:"No transactions this year",
     growth:"Growth",netWorthChange:"Net Worth Change",
     vsLastMonth:"vs last month",
 
     in_transfer:"Incoming Transfer", in_invest:"Investment", in_biz:"Business", in_other:"Other",
     // Toast messages
-    toast_balanceOk:"✅ Balance adjusted & transaction recorded!",
-    toast_walletAdded:"✅ Wallet added!",
-    toast_notEnough:"⚠️ Insufficient balance!",
-    toast_walletNotEnough:"⚠️ Wallet balance insufficient!",
-    toast_sameDompet:"⚠️ Source & destination wallet cannot be the same!",
-    toast_transferOk:"✅ Transfer recorded!",
-    toast_expenseOk:"✅ Expense recorded & balance deducted!",
-    toast_incomeOk:"✅ Income recorded & balance added!",
-    toast_savingOk:"✅ Saving recorded & balance deducted!",
-    toast_savingOk2:"✅ Saving recorded!",
-    toast_txOk:"✅ Transaction recorded!",
-    toast_noteOk:"✅ Note saved!",
-    toast_recurringOk:"✅ Recurring transaction added!",
-    toast_noRecurring:"ℹ️ No active recurring transactions",
-    toast_envelopeOk:"✅ Envelope created & balance deducted!",
-    toast_topupOk:"✅ Envelope topped up!",
-    toast_envelopeNotFound:"⚠️ Envelope not found!",
-    toast_envelopeFunds:"⚠️ Insufficient envelope funds! Remaining:",
-    toast_expenseEnvOk:"✅ Envelope expense recorded!",
-    toast_resetEnvOk:"✅ Envelope reset!",
-    toast_walletNotFound:"⚠️ Source wallet not found!",
-    toast_paymentOk:"✅ Payment recorded & balance deducted!",
-    toast_fundOk:"✅ Savings recorded & balance deducted!",
-    toast_pdfOk:"✅ PDF report downloaded!",
-    toast_fillName:"⚠️ Please enter a name!",
+    toast_balanceOk:"âœ… Balance adjusted & transaction recorded!",
+    toast_walletAdded:"âœ… Wallet added!",
+    toast_notEnough:"âš ï¸ Insufficient balance!",
+    toast_walletNotEnough:"âš ï¸ Wallet balance insufficient!",
+    toast_sameDompet:"âš ï¸ Source & destination wallet cannot be the same!",
+    toast_transferOk:"âœ… Transfer recorded!",
+    toast_expenseOk:"âœ… Expense recorded & balance deducted!",
+    toast_incomeOk:"âœ… Income recorded & balance added!",
+    toast_savingOk:"âœ… Saving recorded & balance deducted!",
+    toast_savingOk2:"âœ… Saving recorded!",
+    toast_txOk:"âœ… Transaction recorded!",
+    toast_noteOk:"âœ… Note saved!",
+    toast_recurringOk:"âœ… Recurring transaction added!",
+    toast_noRecurring:"â„¹ï¸ No active recurring transactions",
+    toast_envelopeOk:"âœ… Envelope created & balance deducted!",
+    toast_topupOk:"âœ… Envelope topped up!",
+    toast_envelopeNotFound:"âš ï¸ Envelope not found!",
+    toast_envelopeFunds:"âš ï¸ Insufficient envelope funds! Remaining:",
+    toast_expenseEnvOk:"âœ… Envelope expense recorded!",
+    toast_resetEnvOk:"âœ… Envelope reset!",
+    toast_walletNotFound:"âš ï¸ Source wallet not found!",
+    toast_paymentOk:"âœ… Payment recorded & balance deducted!",
+    toast_fundOk:"âœ… Savings recorded & balance deducted!",
+    toast_pdfOk:"âœ… PDF report downloaded!",
+    toast_fillName:"âš ï¸ Please enter a name!",
     toast_noData:"No readable data found.",
     // UI strings
-    noTxToday:"📝 No transactions today",
+    noTxToday:"ðŸ“ No transactions today",
     noTxTodayBody:"Don't forget to log today's expenses!",
     noBudgetData:"No data yet",
     noEnvelope:"No envelopes yet",
     noGoal:"No goals yet",
     noAsset:"No fixed assets yet",
     noDebt:"No debt / receivables",
-    noNotif:"✅ No active notifications",
+    noNotif:"âœ… No active notifications",
     noTxData:"No expense data yet",
     noTxFound:"No transactions found",
     fromWallet:"From Wallet",
     toWallet:"To Wallet",
     transferFeeLabel:"Transfer Fee",
-    saveBulk:"✓ Save",
+    saveBulk:"âœ“ Save",
     manageCategory:"Manage Categories",
     addCategory2:"+ Add Category",
     totalEnvFunds:"Total Envelope Funds",
@@ -635,7 +635,7 @@ const TR = {
     laporan:"Reports",
     laporanPeriod:"Report Period",
     notifPermission:"Enable Notifications",
-    notifActive:"✅ Active",
+    notifActive:"âœ… Active",
     surplusLabel:"Surplus",
     budgetMonthProg:"Monthly Budget Progress",
     envelopePlaceholder:"Food, Gas, Entertainment...",
@@ -659,21 +659,21 @@ const TR = {
     prediksiSisa:"Projected Remaining",
     bulanShort:"Month",
     months:"months",
-    csvHint:"💡 CSV export available on Transactions & Reports pages",
+    csvHint:"ðŸ’¡ CSV export available on Transactions & Reports pages",
     recurringDesc2:"Transactions that repeat monthly (salary, subscriptions, etc.)",
     processedInfo:"transactions processed",
     unprocessed:"not yet processed",
     scorePeriod:"Financial score",
     idealSaving:"Ideal >20%",
     idealBudget:"Ideal <85%",
-    goodLabel:"✓ GOOD",
-    cautionLabel:"⚠ CAUTION",
+    goodLabel:"âœ“ GOOD",
+    cautionLabel:"âš  CAUTION",
     incomePDF:"INCOME",
     expensePDF:"EXPENSES",
     totalBalPDF:"TOTAL BALANCE",
     thisMonth:"This month",
-    netPositive:"▲ Surplus",
-    netNegative:"▼ Deficit",
+    netPositive:"â–² Surplus",
+    netNegative:"â–¼ Deficit",
     accDetail:"Wallet Balance Detail",
     accDetailSub:"Balance per account at end of period",
     accHead1:"Account / Wallet",
@@ -688,7 +688,7 @@ const TR = {
     scoreSection:"Financial Health Score",
     scoreSectionSub:"Analysis based on this month's transactions",
     txHead1:"Date",txHead2:"Description",txHead3:"Category",txHead4:"Wallet",txHead5:"Debit",txHead6:"Credit",
-    pdfDisclaimer:"📌  This report was automatically generated by AturDuitku based on user-entered data.",
+    pdfDisclaimer:"ðŸ“Œ  This report was automatically generated by AturDuitku based on user-entered data.",
     pdfTitle:"Personal Finance Report",
     incomeLabel:"Income",
     expenseLabel:"Expenses",
@@ -700,7 +700,7 @@ const TR = {
     filterLabel:"Filter",
     allShown:"All shown",
     txShown:"transactions shown",
-    dailyExpense:"📊 Daily Expenses",
+    dailyExpense:"ðŸ“Š Daily Expenses",
     inkludeWallet:"including",
     total:"Total",
 
@@ -719,13 +719,13 @@ const TR = {
     type:"Type", name:"Name",
     debtTitle:"Record Debt / Receivable",
     debtActive:"Total Active Debt", recvActive:"Total Active Receivables",
-    dangerZone:"⚠️ Danger Zone",
+    dangerZone:"âš ï¸ Danger Zone",
     resetConfirmMsg:"This will permanently delete ALL your financial data. Are you sure?",
     prevPeriod:"Previous Period Comparison",
     prevIncome:"Previous Period Income (Rp)", prevExpense:"Previous Period Expense (Rp)",
-    exportHint:"💡 CSV export available on Transactions & Reports pages",
+    exportHint:"ðŸ’¡ CSV export available on Transactions & Reports pages",
     recurringDesc:"Transactions that repeat monthly (salary, subscriptions, etc.)",
-    addRecurringBtn:"+ Add Recurring", cancelRecurring:"✕ Close",
+    addRecurringBtn:"+ Add Recurring", cancelRecurring:"âœ• Close",
     showBalance:"Show balances", hideBalance:"Hide balances",
     budgetMonthly:"Total Monthly Budget",
     budgetUsed:"Used", budgetLeft:"Remaining",
@@ -737,7 +737,7 @@ const TR = {
     envelopeHero:"Total Envelopes", envelopeLeft:"Remaining",
     envelopeName:"Envelope Name", envelopeAlloc:"Allocation (Rp)",
     envelopeSource:"Source Wallet",
-    createTransfer:"✓ Create & Transfer Funds",
+    createTransfer:"âœ“ Create & Transfer Funds",
     createFirst:"+ Create First Envelope",
     goalsStats:"Total Goals", goalsAchieved:"Achieved",
     goalsAdd:"Add your financial targets!",
@@ -745,42 +745,42 @@ const TR = {
     addGoalBtn:"+ Add Goal",
     assetHero:"Total Assets", assetLiquid:"Liquid",
     assetDebt:"Debt",
-    walletSection:"💳 Wallets & Accounts", assetSection:"🏠 Fixed Assets",
+    walletSection:"ðŸ’³ Wallets & Accounts", assetSection:"ðŸ  Fixed Assets",
     adjustBalance:"Auto-Adjust Balance",
     searchTx:"Search transactions...",
     allWallets:"All Wallets", allTypes:"All Types",
     txCount:"Transactions", showAll:"All shown",
-    upcomingBills:"🚨 Upcoming Bills", noBills:"No upcoming bills",
-    topExpense:"🏆 Top Expenses",
+    upcomingBills:"ðŸš¨ Upcoming Bills", noBills:"No upcoming bills",
+    topExpense:"ðŸ† Top Expenses",
     recentTx:"Recent Transactions",
     monthlyScore:"Your financial score",
     savingRatioLabel:"Saving Ratio", disciplineLabel:"Budget Discipline",
     allSafe:"All categories within safe limits!",
-    histBalance:"📅 Balance History (End-of-Month Estimate)",
+    histBalance:"ðŸ“… Balance History (End-of-Month Estimate)",
     histDesc:"Balance estimated from transactions",
     activeLabel:"Active", monthCol:"Month", totalCol:"Total",
     spendDetail:"Spending Breakdown",
-    tipPerCat:"💡 Tips per Category",
+    tipPerCat:"ðŸ’¡ Tips per Category",
     navMain:"Main Menu", navFinance:"Finance", navSettings2:"Settings",
-    debtType_utang:"⊖ Debt", debtType_piutang:"⊕ Receivable", debtType_biz:"💼 Business",
+    debtType_utang:"âŠ– Debt", debtType_piutang:"âŠ• Receivable", debtType_biz:"ðŸ’¼ Business",
     paidOff2:"Paid Off", unpaid:"Outstanding",
     today2:"Today", overdue:"Overdue",
-    restoreTitle:"📥 Import / Restore Data",
+    restoreTitle:"ðŸ“¥ Import / Restore Data",
     confirmBtn:"Yes, Proceed",
     runwayLabel:"Cash Runway", runwayDesc:"Total balance / spending",
     topSpend:"Top Expense",
-    predSafe:"Safe", predDeficit:"⚠ Deficit ahead",
+    predSafe:"Safe", predDeficit:"âš  Deficit ahead",
     overLabel:"Over", almostLabel:"Almost", safeLabel:"Safe",
     scoreLabel:"Score",
-    recurringAdd:"+ Add Recurring Transaction", recurringClose:"✕ Close",
+    recurringAdd:"+ Add Recurring Transaction", recurringClose:"âœ• Close",
     recurringDay:"Date", recurringType:"Type",
-    notifSummary:"🔔 Notification Summary",
+    notifSummary:"ðŸ”” Notification Summary",
     more:"More",
     imported:"Saved", balAdjust:"Balance Adjustment",
     resetDataTitle:"Reset All Data",
-    inflow2:"↑ Income", outflow2:"↓ Expense", savingShort:"🏦 Save",
-    allSelected:"✗ Deselect All", selectAll:"✓ Select All",
-    envelopeInfo:"💡 Digital Envelopes help you budget by allocating money to virtual envelopes.",
+    inflow2:"â†‘ Income", outflow2:"â†“ Expense", savingShort:"ðŸ¦ Save",
+    allSelected:"âœ— Deselect All", selectAll:"âœ“ Select All",
+    envelopeInfo:"ðŸ’¡ Digital Envelopes help you budget by allocating money to virtual envelopes.",
     ideal20:"of ideal 20%", ideal85:"Ideal <85%",
   }
 };
@@ -790,7 +790,7 @@ const getMonths = (lang) => lang==="en" ? MONTHS_EN : ["Januari","Februari","Mar
 const getMShort = (lang) => lang==="en" ? MSHORT_EN : ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
 
 
-// ─── DEFAULT DATA ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ DEFAULT DATA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const INIT_BUDGETS=[
   {id:1,kat:"Makan & Minum",icon:"FOOD",kelas:"Kebutuhan",alokasi:"0",sub:[]},
   {id:2,kat:"Transportasi",icon:"MOVE",kelas:"Kebutuhan",alokasi:"0",sub:[]},
@@ -842,7 +842,7 @@ const NAV=[
   {id:"setting",icon:"ST",label:"Setting"},
 ];
 
-// ─── REUSABLE COMPONENTS ──────────────────────────────────────────────────────
+// â”€â”€â”€ REUSABLE COMPONENTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const Card=({ch,style={},lift})=>{
   const T=useT();
   return <div className={lift?"card-lift":""} style={{background:T.card,borderRadius:16,padding:"18px 20px",boxShadow:T.shadow,border:`1.5px solid ${T.border}`,transition:"background .3s,border-color .3s,box-shadow .3s",...style}}>{ch}</div>;
@@ -903,18 +903,18 @@ const CurIn=({value,onChange,placeholder="0",style={}})=>{
   );
 };
 
-// ─── CALCULATOR ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ CALCULATOR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const Calculator=({value,onChange,onClose})=>{
   const T=useT();
   const [disp,setDisp]=useState(value||"0");
   const press=k=>{
     if(k==="C"){setDisp("0");return;}
-    if(k==="⌫"){setDisp(p=>p.length>1?p.slice(0,-1):"0");return;}
-    if(k==="✓"){onChange(pN(disp));onClose();return;}
+    if(k==="âŒ«"){setDisp(p=>p.length>1?p.slice(0,-1):"0");return;}
+    if(k==="âœ“"){onChange(pN(disp));onClose();return;}
     if(k==="."){setDisp(p=>p.includes(".")?p:p+".");return;}
     setDisp(p=>p==="0"?k:p+k);
   };
-  const keys=["7","8","9","⌫","4","5","6","C","1","2","3","","0",".",""," ✓"];
+  const keys=["7","8","9","âŒ«","4","5","6","C","1","2","3","","0",".",""," âœ“"];
   return(
     <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:9999}} onClick={onClose}>
       <div style={{cursor:"pointer",background:T.card,borderRadius:"24px 24px 0 0",padding:"22px 22px calc(env(safe-area-inset-bottom, 0px) + 22px)",width:"100%",maxWidth:380,maxHeight:"min(520px, calc(var(--app-height, 100dvh) - 18px))",overflowY:"auto",boxShadow:T.shadowMd}} onClick={e=>e.stopPropagation()}>
@@ -922,8 +922,8 @@ const Calculator=({value,onChange,onClose})=>{
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
           {keys.map((k,i)=>(
             <button key={i} onClick={()=>k.trim()&&press(k.trim())} style={{padding:14,borderRadius:10,border:"none",cursor:k.trim()?"pointer":"default",fontWeight:700,fontSize:16,fontFamily:"inherit",
-              background:k.trim()==="✓"?T.accent:k==="C"||k==="⌫"?T.errBg:T.cardAlt,
-              color:k.trim()==="✓"?"white":k==="C"||k==="⌫"?T.err:T.text,opacity:k.trim()?1:.2}}>{k}</button>
+              background:k.trim()==="âœ“"?T.accent:k==="C"||k==="âŒ«"?T.errBg:T.cardAlt,
+              color:k.trim()==="âœ“"?"white":k==="C"||k==="âŒ«"?T.err:T.text,opacity:k.trim()?1:.2}}>{k}</button>
           ))}
         </div>
       </div>
@@ -931,7 +931,7 @@ const Calculator=({value,onChange,onClose})=>{
   );
 };
 
-// ─── KALKULATOR FINANSIAL (NEW) ────────────────────────────────────────────────
+// â”€â”€â”€ KALKULATOR FINANSIAL (NEW) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const KalkulatorFinansial = ({onClose}) => {
   const T=useT();
   const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
@@ -957,10 +957,10 @@ const KalkulatorFinansial = ({onClose}) => {
 
   return (
     <>
-      <div style={{fontSize:16,fontWeight:800,marginBottom:16,color:T.text}}>🧮 Kalkulator Finansial</div>
+      <div style={{fontSize:16,fontWeight:800,marginBottom:16,color:T.text}}>ðŸ§® Kalkulator Finansial</div>
       <div style={{display:"flex",gap:8,marginBottom:16}}>
-        <button onClick={()=>setTab("investasi")} style={{flex:1,padding:8,borderRadius:8,background:tab==="investasi"?T.accentBg:T.input,color:tab==="investasi"?T.accent:T.sub,border:`1.5px solid ${tab==="investasi"?T.accent:T.inputBorder}`,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>📈 Investasi</button>
-        <button onClick={()=>setTab("pinjaman")} style={{flex:1,padding:8,borderRadius:8,background:tab==="pinjaman"?T.accentBg:T.input,color:tab==="pinjaman"?T.accent:T.sub,border:`1.5px solid ${tab==="pinjaman"?T.accent:T.inputBorder}`,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>💳 Pinjaman</button>
+        <button onClick={()=>setTab("investasi")} style={{flex:1,padding:8,borderRadius:8,background:tab==="investasi"?T.accentBg:T.input,color:tab==="investasi"?T.accent:T.sub,border:`1.5px solid ${tab==="investasi"?T.accent:T.inputBorder}`,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>ðŸ“ˆ Investasi</button>
+        <button onClick={()=>setTab("pinjaman")} style={{flex:1,padding:8,borderRadius:8,background:tab==="pinjaman"?T.accentBg:T.input,color:tab==="pinjaman"?T.accent:T.sub,border:`1.5px solid ${tab==="pinjaman"?T.accent:T.inputBorder}`,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>ðŸ’³ Pinjaman</button>
       </div>
       {tab==="investasi" && <div>
          <label style={LS}>Modal Awal (Rp)</label><CurIn value={inv.awal} onChange={v=>setInv({...inv,awal:v})} style={IS}/>
@@ -992,7 +992,7 @@ const KalkulatorFinansial = ({onClose}) => {
 }
 
 
-// ─── CALENDAR VIEW ────────────────────────────────────────────────────────────
+// â”€â”€â”€ CALENDAR VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const CalendarView=({txs,bulan,tahun,liveDay,liveMonth,liveYear})=>{
   const T=useT();
   const mIdx=MONTHS.indexOf(bulan);const yr=Number(tahun);
@@ -1027,7 +1027,7 @@ const CalendarView=({txs,bulan,tahun,liveDay,liveMonth,liveYear})=>{
   );
 };
 
-// ─── CIRCLE GAUGE ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ CIRCLE GAUGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const CircleGauge=({value,max=100,size=110,c="#22C55E",label})=>{
   const r=42,cx=55,cy=55,circ=2*Math.PI*r;
   const pct=Math.min(value/max,1);const dash=pct*circ;
@@ -1047,7 +1047,7 @@ const CircleGauge=({value,max=100,size=110,c="#22C55E",label})=>{
   );
 };
 
-// ─── NOTIFICATION PANEL ───────────────────────────────────────────────────────
+// â”€â”€â”€ NOTIFICATION PANEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const NotificationPanel=({notifs,onClose})=>{
   const T=useT();
   const colMap={danger:{bg:T.errBg,border:T.errBorder,c:T.err},warning:{bg:T.warnBg,border:T.warnBorder,c:T.warn},success:{bg:T.okBg,border:T.okBorder,c:T.ok},info:{bg:T.infoBg,border:T.infoBorder,c:T.info}};
@@ -1064,7 +1064,7 @@ const NotificationPanel=({notifs,onClose})=>{
         <div style={{padding:16}}>
           {notifs.length===0?(
             <div style={{textAlign:"center",padding:"48px 20px",color:T.muted}}>
-              <div style={{fontSize:48,marginBottom:12}}>✅</div>
+              <div style={{fontSize:48,marginBottom:12}}>âœ…</div>
               <div style={{fontSize:15,fontWeight:700,color:T.sub}}>Semua beres!</div>
               <div style={{fontSize:12,marginTop:6}}>Tidak ada tagihan atau peringatan aktif.</div>
             </div>
@@ -1088,7 +1088,7 @@ const NotificationPanel=({notifs,onClose})=>{
   );
 };
 
-// ─── TREND CHART ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ TREND CHART â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TrendChart=({trendData,isMobile})=>{
   const T=useT();
   const CustomTooltip=({active,payload,label})=>{
@@ -1160,7 +1160,7 @@ const DailyChart=({txBulan,bulan,tahun})=>{
   );
 };
 
-// ─── AMPLOP CARD ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ AMPLOP CARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset})=>{
   const T=useT();
   const [showPakai,setShowPakai]=useState(false);
@@ -1177,7 +1177,7 @@ const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset})=>{
     <div style={{background:T.card,borderRadius:14,padding:18,border:`1.5px solid ${isOver?T.errBorder:pct>80?T.warnBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
-          <div style={{width:44,height:44,borderRadius:12,background:amp.warna||T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{amp.icon||"✉️"}</div>
+          <div style={{width:44,height:44,borderRadius:12,background:amp.warna||T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{amp.icon||"âœ‰ï¸"}</div>
           <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{amp.nama}</div><div style={{fontSize:11,color:T.muted}}>Sisa: <strong style={{color:sisa>=0?T.ok:T.err}}>{IDR(Math.max(sisa,0))}</strong></div></div>
         </div>
         <Del onClick={onDelete}/>
@@ -1195,19 +1195,19 @@ const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset})=>{
       <PBar pct={pct} c={isOver?"#EF4444":pct>80?"#F59E0B":"#22C55E"} h={7}/>
       <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.muted,marginTop:3,marginBottom:12}}>
         <span style={{fontWeight:700,color:isOver?T.err:pct>80?T.warn:T.ok}}>{pct.toFixed(0)}% terpakai</span>
-        {isOver&&<span style={{color:T.err,fontWeight:700}}>⚠ Melebihi alokasi!</span>}
+        {isOver&&<span style={{color:T.err,fontWeight:700}}>âš  Melebihi alokasi!</span>}
       </div>
       {!showPakai&&!showIsi&&<div style={{display:"flex",gap:6}}>
-        <Btn onClick={()=>setShowPakai(true)} ch="💸 Pakai" c={T.err} outline style={{flex:1,padding:"8px 10px",fontSize:12}}/>
-        <Btn onClick={()=>setShowIsi(true)} ch="➕ Isi" c={T.ok} outline style={{flex:1,padding:"8px 10px",fontSize:12}}/>
-        <button onClick={onReset} title="Reset terpakai" style={{padding:"8px 10px",borderRadius:8,border:`1px solid ${T.border}`,background:T.cardAlt,cursor:"pointer",fontSize:14,fontFamily:"inherit",color:T.muted}}>🔄</button>
+        <Btn onClick={()=>setShowPakai(true)} ch="ðŸ’¸ Pakai" c={T.err} outline style={{flex:1,padding:"8px 10px",fontSize:12}}/>
+        <Btn onClick={()=>setShowIsi(true)} ch="âž• Isi" c={T.ok} outline style={{flex:1,padding:"8px 10px",fontSize:12}}/>
+        <button onClick={onReset} title="Reset terpakai" style={{padding:"8px 10px",borderRadius:8,border:`1px solid ${T.border}`,background:T.cardAlt,cursor:"pointer",fontSize:14,fontFamily:"inherit",color:T.muted}}>ðŸ”„</button>
       </div>}
       {showPakai&&<div>
         <input placeholder="Keterangan belanja..." value={pakaiKet} onChange={e=>setPakaiKet(e.target.value)} style={{...{width:"100%",padding:"9px 12px",border:`1.5px solid ${T.inputBorder}`,borderRadius:9,fontSize:13,outline:"none",background:T.input,color:T.text,fontFamily:"inherit"},marginBottom:6}}/>
         <div style={{display:"flex",gap:6}}>
           <CurIn value={pakaiJml} onChange={setPakaiJml} placeholder="Jumlah..." style={{flex:1}}/>
-          <Btn onClick={()=>{if(pakaiJml){onPakai(pakaiJml,pakaiKet);setPakaiJml("");setPakaiKet("");setShowPakai(false);}}} ch="✓" c={T.err} style={{padding:"8px 14px"}}/>
-          <Btn onClick={()=>setShowPakai(false)} ch="✕" c={T.muted} outline style={{padding:"8px 14px"}}/>
+          <Btn onClick={()=>{if(pakaiJml){onPakai(pakaiJml,pakaiKet);setPakaiJml("");setPakaiKet("");setShowPakai(false);}}} ch="âœ“" c={T.err} style={{padding:"8px 14px"}}/>
+          <Btn onClick={()=>setShowPakai(false)} ch="âœ•" c={T.muted} outline style={{padding:"8px 14px"}}/>
         </div>
       </div>}
       {showIsi&&<div style={{padding:10,background:T.okBg,borderRadius:8,border:`1px solid ${T.okBorder}`}}>
@@ -1218,14 +1218,14 @@ const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset})=>{
         <div style={{display:"flex",gap:6}}>
           <CurIn value={isiJml} onChange={setIsiJml} placeholder="Jumlah..." style={{flex:1}}/>
           <Btn onClick={()=>{if(isiJml){onIsi(isiJml,isiDompetId);setIsiJml("");setShowIsi(false);}}} ch="+ Isi" c={T.ok} style={{padding:"8px 12px"}}/>
-          <Btn onClick={()=>setShowIsi(false)} ch="✕" c={T.muted} outline style={{padding:"8px 10px"}}/>
+          <Btn onClick={()=>setShowIsi(false)} ch="âœ•" c={T.muted} outline style={{padding:"8px 10px"}}/>
         </div>
       </div>}
     </div>
   );
 };
 
-// ─── UTANG CARD ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ UTANG CARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const UtangCard=({u,dompetList,onDelete,onCicilan})=>{
   const T=useT();
   const [inp,setInp]=useState("");const [showCalc,setShowCalc]=useState(false);
@@ -1235,9 +1235,9 @@ const UtangCard=({u,dompetList,onDelete,onCicilan})=>{
   return(
     <div style={{background:T.cardAlt,borderRadius:12,padding:16,marginBottom:10,border:`1px solid ${u.lunas?T.okBorder:u.tipe==="utang"?T.errBorder:T.infoBorder}`,transition:"background .3s,border-color .3s"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-        <div><div style={{fontWeight:700,fontSize:14,color:T.text}}>{u.nama}</div><div style={{fontSize:11,color:T.muted}}>{u.tgl}{u.tempo&&` · Tempo: ${u.tempo}`}</div></div>
+        <div><div style={{fontWeight:700,fontSize:14,color:T.text}}>{u.nama}</div><div style={{fontSize:11,color:T.muted}}>{u.tgl}{u.tempo&&` Â· Tempo: ${u.tempo}`}</div></div>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          <Pill c={u.lunas?"green":u.tipe==="utang"?"red":u.tipe==="piutangBisnis"?"purple":"blue"} ch={u.lunas?"✓ Lunas":u.tipe==="utang"?"Utang":u.tipe==="piutangBisnis"?"Piutang Bisnis":"Piutang"}/>
+          <Pill c={u.lunas?"green":u.tipe==="utang"?"red":u.tipe==="piutangBisnis"?"purple":"blue"} ch={u.lunas?"âœ“ Lunas":u.tipe==="utang"?"Utang":u.tipe==="piutangBisnis"?"Piutang Bisnis":"Piutang"}/>
           <Del onClick={onDelete}/>
         </div>
       </div>
@@ -1254,7 +1254,7 @@ const UtangCard=({u,dompetList,onDelete,onCicilan})=>{
       {!u.lunas&&<div style={{display:"flex",gap:8,alignItems:"center"}}>
         <div style={{position:"relative",flex:1}}>
           <CurIn value={inp} onChange={v=>setInp(v)} placeholder="Nominal..." style={{paddingRight:36}}/>
-          <button onClick={()=>setShowCalc(true)} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14}}>🔢</button>
+          <button onClick={()=>setShowCalc(true)} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14}}>ðŸ”¢</button>
         </div>
         <select value={dompetId} onChange={e=>setDompetId(Number(e.target.value))} style={{width:80, padding:"8px", borderRadius:8, border:`1.5px solid ${T.inputBorder}`, background:T.input, color:T.text, fontSize:12, outline:"none"}}>
            {dompetList.map(d=><option key={d.id} value={d.id}>{d.icon}</option>)}
@@ -1269,7 +1269,7 @@ const UtangCard=({u,dompetList,onDelete,onCicilan})=>{
   );
 };
 
-// ─── GOAL CARD ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ GOAL CARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai})=>{
   const T=useT();
   const [inp,setInp]=useState("");const [showCalc,setShowCalc]=useState(false);
@@ -1279,11 +1279,11 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai})=>{
     <div style={{background:T.card,borderRadius:14,padding:18,border:`1.5px solid ${pct>=100?T.okBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s,border-color .3s"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
-          <span style={{fontSize:28}}>{g.icon||"⭐"}</span>
-          <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{g.nama}</div><div style={{fontSize:11,color:T.muted}}>{g.deadline&&`🗓 ${g.deadline}`}</div></div>
+          <span style={{fontSize:28}}>{g.icon||"â­"}</span>
+          <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{g.nama}</div><div style={{fontSize:11,color:T.muted}}>{g.deadline&&`ðŸ—“ ${g.deadline}`}</div></div>
         </div>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          {pct>=100&&<Pill c="green" ch={"🎉 "+(lang==="en"?"Achieved!":"Tercapai!")}/>}
+          {pct>=100&&<Pill c="green" ch={"ðŸŽ‰ "+(lang==="en"?"Achieved!":"Tercapai!")}/>}
           <Del onClick={onDelete}/>
         </div>
       </div>
@@ -1297,11 +1297,11 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai})=>{
         <span>Sisa {IDR(Math.max(tg-km,0))}</span>
       </div>
       {pct>=100
-        ?<Btn onClick={()=>onSelesai(g.id)} ch={"✓ "+(lang==="en"?"Mark Done":"Selesai")} c="#16A34A" style={{width:"100%",padding:10}}/>
+        ?<Btn onClick={()=>onSelesai(g.id)} ch={"âœ“ "+(lang==="en"?"Mark Done":"Selesai")} c="#16A34A" style={{width:"100%",padding:10}}/>
         :<div style={{display:"flex",gap:8,alignItems:"center"}}>
           <div style={{position:"relative",flex:1}}>
             <CurIn value={inp} onChange={v=>setInp(v)} placeholder="Tambah dana..." style={{paddingRight:36}}/>
-            <button onClick={()=>setShowCalc(true)} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14}}>🔢</button>
+            <button onClick={()=>setShowCalc(true)} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14}}>ðŸ”¢</button>
           </div>
           <select value={dompetId} onChange={e=>setDompetId(Number(e.target.value))} style={{width:60, padding:"8px", borderRadius:8, border:`1.5px solid ${T.inputBorder}`, background:T.input, color:T.text, fontSize:12, outline:"none"}}>
              {dompetList.map(d=><option key={d.id} value={d.id}>{d.icon}</option>)}
@@ -1314,7 +1314,7 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai})=>{
   );
 };
 
-// ─── MORE MENU (mobile) ───────────────────────────────────────────────────────
+// â”€â”€â”€ MORE MENU (mobile) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MoreMenu=({page,setPage,onClose,navItems=NAV})=>{
   const T=useT();
   return(
@@ -1338,7 +1338,7 @@ const MoreMenu=({page,setPage,onClose,navItems=NAV})=>{
   );
 };
 
-// ─── KEYWORD AUTO-KATEGORISASI ───────────────────────────────────────────────
+// â”€â”€â”€ KEYWORD AUTO-KATEGORISASI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const KW_KAT = [
   { kat:"Makan & Minum",  id:1, kw:["makan","resto","kafe","cafe","kopi","coffee","starbucks","kfc","mcd","mcdonalds","pizza","burger","bakso","mie","nasi","warung","seafood","sushi","boba","chatime","grab food","gofood","shopeefood","snack","minuman"] },
   { kat:"Transportasi",   id:2, kw:["grab","gojek","maxim","ojol","ojek","bensin","pertamina","spbu","parkir","tol","busway","mrt","lrt","kereta","krl","tiket","damri","taxi","pertamax","pertalite","solar"] },
@@ -1412,7 +1412,7 @@ const isDB = (s) => { const l=(s||"").toLowerCase(); return l.includes("db")||l.
 const parseBankCSV = (text, bank) => {
   const lines = text.split(/\r?\n/).filter(l=>l.trim());
   const results = [];
-  // ── Find header row ──────────────────────────────────────────────────────
+  // â”€â”€ Find header row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   let ds = 0, headerCols = [];
   const HDR_KEYS = ["tanggal","date","tgl","waktu","time","deskripsi","description","keterangan","uraian","transaksi","transaction"];
   for (let i=0;i<Math.min(lines.length,20);i++) {
@@ -1539,7 +1539,7 @@ const parseBankCSV = (text, bank) => {
 
 
 
-// ─── KALKULATOR CICILAN ───────────────────────────────────────────────────────
+// â”€â”€â”€ KALKULATOR CICILAN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function KalkulatorCicilan({ onClose, T }) {
   const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
   const [harga, setHarga] = useState("");
@@ -1591,7 +1591,7 @@ function KalkulatorCicilan({ onClose, T }) {
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <div>
-          <div style={{fontSize:17,fontWeight:800,color:T.text}}>🧮 Kalkulator Cicilan</div>
+          <div style={{fontSize:17,fontWeight:800,color:T.text}}>ðŸ§® Kalkulator Cicilan</div>
           <div style={{fontSize:11,color:T.muted,marginTop:2}}>Hitung cicilan kredit / KPR / kendaraan</div>
         </div>
         <button onClick={onClose} style={{background:T.cardAlt,border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",color:T.muted,fontSize:16}}>X</button>
@@ -1621,7 +1621,7 @@ function KalkulatorCicilan({ onClose, T }) {
       <div style={{display:"flex",gap:6,marginBottom:14}}>
         {["flat","efektif"].map(t=>(
           <button key={t} onClick={()=>setTipe(t)} style={{flex:1,padding:"7px",borderRadius:9,border:`2px solid ${tipe===t?T.accent:T.border}`,background:tipe===t?T.accentBg:T.card,color:tipe===t?T.accent:T.sub,fontWeight:700,fontSize:12,cursor:"pointer",transition:"all .15s"}}>
-            {t==="flat"?"📊 Flat Rate":"📈 Efektif / Anuitas"}
+            {t==="flat"?"ðŸ“Š Flat Rate":"ðŸ“ˆ Efektif / Anuitas"}
           </button>
         ))}
       </div>
@@ -1645,26 +1645,26 @@ function KalkulatorCicilan({ onClose, T }) {
             ))}
           </div>
           {hargaN > 0 && <div style={{marginTop:10,fontSize:11,color:T.sub,textAlign:"center"}}>
-            Efektif bunga total: <strong style={{color:T.err}}>{((totalBunga/hargaN)*100).toFixed(1)}%</strong> dari harga · DP: <strong>{((dpN/hargaN)*100).toFixed(0)}%</strong>
+            Efektif bunga total: <strong style={{color:T.err}}>{((totalBunga/hargaN)*100).toFixed(1)}%</strong> dari harga Â· DP: <strong>{((dpN/hargaN)*100).toFixed(0)}%</strong>
           </div>}
         </div>
 
         {/* DP slider hint */}
         <div style={{background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:10,padding:"9px 13px",marginBottom:4}}>
-          <div style={{fontSize:11,color:T.info,fontWeight:700,marginBottom:4}}>💡 Tips</div>
+          <div style={{fontSize:11,color:T.info,fontWeight:700,marginBottom:4}}>ðŸ’¡ Tips</div>
           <div style={{fontSize:11,color:T.sub,lineHeight:1.65}}>
-            • DP 30%+ = cicilan lebih ringan &amp; bunga total lebih kecil<br/>
-            • Bunga flat lebih mudah dihitung tapi total bunga lebih besar<br/>
-            • Bandingkan beberapa tenor untuk temukan yang paling efisien
+            â€¢ DP 30%+ = cicilan lebih ringan &amp; bunga total lebih kecil<br/>
+            â€¢ Bunga flat lebih mudah dihitung tapi total bunga lebih besar<br/>
+            â€¢ Bandingkan beberapa tenor untuk temukan yang paling efisien
           </div>
         </div>
       </>}
-      {!pokok && <div style={{textAlign:"center",padding:"28px 0",color:T.muted,fontSize:13}}>Isi harga barang untuk mulai menghitung 🧮</div>}
+      {!pokok && <div style={{textAlign:"center",padding:"28px 0",color:T.muted,fontSize:13}}>Isi harga barang untuk mulai menghitung ðŸ§®</div>}
     </div>
   );
 }
 
-// ─── KOMPARASI BULANAN ─────────────────────────────────────────────────────────
+// â”€â”€â”€ KOMPARASI BULANAN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function KomparasiBulanan({ txs, budgets, T, isMobile }) {
   const allMonths = [];
   const seen = new Set();
@@ -1702,20 +1702,20 @@ function KomparasiBulanan({ txs, budgets, T, isMobile }) {
     const d = diff(a,b);
     if (!d) return null;
     const good = invert ? !d.up : d.up;
-    return <span style={{fontSize:10,fontWeight:700,color:good?T.ok:T.err,marginLeft:4}}>{d.up?"↑":"↓"}{Math.abs(d.pct)}%</span>;
+    return <span style={{fontSize:10,fontWeight:700,color:good?T.ok:T.err,marginLeft:4}}>{d.up?"â†‘":"â†“"}{Math.abs(d.pct)}%</span>;
   };
 
   return (
     <div style={{marginBottom:18}}>
       <button onClick={()=>setOpen(v=>!v)} style={{width:"100%",background:T.card,border:`1.5px solid ${T.border}`,borderRadius:14,padding:"13px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",boxShadow:T.shadow,marginBottom:open?8:0,transition:"all .2s"}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
-          <span style={{fontSize:18}}>📊</span>
+          <span style={{fontSize:18}}>ðŸ“Š</span>
           <div style={{textAlign:"left"}}>
             <div style={{fontSize:13,fontWeight:800,color:T.text}}>Komparasi Laporan Bulanan</div>
             <div style={{fontSize:11,color:T.muted}}>Bandingkan 2 periode keuangan</div>
           </div>
         </div>
-        <span style={{fontSize:16,color:T.muted,transition:"transform .2s",transform:open?"rotate(180deg)":"none"}}>▾</span>
+        <span style={{fontSize:16,color:T.muted,transition:"transform .2s",transform:open?"rotate(180deg)":"none"}}>â–¾</span>
       </button>
 
       {open && <div style={{background:T.card,borderRadius:14,padding:"16px 18px",border:`1.5px solid ${T.border}`,boxShadow:T.shadow}}>
@@ -1753,8 +1753,8 @@ function KomparasiBulanan({ txs, budgets, T, isMobile }) {
                     <div style={{fontSize:11,fontWeight:700,color:T.sub}}>{idr(v2)}</div>
                   </div>
                   <div style={{display:"flex",justifyContent:"space-between",marginTop:6,paddingTop:5,borderTop:`1px solid ${T.borderLight}`}}>
-                    <span style={{fontSize:9,color:T.accent,fontWeight:700}}>■ {bulan1.split(" ")[0]}</span>
-                    <span style={{fontSize:9,color:"#059669",fontWeight:700}}>■ {bulan2.split(" ")[0]}</span>
+                    <span style={{fontSize:9,color:T.accent,fontWeight:700}}>â–  {bulan1.split(" ")[0]}</span>
+                    <span style={{fontSize:9,color:"#059669",fontWeight:700}}>â–  {bulan2.split(" ")[0]}</span>
                   </div>
                 </div>
               );
@@ -1800,15 +1800,15 @@ function KomparasiBulanan({ txs, budgets, T, isMobile }) {
                   <span style={{fontSize:11,color:T.text,fontWeight:600}}>{b.icon} {b.kat}</span>
                   <span style={{fontSize:11,fontWeight:700,color:T.accent}}>{v1?idr(v1):"-"}</span>
                   <span style={{fontSize:11,fontWeight:700,color:"#059669"}}>{v2?idr(v2):"-"}</span>
-                  <span style={{fontSize:10,fontWeight:700,color:delta>0?T.err:delta<0?T.ok:T.muted}}>{delta>0?"↑+":"↓"}{idr(Math.abs(delta))}</span>
+                  <span style={{fontSize:10,fontWeight:700,color:delta>0?T.err:delta<0?T.ok:T.muted}}>{delta>0?"â†‘+":"â†“"}{idr(Math.abs(delta))}</span>
                 </div>
               );
             }).filter(Boolean)}
           </div>
 
           <div style={{display:"flex",justifyContent:"space-between",marginTop:10,fontSize:11,color:T.muted}}>
-            <span>📝 {s1.txCount} transaksi · <span style={{color:T.accent,fontWeight:700}}>{bulan1}</span></span>
-            <span>📝 {s2.txCount} transaksi · <span style={{color:"#059669",fontWeight:700}}>{bulan2}</span></span>
+            <span>ðŸ“ {s1.txCount} transaksi Â· <span style={{color:T.accent,fontWeight:700}}>{bulan1}</span></span>
+            <span>ðŸ“ {s2.txCount} transaksi Â· <span style={{color:"#059669",fontWeight:700}}>{bulan2}</span></span>
           </div>
         </>}
         {(!s1||!s2)&&<div style={{textAlign:"center",padding:"20px 0",color:T.muted,fontSize:12}}>Belum ada data untuk periode yang dipilih</div>}
@@ -1817,16 +1817,16 @@ function KomparasiBulanan({ txs, budgets, T, isMobile }) {
   );
 }
 
-// ─── ONBOARDING COMPONENT ─────────────────────────────────────────────────────
+// â”€â”€â”€ ONBOARDING COMPONENT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function Onboarding({ onDone, lang="id", changeLang }) {
   const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
   const t = (key) => TR[lang]?.[key] ?? TR["id"]?.[key] ?? key;
   const [step, setStep] = useState(0);
   const [nama, setNama] = useState("");
   const [dompetList, setDompetList] = useState([
-    { id:1, tipe:"Bank",     nama:"BCA",   icon:"🏦", saldo:"" },
-    { id:2, tipe:"E-Wallet", nama:"GoPay", icon:"📱", saldo:"" },
-    { id:3, tipe:"Tunai",    nama:"Tunai", icon:"💵", saldo:"" },
+    { id:1, tipe:"Bank",     nama:"BCA",   icon:"ðŸ¦", saldo:"" },
+    { id:2, tipe:"E-Wallet", nama:"GoPay", icon:"ðŸ“±", saldo:"" },
+    { id:3, tipe:"Tunai",    nama:"Tunai", icon:"ðŸ’µ", saldo:"" },
   ]);
   const [budgetBasic, setBudgetBasic] = useState({ makan:"", transport:"", tagihan:"" });
   const [anim, setAnim] = useState(true);
@@ -1835,7 +1835,7 @@ function Onboarding({ onDone, lang="id", changeLang }) {
   const prevStep = () => { setAnim(false); setTimeout(()=>{setStep(s=>s-1);setAnim(true);},180); };
   const fmtN = v => { const n=String(v).replace(/\D/g,""); return n?n.replace(/\B(?=(\d{3})+(?!\d))/g,"."):""};
   const updateDompet = (id,f,v) => setDompetList(p=>p.map(d=>d.id===id?{...d,[f]:v}:d));
-  const addDompet = () => setDompetList(p=>[...p,{id:Date.now(),tipe:"Bank",nama:"",icon:"💳",saldo:""}]);
+  const addDompet = () => setDompetList(p=>[...p,{id:Date.now(),tipe:"Bank",nama:"",icon:"ðŸ’³",saldo:""}]);
   const removeDompet = id => setDompetList(p=>p.filter(d=>d.id!==id));
   const handleDone = () => {
     const cleanDompet = dompetList.filter(d=>d.nama.trim()).map((d,i)=>({...d,id:i+1,norek:"",saldo:d.saldo||"0"}));
@@ -1868,13 +1868,13 @@ function Onboarding({ onDone, lang="id", changeLang }) {
           {step===0&&<div style={{textAlign:"center",padding:"10px 0 20px"}}>
             {/* Language picker */}
             <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:16}}>
-              {[{code:"id",flag:"🇮🇩",label:"Indonesia"},{code:"en",flag:"🇺🇸",label:"English"}].map(l=>(
+              {[{code:"id",flag:"ðŸ‡®ðŸ‡©",label:"Indonesia"},{code:"en",flag:"ðŸ‡ºðŸ‡¸",label:"English"}].map(l=>(
                 <button key={l.code} onClick={()=>changeLang&&changeLang(l.code)} style={{display:"flex",alignItems:"center",gap:5,padding:"6px 14px",borderRadius:99,border:`2px solid ${lang===l.code?"#7C3AED":"#E9D5FF"}`,background:lang===l.code?"#EDE9FE":"white",color:lang===l.code?"#5B21B6":"#9CA3AF",fontWeight:700,fontSize:12,cursor:"pointer",transition:"all .2s"}}>
                   <span style={{fontSize:16}}>{l.flag}</span>{l.label}
                 </button>
               ))}
             </div>
-            <div style={{marginBottom:14,display:"inline-block",animation:"bob 2s ease-in-out infinite",width:80,height:80}}><div style={{width:80,height:80,borderRadius:20,background:"#7C3AED",display:"flex",alignItems:"center",justifyContent:"center",fontSize:48}}>🐱</div></div>
+            <div style={{marginBottom:14,display:"inline-block",animation:"bob 2s ease-in-out infinite",width:80,height:80}}><div style={{width:80,height:80,borderRadius:20,background:"#7C3AED",display:"flex",alignItems:"center",justifyContent:"center",fontSize:48}}>ðŸ±</div></div>
             <div style={{fontSize:26,fontWeight:900,color:"#5B21B6",marginBottom:8}}>{t("ob_welcome")}</div>
             <div style={{fontSize:14,color:"#6B7280",lineHeight:1.65,marginBottom:24,maxWidth:320,margin:"0 auto 24px"}}>{t("ob_desc")}</div>
             <div style={{display:"flex",flexDirection:"column",gap:8,maxWidth:280,margin:"0 auto 24px"}}>
@@ -1886,18 +1886,18 @@ function Onboarding({ onDone, lang="id", changeLang }) {
             <button onClick={nextStep} style={{background:"linear-gradient(135deg,#5B21B6,#7C3AED)",color:"white",border:"none",borderRadius:14,padding:"13px 34px",fontSize:15,fontWeight:800,cursor:"pointer",boxShadow:"0 6px 24px rgba(91,33,182,.35)"}}>{t("ob_start")}</button>
           </div>}
           {step===1&&<div style={{padding:"6px 0 12px"}}>
-            <div style={{fontSize:38,textAlign:"center",marginBottom:12}}>👋</div>
+            <div style={{fontSize:38,textAlign:"center",marginBottom:12}}>ðŸ‘‹</div>
             <div style={{fontSize:18,fontWeight:900,color:"#1F2937",marginBottom:4,textAlign:"center"}}>{t("ob_nameQ")}</div>
             <div style={{fontSize:12,color:"#6B7280",textAlign:"center",marginBottom:20}}>{t("ob_nameHint")}</div>
             <input value={nama} onChange={e=>setNama(e.target.value)} onKeyDown={e=>e.key==="Enter"&&nama.trim()&&nextStep()} placeholder={t("ob_namePh")} style={inputSt} autoFocus/>
-            {nama.trim()&&<div style={{marginTop:12,padding:"12px 16px",background:"#F5F3FF",borderRadius:12,textAlign:"center",fontSize:14,color:"#5B21B6",fontWeight:700}}>{greeting} <strong>{nama}</strong>! ✨</div>}
+            {nama.trim()&&<div style={{marginTop:12,padding:"12px 16px",background:"#F5F3FF",borderRadius:12,textAlign:"center",fontSize:14,color:"#5B21B6",fontWeight:700}}>{greeting} <strong>{nama}</strong>! âœ¨</div>}
             <div style={{display:"flex",gap:8,marginTop:20}}>
               <button onClick={prevStep} style={{flex:1,padding:"11px",borderRadius:12,border:"2px solid #E9D5FF",background:"white",color:"#6B7280",fontWeight:700,cursor:"pointer",fontSize:13}}>{t("back")}</button>
               <button onClick={nextStep} disabled={!nama.trim()} style={{flex:2,padding:"11px",borderRadius:12,border:"none",background:nama.trim()?"linear-gradient(135deg,#5B21B6,#7C3AED)":"#E9D5FF",color:nama.trim()?"white":"#94A3B8",fontWeight:800,cursor:nama.trim()?"pointer":"default",fontSize:13}}>{t("next")}</button>
             </div>
           </div>}
           {step===2&&<div style={{padding:"6px 0 12px"}}>
-            <div style={{fontSize:34,textAlign:"center",marginBottom:10}}>💳</div>
+            <div style={{fontSize:34,textAlign:"center",marginBottom:10}}>ðŸ’³</div>
             <div style={{fontSize:17,fontWeight:900,color:"#1F2937",marginBottom:4,textAlign:"center"}}>{t("ob_walletQ")}</div>
             <div style={{fontSize:12,color:"#6B7280",textAlign:"center",marginBottom:14}}>{t("ob_walletHint")}</div>
             <div style={{display:"flex",flexDirection:"column",gap:7,maxHeight:260,overflowY:"auto",marginBottom:10}}>
@@ -1922,11 +1922,11 @@ function Onboarding({ onDone, lang="id", changeLang }) {
             </div>
           </div>}
           {step===3&&<div style={{padding:"6px 0 12px"}}>
-            <div style={{fontSize:34,textAlign:"center",marginBottom:10}}>📊</div>
+            <div style={{fontSize:34,textAlign:"center",marginBottom:10}}>ðŸ“Š</div>
             <div style={{fontSize:17,fontWeight:900,color:"#1F2937",marginBottom:2,textAlign:"center"}}>{t("ob_budgetQ")} <span style={{fontSize:11,fontWeight:500,color:"#94A3B8"}}>{t("ob_budgetOpt")}</span></div>
             <div style={{fontSize:12,color:"#6B7280",textAlign:"center",marginBottom:16}}>{t("ob_budgetHint")}</div>
             <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:14}}>
-              {[{key:"makan",label:"🍜 "+t("kat_food"),ph:lang==="en"?"e.g. 150"  :"Misal: 1.500.000"},{key:"transport",label:"🚗 "+t("kat_transport"),ph:lang==="en"?"e.g. 50":"Misal: 500.000"},{key:"tagihan",label:"💡 "+t("kat_bills"),ph:lang==="en"?"e.g. 40":"Misal: 400.000"}].map(({key,label,ph})=>(
+              {[{key:"makan",label:"ðŸœ "+t("kat_food"),ph:lang==="en"?"e.g. 150"  :"Misal: 1.500.000"},{key:"transport",label:"ðŸš— "+t("kat_transport"),ph:lang==="en"?"e.g. 50":"Misal: 500.000"},{key:"tagihan",label:"ðŸ’¡ "+t("kat_bills"),ph:lang==="en"?"e.g. 40":"Misal: 400.000"}].map(({key,label,ph})=>(
                 <div key={key} style={{background:"#F5F3FF",borderRadius:11,padding:"9px 13px"}}>
                   <div style={{fontSize:11,fontWeight:700,color:"#5B21B6",marginBottom:5}}>{label}</div>
                   <div style={{display:"flex",alignItems:"center",gap:5}}>
@@ -1937,10 +1937,10 @@ function Onboarding({ onDone, lang="id", changeLang }) {
               ))}
             </div>
             <div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:9,padding:"9px 13px",fontSize:11,color:"#92400E",marginBottom:14}}>
-              💡 {t("ob_budgetTip")}
+              ðŸ’¡ {t("ob_budgetTip")}
             </div>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr auto",gap:8}}>
-              <button onClick={prevStep} style={{flex:1,padding:"11px",borderRadius:12,border:"2px solid #E9D5FF",background:"white",color:"#6B7280",fontWeight:700,cursor:"pointer",fontSize:13}}>← Kembali</button>
+              <button onClick={prevStep} style={{flex:1,padding:"11px",borderRadius:12,border:"2px solid #E9D5FF",background:"white",color:"#6B7280",fontWeight:700,cursor:"pointer",fontSize:13}}>â† Kembali</button>
               <button onClick={handleDone} style={{flex:2,padding:"11px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#059669,#10B981)",color:"white",fontWeight:800,cursor:"pointer",fontSize:13,boxShadow:"0 4px 16px rgba(5,150,105,.3)"}}>{t("ob_finish")}</button>
             </div>
           </div>}
@@ -1951,11 +1951,11 @@ function Onboarding({ onDone, lang="id", changeLang }) {
   );
 }
 
-// ─── IMPORT MUTASI BANK MODAL ────────────────────────────────────────────────
+// â”€â”€â”€ IMPORT MUTASI BANK MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 
-// ─── YEAR IN REVIEW ───────────────────────────────────────────────────────────
+// â”€â”€â”€ YEAR IN REVIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function YearInReview({ s, T, lang, onClose }) {
   const t = (k) => (lang==="en"?{
     yearReview:"Year in Review",yearIncome:"Total Income",yearExpense:"Total Expenses",
@@ -2014,7 +2014,7 @@ function YearInReview({ s, T, lang, onClose }) {
   txYear.filter(t=>t.tipe==="pengeluaran"&&t.katId).forEach(t=>{
     const b = s.budgets.find(b=>b.id===t.katId);
     const nm = b?.kat||"Lainnya";
-    const ico = b?.icon||"📦";
+    const ico = b?.icon||"ðŸ“¦";
     catSpend[nm] = {jml:(catSpend[nm]?.jml||0)+N(t.jml), icon:ico};
   });
   const topCats = Object.entries(catSpend).sort((a,b)=>b[1].jml-a[1].jml).slice(0,5);
@@ -2037,7 +2037,7 @@ function YearInReview({ s, T, lang, onClose }) {
 
   if (!txYear.length) return (
     <div style={{textAlign:"center",padding:"40px 20px"}}>
-      <div style={{fontSize:64,marginBottom:12}}>📭</div>
+      <div style={{fontSize:64,marginBottom:12}}>ðŸ“­</div>
       <div style={{fontWeight:700,color:T.muted}}>{t("noTxYear")} {year}</div>
       <button onClick={onClose} style={{marginTop:20,padding:"8px 20px",borderRadius:9,background:T.accentBg,border:"none",color:T.accent,fontWeight:700,cursor:"pointer"}}>{t("closeBtn")}</button>
     </div>
@@ -2048,7 +2048,7 @@ function YearInReview({ s, T, lang, onClose }) {
       {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
         <div>
-          <div style={{fontSize:18,fontWeight:900,color:T.text}}>🎊 {t("yearReview")} {year}</div>
+          <div style={{fontSize:18,fontWeight:900,color:T.text}}>ðŸŽŠ {t("yearReview")} {year}</div>
           <div style={{fontSize:11,color:T.muted,marginTop:2}}>{totalTx} {t("txTotal")}</div>
         </div>
         <button onClick={onClose} style={{background:T.cardAlt,border:"none",borderRadius:8,padding:"5px 10px",cursor:"pointer",color:T.muted,fontSize:16}}>X</button>
@@ -2063,7 +2063,7 @@ function YearInReview({ s, T, lang, onClose }) {
           </div>
         </div>
         <div style={{flex:1}}>
-          <div style={{fontWeight:900,fontSize:16,marginBottom:3}}>{scoreLabel} 🏆</div>
+          <div style={{fontWeight:900,fontSize:16,marginBottom:3}}>{scoreLabel} ðŸ†</div>
           <div style={{fontSize:11,opacity:.85}}>{t("yearScore")} {year}</div>
           <div style={{marginTop:8,background:"rgba(255,255,255,.2)",borderRadius:99,height:6,overflow:"hidden"}}>
             <div style={{width:yearScoreVal+"%",height:"100%",background:"white",borderRadius:99,transition:"width .6s ease"}}/>
@@ -2074,10 +2074,10 @@ function YearInReview({ s, T, lang, onClose }) {
       {/* 4 Big Stats */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
         {[
-          {l:t("yearIncome"),  v:IDRs(totalIn),  c:T.ok,  bg:T.okBg,  ico:"📈"},
-          {l:t("yearExpense"), v:IDRs(totalOut), c:T.err, bg:T.errBg, ico:"📉"},
-          {l:t("yearSaving"),  v:IDRs(totalSav), c:T.info,bg:T.infoBg,ico:"🏦"},
-          {l:t("yearNet"),     v:IDRs(netCash),  c:netCash>=0?T.ok:T.err, bg:netCash>=0?T.okBg:T.errBg, ico:netCash>=0?"✨":"⚠️"},
+          {l:t("yearIncome"),  v:IDRs(totalIn),  c:T.ok,  bg:T.okBg,  ico:"ðŸ“ˆ"},
+          {l:t("yearExpense"), v:IDRs(totalOut), c:T.err, bg:T.errBg, ico:"ðŸ“‰"},
+          {l:t("yearSaving"),  v:IDRs(totalSav), c:T.info,bg:T.infoBg,ico:"ðŸ¦"},
+          {l:t("yearNet"),     v:IDRs(netCash),  c:netCash>=0?T.ok:T.err, bg:netCash>=0?T.okBg:T.errBg, ico:netCash>=0?"âœ¨":"âš ï¸"},
         ].map(({l,v,c,bg,ico})=>(
           <div key={l} style={{background:bg,borderRadius:12,padding:"12px 14px"}}>
             <div style={{fontSize:18,marginBottom:4}}>{ico}</div>
@@ -2116,12 +2116,12 @@ function YearInReview({ s, T, lang, onClose }) {
       {/* Best / Worst Month */}
       {(bestM||worstM)&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
         {bestM&&<div style={{background:T.okBg,borderRadius:12,padding:"10px 12px"}}>
-          <div style={{fontSize:9,color:T.ok,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>🏅 {t("bestMonth")}</div>
+          <div style={{fontSize:9,color:T.ok,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>ðŸ… {t("bestMonth")}</div>
           <div style={{fontWeight:900,fontSize:15,color:T.ok}}>{bestM.fullMonth}</div>
           <div style={{fontSize:10,color:T.ok,marginTop:2,opacity:.8}}>Net {IDRs(bestM.net)}</div>
         </div>}
         {worstM&&<div style={{background:T.errBg,borderRadius:12,padding:"10px 12px"}}>
-          <div style={{fontSize:9,color:T.err,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>🔥 {t("worstMonth")}</div>
+          <div style={{fontSize:9,color:T.err,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>ðŸ”¥ {t("worstMonth")}</div>
           <div style={{fontWeight:900,fontSize:15,color:T.err}}>{worstM.fullMonth}</div>
           <div style={{fontSize:10,color:T.err,marginTop:2,opacity:.8}}>Exp {IDRs(worstM.exp)}</div>
         </div>}
@@ -2174,7 +2174,7 @@ function YearInReview({ s, T, lang, onClose }) {
       </div>
 
       <button onClick={onClose} style={{width:"100%",padding:"11px",borderRadius:11,background:T.accentBg,border:`1.5px solid ${T.accentPop}30`,color:T.accent,fontWeight:800,cursor:"pointer",fontSize:13}}>
-        ✕ {t("closeBtn")}
+        âœ• {t("closeBtn")}
       </button>
     </div>
   );
@@ -2197,25 +2197,25 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
   const [kat, setKat] = useState({});
   const BANKS = ["BCA","Mandiri","BNI","BRI","CIMB","Jenius","OVO","GoPay","Dana","ShopeePay","BSI","Permata","BTN","Generic"];
   const BANK_GUIDES = {
-    BCA:"myBCA → Rekening → Unduh Mutasi → CSV",
-    Mandiri:"Livin → Rekening → Cetak Rekening → Export",
-    BNI:"BNI Mobile → Informasi → Mutasi → Download",
-    BRI:"BRImo → Rekening → Mutasi → Download CSV",
-    CIMB:"OCTO Mobile → Rekening → Mutasi → Export",
-    Jenius:"Jenius → Akun → Riwayat Transaksi → Export CSV",
-    OVO:"OVO → Transaksi → Filter → Download Riwayat",
-    GoPay:"Gojek → GoPay → Riwayat → Download (CSV)",
-    Dana:"Dana → Riwayat Transaksi → Export ke Email",
-    ShopeePay:"Shopee → Saya → ShopeePay → Riwayat → Export",
-    BSI:"BSIm → Rekening → Mutasi → Download CSV",
-    Permata:"PermataMobile X → Rekening → Mutasi",
-    BTN:"BTN Mobile → Rekening → Mutasi CSV",
-    Generic:"Format otomatis — coba upload & lihat hasilnya",
+    BCA:"myBCA â†’ Rekening â†’ Unduh Mutasi â†’ CSV",
+    Mandiri:"Livin â†’ Rekening â†’ Cetak Rekening â†’ Export",
+    BNI:"BNI Mobile â†’ Informasi â†’ Mutasi â†’ Download",
+    BRI:"BRImo â†’ Rekening â†’ Mutasi â†’ Download CSV",
+    CIMB:"OCTO Mobile â†’ Rekening â†’ Mutasi â†’ Export",
+    Jenius:"Jenius â†’ Akun â†’ Riwayat Transaksi â†’ Export CSV",
+    OVO:"OVO â†’ Transaksi â†’ Filter â†’ Download Riwayat",
+    GoPay:"Gojek â†’ GoPay â†’ Riwayat â†’ Download (CSV)",
+    Dana:"Dana â†’ Riwayat Transaksi â†’ Export ke Email",
+    ShopeePay:"Shopee â†’ Saya â†’ ShopeePay â†’ Riwayat â†’ Export",
+    BSI:"BSIm â†’ Rekening â†’ Mutasi â†’ Download CSV",
+    Permata:"PermataMobile X â†’ Rekening â†’ Mutasi",
+    BTN:"BTN Mobile â†’ Rekening â†’ Mutasi CSV",
+    Generic:"Format otomatis â€” coba upload & lihat hasilnya",
   };
   const BANK_ICONS = {
-    BCA:"🔵",Mandiri:"🟡",BNI:"🟠",BRI:"🔵",CIMB:"🔴",
-    Jenius:"💎",OVO:"💜",GoPay:"🟢",Dana:"🔵",ShopeePay:"🟠",
-    BSI:"🟢",Permata:"🔵",BTN:"🟡",Generic:"⚙️",
+    BCA:"ðŸ”µ",Mandiri:"ðŸŸ¡",BNI:"ðŸŸ ",BRI:"ðŸ”µ",CIMB:"ðŸ”´",
+    Jenius:"ðŸ’Ž",OVO:"ðŸ’œ",GoPay:"ðŸŸ¢",Dana:"ðŸ”µ",ShopeePay:"ðŸŸ ",
+    BSI:"ðŸŸ¢",Permata:"ðŸ”µ",BTN:"ðŸŸ¡",Generic:"âš™ï¸",
   };
 
   const handleFile = (e) => {
@@ -2268,7 +2268,7 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
         <div>
-          <div style={{fontSize:16,fontWeight:800,color:T.text}}>🏦 Import Mutasi Bank</div>
+          <div style={{fontSize:16,fontWeight:800,color:T.text}}>ðŸ¦ Import Mutasi Bank</div>
           <div style={{fontSize:11,color:T.muted,marginTop:2}}>{step===0?"Upload file CSV dari m-banking atau internet banking":`${parsed.length} transaksi ditemukan dari ${fileName}`}</div>
         </div>
         <button onClick={onClose} style={{background:T.cardAlt,border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",color:T.muted,fontSize:16}}>X</button>
@@ -2285,7 +2285,7 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
             ))}
           </div>
           {bankType&&BANK_GUIDES[bankType]&&<div style={{marginTop:6,fontSize:10,color:T.sub,background:T.cardAlt,borderRadius:7,padding:"6px 10px"}}>
-            📱 {BANK_GUIDES[bankType]}
+            ðŸ“± {BANK_GUIDES[bankType]}
           </div>}
         </div>
         <div style={{marginBottom:12}}>
@@ -2297,25 +2297,25 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
         <label style={{display:"block",cursor:"pointer"}}
           onDragOver={e=>{e.preventDefault();}} onDrop={e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)handleFile(f);}}>
           <div style={{border:`2px dashed ${T.border}`,borderRadius:14,padding:"24px 18px",textAlign:"center",background:T.cardAlt}}>
-            {loading?<div style={{color:T.accent,fontWeight:700}}>⏳ Memproses...</div>:<>
-              <div style={{fontSize:36,marginBottom:8}}>📂</div>
+            {loading?<div style={{color:T.accent,fontWeight:700}}>â³ Memproses...</div>:<>
+              <div style={{fontSize:36,marginBottom:8}}>ðŸ“‚</div>
               <div style={{fontWeight:800,color:T.text,fontSize:14,marginBottom:3}}>Klik atau drag & drop file CSV</div>
-              <div style={{fontSize:10,color:T.muted,lineHeight:1.6}}>BCA · Mandiri · BNI · BRI · CIMB<br/>Jenius · OVO · GoPay · Dana · ShopeePay · BSI</div>
+              <div style={{fontSize:10,color:T.muted,lineHeight:1.6}}>BCA Â· Mandiri Â· BNI Â· BRI Â· CIMB<br/>Jenius Â· OVO Â· GoPay Â· Dana Â· ShopeePay Â· BSI</div>
             </>}
           </div>
           <input type="file" accept=".csv,.txt" onChange={handleFile} style={{display:"none"}}/>
         </label>
         {error&&<div style={{marginTop:8,color:T.err,fontSize:11,background:T.errBg,borderRadius:7,padding:"7px 11px"}}>{error}</div>}
         <div style={{marginTop:12,background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:9,padding:"9px 12px"}}>
-          <div style={{fontSize:11,fontWeight:700,color:T.info,marginBottom:5}}>💡 Cara download mutasi CSV:</div>
+          <div style={{fontSize:11,fontWeight:700,color:T.info,marginBottom:5}}>ðŸ’¡ Cara download mutasi CSV:</div>
           <div style={{fontSize:10,color:T.sub,lineHeight:1.75}}>
-            <b>BCA:</b> myBCA → Rekening → Unduh Mutasi → CSV<br/>
-            <b>Mandiri:</b> Livin → Rekening → Cetak Rekening → Export<br/>
-            <b>BNI:</b> BNI Mobile → Informasi → Mutasi → Download<br/>
-            <b>BRI:</b> BRImo → Rekening → Mutasi → Download CSV<br/>
-            <b>Jenius:</b> Akun → Riwayat Transaksi → Export CSV<br/>
-            <b>OVO/GoPay/Dana:</b> Riwayat → Download / Export<br/>
-            <b>ShopeePay:</b> Saya → ShopeePay → Riwayat → Export
+            <b>BCA:</b> myBCA â†’ Rekening â†’ Unduh Mutasi â†’ CSV<br/>
+            <b>Mandiri:</b> Livin â†’ Rekening â†’ Cetak Rekening â†’ Export<br/>
+            <b>BNI:</b> BNI Mobile â†’ Informasi â†’ Mutasi â†’ Download<br/>
+            <b>BRI:</b> BRImo â†’ Rekening â†’ Mutasi â†’ Download CSV<br/>
+            <b>Jenius:</b> Akun â†’ Riwayat Transaksi â†’ Export CSV<br/>
+            <b>OVO/GoPay/Dana:</b> Riwayat â†’ Download / Export<br/>
+            <b>ShopeePay:</b> Saya â†’ ShopeePay â†’ Riwayat â†’ Export
           </div>
         </div>
       </>}
@@ -2338,11 +2338,11 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
           {filtered.map(([i,r])=>(
             <div key={i} onClick={()=>setSelected(p=>({...p,[i]:!p[i]}))} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 11px",borderBottom:`1px solid ${T.borderLight}`,cursor:"pointer",background:selected[i]?T.cardAlt:T.card,transition:"background .12s"}}>
               <div style={{width:17,height:17,borderRadius:4,border:`2px solid ${selected[i]?T.accent:T.border}`,background:selected[i]?T.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                {selected[i]&&<span style={{color:"white",fontSize:10,fontWeight:900}}>✓</span>}
+                {selected[i]&&<span style={{color:"white",fontSize:10,fontWeight:900}}>âœ“</span>}
               </div>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:11,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.ket||"—"}</div>
-                <div style={{fontSize:9,color:T.muted,marginTop:1}}>{r.tgl} · {katName(kat[i]||r.katId)}</div>
+                <div style={{fontSize:11,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.ket||"â€”"}</div>
+                <div style={{fontSize:9,color:T.muted,marginTop:1}}>{r.tgl} Â· {katName(kat[i]||r.katId)}</div>
               </div>
               <div style={{fontSize:12,fontWeight:800,color:r.tipe==="pemasukan"?T.ok:T.err,flexShrink:0}}>
                 {r.tipe==="pemasukan"?"+":"-"}{IDRf(r.jml)}
@@ -2351,12 +2351,12 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
           ))}
         </div>
         <div style={{fontSize:10,color:T.muted,textAlign:"center",marginBottom:12}}>
-          {selectedCount} dari {parsed.length} transaksi dipilih · Kategori otomatis, bisa diedit setelah import
+          {selectedCount} dari {parsed.length} transaksi dipilih Â· Kategori otomatis, bisa diedit setelah import
         </div>
         <div style={{display:"flex",gap:7}}>
-          <button onClick={()=>{setStep(0);setParsed([]);}} style={{flex:1,padding:"10px",borderRadius:11,border:`2px solid ${T.border}`,background:T.card,color:T.sub,fontWeight:700,cursor:"pointer",fontSize:12}}>← Ulang</button>
+          <button onClick={()=>{setStep(0);setParsed([]);}} style={{flex:1,padding:"10px",borderRadius:11,border:`2px solid ${T.border}`,background:T.card,color:T.sub,fontWeight:700,cursor:"pointer",fontSize:12}}>â† Ulang</button>
           <button onClick={handleImport} disabled={!selectedCount} style={{flex:2,padding:"10px",borderRadius:11,border:"none",background:selectedCount?"linear-gradient(135deg,#5B21B6,#7C3AED)":"#E9D5FF",color:selectedCount?"white":"#94A3B8",fontWeight:800,cursor:selectedCount?"pointer":"default",fontSize:13}}>
-            📥 Import {selectedCount} Transaksi
+            ðŸ“¥ Import {selectedCount} Transaksi
           </button>
         </div>
       </>}
@@ -2365,9 +2365,9 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
 }
 
 
-// ═════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // MAIN APP
-// ═════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export default function App(){
   const [s,setS]=useState(()=>{
     try{
@@ -2473,7 +2473,7 @@ export default function App(){
       setAdminOrderId(Object.fromEntries((data.users||[]).map(u=>[u.uid, u.orderId || ""])));
       setAdminPaymentStatus(Object.fromEntries((data.users||[]).map(u=>[u.uid, u.paymentStatus || "pending_info"])));
     }catch(e){
-      showToast(`⚠️ ${e.message || "Gagal memuat user admin"}`);
+      showToast(`âš ï¸ ${e.message || "Gagal memuat user admin"}`);
     }finally{
       setAdminLoading(false);
     }
@@ -2494,10 +2494,10 @@ export default function App(){
         }),
       });
       setAdminUsers(prev=>prev.map(user=>user.uid===uid?{...user,...data.user}:user));
-      showToast(approvalStatus==="approved"?"✅ User di-approve":"✅ Status user diperbarui");
+      showToast(approvalStatus==="approved"?"âœ… User di-approve":"âœ… Status user diperbarui");
       await loadAdminUsers();
     }catch(e){
-      showToast(`⚠️ ${e.message || "Gagal update user"}`);
+      showToast(`âš ï¸ ${e.message || "Gagal update user"}`);
     }finally{
       setAdminLoading(false);
     }
@@ -2615,7 +2615,7 @@ export default function App(){
       await signInWithGoogle();
     }catch(e){
       console.warn("Google sign in failed:", e);
-      showToast("⚠️ Login gagal. Coba lagi!");
+      showToast("âš ï¸ Login gagal. Coba lagi!");
     }
   };
 
@@ -2639,7 +2639,7 @@ export default function App(){
     }catch(e){
       const msg = authErrorMessage(e);
       setAuthError(msg);
-      showToast(`⚠️ ${msg}`);
+      showToast(`âš ï¸ ${msg}`);
     }finally{
       setAuthBusy(false);
     }
@@ -2706,21 +2706,21 @@ export default function App(){
 
   const copyAdminField = async (label, value) => {
     if(!value){
-      showToast(`⚠️ ${label} kosong`);
+      showToast(`âš ï¸ ${label} kosong`);
       return;
     }
     try{
       await navigator.clipboard.writeText(String(value));
-      showToast(`✅ ${label} disalin`);
+      showToast(`âœ… ${label} disalin`);
     }catch(e){
-      showToast(`⚠️ Gagal copy ${label.toLowerCase()}`);
+      showToast(`âš ï¸ Gagal copy ${label.toLowerCase()}`);
     }
   };
 
 
   useEffect(()=>{try{localStorage.setItem("aturduitku_dark",dark?"1":"0");}catch(e){}},[ dark]);
 
-  // ── SMART NOTIFICATIONS ────────────────────────────────────────────────────
+  // â”€â”€ SMART NOTIFICATIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(()=>{
     const runChecks = async () => {
       const alerts = [];
@@ -2729,7 +2729,7 @@ export default function App(){
       // 1. Tagihan jatuh tempo dalam 3 hari
       s.utang.filter(u=>u.tempo&&u.status!=="lunas").forEach(u=>{
         const diff = Math.ceil((new Date(u.tempo)-todayD)/(1000*60*60*24));
-        if(diff>=0&&diff<=3) alerts.push({type:"warn",title:`⏰ ${lang==="en"?"Due: ":"Jatuh Tempo: "}${u.nama}`,body:`${u.tipe==="utang"?"Hutang":"Piutang"} ${IDR(N(u.jml))} jatuh tempo ${diff===0?"HARI INI":"dalam "+diff+" hari"} (${u.tempo})`});
+        if(diff>=0&&diff<=3) alerts.push({type:"warn",title:`â° ${lang==="en"?"Due: ":"Jatuh Tempo: "}${u.nama}`,body:`${u.tipe==="utang"?"Hutang":"Piutang"} ${IDR(N(u.jml))} jatuh tempo ${diff===0?"HARI INI":"dalam "+diff+" hari"} (${u.tempo})`});
       });
       // 2. Budget hampir habis (>85%)
       const spendKatLocal={};
@@ -2738,8 +2738,8 @@ export default function App(){
         const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
         const spend=spendKatLocal[b.id]||0;
         const pct=alloc>0?spend/alloc*100:0;
-        if(alloc>0&&pct>=85&&pct<100) alerts.push({type:"warn",title:`📊 Budget ${b.kat} ${lang==="en"?"Almost Over":"Hampir Habis"}`,body:`${lang==="en"?"Used ":"Sudah terpakai "} ${pct.toFixed(0)}% (${IDR(spend)} dari ${IDR(alloc)})`});
-        if(alloc>0&&pct>=100) alerts.push({type:"danger",title:`🚨 Budget ${b.kat} ${lang==="en"?"Over Budget!":"Melebihi Batas!"}`,body:`Kelebihan ${IDR(spend-alloc)} — sudah ${pct.toFixed(0)}% dari alokasi`});
+        if(alloc>0&&pct>=85&&pct<100) alerts.push({type:"warn",title:`ðŸ“Š Budget ${b.kat} ${lang==="en"?"Almost Over":"Hampir Habis"}`,body:`${lang==="en"?"Used ":"Sudah terpakai "} ${pct.toFixed(0)}% (${IDR(spend)} dari ${IDR(alloc)})`});
+        if(alloc>0&&pct>=100) alerts.push({type:"danger",title:`ðŸš¨ Budget ${b.kat} ${lang==="en"?"Over Budget!":"Melebihi Batas!"}`,body:`Kelebihan ${IDR(spend-alloc)} â€” sudah ${pct.toFixed(0)}% dari alokasi`});
       });
       // 3. Belum ada transaksi hari ini (cek jam > 20:00)
       const nowH = new Date().getHours();
@@ -2748,7 +2748,7 @@ export default function App(){
       // 4. Recurring belum diproses bulan ini
       const mk=`${s.bulan}_${s.tahun}`;
       const unproc=s.recurring.filter(r=>r.aktif&&!Object.keys(s.processedRecurring).some(k=>k.startsWith(r.id+"_"+mk)));
-      if(unproc.length>0) alerts.push({type:"info",title:`🔁 ${unproc.length} ${lang==="en"?"Recurring Transactions Not Processed":"Transaksi Rutin Belum Diproses"}`,body:`Klik "Proses Sekarang" di menu Setting → Transaksi Rutin`});
+      if(unproc.length>0) alerts.push({type:"info",title:`ðŸ” ${unproc.length} ${lang==="en"?"Recurring Transactions Not Processed":"Transaksi Rutin Belum Diproses"}`,body:`Klik "Proses Sekarang" di menu Setting â†’ Transaksi Rutin`});
 
       setInAppAlerts(alerts);
 
@@ -2766,10 +2766,10 @@ export default function App(){
   },[s.utang, s.budgets, s.txs, s.recurring, s.processedRecurring]);
 
   const requestNotifPermission=async()=>{
-    if(!("Notification" in window)){showToast("❌ Browser tidak mendukung notifikasi");return;}
+    if(!("Notification" in window)){showToast("âŒ Browser tidak mendukung notifikasi");return;}
     const perm=await Notification.requestPermission();
-    if(perm==="granted") showToast("✅ Notifikasi diaktifkan!");
-    else showToast("⚠️ Izin notifikasi ditolak");
+    if(perm==="granted") showToast("âœ… Notifikasi diaktifkan!");
+    else showToast("âš ï¸ Izin notifikasi ditolak");
   };
 
 
@@ -2806,7 +2806,7 @@ export default function App(){
   const [txForm,setTxForm]=useState({tipe:"pengeluaran",tgl:today(),ket:"",jml:"",katId:1,subKat:"",dompetId:1,dompetTo:2,biaya:"",goalId:""});
   const [bulkRows,setBulkRows]=useState([{tgl:today(),jml:"",tipe:"pengeluaran",dompetId:1,katId:"",ket:""}]);
   const [utForm,setUtForm]=useState({tipe:"utang",tgl:today(),nama:"",jml:"",tempo:"",ket:""});
-  const [goalForm,setGoalForm]=useState({nama:"",target:"",kumpul:"",deadline:"",icon:"⭐"});
+  const [goalForm,setGoalForm]=useState({nama:"",target:"",kumpul:"",deadline:"",icon:"â­"});
   const [dompetForm,setDompetForm]=useState({tipe:"Bank",nama:"",norek:"",saldo:""});
   const [asetForm,setAsetForm]=useState({nama:"",nilai:"",ket:"",beliDariDompet:false,dompetId:1});
   const [sfForm,setSfForm]=useState({name:s.name,targetDana:s.targetDana,prevPemasukan:s.prevPemasukan,prevPengeluaran:s.prevPengeluaran});
@@ -2815,16 +2815,16 @@ export default function App(){
   const [txPage,setTxPage]=useState(1);
   const TX_PER_PAGE=30;
   const [recurringForm,setRecurringForm]=useState({nama:"",tipe:"pengeluaran",jml:"",katId:1,dompetId:1,hari:"1",aktif:true});
-  const [amplopForm,setAmplopForm]=useState({nama:"",icon:"✉️",warna:"#8B5CF6",dompetId:1,alokasi:""});
+  const [amplopForm,setAmplopForm]=useState({nama:"",icon:"âœ‰ï¸",warna:"#8B5CF6",dompetId:1,alokasi:""});
   const [showAddRecurring,setShowAddRecurring]=useState(false);
   const [showAddAmplop,setShowAddAmplop]=useState(false);
   const [amplopIsiForm,setAmplopIsiForm]=useState({id:null,jml:"",dompetId:1});
-  const [newKat,setNewKat]=useState({kat:"",icon:"📦",kelas:"Kebutuhan"});
+  const [newKat,setNewKat]=useState({kat:"",icon:"ðŸ“¦",kelas:"Kebutuhan"});
   const [showAddKat,setShowAddKat]=useState(false);
-  const [newSub,setNewSub]=useState({katId:null,nama:"",emoji:"📌",alokasi:"",tempo:""});
+  const [newSub,setNewSub]=useState({katId:null,nama:"",emoji:"ðŸ“Œ",alokasi:"",tempo:""});
 
 
-  // ── Computed ────────────────────────────────────────────────────────────────
+  // â”€â”€ Computed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const bulanIdx=MONTHS.indexOf(s.bulan);const yr=Number(s.tahun);
   const txBulan=useMemo(()=>s.txs.filter(t=>t.tgl&&t.tgl.startsWith(`${yr}-${String(bulanIdx+1).padStart(2,"0")}`)),[s.txs,yr,bulanIdx]);
   const totalIn=useMemo(()=>txBulan.filter(t=>t.tipe==="pemasukan").reduce((a,b)=>a+N(b.jml),0),[txBulan]);
@@ -2865,11 +2865,11 @@ export default function App(){
   const skorDisiplin=totalBudget>0?Math.max(0,100-Math.max(0,(totalOut-totalBudget)/totalBudget*100)):totalOut===0?100:80;
   const skorRunway=Math.min(Number(runwayReal)/6*100,100);
   const skorTotal=Math.round((skorTabungan+skorDisiplin+skorRunway)/3);
-  const getLabel=sc=>sc>=80?t("excellent"):sc>=60?t("good"):sc>=40?t("fair"):sc>=20?t("poor")+" 💪":t("poor");
+  const getLabel=sc=>sc>=80?t("excellent"):sc>=60?t("good"):sc>=40?t("fair"):sc>=20?t("poor")+" ðŸ’ª":t("poor");
   const getC=sc=>sc>=80?"#16A34A":sc>=60?"#22C55E":sc>=40?"#F59E0B":sc>=20?"#EF4444":"#B91C1C";
 
   const statusC=totalIn===0&&totalOut>0?T.err:rasioOut>80?T.err:rasioOut>60?T.warn:T.ok;
-  const status=totalIn===0&&totalOut>0?t("fair")+" 🟡":rasioOut>80?t("poor")+" 🔴":rasioOut>60?t("fair")+" 🟡":t("good")+" 🟢";
+  const status=totalIn===0&&totalOut>0?t("fair")+" ðŸŸ¡":rasioOut>80?t("poor")+" ðŸ”´":rasioOut>60?t("fair")+" ðŸŸ¡":t("good")+" ðŸŸ¢";
 
   const isCurrentPeriod=bulanIdx===new Date().getMonth()&&yr===new Date().getFullYear();
   const daysPassed=isCurrentPeriod?hariIni:hariDlmBulan;
@@ -2922,7 +2922,7 @@ export default function App(){
     s.utang.filter(u=>!u.lunas&&u.tempo).forEach(u=>{
       const tempo=new Date(u.tempo);
       const diff=Math.ceil((tempo-now_date)/(1000*60*60*24));
-      if(diff>=0&&diff<=14){list.push({icon:"📋",title:u.tipe==="utang"?`Utang: ${u.nama}`:`Piutang: ${u.nama}`,msg:diff===0?"Jatuh tempo HARI INI!":diff+" hari lagi",tag:u.tipe==="utang"?"Utang":"Piutang",color:diff<=3?"danger":"warning",amount:N(u.jml)});}
+      if(diff>=0&&diff<=14){list.push({icon:"ðŸ“‹",title:u.tipe==="utang"?`Utang: ${u.nama}`:`Piutang: ${u.nama}`,msg:diff===0?"Jatuh tempo HARI INI!":diff+" hari lagi",tag:u.tipe==="utang"?"Utang":"Piutang",color:diff<=3?"danger":"warning",amount:N(u.jml)});}
     });
     return list.sort((a,b)=>a.color==="danger"?-1:1);
   },[s.budgets,s.goals,s.utang,spendByKat]);
@@ -2994,12 +2994,12 @@ export default function App(){
   },[now.getHours()]);
   const greetingEmoji = useMemo(()=>{
     const h = now.getHours();
-    if (h>=4&&h<11) return "🌤️";
-    if (h>=11&&h<15) return "☀️";
-    if (h>=15&&h<18) return "🌆";
-    return "🌙";
+    if (h>=4&&h<11) return "ðŸŒ¤ï¸";
+    if (h>=11&&h<15) return "â˜€ï¸";
+    if (h>=15&&h<18) return "ðŸŒ†";
+    return "ðŸŒ™";
   },[now.getHours()]);
-  // Short date for topbar — locale aware
+  // Short date for topbar â€” locale aware
   const hariShort = now.toLocaleDateString(lang==="en"?"en-US":"id-ID",{weekday:"long",day:"numeric",month:"short",year:"numeric"});
 
   // Handlers
@@ -3007,9 +3007,9 @@ export default function App(){
   const openCalc=(field,cur,setter)=>{setCalcFor({field,cur,setter});setShowCalc(true);};
 
 
-  // ═══════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // CLOUDFLARE WORKERS AI + GOOGLE SHEETS SYNC
-  // ═══════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const renderAiContent = (content) => String(content || "").split("\n").map((line, lineIdx, lines) => (
     <React.Fragment key={lineIdx}>
       {line.split(/(\*\*[^*]+\*\*)/g).map((part, partIdx) => (
@@ -3041,7 +3041,7 @@ export default function App(){
     return data.reply || "";
   };
 
-  // ─── Google Sheets OAuth ────────────────────────────────────────
+  // â”€â”€â”€ Google Sheets OAuth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_HERE";
   const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 
@@ -3070,7 +3070,7 @@ export default function App(){
   const [aiLoading,setAiLoading]=useState(false);
 
   const getAiSystemPrompt = () => {
-    // ── Compute financial metrics ──────────────────────
+    // â”€â”€ Compute financial metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const totalSaldo = s.dompet.reduce((a,d)=>a+Number(d.saldo||0),0);
     const txBulan = s.txs.filter(t=>t.bulan===s.bulan&&t.tahun===s.tahun);
     const totalIn = txBulan.filter(t=>t.tipe==="pemasukan").reduce((a,t)=>a+Number(t.jml),0);
@@ -3126,7 +3126,7 @@ export default function App(){
     const recentTx = s.txs.slice(0,5).map(t=>{
       const kat = s.budgets.find(b=>b.id===t.katId)?.kat||"-";
       const dompet = s.dompet.find(d=>d.id===t.dompetId)?.nama||"-";
-      return `${t.tgl} | ${t.tipe==="pemasukan"?"➕":"➖"} ${t.ket} | Rp ${Number(t.jml).toLocaleString("id-ID")} | ${kat} | ${dompet}`;
+      return `${t.tgl} | ${t.tipe==="pemasukan"?"âž•":"âž–"} ${t.ket} | Rp ${Number(t.jml).toLocaleString("id-ID")} | ${kat} | ${dompet}`;
     }).join("\n  ") || "Belum ada transaksi";
 
     // Financial health score
@@ -3138,9 +3138,9 @@ export default function App(){
       (s.budgets.some(b=>b.alokasi>0)?15:5) +
       (s.asetTetap.length>0?10:0)
     );
-    const healthLabel = healthScore>=80?"🌟 Sangat Baik":healthScore>=60?"✅ Baik":healthScore>=40?"🟡 Cukup":"⚠️ Perlu Perhatian";
+    const healthLabel = healthScore>=80?"ðŸŒŸ Sangat Baik":healthScore>=60?"âœ… Baik":healthScore>=40?"ðŸŸ¡ Cukup":"âš ï¸ Perlu Perhatian";
 
-    return `Kamu adalah **AturDuitku AI** — financial advisor pribadi yang cerdas, empatik, dan proaktif.
+    return `Kamu adalah **AturDuitku AI** â€” financial advisor pribadi yang cerdas, empatik, dan proaktif.
 
 Kamu BUKAN sekadar chatbot. Kamu adalah teman finansial terpercaya yang:
 - Memahami kondisi keuangan user secara mendalam
@@ -3148,41 +3148,41 @@ Kamu BUKAN sekadar chatbot. Kamu adalah teman finansial terpercaya yang:
 - Berbicara dengan hangat, jujur, dan tidak menghakimi
 - Proaktif mendeteksi masalah dan peluang finansial
 
-═══ DATA KEUANGAN ${s.name} — ${s.bulan} ${s.tahun} ═══
+â•â•â• DATA KEUANGAN ${s.name} â€” ${s.bulan} ${s.tahun} â•â•â•
 
-💼 SALDO & ARUS KAS
+ðŸ’¼ SALDO & ARUS KAS
 - Total Saldo: Rp ${totalSaldo.toLocaleString("id-ID")}
 - Dompet: ${s.dompet.map(d=>d.nama+" (Rp "+Number(d.saldo||0).toLocaleString("id-ID")+")").join(", ")}
 - Pemasukan: Rp ${totalIn.toLocaleString("id-ID")}
 - Pengeluaran: Rp ${totalOut.toLocaleString("id-ID")}
-- Net Cash: Rp ${(totalIn-totalOut).toLocaleString("id-ID")} ${totalIn>totalOut?"(surplus ✅)":"(defisit ⚠️)"}
-- Saving Rate: ${savingRate}% ${Number(savingRate)>=20?"✅ bagus!":Number(savingRate)>=10?"🟡 bisa lebih baik":"⚠️ perlu ditingkatkan"}
+- Net Cash: Rp ${(totalIn-totalOut).toLocaleString("id-ID")} ${totalIn>totalOut?"(surplus âœ…)":"(defisit âš ï¸)"}
+- Saving Rate: ${savingRate}% ${Number(savingRate)>=20?"âœ… bagus!":Number(savingRate)>=10?"ðŸŸ¡ bisa lebih baik":"âš ï¸ perlu ditingkatkan"}
 - Top pengeluaran: ${topSpend||"belum ada"}
 
-📊 BUDGET STATUS
+ðŸ“Š BUDGET STATUS
   ${budgetAnalysis||"Belum ada budget"}
 
-⭐ GOALS
+â­ GOALS
   ${goalsInfo}
 
-📋 UTANG & PIUTANG
+ðŸ“‹ UTANG & PIUTANG
   ${utangInfo}
 - Total utang: Rp ${totalUtang.toLocaleString("id-ID")}
 - Total piutang: Rp ${totalPiutang.toLocaleString("id-ID")}
 
-🏛️ ASET & NET WORTH
+ðŸ›ï¸ ASET & NET WORTH
 - Aset tetap: ${s.asetTetap.map(a=>a.nama+" (Rp "+Number(a.nilai||0).toLocaleString("id-ID")+")").join(", ")||"belum ada"}
 - Total aset: Rp ${totalAset.toLocaleString("id-ID")}
 - Net Worth: Rp ${netWorth.toLocaleString("id-ID")}
 
-✉️ AMPLOP: ${amplopInfo}
+âœ‰ï¸ AMPLOP: ${amplopInfo}
 
-📜 5 TRANSAKSI TERAKHIR
+ðŸ“œ 5 TRANSAKSI TERAKHIR
   ${recentTx}
 
-🏆 SKOR KESEHATAN FINANSIAL: ${healthScore}/100 — ${healthLabel}
+ðŸ† SKOR KESEHATAN FINANSIAL: ${healthScore}/100 â€” ${healthLabel}
 
-═══ KEMAMPUAN AI ═══
+â•â•â• KEMAMPUAN AI â•â•â•
 
 Balas HANYA JSON (tanpa teks lain) untuk action:
 
@@ -3201,9 +3201,9 @@ Balas HANYA JSON (tanpa teks lain) untuk action:
 5. Isi amplop:
 {"action":"isi_amplop","nama":"nama amplop","jumlah":500000}
 
-Untuk chat/analisis/saran → jawab langsung tanpa JSON.
+Untuk chat/analisis/saran â†’ jawab langsung tanpa JSON.
 
-═══ CARA MENJAWAB ═══
+â•â•â• CARA MENJAWAB â•â•â•
 - Bahasa Indonesia yang hangat dan natural
 - Parse nominal: 150rb=150000, 5jt=5000000, 50k=50000, 1.5jt=1500000
 - Untuk saran keuangan: berikan angka konkret, bukan abstrak
@@ -3235,7 +3235,7 @@ Untuk chat/analisis/saran → jawab langsung tanpa JSON.
       } catch(e){}
 
       if(parsed?.action) {
-        // ── CATAT TRANSAKSI ──────────────────────────────
+        // â”€â”€ CATAT TRANSAKSI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if(parsed.action==="catat") {
           const katMatch = s.budgets.find(b=>b.kat.toLowerCase()===parsed.kat?.toLowerCase());
           const katId = katMatch?.id || s.budgets[0]?.id || "";
@@ -3254,35 +3254,35 @@ Untuk chat/analisis/saran → jawab langsung tanpa JSON.
             dompet:p.dompet.map(d=>d.id===dompetId?{...d,saldo:String(Number(d.saldo||0)+delta)}:d)
           }));
           const idr = Number(newTx.jml).toLocaleString("id-ID");
-          const emoji = parsed.tipe==="pemasukan"?"💵":"💸";
+          const emoji = parsed.tipe==="pemasukan"?"ðŸ’µ":"ðŸ’¸";
           setAiMsgs(prev=>[...prev,{role:"assistant",content:`${emoji} **${parsed.tipe==="pemasukan"?"Pemasukan":"Pengeluaran"} dicatat!**
 
-📝 ${newTx.ket}
-💰 Rp ${idr}
-📂 ${katMatch?.kat||"Lainnya"}
-💳 ${dompetMatch?.nama||s.dompet[0]?.nama}`}]);
+ðŸ“ ${newTx.ket}
+ðŸ’° Rp ${idr}
+ðŸ“‚ ${katMatch?.kat||"Lainnya"}
+ðŸ’³ ${dompetMatch?.nama||s.dompet[0]?.nama}`}]);
           showToast(t("aiRecorded"));
 
-        // ── TAMBAH GOAL ──────────────────────────────────
+        // â”€â”€ TAMBAH GOAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         } else if(parsed.action==="tambah_goal") {
           const newGoal = {
             id:Date.now(), nama:parsed.nama||"Goal Baru",
             target:String(parsed.target||0), kumpul:"0",
-            deadline:parsed.deadline||"", icon:"⭐",
+            deadline:parsed.deadline||"", icon:"â­",
             history:[], selesai:false,
           };
           setS(p=>({...p, goals:[...p.goals, newGoal]}));
           const idr = Number(parsed.target||0).toLocaleString("id-ID");
-          setAiMsgs(prev=>[...prev,{role:"assistant",content:`⭐ **Goal ditambahkan!**
+          setAiMsgs(prev=>[...prev,{role:"assistant",content:`â­ **Goal ditambahkan!**
 
-🎯 ${newGoal.nama}
-💰 Target: Rp ${idr}
-📅 Deadline: ${parsed.deadline||"tidak ditentukan"}
+ðŸŽ¯ ${newGoal.nama}
+ðŸ’° Target: Rp ${idr}
+ðŸ“… Deadline: ${parsed.deadline||"tidak ditentukan"}
 
-Lihat di menu **Goals** untuk mulai nabung! 💪`}]);
-          showToast("⭐ Goal ditambahkan!");
+Lihat di menu **Goals** untuk mulai nabung! ðŸ’ª`}]);
+          showToast("â­ Goal ditambahkan!");
 
-        // ── TAMBAH ASET ──────────────────────────────────
+        // â”€â”€ TAMBAH ASET â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         } else if(parsed.action==="tambah_aset") {
           const newAset = {
             id:Date.now(), nama:parsed.nama||"Aset Baru",
@@ -3291,15 +3291,15 @@ Lihat di menu **Goals** untuk mulai nabung! 💪`}]);
           };
           setS(p=>({...p, asetTetap:[...p.asetTetap, newAset]}));
           const idr = Number(parsed.nilai||0).toLocaleString("id-ID");
-          setAiMsgs(prev=>[...prev,{role:"assistant",content:`🏛️ **Aset dicatat!**
+          setAiMsgs(prev=>[...prev,{role:"assistant",content:`ðŸ›ï¸ **Aset dicatat!**
 
-📦 ${newAset.nama}
-💰 Nilai: Rp ${idr}
+ðŸ“¦ ${newAset.nama}
+ðŸ’° Nilai: Rp ${idr}
 
 Lihat di menu **Aset** untuk detail lengkap.`}]);
-          showToast("🏛️ Aset ditambahkan!");
+          showToast("ðŸ›ï¸ Aset ditambahkan!");
 
-        // ── TAMBAH UTANG ─────────────────────────────────
+        // â”€â”€ TAMBAH UTANG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         } else if(parsed.action==="tambah_utang") {
           const newUtang = {
             id:Date.now(),
@@ -3312,31 +3312,31 @@ Lihat di menu **Aset** untuk detail lengkap.`}]);
           };
           setS(p=>({...p, utang:[...p.utang, newUtang]}));
           const idr = Number(parsed.jml||0).toLocaleString("id-ID");
-          const emoji = parsed.tipe==="piutang"?"📤":"📋";
+          const emoji = parsed.tipe==="piutang"?"ðŸ“¤":"ðŸ“‹";
           setAiMsgs(prev=>[...prev,{role:"assistant",content:`${emoji} **${parsed.tipe==="piutang"?"Piutang":"Utang"} dicatat!**
 
-📝 ${newUtang.nama}
-💰 Rp ${idr}
-📅 Jatuh tempo: ${parsed.tempo||"tidak ditentukan"}
+ðŸ“ ${newUtang.nama}
+ðŸ’° Rp ${idr}
+ðŸ“… Jatuh tempo: ${parsed.tempo||"tidak ditentukan"}
 
 Lihat di menu **Utang** untuk pantau cicilan.`}]);
-          showToast("📋 Utang/Piutang dicatat!");
+          showToast("ðŸ“‹ Utang/Piutang dicatat!");
 
-        // ── ISI AMPLOP ───────────────────────────────────
+        // â”€â”€ ISI AMPLOP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         } else if(parsed.action==="isi_amplop") {
           const amplopMatch = s.amplop.find(a=>a.nama.toLowerCase().includes(parsed.nama?.toLowerCase()||""));
           if(amplopMatch) {
             setS(p=>({...p, amplop:p.amplop.map(a=>a.id===amplopMatch.id?{...a,alokasi:String(Number(a.alokasi||0)+Number(parsed.jumlah||0))}:a)}));
             const idr = Number(parsed.jumlah||0).toLocaleString("id-ID");
-            setAiMsgs(prev=>[...prev,{role:"assistant",content:`✉️ **Amplop diisi!**
+            setAiMsgs(prev=>[...prev,{role:"assistant",content:`âœ‰ï¸ **Amplop diisi!**
 
-📦 ${amplopMatch.nama}
-➕ Rp ${idr}
+ðŸ“¦ ${amplopMatch.nama}
+âž• Rp ${idr}
 
 Saldo amplop bertambah.`}]);
-            showToast("✉️ Amplop diisi!");
+            showToast("âœ‰ï¸ Amplop diisi!");
           } else {
-            setAiMsgs(prev=>[...prev,{role:"assistant",content:`⚠️ Amplop "${parsed.nama}" tidak ditemukan. Amplop yang ada: ${s.amplop.map(a=>a.nama).join(", ")||"belum ada amplop"}`}]);
+            setAiMsgs(prev=>[...prev,{role:"assistant",content:`âš ï¸ Amplop "${parsed.nama}" tidak ditemukan. Amplop yang ada: ${s.amplop.map(a=>a.nama).join(", ")||"belum ada amplop"}`}]);
           }
         }
       } else {
@@ -3345,14 +3345,14 @@ Saldo amplop bertambah.`}]);
       }
     } catch(e) {
       const msg = e?.code === "missing_cloudflare_api_token"
-        ? "⚠️ AI belum aktif di server. Tambahkan CLOUDFLARE_API_TOKEN di Vercel Environment Variables lalu redeploy."
-        : `⚠️ ${e?.message || "Maaf, terjadi error. Coba lagi ya!"}`;
+        ? "âš ï¸ AI belum aktif di server. Tambahkan CLOUDFLARE_API_TOKEN di Vercel Environment Variables lalu redeploy."
+        : `âš ï¸ ${e?.message || "Maaf, terjadi error. Coba lagi ya!"}`;
       setAiMsgs(prev=>[...prev,{role:"assistant",content:msg}]);
     }
     setAiLoading(false);
   };
 
-  // ── AUTO-SCROLL AI: only when new msg arrives ─────────────────────────────
+  // â”€â”€ AUTO-SCROLL AI: only when new msg arrives â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(()=>{
     if(!aiMsgsRef.current) return;
     const el = aiMsgsRef.current;
@@ -3376,10 +3376,10 @@ Saldo amplop bertambah.`}]);
     a.download = `AturDuitku_Export_${today()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast("✅ Berhasil di-export ke CSV!");
+    showToast("âœ… Berhasil di-export ke CSV!");
   };
 
-  // ── EXPORT/IMPORT JSON ──────────────────────────────────────────────────────
+  // â”€â”€ EXPORT/IMPORT JSON â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const exportJSON=()=>{
     const data=JSON.stringify(s,null,2);
     const blob=new Blob([data],{type:"application/json"});
@@ -3389,16 +3389,16 @@ Saldo amplop bertambah.`}]);
     a.download=`AturDuitku_Backup_${today()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast("✅ Backup JSON berhasil diunduh!");
+    showToast("âœ… Backup JSON berhasil diunduh!");
   };
 
-  // ── EXPORT PDF (Bank Style) ─────────────────────────────────────────────────
+  // â”€â”€ EXPORT PDF (Bank Style) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const exportPDF = () => {
     const jsPDF = window.jspdf?.jsPDF;
     if (!jsPDF) { showToast("Tunggu sebentar, library PDF sedang dimuat..."); return; }
 
     try {
-      // ── Document setup ──────────────────────────────────────────────────
+      // â”€â”€ Document setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const doc  = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
       const W=210, H=297, ML=14, MR=14, CT=W-ML-MR;
       const now  = new Date();
@@ -3406,15 +3406,15 @@ Saldo amplop bertambah.`}]);
       const tsmp = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
       const isEN = lang==="en";
 
-      // ── Strip emoji from strings going into PDF ──────────────────────────
+      // â”€â”€ Strip emoji from strings going into PDF â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const clean = str => String(str||"").replace(/[\u{1F000}-\u{1FFFF}]/gu,"").replace(/[\u2600-\u27BF]/g,"").replace(/\s{2,}/g," ").trim();
 
-      // ── Translate month name for EN mode ────────────────────────────────
+      // â”€â”€ Translate month name for EN mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const MONTHS_ID = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
       const MONTHS_EN_PDF = ["January","February","March","April","May","June","July","August","September","October","November","December"];
       const bulanLabel = isEN ? (MONTHS_EN_PDF[MONTHS_ID.indexOf(s.bulan)] || s.bulan) : s.bulan;
 
-      // ── Color palette (RGB arrays) ───────────────────────────────────────
+      // â”€â”€ Color palette (RGB arrays) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const C = {
         purple:  [91,33,182],   purpleDk:[63,22,130],
         purpleLt:[237,233,254], purpleBg:[245,243,255],
@@ -3432,7 +3432,7 @@ Saldo amplop bertambah.`}]);
         [139,92,246],[236,72,153],[6,182,212],[107,114,128],[245,101,101],
       ];
 
-      // ── Low-level helpers ────────────────────────────────────────────────
+      // â”€â”€ Low-level helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const fc = (...rgb) => doc.setFillColor(...rgb.flat());
       const dc = (...rgb) => doc.setDrawColor(...rgb.flat());
       const tc = (...rgb) => doc.setTextColor(...rgb.flat());
@@ -3447,7 +3447,7 @@ Saldo amplop bertambah.`}]);
       // Text
       const txt = (text,x,y,opts={}) => doc.text(String(text),x,y,opts);
 
-      // ── Data helpers ─────────────────────────────────────────────────────
+      // â”€â”€ Data helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const Num = v => parseFloat(String(v||0).replace(/[^\d.,-]/g,"").replace(/\./g,"").replace(",","."))||0;
       const idr = n => "Rp "+Math.round(Math.abs(n||0)).toLocaleString("id-ID");
       const idrc = n => (n<0?"-":"")+"Rp "+Math.round(Math.abs(n||0)).toLocaleString("id-ID");
@@ -3460,7 +3460,7 @@ Saldo amplop bertambah.`}]);
       };
       const pctn = (v,t) => t>0?((v/t)*100).toFixed(1)+"%":"0%";
 
-      // ── Transaction data ─────────────────────────────────────────────────
+      // â”€â”€ Transaction data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const txM     = s.txs.filter(tx=>tx.bulan===s.bulan&&tx.tahun===s.tahun);
       const totalIn  = txM.filter(tx=>tx.tipe==="pemasukan").reduce((a,tx)=>a+Num(tx.jml),0);
       const totalOut = txM.filter(tx=>tx.tipe==="pengeluaran").reduce((a,tx)=>a+Num(tx.jml),0);
@@ -3474,11 +3474,11 @@ Saldo amplop bertambah.`}]);
         const kid=Number(tx.katId); katSpend[kid]=(katSpend[kid]||0)+Num(tx.jml);
       });
 
-      // ── Budget helpers ────────────────────────────────────────────────────
+      // â”€â”€ Budget helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const budgetAlloc = s.budgets.reduce((a,b)=>a+Num(b.alokasi)+b.sub.reduce((x,sb)=>x+Num(sb.alokasi),0),0);
       const budgetPct   = budgetAlloc>0?(totalOut/budgetAlloc*100):0;
 
-      // ── Score ─────────────────────────────────────────────────────────────
+      // â”€â”€ Score â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const savRate  = totalIn>0?(totalSav/totalIn*100):0;
       const runway   = totalOut>0?(totalBal/totalOut):0;
       const sSav = Math.min(40,(savRate/20)*40);
@@ -3488,7 +3488,7 @@ Saldo amplop bertambah.`}]);
       const scoreLabel = score>=90?"Excellent":score>=75?(isEN?"Very Good":"Sangat Baik"):score>=60?(isEN?"Good":"Baik"):score>=40?(isEN?"Fair":"Cukup"):(isEN?"Needs Work":"Perlu Perhatian");
       const scoreRGB   = score>=75?C.green:score>=50?C.amber:C.red;
 
-      // ── Page state ────────────────────────────────────────────────────────
+      // â”€â”€ Page state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       let pageNum=1;
 
       const addFooter = () => {
@@ -3523,12 +3523,12 @@ Saldo amplop bertambah.`}]);
         fc(rgb); rr(x,y,Math.max(h,w*p/100),h,h/2);
       };
 
-      // ─────────────────────────────────────────────────────────────────────
-      // PAGE 1  –  HEADER + SUMMARY CARDS + WALLET
-      // ─────────────────────────────────────────────────────────────────────
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // PAGE 1  â€“  HEADER + SUMMARY CARDS + WALLET
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       let y=0;
 
-      // Solid gradient header (layered thin rects – no GState)
+      // Solid gradient header (layered thin rects â€“ no GState)
       for(let i=0;i<50;i++){
         const r=Math.round(91+(63-91)*(i/49));
         const g=Math.round(33+(22-33)*(i/49));
@@ -3561,7 +3561,7 @@ Saldo amplop bertambah.`}]);
 
       y=52;
 
-      // ── Summary section ──────────────────────────────────────────────────
+      // â”€â”€ Summary section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       y=secTitle(isEN?"Financial Summary":"Ringkasan Keuangan",
                  `${isEN?"Period":"Periode"}: ${bulanLabel} ${s.tahun} | ${txM.length} ${isEN?"transactions":"transaksi"}`, y);
 
@@ -3608,7 +3608,7 @@ Saldo amplop bertambah.`}]);
       tc(C.gray); ft("bold",5.5); txt(score+"%",W-MR-1,y+9,{align:"right"});
       y+=22;
 
-      // ── Wallet table ──────────────────────────────────────────────────────
+      // â”€â”€ Wallet table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       y=secTitle(isEN?"Wallet Accounts":"Detail Dompet",
                  isEN?"Balance per account (end of period)":"Saldo per akun akhir periode", y);
 
@@ -3656,9 +3656,9 @@ Saldo amplop bertambah.`}]);
       });
       y=doc.lastAutoTable.finalY+5;
 
-      // ─────────────────────────────────────────────────────────────────────
-      // PAGE 2  –  TRANSACTION HISTORY
-      // ─────────────────────────────────────────────────────────────────────
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // PAGE 2  â€“  TRANSACTION HISTORY
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       newPage(); y=6;
       y=secTitle(isEN?"Transaction History":"Riwayat Transaksi",
                  `${bulanLabel} ${s.tahun}  |  ${txM.length} ${isEN?"transactions":"transaksi"}  |  Max 60 ${isEN?"shown":"ditampilkan"}`, y);
@@ -3729,12 +3729,12 @@ Saldo amplop bertambah.`}]);
       });
       y=doc.lastAutoTable.finalY+8;
 
-      // ─────────────────────────────────────────────────────────────────────
-      // PAGE 3  –  SPENDING DISTRIBUTION + 6-MONTH TREND
-      // ─────────────────────────────────────────────────────────────────────
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // PAGE 3  â€“  SPENDING DISTRIBUTION + 6-MONTH TREND
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       newPage(); y=6;
 
-      // ── Spending by category (horizontal bar chart) ───────────────────────
+      // â”€â”€ Spending by category (horizontal bar chart) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const katData = s.budgets
         .map((b,i)=>({
           id:b.id, kat:clean(b.kat),
@@ -3775,7 +3775,7 @@ Saldo amplop bertambah.`}]);
         y+=16;
       }
 
-      // ── 6-month bar chart ─────────────────────────────────────────────────
+      // â”€â”€ 6-month bar chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       if(y>H-80){newPage();y=6;}
 
       const MONTHS_FULL = isEN
@@ -3801,7 +3801,7 @@ Saldo amplop bertambah.`}]);
       }
 
       y=secTitle(isEN?"6-Month Trend":"Tren 6 Bulan",
-                 isEN?"Income vs Expenses – last 6 months":"Perbandingan pemasukan vs pengeluaran 6 bulan terakhir",y);
+                 isEN?"Income vs Expenses â€“ last 6 months":"Perbandingan pemasukan vs pengeluaran 6 bulan terakhir",y);
 
       const maxT=Math.max(...trendData.map(m=>Math.max(m.inc,m.exp)),1);
       const cH=38,cX=ML+18,cW=CT-18,colW=cW/6,bW2=colW*0.33;
@@ -3838,12 +3838,12 @@ Saldo amplop bertambah.`}]);
       txt(isEN?"Expense":"Keluar",W-44,y+10.5);
       y+=cH+12;
 
-      // ─────────────────────────────────────────────────────────────────────
-      // PAGE 4  –  BUDGET PERFORMANCE + HEALTH SCORE
-      // ─────────────────────────────────────────────────────────────────────
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // PAGE 4  â€“  BUDGET PERFORMANCE + HEALTH SCORE
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       newPage(); y=6;
 
-      // ── Budget performance table ──────────────────────────────────────────
+      // â”€â”€ Budget performance table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       y=secTitle(isEN?"Budget Performance":"Performa Anggaran",
                  isEN?"Realized vs allocated per category":"Realisasi vs alokasi per kategori bulan ini",y);
 
@@ -3912,7 +3912,7 @@ Saldo amplop bertambah.`}]);
       });
       y=doc.lastAutoTable.finalY+8;
 
-      // ── Health score ──────────────────────────────────────────────────────
+      // â”€â”€ Health score â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       if(y>H-80){newPage();y=6;}
       y=secTitle(isEN?"Financial Health":"Kesehatan Keuangan",
                  isEN?"Key indicators - "+bulanLabel+" "+s.tahun:"Indikator utama - "+bulanLabel+" "+s.tahun,y);
@@ -3998,7 +3998,7 @@ Saldo amplop bertambah.`}]);
       });
       y=doc.lastAutoTable.finalY+8;
 
-      // ── Disclaimer ────────────────────────────────────────────────────────
+      // â”€â”€ Disclaimer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       if(y<H-20){
         fc(C.grayLt); rr(ML,y,CT,13,2);
         dc(C.line); lw(0.3); rr(ML,y,CT,13,2,"D");
@@ -4011,7 +4011,7 @@ Saldo amplop bertambah.`}]);
         doc.text(disLines,ML+4,y+5.5);
       }
 
-      // ── Final footer + save ───────────────────────────────────────────────
+      // â”€â”€ Final footer + save â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       addFooter();
       doc.save(`AturDuitku_${bulanLabel}_${s.tahun}.pdf`);
       showToast(t("toast_pdfOk"));
@@ -4022,7 +4022,7 @@ Saldo amplop bertambah.`}]);
     }
   };
 
-  // ── EXPORT GOOGLE SHEETS (XLSX) ─────────────────────────────────────────────
+  // â”€â”€ EXPORT GOOGLE SHEETS (XLSX) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const exportSheets = () => {
     const XLSX = window.XLSX;
     if (!XLSX) { showToast("Tunggu sebentar, library sedang dimuat..."); return; }
@@ -4047,7 +4047,7 @@ Saldo amplop bertambah.`}]);
 
       const wb = XLSX.utils.book_new();
 
-      // ── Palette & style helpers ──────────────────────────────────────────────
+      // â”€â”€ Palette & style helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const purple  = "5B21B6"; const purpleLt = "EDE9FE"; const purpleDk = "3F1682";
       const green   = "059669"; const greenLt  = "D1FAE5";
       const red     = "DC2626"; const redLt    = "FEE2E2";
@@ -4072,7 +4072,7 @@ Saldo amplop bertambah.`}]);
       });
       const C = (r,c,v,s) => ({r,c,v,s});
 
-      // ── SHEET 1: Ringkasan ───────────────────────────────────────────────────
+      // â”€â”€ SHEET 1: Ringkasan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const ws1 = {};
       const rows1 = [];
       const pad1 = (r) => { rows1.push(r); };
@@ -4096,11 +4096,11 @@ Saldo amplop bertambah.`}]);
         {v:"", s:hdr(purple)},{v:isEN?"AMOUNT":"JUMLAH", s:hdr(purple)},{v:isEN?"NOTE":"KETERANGAN", s:hdr(purple)},
       ]);
       const summaryRows = [
-        [isEN?"Total Income":"Total Pemasukan", idr(totalIn), greenLt, green, "💰"],
-        [isEN?"Total Expenses":"Total Pengeluaran", idr(totalOut), redLt, red, "💸"],
-        [isEN?"Total Savings":"Total Tabungan", idr(totalSav), amberLt, amber, "🏦"],
-        [isEN?"Net Cashflow":"Net Cashflow", idr(netCash), netCash>=0?greenLt:redLt, netCash>=0?green:red, netCash>=0?"✅":"⚠️"],
-        [isEN?"Total Balance":"Total Saldo", idr(totalBal), purpleLt, purple, "💼"],
+        [isEN?"Total Income":"Total Pemasukan", idr(totalIn), greenLt, green, "ðŸ’°"],
+        [isEN?"Total Expenses":"Total Pengeluaran", idr(totalOut), redLt, red, "ðŸ’¸"],
+        [isEN?"Total Savings":"Total Tabungan", idr(totalSav), amberLt, amber, "ðŸ¦"],
+        [isEN?"Net Cashflow":"Net Cashflow", idr(netCash), netCash>=0?greenLt:redLt, netCash>=0?green:red, netCash>=0?"âœ…":"âš ï¸"],
+        [isEN?"Total Balance":"Total Saldo", idr(totalBal), purpleLt, purple, "ðŸ’¼"],
       ];
       summaryRows.forEach(([label, val, bg, fg, icon]) => {
         pad1([
@@ -4118,7 +4118,7 @@ Saldo amplop bertambah.`}]);
         {v:isEN?"Saving Rate":"Rasio Tabungan", s:cell(grayLt,dark,true)},
         {v:"", s:cell(grayLt)},
         {v:savRate+"%", s:cell(grayLt, Number(savRate)>=20?green:Number(savRate)>=10?amber:red, true,"right")},
-        {v:isEN?"Ideal ≥ 20%":"Ideal ≥ 20%", s:cell(grayLt,gray,false,"center")},
+        {v:isEN?"Ideal â‰¥ 20%":"Ideal â‰¥ 20%", s:cell(grayLt,gray,false,"center")},
       ]);
 
       pad1([{v:"",s:cell()},{v:"",s:cell()},{v:"",s:cell()},{v:"",s:cell()}]);
@@ -4160,7 +4160,7 @@ Saldo amplop bertambah.`}]);
       ws1["!merges"] = [{s:{r:0,c:0},e:{r:0,c:3}},{s:{r:1,c:0},e:{r:1,c:1}},{s:{r:1,c:2},e:{r:1,c:3}}];
       XLSX.utils.book_append_sheet(wb, ws1, isEN?"Summary":"Ringkasan");
 
-      // ── SHEET 2: Transaksi ───────────────────────────────────────────────────
+      // â”€â”€ SHEET 2: Transaksi â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const ws2 = {};
       const rows2 = [];
       rows2.push([
@@ -4206,7 +4206,7 @@ Saldo amplop bertambah.`}]);
       ws2["!rows"] = rows2.map(()=>({hpt:20}));
       XLSX.utils.book_append_sheet(wb, ws2, isEN?"Transactions":"Transaksi");
 
-      // ── SHEET 3: Budget ──────────────────────────────────────────────────────
+      // â”€â”€ SHEET 3: Budget â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const ws3 = {};
       const rows3 = [];
       rows3.push([
@@ -4248,10 +4248,10 @@ Saldo amplop bertambah.`}]);
       ws3["!rows"] = rows3.map(()=>({hpt:20}));
       XLSX.utils.book_append_sheet(wb, ws3, isEN?"Budget":"Anggaran");
 
-      // ── Save ─────────────────────────────────────────────────────────────────
+      // â”€â”€ Save â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const fname = `AturDuitku_${s.bulan}_${s.tahun}.xlsx`;
       XLSX.writeFile(wb, fname, {bookType:"xlsx", type:"binary", cellStyles:true});
-      showToast("✅ "+(isEN?"Exported to Excel/Sheets!":"Berhasil export ke Google Sheets!"));
+      showToast("âœ… "+(isEN?"Exported to Excel/Sheets!":"Berhasil export ke Google Sheets!"));
     } catch(err) {
       console.error(err);
       showToast("Gagal export: "+String(err.message||err));
@@ -4269,7 +4269,7 @@ Saldo amplop bertambah.`}]);
       });
       return {...p, txs:newTxs, dompet:newDompet};
     });
-    showToast(lang==="en"?"✅ Transaction saved!":"✅ Transaksi tersimpan!");
+    showToast(lang==="en"?"âœ… Transaction saved!":"âœ… Transaksi tersimpan!");
   };
 
   const importJSON=(file)=>{
@@ -4279,18 +4279,18 @@ Saldo amplop bertambah.`}]);
       try{
         const parsed=JSON.parse(e.target.result);
         // Validasi minimal field
-        if(!parsed.dompet||!parsed.txs){showToast("❌ File tidak valid!");return;}
+        if(!parsed.dompet||!parsed.txs){showToast("âŒ File tidak valid!");return;}
         setS({...INIT,...parsed,dompet:parsed.dompet||INIT.dompet,txs:parsed.txs||[],utang:parsed.utang||[],budgets:parsed.budgets||INIT_BUDGETS,goals:parsed.goals||[],asetTetap:parsed.asetTetap||[],recurring:parsed.recurring||[],amplop:parsed.amplop||[],processedRecurring:parsed.processedRecurring||{}});
-        showToast("✅ Data berhasil di-restore!");
+        showToast("âœ… Data berhasil di-restore!");
         setModal(null);
-      }catch(err){showToast("❌ File rusak atau format salah!");}
+      }catch(err){showToast("âŒ File rusak atau format salah!");}
     };
     reader.readAsText(file);
   };
 
-  // ── RECURRING TRANSACTIONS ──────────────────────────────────────────────────
+  // â”€â”€ RECURRING TRANSACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const addRecurring=()=>{
-    if(!recurringForm.nama||!recurringForm.jml){showToast("⚠️ Isi nama & jumlah!");return;}
+    if(!recurringForm.nama||!recurringForm.jml){showToast("âš ï¸ Isi nama & jumlah!");return;}
     setS(p=>({...p,recurring:[...p.recurring,{...recurringForm,id:Date.now(),jml:pN(recurringForm.jml)}]}));
     setRecurringForm({nama:"",tipe:"pengeluaran",jml:"",katId:1,dompetId:1,hari:"1",aktif:true});
     setShowAddRecurring(false);
@@ -4322,18 +4322,18 @@ Saldo amplop bertambah.`}]);
       newProcessed[key]=true;
       count++;
     });
-    if(count===0){showToast("ℹ️ Semua transaksi rutin sudah diproses bulan ini");return;}
+    if(count===0){showToast("â„¹ï¸ Semua transaksi rutin sudah diproses bulan ini");return;}
     setS(p=>({...p,txs:newTxs,dompet:newDompet,processedRecurring:newProcessed}));
-    showToast(`✅ ${count} transaksi rutin berhasil diproses!`);
+    showToast(`âœ… ${count} transaksi rutin berhasil diproses!`);
   };
 
-  // ── AMPLOP DIGITAL ──────────────────────────────────────────────────────────
+  // â”€â”€ AMPLOP DIGITAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const addAmplop=()=>{
-    if(!amplopForm.nama||!amplopForm.alokasi){showToast("⚠️ Isi nama & alokasi!");return;}
+    if(!amplopForm.nama||!amplopForm.alokasi){showToast("âš ï¸ Isi nama & alokasi!");return;}
     const jmlNum=N(amplopForm.alokasi);
     const dompetSumber=s.dompet.find(d=>d.id===amplopForm.dompetId);
     if(dompetSumber&&N(dompetSumber.saldo)<jmlNum){
-      showToast(`⚠️ ${t("toast_notEnough")} (${dompetSumber.nama})`);return;
+      showToast(`âš ï¸ ${t("toast_notEnough")} (${dompetSumber.nama})`);return;
     }
     setS(p=>({
       ...p,
@@ -4341,7 +4341,7 @@ Saldo amplop bertambah.`}]);
       dompet:p.dompet.map(d=>d.id===amplopForm.dompetId?{...d,saldo:String(N(d.saldo)-jmlNum)}:d),
       txs:[{id:Date.now()+1,tipe:"pengeluaran",tgl:today(),ket:`Isi Amplop: ${amplopForm.nama}`,jml:pN(amplopForm.alokasi),dompetId:amplopForm.dompetId},...p.txs]
     }));
-    setAmplopForm({nama:"",icon:"✉️",warna:"#8B5CF6",dompetId:1,alokasi:""});
+    setAmplopForm({nama:"",icon:"âœ‰ï¸",warna:"#8B5CF6",dompetId:1,alokasi:""});
     setShowAddAmplop(false);
     showToast(t("toast_envelopeOk"));
   };
@@ -4349,7 +4349,7 @@ Saldo amplop bertambah.`}]);
   const isiAmplop=(id,jml,dompetId)=>{
     const jmlNum=N(jml);
     const dompetSumber=s.dompet.find(d=>d.id===dompetId);
-    if(dompetSumber&&N(dompetSumber.saldo)<jmlNum){showToast(`⚠️ Saldo tidak cukup!`);return;}
+    if(dompetSumber&&N(dompetSumber.saldo)<jmlNum){showToast(`âš ï¸ Saldo tidak cukup!`);return;}
     setS(p=>({
       ...p,
       amplop:p.amplop.map(a=>a.id!==id?a:{...a,alokasi:String(N(a.alokasi)+jmlNum)}),
@@ -4381,14 +4381,14 @@ Saldo amplop bertambah.`}]);
 
   const addTx=()=>{
     const {tipe,tgl,ket,jml,katId,subKat,dompetId,dompetTo,biaya,goalId}=txForm;
-    if(!tgl||!jml){showToast("⚠️ Isi tanggal & jumlah!");return;}
+    if(!tgl||!jml){showToast("âš ï¸ Isi tanggal & jumlah!");return;}
     const id=Date.now();
     const jmlNum=N(jml);
 
     if(tipe==="transfer"){
       const sumber=s.dompet.find(d=>d.id===dompetId);
       if(!sumber){showToast(t("toast_walletNotFound"));return;}
-      if(N(sumber.saldo)<jmlNum+N(biaya)){showToast(`⚠️ ${t("toast_notEnough")} (${sumber.nama}: ${IDR(N(sumber.saldo))})`  );return;}
+      if(N(sumber.saldo)<jmlNum+N(biaya)){showToast(`âš ï¸ ${t("toast_notEnough")} (${sumber.nama}: ${IDR(N(sumber.saldo))})`  );return;}
       if(dompetId===dompetTo){showToast(t("toast_sameDompet"));return;}
       setS(p=>({...p,
         dompet:p.dompet.map(d=>{
@@ -4405,7 +4405,7 @@ Saldo amplop bertambah.`}]);
     if(tipe==="pengeluaran"){
       const dompetSumber=s.dompet.find(d=>d.id===dompetId);
       if(dompetSumber&&N(dompetSumber.saldo)<jmlNum){
-        showToast(`⚠️ ${t("toast_notEnough")} (${dompetSumber.nama}: ${IDR(N(dompetSumber.saldo))})`  );
+        showToast(`âš ï¸ ${t("toast_notEnough")} (${dompetSumber.nama}: ${IDR(N(dompetSumber.saldo))})`  );
         return;
       }
       setS(p=>({...p,
@@ -4428,7 +4428,7 @@ Saldo amplop bertambah.`}]);
     if(tipe==="tabungan"){
       const dompetSumber=s.dompet.find(d=>d.id===dompetId);
       if(dompetSumber&&N(dompetSumber.saldo)<jmlNum){
-        showToast(`⚠️ Saldo ${dompetSumber.nama} tidak cukup! Saldo: ${IDR(N(dompetSumber.saldo))}`);
+        showToast(`âš ï¸ Saldo ${dompetSumber.nama} tidak cukup! Saldo: ${IDR(N(dompetSumber.saldo))}`);
         return;
       }
       setS(p=>({
@@ -4449,7 +4449,7 @@ Saldo amplop bertambah.`}]);
 
   const addBulk=()=>{
     const valid=bulkRows.filter(r=>r.tgl&&r.jml);
-    if(!valid.length){showToast("⚠️ Minimal satu baris terisi!");return;}
+    if(!valid.length){showToast("âš ï¸ Minimal satu baris terisi!");return;}
     const newTxs=valid.map((r,i)=>({...r,id:Date.now()+i,jml:pN(r.jml),ket:r.ket||""}));
     // Hitung delta saldo per dompet
     const dompetDelta={};
@@ -4466,32 +4466,32 @@ Saldo amplop bertambah.`}]);
       dompet:p.dompet.map(d=>dompetDelta[d.id]!==undefined?{...d,saldo:String(N(d.saldo)+dompetDelta[d.id])}:d)
     }));
     setBulkRows([{tgl:today(),jml:"",tipe:"pengeluaran",dompetId:1,katId:"",ket:""}]);
-    showToast(`✅ ${valid.length} transaksi ditambahkan & saldo diperbarui!`);setModal(null);
+    showToast(`âœ… ${valid.length} transaksi ditambahkan & saldo diperbarui!`);setModal(null);
   };
 
   const addUt=()=>{
-    if(!utForm.tgl||!utForm.nama||!utForm.jml){showToast("⚠️ Isi semua field!");return;}
+    if(!utForm.tgl||!utForm.nama||!utForm.jml){showToast("âš ï¸ Isi semua field!");return;}
     setS(p=>({...p,utang:[{...utForm,id:Date.now(),lunas:false,cicilan:[]},...p.utang]}));
     setUtForm({tipe:"utang",tgl:today(),nama:"",jml:"",tempo:"",ket:""});
     showToast(t("toast_noteOk"));
   };
 
   const addGoal=()=>{
-    if(!goalForm.nama||!goalForm.target){showToast("⚠️ Isi nama & target!");return;}
+    if(!goalForm.nama||!goalForm.target){showToast("âš ï¸ Isi nama & target!");return;}
     setS(p=>({...p,goals:[{...goalForm,id:Date.now(),kumpul:goalForm.kumpul||"0",history:[],selesai:false},...p.goals]}));
-    setGoalForm({nama:"",target:"",kumpul:"",deadline:"",icon:"⭐"});
-    showToast("✅ Goal ditambahkan!");setModal(null);
+    setGoalForm({nama:"",target:"",kumpul:"",deadline:"",icon:"â­"});
+    showToast("âœ… Goal ditambahkan!");setModal(null);
   };
 
   const addDompet=()=>{
-    if(!dompetForm.nama){showToast("⚠️ Isi nama dompet!");return;}
-    setS(p=>({...p,dompet:[...p.dompet,{...dompetForm,id:Date.now(),icon:DOMPET_ICONS[dompetForm.tipe]||"💳",saldo:dompetForm.saldo||"0"}]}));
+    if(!dompetForm.nama){showToast("âš ï¸ Isi nama dompet!");return;}
+    setS(p=>({...p,dompet:[...p.dompet,{...dompetForm,id:Date.now(),icon:DOMPET_ICONS[dompetForm.tipe]||"ðŸ’³",saldo:dompetForm.saldo||"0"}]}));
     setDompetForm({tipe:"Bank",nama:"",norek:"",saldo:""});
     showToast(t("toast_walletAdded"));setModal(null);
   };
 
   const addAset = () => {
-    if(!asetForm.nama){showToast("⚠️ Isi nama aset!");return;}
+    if(!asetForm.nama){showToast("âš ï¸ Isi nama aset!");return;}
     if(asetForm.beliDariDompet) {
        const targetDompet = s.dompet.find(d=>d.id===asetForm.dompetId);
        if(targetDompet && N(targetDompet.saldo) < N(asetForm.nilai)) {
@@ -4506,12 +4506,12 @@ Saldo amplop bertambah.`}]);
        setS(p=>({...p,asetTetap:[...p.asetTetap,{id:Date.now(), nama:asetForm.nama, nilai:asetForm.nilai, ket:asetForm.ket}]}));
     }
     setAsetForm({nama:"",nilai:"",ket:"",beliDariDompet:false,dompetId:s.dompet[0]?.id||1});
-    showToast("✅ Aset ditambahkan!");setModal(null);
+    showToast("âœ… Aset ditambahkan!");setModal(null);
   }
 
   const catatCicilan=(uid,jml,dompetId)=>{
     const targetDompet = s.dompet.find(d=>d.id===dompetId);
-    if(targetDompet && N(targetDompet.saldo) < N(jml)) { showToast("⚠️ Saldo dompet tidak cukup!"); return; }
+    if(targetDompet && N(targetDompet.saldo) < N(jml)) { showToast("âš ï¸ Saldo dompet tidak cukup!"); return; }
     
     setS(p=>({...p,
        utang:p.utang.map(u=>{if(u.id!==uid)return u;const nc=[...u.cicilan,{tgl:today(),jml}];const tc=nc.reduce((a,b)=>a+N(b.jml),0);return{...u,cicilan:nc,lunas:tc>=N(u.jml)};}),
@@ -4523,7 +4523,7 @@ Saldo amplop bertambah.`}]);
 
   const tambahGoalDana=(gid,jml,dompetId)=>{
     const targetDompet = s.dompet.find(d=>d.id===dompetId);
-    if(targetDompet && N(targetDompet.saldo) < N(jml)) { showToast("⚠️ Saldo dompet tidak cukup!"); return; }
+    if(targetDompet && N(targetDompet.saldo) < N(jml)) { showToast("âš ï¸ Saldo dompet tidak cukup!"); return; }
 
     setS(p=>({...p,
        goals:p.goals.map(g=>g.id!==gid?g:{...g,kumpul:String(N(g.kumpul)+N(jml)),history:[...(g.history||[]),{tgl:today(),jml}]}),
@@ -4542,16 +4542,16 @@ Saldo amplop bertambah.`}]);
       <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
           <div style={{width:36,height:36,borderRadius:10,background:isIn?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="transfer"?T.accentBg:T.errBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>
-            {isIn?"📈":t.tipe==="tabungan"?"🏦":t.tipe==="transfer"?"↔️":kat?kat.icon:"📉"}
+            {isIn?"ðŸ“ˆ":t.tipe==="tabungan"?"ðŸ¦":t.tipe==="transfer"?"â†”ï¸":kat?kat.icon:"ðŸ“‰"}
           </div>
           <div style={{minWidth:0}}>
             <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.ket||t.tipe}</div>
-            <div style={{fontSize:11,color:T.muted}}>{t.tgl}{dompet&&` · ${dompet.icon} ${dompet.nama}`}{kat&&` · ${kat.kat}`}{t.subKat&&` › ${t.subKat}`}</div>
+            <div style={{fontSize:11,color:T.muted}}>{t.tgl}{dompet&&` Â· ${dompet.icon} ${dompet.nama}`}{kat&&` Â· ${kat.kat}`}{t.subKat&&` â€º ${t.subKat}`}</div>
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
           <span style={{fontWeight:700,fontSize:13,color:isIn?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="transfer"?T.accent:T.err}}>
-            {isIn?"+":t.tipe==="tabungan"?"💰":t.tipe==="transfer"?"→":"-"}{IDRs(N(t.jml))}
+            {isIn?"+":t.tipe==="tabungan"?"ðŸ’°":t.tipe==="transfer"?"â†’":"-"}{IDRs(N(t.jml))}
           </span>
           <Del onClick={()=>setS(p=>{
             const jmlNum=N(t.jml);
@@ -4577,7 +4577,7 @@ Saldo amplop bertambah.`}]);
   const IS={width:"100%",padding:"9px 12px",border:`1.5px solid ${T.inputBorder}`,borderRadius:9,fontSize:13,outline:"none",background:T.input,color:T.text,fontFamily:"inherit"};
   const LS={fontSize:10,color:T.accent,marginBottom:5,fontWeight:700,display:"block",textTransform:"uppercase",letterSpacing:.9};
 
-  // ── ONBOARDING HANDLER ─────────────────────────────────────────────────────
+  // â”€â”€ ONBOARDING HANDLER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleOnboardDone = ({name, dompet, budgets}) => {
     const newData = {...s, name, dompet, budgets};
     setS(newData);
@@ -4588,7 +4588,7 @@ Saldo amplop bertambah.`}]);
     if(fireUser && isApproved){
       saveUserData(fireUser.uid, {data:newData, onboarded:true});
     }
-    showToast(`Selamat datang, ${name}! 🎉`);
+    showToast(`Selamat datang, ${name}! ðŸŽ‰`);
   };
 
   // Show loading screen while checking auth
@@ -4698,7 +4698,7 @@ Saldo amplop bertambah.`}]);
 
   if (!onboarded) return <Onboarding onDone={handleOnboardDone} lang={lang} changeLang={changeLang}/>;
 
-  // ── IMPORT MUTASI HANDLER ──────────────────────────────────────────────────
+  // â”€â”€ IMPORT MUTASI HANDLER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleImportMutasi = (txRows, dompetId) => {
     setS(prev => {
       const newTxs = [...prev.txs, ...txRows];
@@ -4716,7 +4716,7 @@ Saldo amplop bertambah.`}]);
       }));
       return {...prev, txs:newTxs, dompet:newDompet};
     });
-    showToast(`✅ ${txRows.length} transaksi berhasil diimport!`);
+    showToast(`âœ… ${txRows.length} transaksi berhasil diimport!`);
     setModal(null);
   };
 
@@ -4807,7 +4807,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       {/* More Menu (mobile) */}
       {moreOpen&&<MoreMenu page={page} setPage={setPage} navItems={navItems} onClose={()=>setMoreOpen(false)}/>}
 
-      {/* ── MODALS ── */}
+      {/* â”€â”€ MODALS â”€â”€ */}
       {modal&&(
         <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",zIndex:1000,padding:isMobile?0:"16px",paddingTop:isMobile?"max(12px, env(safe-area-inset-top))":undefined}} onClick={()=>setModal(null)}>
           <div className="modal-pop" style={{cursor:"pointer",background:T.card,borderRadius:isMobile?"24px 24px 0 0":20,padding:isMobile?"20px max(18px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(18px, env(safe-area-inset-left))":"26px",width:"100%",maxWidth:isMobile?"100%":520,maxHeight:isMobile?"min(88svh, calc(var(--app-height, 100dvh) - 12px))":"min(92vh, calc(var(--app-height, 100dvh) - 32px))",overflowY:"auto",overflowX:"hidden",color:T.text,WebkitOverflowScrolling:"touch"}} onClick={e=>e.stopPropagation()}>
@@ -4985,7 +4985,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
         </div>
       )}
 
-      {/* ── SIDEBAR ── */}
+      {/* â”€â”€ SIDEBAR â”€â”€ */}
       {isMobile&&sidebarOpen&&<div className="sidebar-overlay" style={{cursor:"pointer"}} onClick={()=>setSidebarOpen(false)}/>}
       {(!isMobile||sidebarOpen)&&(
         <div className={isMobile?"sidebar-slide":""} style={{position:isMobile?"fixed":"relative",top:0,left:0,width:isMobile?"min(82vw, 300px)":isTablet?190:220,minWidth:isMobile?0:isTablet?190:220,background:T.nav,borderRight:`1.5px solid ${T.border}`,display:"flex",flexDirection:"column",height:"var(--app-height, 100dvh)",overflowY:"auto",flexShrink:0,zIndex:isMobile?500:10,boxShadow:isMobile?`6px 0 30px rgba(0,0,0,.2)`:T.shadow,transition:"background .3s,border-color .3s",paddingTop:isMobile?"env(safe-area-inset-top, 0px)":0,paddingBottom:isMobile?"env(safe-area-inset-bottom, 0px)":0}}>
@@ -5022,7 +5022,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
         </div>
       )}
 
-      {/* ── MAIN CONTENT ── */}
+      {/* â”€â”€ MAIN CONTENT â”€â”€ */}
       <div style={{flex:1,height:"var(--app-height, 100dvh)",overflowY:"auto",overflowX:"hidden",minWidth:0,maxWidth:"100%",width:0,background:T.bg,transition:"background .3s",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain"}}>
         {/* Topbar */}
         <div className="topbar-safe" style={{background:T.topbar,backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderBottom:`1.5px solid ${T.border}`,padding:isMobile?`10px max(14px,env(safe-area-inset-right)) 10px max(14px,env(safe-area-inset-left))`:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50,transition:"background .3s,border-color .3s"}}>
@@ -5030,7 +5030,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {isMobile&&<button onClick={()=>setSidebarOpen(true)} style={{background:T.accentBg,border:"none",borderRadius:9,minWidth:44,height:36,cursor:"pointer",fontSize:11,fontWeight:800,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0,padding:"0 10px"}}>Menu</button>}
             <div style={{minWidth:0}}>
               <div style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"42vw":"none"}}>{page==="admin"?"Admin":((lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings",admin:"Admin"}:{admin:"Admin"})[page]||navItems.find(n=>n.id===page)?.label||"")}</div>
-              {!isMobile&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>{hariShort}{tzZone.zone?` � ${tzZone.zone}`:""}</div>}
+              {!isMobile&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>{hariShort}{tzZone.zone?` • ${tzZone.zone}`:""}</div>}
             </div>
           </div>
           <div style={{display:"flex",gap:isMobile?6:8,alignItems:"center",flexShrink:0}}>
@@ -5063,7 +5063,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               <div style={{fontWeight:700,color:T.text,marginBottom:2}}>{t(greetingWord)}, {s.name}! {greetingEmoji}</div>
               <div style={{fontSize:11,color:T.sub,display:"flex",alignItems:"center",gap:4,justifyContent:"flex-end"}}>
                 <span>{hariShort}</span>
-                {tzZone.city&&<><span style={{opacity:.4}}>�</span><span style={{color:tzZone.color,fontWeight:700}}>{tzZone.city} {tzZone.zone}</span></>}
+                {tzZone.city&&<><span style={{opacity:.4}}>•</span><span style={{color:tzZone.color,fontWeight:700}}>{tzZone.city} {tzZone.zone}</span></>}
               </div>
             </div>}
             {/* Sync status */}
@@ -5087,9 +5087,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
 
         <div className="page-in" style={{padding:isMobile?`14px max(14px,env(safe-area-inset-right)) calc(80px + max(env(safe-area-inset-bottom),0px)) max(14px,env(safe-area-inset-left))`:"22px 28px 40px",maxWidth:1340,margin:"0 auto"}}>
 
-          {/* ══════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               HOME
-          ══════════════════════════════════════════════════════════ */}
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {page==="home"&&<>
             {/* Smart Alert Banner */}
             {inAppAlerts.length>0&&<div style={{marginBottom:14}}>
@@ -5114,7 +5114,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <div style={{fontSize:isMobile?24:32,fontWeight:900,letterSpacing:-.5,marginBottom:2}}>{IDR(budgetHarian)}</div>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
                     <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,.15)",borderRadius:10,padding:"6px 14px"}}>
-                      <span style={{fontSize:13}}>🕐</span>
+                      <span style={{fontSize:13}}>ðŸ•</span>
                       <span style={{fontSize:17,fontWeight:900,letterSpacing:1.5,fontVariantNumeric:"tabular-nums"}}>{jam}</span>
                       {tzZone.zone&&<span style={{fontSize:11,fontWeight:700,background:"rgba(255,255,255,.2)",borderRadius:5,padding:"2px 7px",letterSpacing:.5}}>{tzZone.zone}</span>}
                     </div>
@@ -5216,7 +5216,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               </>}/>
               <Card ch={<>
                 <Sec t={t("upcomingBills")}/>
-                {tagihan.length?tagihan.slice(0,5).map((t,i)=>{
+                {tagihan.length ? tagihan.slice(0,5).map((t,i)=>{
                   const tDate=new Date(now.getFullYear(),now.getMonth(),Number(t.tempo));
                   const diff=Math.ceil((tDate-now)/(1000*60*60*24));
                   const isUrgent=diff>=0&&diff<=3; const isOverdue=diff<0;
@@ -5233,7 +5233,8 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                       </div>
                     </div>
                   </div>
-                )}:<LaunchEmpty
+                );
+                }) : <LaunchEmpty
                   title={t("noBills")}
                   desc="Belum ada tagihan terjadwal. Tambahkan subkategori budget dengan tanggal jatuh tempo supaya pengingat otomatis mulai bekerja."
                   actionLabel="Buka budget"
@@ -5259,9 +5260,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             </div>
           </>}
 
-          {/* ══════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               DOMPET
-          ══════════════════════════════════════════════════════════ */}
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {page==="dompet"&&<>
             <div style={{background:T.hero,borderRadius:16,padding:"22px 28px",marginBottom:20,color:"white"}}>
               <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>{t("liquidAssets")}</div>
@@ -5277,7 +5278,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
                     <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
                       <span style={{fontSize:26}}>{d.icon}</span>
-                      <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}{d.norek&&` � ${d.norek}`}</div></div>
+                      <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}{d.norek&&` • ${d.norek}`}</div></div>
                     </div>
                     <Del onClick={()=>setModal({type:"confirm",title:`${t("deleteWallet")}: "${d.nama}"?`,msg:`${t("deleteWalletMsg")} ${IDR(N(d.saldo))} akan dihapus. Transaksi yang terhubung tetap ada tapi tidak lagi menunjuk ke dompet ini.`,danger:true,onConfirm:()=>{setS(p=>({...p,dompet:p.dompet.filter(x=>x.id!==d.id)}));setModal(null);showToast(`Dompet ${d.nama} dihapus!`);}})} />
                   </div>
@@ -5312,9 +5313,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             </div>
           </>}
 
-          {/* ══════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               TRANSAKSI
-          ══════════════════════════════════════════════════════════ */}
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {page==="trans"&&<>
             <Card ch={<>
               <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
@@ -5365,15 +5366,15 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             </>}/>
           </>}
 
-          {/* ══════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               BUDGET
-          ══════════════════════════════════════════════════════════ */}
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {page==="budget"&&<>
             <div style={{background:T.hero,borderRadius:16,padding:"20px 26px",marginBottom:20,color:"white",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
               <div>
                 <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>{t("budgetMonthly")}</div>
                 <div style={{fontSize:isMobile?20:28,fontWeight:900,marginBottom:4}}>{IDR(totalBudget)}</div>
-                <div style={{fontSize:12,opacity:.78}}>{t("budgetUsed")} {IDR(totalOut)} � {t("budgetLeft")} {IDR(Math.max(totalBudget-totalOut,0))}</div>
+                <div style={{fontSize:12,opacity:.78}}>{t("budgetUsed")} {IDR(totalOut)} • {t("budgetLeft")} {IDR(Math.max(totalBudget-totalOut,0))}</div>
               </div>
               <div style={{textAlign:"right"}}>
                 <div style={{fontSize:11,opacity:.6,marginBottom:4}}>{t("budgetDisc")}</div>
@@ -5481,12 +5482,12 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             })}
           </>}
 
-          {/* ══════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               GOALS
-          ══════════════════════════════════════════════════════════ */}
-          {/* ══════════════════════════════════════════════════════════
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               AMPLOP DIGITAL
-          ══════════════════════════════════════════════════════════ */}
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {page==="amplop"&&<>
             {/* Hero */}
             <div style={{background:T.hero,borderRadius:16,padding:"20px 26px",marginBottom:20,color:"white"}}>
@@ -5551,7 +5552,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   key={amp.id}
                   amp={amp}
                   dompetList={s.dompet}
-                  onDelete={()=>setModal({type:"confirm",title:t("deleteEnvelope"),msg:`${t("deleteEnvelopeMsg")} "${amp.nama}"${t("deleteEnvelopeSuffix")} — Dana dikembalikan ke dompet.`,danger:true,onConfirm:()=>{setS(p=>({...p,amplop:p.amplop.filter(a=>a.id!==amp.id)}));setModal(null);showToast("✅ Amplop dihapus!")}})}
+                  onDelete={()=>setModal({type:"confirm",title:t("deleteEnvelope"),msg:`${t("deleteEnvelopeMsg")} "${amp.nama}"${t("deleteEnvelopeSuffix")} â€” Dana dikembalikan ke dompet.`,danger:true,onConfirm:()=>{setS(p=>({...p,amplop:p.amplop.filter(a=>a.id!==amp.id)}));setModal(null);showToast("âœ… Amplop dihapus!")}})}
                   onIsi={(jml,dompetId)=>isiAmplop(amp.id,jml,dompetId)}
                   onPakai={(jml,ket)=>pakaiAmplop(amp.id,jml,ket)}
                   onReset={()=>resetAmplop(amp.id)}
@@ -5560,9 +5561,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             </div>
           </>}
 
-          {/* ══════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               GOALS
-          ══════════════════════════════════════════════════════════ */}
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {page==="goals"&&<>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:isMobile?10:14,marginBottom:20}}>
               {[{l:"Total Goal",v:s.goals.length,vc:T.accent,bg:T.accentBg},{l:"Tercapai",v:s.goals.filter(g=>g.selesai||(N(g.target)>0&&N(g.kumpul)>=N(g.target))).length,vc:T.ok,bg:T.okBg},{l:"Total Terkumpul",v:IDR(s.goals.reduce((a,g)=>a+N(g.kumpul),0)),vc:T.info,bg:T.infoBg}].map(x=>(
@@ -5587,9 +5588,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {s.goals.length>0&&<div style={{marginTop:16,textAlign:"right"}}><Btn onClick={()=>setModal({type:"goal"})} ch={t("addGoalBtn")} style={{padding:"10px 20px"}}/></div>}
           </>}
 
-          {/* ══════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               ASET
-          ══════════════════════════════════════════════════════════ */}
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {page==="aset"&&<>
             <div style={{background:T.hero,borderRadius:16,padding:"22px 28px",marginBottom:20,color:"white"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
@@ -5610,7 +5611,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             </div>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:18}}>
               <Card ch={<>
-                <Sec t={t("walletSection")} right={<button onClick={()=>setPage("dompet")} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Kelola →</button>}/>
+                <Sec t={t("walletSection")} right={<button onClick={()=>setPage("dompet")} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Kelola â†’</button>}/>
                 {s.dompet.map(d=>(
                   <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
                     <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}><span style={{fontSize:20}}>{d.icon}</span><div><div style={{fontSize:13,fontWeight:600,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}</div></div></div>
@@ -5645,9 +5646,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             </div>
           </>}
 
-          {/* ══════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               UTANG
-          ══════════════════════════════════════════════════════════ */}
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {page==="utang"&&<>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:20,marginBottom:20}}>
               <Card ch={<>
@@ -5686,15 +5687,15 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               </div>;
             })}
             {s.utang.filter(u=>u.lunas).length>0&&<div>
-              <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>✓ Sudah Lunas</div>
+              <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>âœ“ Sudah Lunas</div>
               {s.utang.filter(u=>u.lunas).map(u=><UtangCard key={u.id} u={u} dompetList={s.dompet} onDelete={()=>setS(p=>({...p,utang:p.utang.filter(x=>x.id!==u.id)}))} onCicilan={catatCicilan}/>)}
             </div>}
-            {!s.utang.length&&<Card ch={<div style={{textAlign:"center",padding:40,color:T.muted}}>{t("noDebt")} 🙌</div>}/>}
+            {!s.utang.length&&<Card ch={<div style={{textAlign:"center",padding:40,color:T.muted}}>{t("noDebt")} ðŸ™Œ</div>}/>}
           </>}
 
-          {/* ══════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               LAPORAN
-          ══════════════════════════════════════════════════════════ */}
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {page==="laporan"&&<>
             
             <div style={{marginBottom:18, display:"flex", justifyContent:"flex-end", gap:8, flexWrap:"wrap"}}>
@@ -5719,7 +5720,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                     <div key={x.l} style={{marginBottom:10}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                         <span style={{fontSize:12,color:T.text,fontWeight:600}}>{x.l}</span>
-                        <span style={{fontSize:11,color:x.c,fontWeight:700}}>{Math.round(x.v)}/100 <span style={{color:T.muted,fontWeight:400}}>� {x.hint}</span></span>
+                        <span style={{fontSize:11,color:x.c,fontWeight:700}}>{Math.round(x.v)}/100 <span style={{color:T.muted,fontWeight:400}}>• {x.hint}</span></span>
                       </div>
                       <PBar pct={x.v} c={x.c}/>
                     </div>
@@ -5860,9 +5861,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             </>} style={{marginTop:18}}/>
           </>}
 
-          {/* ══════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               SETTING
-          ══════════════════════════════════════════════════════════ */}
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {page==="setting"&&(
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:20}}>
               <Card ch={<>
@@ -5875,7 +5876,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <div style={{marginBottom:14}}>
                   <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:8}}>Bahasa</div>
                   <div style={{display:"flex",gap:6}}>
-                    {[{code:"id",flag:"🇮🇩",label:"Indonesia"},{code:"en",flag:"🇺🇸",label:"English"}].map(l=>(
+                    {[{code:"id",flag:"ðŸ‡®ðŸ‡©",label:"Indonesia"},{code:"en",flag:"ðŸ‡ºðŸ‡¸",label:"English"}].map(l=>(
                       <button key={l.code} onClick={()=>changeLang(l.code)} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"9px 12px",borderRadius:10,border:`2px solid ${lang===l.code?T.accent:T.border}`,background:lang===l.code?T.accentBg:T.card,color:lang===l.code?T.accent:T.sub,fontWeight:700,fontSize:13,cursor:"pointer",transition:"all .2s"}}>
                         <span style={{fontSize:18}}>{l.flag}</span>{l.label}
                       </button>
@@ -6009,7 +6010,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                           </div>
                           <div>
                             <div style={{fontSize:12,fontWeight:700,color:T.text}}>{r.nama}</div>
-                            <div style={{fontSize:10,color:T.muted}}>Tgl {r.hari} tiap bulan � {s.dompet.find(d=>d.id===r.dompetId)?.nama}</div>
+                            <div style={{fontSize:10,color:T.muted}}>Tgl {r.hari} tiap bulan • {s.dompet.find(d=>d.id===r.dompetId)?.nama}</div>
                           </div>
                         </div>
                         <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -6225,11 +6226,11 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
         )}
 
         <div style={{textAlign:"center",padding:14,fontSize:11,color:T.muted,borderTop:`1.5px solid ${T.border}`,background:T.topbar,marginTop:8,transition:"background .3s", paddingBottom: isMobile ? 80 : 14}}>
-          AturDuitku � {s.name} Workspace � {s.bulan} {s.tahun} � {tzZone.city} {tzZone.zone} � {dark?"Dark":"Light"}
+          AturDuitku • {s.name} Workspace • {s.bulan} {s.tahun} • {tzZone.city} {tzZone.zone} • {dark?"Dark":"Light"}
         </div>
       </div>
 
-      {/* ── BOTTOM NAV (mobile only) ── */}
+      {/* â”€â”€ BOTTOM NAV (mobile only) â”€â”€ */}
       {isMobile&&<nav className="bottom-nav" style={{background:T.nav,borderTopColor:T.border,display:sidebarOpen?"none":"flex"}}>
         {[NAV[0],NAV[1],NAV[2],NAV[3]].map(nav=>{const a=page===nav.id;return(
           <button key={nav.id} onClick={()=>navTo(nav.id)} className="bottom-nav-item" style={{color:a?T.accent:T.muted}}>
@@ -6246,7 +6247,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       </nav>}
     </div>
 
-      {/* ═══════ FLOATING AI BUTTON + CHAT PANEL ═══════ */}
+      {/* â•â•â•â•â•â•â• FLOATING AI BUTTON + CHAT PANEL â•â•â•â•â•â•â• */}
       <style>{`
         @keyframes aiBounceIn {
           0%{transform:scale(0) translateY(20px);opacity:0;}
@@ -6265,7 +6266,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
           0%,80%,100%{transform:scale(0.6);opacity:0.4;}
           40%{transform:scale(1);opacity:1;}
         }
-        /* ── Float Button ── */
+        /* â”€â”€ Float Button â”€â”€ */
         .ai-float-btn {
           position:fixed;
           z-index:900;
@@ -6303,7 +6304,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
         @media (hover:hover) {
           .ai-float-btn:hover { transform:scale(1.04); box-shadow:0 8px 28px rgba(124,58,237,0.6); }
         }
-        /* ── Panel ── */
+        /* â”€â”€ Panel â”€â”€ */
         .ai-panel {
           position:fixed;
           right:0;
@@ -6318,7 +6319,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
           box-shadow:-6px 0 40px rgba(0,0,0,0.22);
           overscroll-behavior:contain;
         }
-        /* ── Messages ── */
+        /* â”€â”€ Messages â”€â”€ */
         .ai-msg-user {
           align-self:flex-end;
           background:linear-gradient(135deg,#7C3AED,#5B21B6);
@@ -6532,7 +6533,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
           </div>
         </div>
       </>}
-      {/* ═══════ END AI ═══════ */}
+      {/* â•â•â•â•â•â•â• END AI â•â•â•â•â•â•â• */}
     </ThemeCtx.Provider>
   );
 }
