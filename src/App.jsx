@@ -847,7 +847,7 @@ const ICON_CODE_MAP={
   BANK:"🏦",PAY:"💳",CASH:"💵",
   FOOD:"🍽️",MOVE:"🚗",BILL:"🧾",HEAL:"🏥",SHOP:"🛍️",FUN:"🎮",EDU:"🎓",INV:"📈",ETC:"📦",
   ENV:"✉️",FOD:"🍽️",MOV:"🚗",SHP:"🛍️",IDEA:"💡",HLT:"🏥",TRP:"✈️",HOME:"🏠",STYL:"👕",
-  WORK:"💼",MUS:"🎵",CAFE:"☕",GIFT:"🎁",FIT:"🏋️",PLNT:"🌱",STDY:"📚",PHN:"📱",CARE:"🧴",
+  WORK:"💼",MUS:"🎵",CAFE:"☕",GIFT:"🎁",FIT:"🏋️",PLNT:"🌱",STDY:"📚",PHN:"📱",CARE:"🧴",PIN:"📌",
   GOAL:"🎯",ASSET:"💎",DEBT:"💸",ADM:"🛡️",HM:"🏠",WL:"👛",TX:"🧾",BG:"📊",GL:"🎯",AS:"💎",UT:"💸",RP:"📈",ST:"⚙️",
 };
 const uiIcon=(icon)=>ICON_CODE_MAP[String(icon||"").trim()]||icon||"";
@@ -4624,14 +4624,14 @@ Saldo amplop bertambah.`}]);
         {/* Features */}
         <div style={{width:"100%",background:"rgba(124,58,237,0.15)",borderRadius:16,padding:20,marginBottom:28,border:"1px solid rgba(124,58,237,0.3)"}}>
           {[
-            ["CATAT","Catat pemasukan dan pengeluaran dengan cepat"],
-            ["AI","AI bantu analisis kondisi keuanganmu"],
-            ["SYNC","Sinkron otomatis ke semua perangkat"],
-            ["INFO","Laporan dan insight yang gampang dipahami"],
+            ["🧾","Catat pemasukan dan pengeluaran dengan cepat"],
+            ["🤖","AI bantu analisis kondisi keuanganmu"],
+            ["☁️","Sinkron otomatis ke semua perangkat"],
+            ["📊","Laporan dan insight yang gampang dipahami"],
           ].map(([icon,txt])=>(
             <div key={txt} style={{display:"flex",alignItems:"center",gap:12,marginBottom:12,lastChild:{marginBottom:0}}}>
-              <span style={{minWidth:50,padding:"4px 8px",borderRadius:999,background:"rgba(255,255,255,.09)",border:"1px solid rgba(255,255,255,.14)",color:"#DDD6FE",fontSize:10,fontWeight:800,letterSpacing:.4,textAlign:"center"}}>{icon}</span>
-              <span style={{color:"#E9D5FF",fontSize:13}}>{txt}</span>
+              <span style={{width:42,height:42,borderRadius:14,background:"rgba(255,255,255,.09)",border:"1px solid rgba(255,255,255,.14)",color:"#DDD6FE",fontSize:22,fontWeight:800,letterSpacing:0,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{icon}</span>
+              <span style={{color:"#E9D5FF",fontSize:13,lineHeight:1.45}}>{txt}</span>
             </div>
           ))}
         </div>
@@ -6058,8 +6058,8 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                         {s.recurring.map(r=>(
                           <div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${T.borderLight}`}}>
                             <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
-                              <div style={{width:32,height:32,borderRadius:8,background:r.tipe==="pemasukan"?T.okBg:r.tipe==="tabungan"?T.infoBg:T.errBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
-                                {r.tipe==="pemasukan"?"IN":r.tipe==="tabungan"?"SAVE":"OUT"}
+                              <div style={{width:32,height:32,borderRadius:8,background:r.tipe==="pemasukan"?T.okBg:r.tipe==="tabungan"?T.infoBg:T.errBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>
+                                {r.tipe==="pemasukan"?"📈":r.tipe==="tabungan"?"🏦":"📉"}
                               </div>
                               <div>
                                 <div style={{fontSize:12,fontWeight:700,color:T.text}}>{r.nama}</div>
@@ -6488,7 +6488,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       >
         <img src="/icon-192.png" alt="cat" style={{width:22,height:22,borderRadius:6,objectFit:"cover"}}/>
         <span>Teman AI</span>
-        <span style={{background:"rgba(255,255,255,0.22)",borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:800,letterSpacing:0.3}}>AI</span>
+        <span style={{background:"rgba(255,255,255,0.22)",borderRadius:20,padding:"2px 8px",fontSize:13,fontWeight:800,letterSpacing:0.3}}>🤖</span>
       </button>}
 
       {/* Panel */}
