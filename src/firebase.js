@@ -1,4 +1,4 @@
-// AturDuitku - Firebase Configuration
+// AturDuitku Firebase configuration
 import { initializeApp } from "firebase/app";
 import {
   createUserWithEmailAndPassword,
@@ -25,13 +25,13 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Google Auth - no Sheets scope needed
+// Google Auth
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
 
 enableIndexedDbPersistence(db).catch(() => {});
 
-// ── AUTH ──────────────────────────────────────────────────────────
+// Auth helpers
 export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
 export const signInWithEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
 export const signUpWithEmail = async (name, email, password) => {
@@ -48,21 +48,30 @@ export const getCurrentIdToken = async () => {
   return user ? user.getIdToken() : "";
 };
 
-// ── FIRESTORE ─────────────────────────────────────────────────────
+// Firestore helpers
 export const getUserDocRef = (uid) => doc(db, "users", uid);
 
 export const saveUserData = async (uid, data) => {
   try {
-    await setDoc(getUserDocRef(uid), {
-      ...data,
-      updatedAt: new Date().toISOString(),
-    }, { merge: true });
-  } catch (e) { console.warn("Firestore save error:", e); }
+    await setDoc(
+      getUserDocRef(uid),
+      {
+        ...data,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (e) {
+    console.warn("Firestore save error:", e);
+  }
 };
 
 export const getUserData = async (uid) => {
   try {
     const snap = await getDoc(getUserDocRef(uid));
     return snap.exists() ? snap.data() : null;
-  } catch (e) { console.warn("Firestore get error:", e); return null; }
+  } catch (e) {
+    console.warn("Firestore get error:", e);
+    return null;
+  }
 };
