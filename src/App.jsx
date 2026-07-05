@@ -5738,6 +5738,29 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               </div>)}
             </div>
 
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.25fr .75fr",gap:14,marginBottom:18}}>
+              <div className="premium-panel" style={{background:T.card,border:`1.5px solid ${T.border}`,borderRadius:16,padding:"16px 18px",boxShadow:T.shadow}}>
+                <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",marginBottom:12}}>
+                  <div>
+                    <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",marginBottom:4}}>Daily chest</div>
+                    <div style={{fontSize:16,fontWeight:900,color:T.text}}>Hadiah hari ini</div>
+                    <div style={{fontSize:12,color:T.muted,marginTop:3}}>Selesaikan semua quest hari ini untuk menjaga perfect streak.</div>
+                  </div>
+                  <div style={{fontSize:38,filter:habitTotalToday&&habitDoneToday===habitTotalToday?"none":"grayscale(.55)",opacity:habitTotalToday?1:.55}}>🎁</div>
+                </div>
+                <PBar pct={habitTodayPct} c={habitTodayPct>=100?T.ok:T.accent} h={10}/>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:T.muted,fontWeight:800,marginTop:8}}>
+                  <span>{habitDoneToday} quest clear</span>
+                  <span>{habitTotalToday&&habitDoneToday===habitTotalToday?"Chest terbuka!":"Butuh semua quest"}</span>
+                </div>
+              </div>
+              <div style={{background:T.accentBg,border:`1.5px solid ${T.border}`,borderRadius:16,padding:"16px 18px",boxShadow:T.shadow}}>
+                <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",marginBottom:5}}>Combo</div>
+                <div style={{fontSize:28,fontWeight:900,color:T.accent,marginBottom:3}}>x{Math.max(1,Math.min(5,perfectDayStreak+1))}</div>
+                <div style={{fontSize:12,color:T.muted,lineHeight:1.55}}>Semakin panjang perfect streak, semakin terasa progress game harianmu.</div>
+              </div>
+            </div>
+
             <Card ch={<>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:14,flexWrap:"wrap"}}>
                 <div>
@@ -5751,13 +5774,16 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <PBar pct={habitTodayPct} c={T.accent} h={9}/>
                 </div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.2fr .9fr .7fr auto",gap:10,alignItems:"center"}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.2fr .9fr auto",gap:10,alignItems:"center"}}>
                 <input value={habitForm.nama} onChange={e=>setHabitForm(f=>({...f,nama:e.target.value}))} placeholder="Nama habit, contoh: Catat transaksi malam" style={IS}/>
                 <input value={habitForm.target} onChange={e=>setHabitForm(f=>({...f,target:e.target.value}))} placeholder="Target, contoh: 5 menit" style={IS}/>
-                <select value={habitForm.icon} onChange={e=>setHabitForm(f=>({...f,icon:e.target.value}))} style={IS}>
-                  {["🧾","💧","🏃","📚","🧘","💰","🍽️","😴","🐾","🔥","⭐","🎯"].map(i=><option key={i}>{i}</option>)}
-                </select>
                 <Btn onClick={addHabit} ch="Tambah quest" style={{padding:"10px 16px",whiteSpace:"nowrap"}}/>
+              </div>
+              <div style={{marginTop:12}}>
+                <div style={{fontSize:10,color:T.muted,fontWeight:900,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Pilih ikon quest</div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  {["🧾","💧","🏃","📚","🧘","💰","🍽️","😴","🐾","🔥","⭐","🎯"].map(i=><button key={i} onClick={()=>setHabitForm(f=>({...f,icon:i}))} className="icon-action" style={{width:40,height:40,borderRadius:12,border:`2px solid ${habitForm.icon===i?T.accent:T.border}`,background:habitForm.icon===i?T.accentBg:T.cardAlt,cursor:"pointer",fontSize:21,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>{i}</button>)}
+                </div>
               </div>
             </>} style={{marginBottom:18}}/>
 
@@ -5776,20 +5802,56 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               style={{marginBottom:18}}
             />}
 
+            {habitTotalToday>0&&<Card ch={<>
+              <Sec t="Kalender quest" sub="Cek progres 7 hari terakhir. Kotak hijau berarti quest selesai di hari itu."/>
+              <div style={{overflowX:"auto",paddingBottom:2}}>
+                <div style={{minWidth:isMobile?520:"auto"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"minmax(150px,1.3fr) repeat(7, minmax(46px,1fr))",gap:7,alignItems:"center",marginBottom:8}}>
+                    <div/>
+                    {Array.from({length:7},(_,i)=>dateAdd(habitDay,i-6)).map(day=>{
+                      const d=new Date(`${day}T00:00:00`);
+                      return <div key={day} style={{textAlign:"center",fontSize:10,fontWeight:900,color:day===habitDay?T.accent:T.muted,background:day===habitDay?T.accentBg:"transparent",borderRadius:10,padding:"7px 4px"}}>
+                        <div>{DAYS_SHORT[d.getDay()]}</div>
+                        <div style={{fontSize:13,color:day===habitDay?T.accent:T.text}}>{d.getDate()}</div>
+                      </div>;
+                    })}
+                  </div>
+                  {activeHabits.map(h=>(
+                    <div key={h.id} style={{display:"grid",gridTemplateColumns:"minmax(150px,1.3fr) repeat(7, minmax(46px,1fr))",gap:7,alignItems:"center",marginBottom:7}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,padding:"8px 10px",borderRadius:11,background:T.cardAlt,border:`1px solid ${T.border}`}}>
+                        <span style={{fontSize:18}}>{h.icon||"🐾"}</span>
+                        <span style={{fontSize:12,fontWeight:900,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.nama}</span>
+                      </div>
+                      {Array.from({length:7},(_,i)=>dateAdd(habitDay,i-6)).map(day=>{
+                        const checked=habitDone(h,day);
+                        return <button key={day} onClick={()=>day===habitDay&&toggleHabit(h.id)} disabled={day!==habitDay} title={checked?"Selesai":"Belum selesai"} style={{height:38,borderRadius:12,border:`1.5px solid ${checked?T.okBorder:T.border}`,background:checked?T.okBg:T.cardAlt,color:checked?T.ok:T.muted,cursor:day===habitDay?"pointer":"default",fontSize:16,fontWeight:900,fontFamily:"inherit",opacity:day===habitDay?1:.86}}>
+                          {checked?"✓":"·"}
+                        </button>;
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>} style={{marginBottom:18}}/>}
+
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14,marginBottom:18}}>
               {activeHabits.map(h=>{
                 const done=habitDone(h);
                 const streak=habitStreak(h);
                 const best=habitBestStreak(h);
                 return(
-                  <div key={h.id} className={done?"habit-complete":""} style={{background:T.card,border:`1.5px solid ${done?T.okBorder:T.border}`,borderRadius:16,padding:16,boxShadow:done?`0 10px 28px rgba(34,197,94,.12)`:T.shadow,transition:"all .2s"}}>
+                  <div key={h.id} className={done?"habit-complete":""} style={{background:T.card,border:`1.5px solid ${done?T.okBorder:T.border}`,borderRadius:16,padding:16,boxShadow:done?`0 10px 28px rgba(34,197,94,.12)`:T.shadow,transition:"all .2s",position:"relative",overflow:"hidden"}}>
+                    {done&&<div style={{position:"absolute",top:12,right:12,fontSize:9,fontWeight:900,letterSpacing:.9,textTransform:"uppercase",color:T.ok,background:T.okBg,border:`1px solid ${T.okBorder}`,borderRadius:999,padding:"4px 8px"}}>Selesai</div>}
                     <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",marginBottom:12}}>
-                      <button onClick={()=>toggleHabit(h.id)} style={{width:48,height:48,borderRadius:16,border:`2px solid ${done?T.ok:T.border}`,background:done?T.okBg:T.cardAlt,cursor:"pointer",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .18s"}} title={done?"Batalkan selesai":"Tandai selesai"}>
+                      <button onClick={()=>toggleHabit(h.id)} style={{width:52,height:52,borderRadius:17,border:`2px solid ${done?T.ok:T.border}`,background:done?T.okBg:T.cardAlt,cursor:"pointer",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .18s",boxShadow:done?`0 8px 18px rgba(34,197,94,.14)`:"none"}} title={done?"Batalkan selesai":"Tandai selesai"}>
                         {done?"✅":h.icon||"🐾"}
                       </button>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:14,fontWeight:900,color:T.text,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.nama}</div>
-                        <div style={{fontSize:11,color:T.muted}}>{h.target||"1x per hari"}</div>
+                        <div style={{fontSize:14,fontWeight:900,color:done?T.muted:T.text,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:done?"line-through":"none",textDecorationThickness:2}}>{h.nama}</div>
+                        <div style={{fontSize:11,color:T.muted,textDecoration:done?"line-through":"none"}}>{h.target||"1x per hari"}</div>
+                        <button onClick={()=>toggleHabit(h.id)} style={{marginTop:8,padding:"6px 10px",borderRadius:999,border:`1px solid ${done?T.okBorder:T.accent}`,background:done?T.okBg:T.accentBg,color:done?T.ok:T.accent,fontSize:11,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>
+                          {done?"✓ Sudah selesai hari ini":"Ceklis selesai"}
+                        </button>
                       </div>
                       <Del onClick={()=>deleteHabit(h.id)}/>
                     </div>
