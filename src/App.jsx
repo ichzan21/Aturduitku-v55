@@ -116,7 +116,7 @@ const TR = {
     export:"Export", import:"Import", reset:"Reset",
     // Money
     income:"Pemasukan", expense:"Pengeluaran", saving:"Tabungan",
-    transfer:"Transfer", balance:"Saldo", totalBalance:"Total Saldo",
+    transfer:"Transfer", totalBalance:"Total Saldo",
     netCashflow:"Net Cashflow", monthlyBudget:"Budget Bulanan",
     dailyBudget:"Budget Harian Tersisa", remaining:"Sisa",
     allocation:"Alokasi", realization:"Realisasi", usage:"Terpakai",
@@ -127,8 +127,8 @@ const TR = {
     // Transaction
     addTx:"+ Transaksi", bulkInput:"Input Massal", date:"Tanggal",
     description:"Keterangan", amount:"Jumlah", category:"Kategori",
-    fromWallet:"Dari Dompet", toWallet:"Ke Dompet", transferFee:"Biaya Transfer",
-    txHistory:"Riwayat Transaksi", noTx:"Belum ada transaksi",
+    transferFee:"Biaya Transfer",
+    noTx:"Belum ada transaksi",
     loadMore:"Muat Lebih Banyak", goal:"Goal",
     // Budget
     needs:"Kebutuhan", wants:"Keinginan", addCategory:"+ Kategori",
@@ -150,7 +150,7 @@ const TR = {
     report:"Laporan", healthScore:"Skor Kesehatan Finansial",
     savingRatio:"Rasio Tabungan", budgetDiscipline:"Disiplin Anggaran",
     emergencyFund:"Keamanan & Runway", prediction:"Prediksi Akhir Bulan",
-    trend6mo:"Tren 6 Bulan", dailyExpense:"Pengeluaran Harian",
+    trend6mo:"Tren 6 Bulan",
     budgetPerformance:"Performa Anggaran", historicalBalance:"Histori Saldo",
     comparison:"Komparasi Laporan", exportCSV:"Export CSV", exportSheets:"Export Sheets",aiAssistant:"Dokter Keuangan",aiPlaceholder:"Ketik pesan... cth: bayar listrik 150rb",aiSending:"Mengirim...",aiTitle:"Dokter Keuangan",aiClose:"Tutup",sheetsUrlLabel:"Google Sheets Script URL",aiSyncOk:"Tersinkron ke Google Sheets!",aiSyncFail:"Gagal sinkron ke Sheets",aiRecorded:"Transaksi dicatat via AI!", exportPDF:"Export PDF",
     loanCalc:"Kalkulator Cicilan",
@@ -159,7 +159,7 @@ const TR = {
     darkMode:"Mode Gelap", darkModeDesc:"Tampilan dark mode untuk mata yang nyaman",
     blurBalance:"Sembunyikan Saldo", blurDesc:"Blur angka saldo saat di tempat umum",
     notifications:"Notifikasi Browser", notifDesc:"Alert tagihan, budget, reminder harian",
-    activateNotif:"Aktifkan", notifActive:"Aktif",
+    activateNotif:"Aktifkan",
     reportPeriod:"Periode Laporan", displayName:"Nama Tampilan",
     emergencyTarget:"Target Dana Darurat (Rp)",
     backupRestore:"Backup & Restore Data",
@@ -209,7 +209,7 @@ const TR = {
     morning:"Selamat Pagi", afternoon:"Selamat Siang",
     evening:"Selamat Sore", night:"Selamat Malam",
     // Misc
-    runway:"Runway", months:"bln", days:"hari tersisa",
+    runway:"Runway", days:"hari tersisa",
     daysLeft:"hari", score:"Skor", excellent:"Excellent",
     veryGood:"Sangat Baik", good:"Baik", fair:"Cukup", poor:"Perlu Perhatian",
     safe:"AMAN", almost:"HAMPIR", over:"OVER",
@@ -293,7 +293,6 @@ const TR = {
     totalEnvFunds:"Total Dana Amplop",
     activeDebt:"Aktif",
     paidDebt:"Lunas",
-    laporan:"Laporan",
     laporanPeriod:"Periode Laporan",
     notifPermission:"Izinkan Notifikasi",
     notifActive:"Aktif",
@@ -457,7 +456,7 @@ const TR = {
     export:"Export", import:"Import", reset:"Reset",
     // Money
     income:"Income", expense:"Expense", saving:"Saving",
-    transfer:"Transfer", balance:"Balance", totalBalance:"Total Balance",
+    transfer:"Transfer", totalBalance:"Total Balance",
     netCashflow:"Net Cashflow", monthlyBudget:"Monthly Budget",
     dailyBudget:"Daily Budget Remaining", remaining:"Remaining",
     allocation:"Allocation", realization:"Spent", usage:"Usage",
@@ -468,8 +467,8 @@ const TR = {
     // Transaction
     addTx:"+ Transaction", bulkInput:"Bulk Input", date:"Date",
     description:"Description", amount:"Amount", category:"Category",
-    fromWallet:"From Wallet", toWallet:"To Wallet", transferFee:"Transfer Fee",
-    txHistory:"Transaction History", noTx:"No transactions yet",
+    transferFee:"Transfer Fee",
+    noTx:"No transactions yet",
     loadMore:"Load More", goal:"Goal",
     // Budget
     needs:"Needs", wants:"Wants", addCategory:"+ Category",
@@ -491,7 +490,7 @@ const TR = {
     report:"Reports", healthScore:"Financial Health Score",
     savingRatio:"Saving Ratio", budgetDiscipline:"Budget Discipline",
     emergencyFund:"Safety & Runway", prediction:"End-of-Month Forecast",
-    trend6mo:"6-Month Trend", dailyExpense:"Daily Expenses",
+    trend6mo:"6-Month Trend",
     budgetPerformance:"Budget Performance", historicalBalance:"Balance History",
     comparison:"Monthly Comparison", exportCSV:"Export CSV", exportSheets:"Export Sheets",aiAssistant:"Dokter Keuangan",aiPlaceholder:"Type message... e.g: paid electricity 150k",aiSending:"Sending...",aiTitle:"Dokter Keuangan",aiClose:"Close",sheetsUrlLabel:"Google Sheets Script URL",aiSyncOk:"Synced to Google Sheets!",aiSyncFail:"Failed to sync to Sheets",aiRecorded:"Transaction recorded via AI!", exportPDF:"Export PDF",
     loanCalc:"Loan Calculator",
@@ -500,7 +499,7 @@ const TR = {
     darkMode:"Dark Mode", darkModeDesc:"Dark theme for comfortable viewing",
     blurBalance:"Hide Balances", blurDesc:"Blur balance amounts in public",
     notifications:"Browser Notifications", notifDesc:"Bill alerts, budget warnings, daily reminders",
-    activateNotif:"Enable", notifActive:"Active",
+    activateNotif:"Enable",
     reportPeriod:"Report Period", displayName:"Display Name",
     emergencyTarget:"Emergency Fund Target",
     backupRestore:"Backup & Restore",
@@ -550,7 +549,7 @@ const TR = {
     morning:"Good Morning", afternoon:"Good Afternoon",
     evening:"Good Evening", night:"Good Night",
     // Misc
-    runway:"Runway", months:"mo", days:"days left",
+    runway:"Runway", days:"days left",
     balance:"Balance", daysLeft:"days", score:"Score", excellent:"Excellent",
     veryGood:"Very Good", good:"Good", fair:"Fair", poor:"Needs Attention",
     safe:"SAFE", almost:"ALMOST", over:"OVER",
@@ -634,7 +633,6 @@ const TR = {
     totalEnvFunds:"Total Envelope Funds",
     activeDebt:"Active",
     paidDebt:"Paid Off",
-    laporan:"Reports",
     laporanPeriod:"Report Period",
     notifPermission:"Enable Notifications",
     notifActive:"✅ Active",
@@ -1065,9 +1063,13 @@ const CircleGauge=({value,max=100,size=110,c="#22C55E",label})=>{
 };
 
 // ─── NOTIFICATION PANEL ───────────────────────────────────────────────────────
-const NotificationPanel=({notifs,onClose})=>{
+const NotificationPanel=({notifs,onClose,onAction})=>{
   const T=useT();
   const colMap={danger:{bg:T.errBg,border:T.errBorder,c:T.err},warning:{bg:T.warnBg,border:T.warnBorder,c:T.warn},success:{bg:T.okBg,border:T.okBorder,c:T.ok},info:{bg:T.infoBg,border:T.infoBorder,c:T.info}};
+  const groups=[
+    {title:"Perlu tindakan",items:notifs.filter(n=>n.color==="danger"||n.color==="warning")},
+    {title:"Info keuangan",items:notifs.filter(n=>n.color!=="danger"&&n.color!=="warning")},
+  ].filter(g=>g.items.length);
   return(
     <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",zIndex:500,display:"flex",justifyContent:"flex-end"}} onClick={onClose}>
       <div style={{cursor:"pointer",width:"min(380px, 100vw)",background:T.card,height:"var(--app-height, 100dvh)",overflowY:"auto",boxShadow:T.shadowMd,animation:"slideInRight .25s cubic-bezier(.4,0,.2,1)",paddingBottom:"env(safe-area-inset-bottom, 0px)"}} onClick={e=>e.stopPropagation()}>
@@ -1085,10 +1087,13 @@ const NotificationPanel=({notifs,onClose})=>{
               <div style={{fontSize:15,fontWeight:700,color:T.sub}}>Semua beres!</div>
               <div style={{fontSize:12,marginTop:6}}>Tidak ada tagihan atau peringatan aktif.</div>
             </div>
-          ):notifs.map((n,i)=>{
+          ):groups.map((group,gIdx)=>(
+            <div key={group.title} style={{marginBottom:gIdx===groups.length-1?0:14}}>
+              <div style={{fontSize:10,color:T.muted,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",margin:"0 0 8px 2px"}}>{group.title}</div>
+              {group.items.map((n,i)=>{
             const col=colMap[n.color]||colMap.info;
             return(
-              <div key={i} style={{background:col.bg,border:`1px solid ${col.border}`,borderRadius:12,padding:"12px 14px",marginBottom:10,display:"flex",gap:12,alignItems:"flex-start"}}>
+              <button key={`${group.title}-${i}`} onClick={()=>onAction?.(n)} style={{width:"100%",textAlign:"left",background:col.bg,border:`1px solid ${col.border}`,borderRadius:12,padding:"12px 14px",marginBottom:10,display:"flex",gap:12,alignItems:"flex-start",cursor:"pointer",fontFamily:"inherit",transition:"transform .16s, box-shadow .16s"}} className="notif-card">
                 <span style={{fontSize:22,flexShrink:0,marginTop:1}}>{uiIcon(n.icon)}</span>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,fontSize:13,color:col.c,marginBottom:3}}>{n.title}</div>
@@ -1096,9 +1101,11 @@ const NotificationPanel=({notifs,onClose})=>{
                   {n.amount&&<div style={{fontSize:12,fontWeight:700,color:T.text,marginTop:3}}>{IDR(n.amount)}</div>}
                 </div>
                 <span style={{fontSize:11,color:col.c,fontWeight:700,flexShrink:0,background:`${col.border}55`,padding:"2px 7px",borderRadius:5,marginTop:1}}>{n.tag}</span>
-              </div>
+              </button>
             );
           })}
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -2443,6 +2450,7 @@ export default function App(){
   const [calcFor,setCalcFor]=useState(null);
   const [notifOpen,setNotifOpen]=useState(false);
   const [moreOpen,setMoreOpen]=useState(false);
+  const [quickOpen,setQuickOpen]=useState(false);
   const [sidebarOpen,setSidebarOpen]=useState(false);
   const [installPrompt,setInstallPrompt]=useState(null);
   const [installDismissed,setInstallDismissed]=useState(()=>{try{return localStorage.getItem("aturduitku_install_dismissed")==="1";}catch(e){return false;}});
@@ -2997,6 +3005,7 @@ export default function App(){
   const habitXP=habitTotalDone*15+habitBestAll*10;
   const habitLevel=Math.floor(habitXP/120)+1;
   const habitLevelPct=(habitXP%120)/120*100;
+  const todayTxCount=useMemo(()=>s.txs.filter(tx=>tx.tgl===habitDay).length,[s.txs,habitDay]);
   const perfectDayStreak=useMemo(()=>{
     if(!activeHabits.length) return 0;
     let cursor=habitDay,count=0;
@@ -3161,6 +3170,23 @@ export default function App(){
     }
     if(isIosDevice){showToast("iPhone: tap Share lalu Add to Home Screen");return;}
     showToast("Buka menu browser lalu pilih Install app / Add to Home screen");
+  };
+  const openQuickAction=(kind)=>{
+    setQuickOpen(false);
+    if(kind==="expense") setModal({type:"tx",tipe:"pengeluaran"});
+    else if(kind==="income") setModal({type:"tx",tipe:"pemasukan"});
+    else if(kind==="goal") setModal({type:"goal"});
+    else if(kind==="budget") setPage("budget");
+    else if(kind==="habit") setPage("habit");
+    else if(kind==="ai") setAiOpen(true);
+  };
+  const openNotificationAction=(n)=>{
+    setNotifOpen(false);
+    const tag=String(n?.tag||"").toLowerCase();
+    if(tag.includes("budget")||tag.includes("tagihan")) setPage("budget");
+    else if(tag.includes("goal")) setPage("goals");
+    else if(tag.includes("utang")||tag.includes("piutang")) setPage("utang");
+    else setPage("home");
   };
   const openCalc=(field,cur,setter)=>{setCalcFor({field,cur,setter});setShowCalc(true);};
   const addHabit=()=>{
@@ -5003,6 +5029,16 @@ Saldo amplop bertambah.`}]);
         .pulse{animation:pulse 2s infinite;}
         @keyframes notifBounce{0%,100%{transform:translateY(0);}30%{transform:translateY(-4px);}60%{transform:translateY(-2px);}}
         .notif-bounce{animation:notifBounce .5s ease-in-out;}
+        .notif-card:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(15,23,42,.08);}
+        @keyframes sheetIn{0%{transform:translateY(18px) scale(.96);opacity:0;}100%{transform:translateY(0) scale(1);opacity:1;}}
+        @keyframes quickPop{0%{transform:scale(.82) rotate(-8deg);}65%{transform:scale(1.08) rotate(4deg);}100%{transform:scale(1) rotate(0);}}
+        @keyframes shimmer{0%{background-position:120% 0;}100%{background-position:-120% 0;}}
+        .quick-action-sheet{animation:sheetIn .22s cubic-bezier(.2,.9,.24,1.05) both;}
+        .quick-action-item:hover{transform:translateY(-1px);box-shadow:0 10px 20px rgba(124,58,237,.12);}
+        .quick-action-item:active{transform:scale(.98);}
+        .fab.is-open{animation:quickPop .28s ease-out both;}
+        .smooth-skeleton{background:linear-gradient(90deg,${T.cardAlt} 25%,rgba(255,255,255,.65) 42%,${T.cardAlt} 62%);background-size:220% 100%;animation:shimmer 1.35s ease-in-out infinite;border-radius:12px;}
+        .premium-ring{animation:fadeUp .32s ease-out both;}
         .fab{position:fixed;bottom:calc(68px + max(env(safe-area-inset-bottom),8px));right:max(18px,env(safe-area-inset-right));z-index:190;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,${T.accent},${T.accentSoft});border:none;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px ${T.accentPop};transition:transform .15s,box-shadow .15s;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
         .fab:hover{transform:scale(1.07);}
         .fab:active{transform:scale(.94);}
@@ -5041,7 +5077,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       {showCalc&&calcFor&&<Calculator value={calcFor.cur} onChange={v=>{calcFor.setter(v);setShowCalc(false);setCalcFor(null);}} onClose={()=>{setShowCalc(false);setCalcFor(null);}}/>}
 
       {/* Notification Panel */}
-      {notifOpen&&<NotificationPanel notifs={notifications} onClose={()=>setNotifOpen(false)}/>}
+      {notifOpen&&<NotificationPanel notifs={notifications} onClose={()=>setNotifOpen(false)} onAction={openNotificationAction}/>}
 
       {/* More Menu (mobile) */}
       {moreOpen&&<MoreMenu page={page} setPage={setPage} navItems={navItems} onClose={()=>setMoreOpen(false)}/>}
@@ -5325,9 +5361,35 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
           </div>
         </div>
 
-        {/* Mobile FAB */}
-        {isMobile&&(page==="home"||page==="trans")&&(
-          <button className="fab" onClick={()=>setModal({type:"tx"})}>+</button>
+        {/* Mobile Quick Action */}
+        {isMobile&&(page==="home"||page==="trans"||page==="budget"||page==="habit")&&(
+          <>
+            {quickOpen&&<div onClick={()=>setQuickOpen(false)} style={{position:"fixed",inset:0,zIndex:185,background:"rgba(15,23,42,.18)",backdropFilter:"blur(2px)"}}/>}
+            {quickOpen&&<div className="quick-action-sheet" style={{position:"fixed",right:"max(18px,env(safe-area-inset-right))",bottom:"calc(132px + max(env(safe-area-inset-bottom),8px))",zIndex:191,width:"min(292px, calc(100vw - 36px))",background:T.card,border:`1px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowMd,padding:12}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,padding:"4px 4px 8px",borderBottom:`1px solid ${T.borderLight}`}}>
+                <img src="/icon-192.png" alt="" style={{width:34,height:34,borderRadius:11,objectFit:"cover",boxShadow:`0 6px 16px ${T.accentPop}`}}/>
+                <div>
+                  <div style={{fontSize:12,fontWeight:900,color:T.text}}>Aksi cepat</div>
+                  <div style={{fontSize:10,color:T.muted}}>Catat, cek habit, atau tanya AI</div>
+                </div>
+              </div>
+              {[
+                {k:"expense",i:"🧾",t:"Catat pengeluaran",d:"Uang keluar hari ini"},
+                {k:"income",i:"💰",t:"Catat pemasukan",d:"Gaji, bonus, atau transfer"},
+                {k:"habit",i:"🐾",t:"Quest habit",d:`${habitDoneToday}/${habitTotalToday||0} selesai hari ini`},
+                {k:"ai",i:"🐱",t:"Dokter Keuangan",d:"Minta saran cepat"},
+              ].map(item=>(
+                <button key={item.k} onClick={()=>openQuickAction(item.k)} className="quick-action-item" style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"10px 9px",border:"none",background:"transparent",borderRadius:14,cursor:"pointer",fontFamily:"inherit",textAlign:"left",transition:"all .16s"}}>
+                  <span style={{width:36,height:36,borderRadius:12,background:T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{item.i}</span>
+                  <span style={{minWidth:0}}>
+                    <span style={{display:"block",fontSize:12,fontWeight:900,color:T.text}}>{item.t}</span>
+                    <span style={{display:"block",fontSize:10,color:T.muted,marginTop:1}}>{item.d}</span>
+                  </span>
+                </button>
+              ))}
+            </div>}
+            <button className={`fab ${quickOpen?"is-open":""}`} onClick={()=>setQuickOpen(v=>!v)} aria-label="Aksi cepat">{quickOpen?"×":"+"}</button>
+          </>
         )}
 
         <div className="page-in" style={{padding:isMobile?`14px max(14px,env(safe-area-inset-right)) calc(80px + max(env(safe-area-inset-bottom),0px)) max(14px,env(safe-area-inset-left))`:"22px 28px 40px",maxWidth:1340,margin:"0 auto"}}>
@@ -5416,6 +5478,27 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 </div>)}
               </div>
               <Btn onClick={moneyDoctorInsight.onAction} ch={moneyDoctorInsight.action} c={moneyDoctorInsight.tone==="danger"?T.err:moneyDoctorInsight.tone==="warn"?T.warn:T.accent} style={{padding:"10px 14px",fontSize:12,width:isMobile?"100%":"auto"}}/>
+            </div>} style={{marginBottom:18,padding:isMobile?14:"16px 18px"}}/>
+
+            <Card ch={<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"auto 1fr auto",gap:16,alignItems:"center"}}>
+              <div className="premium-ring" style={{width:74,height:74,borderRadius:"50%",background:`conic-gradient(${habitTodayPct>=100?T.ok:T.accent} ${habitTodayPct}%, ${T.cardAlt} 0)`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 12px 28px ${T.accentPop}`}}>
+                <div style={{width:56,height:56,borderRadius:"50%",background:T.card,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                  <div style={{fontSize:15,fontWeight:900,color:habitTodayPct>=100?T.ok:T.accent}}>{Math.round(habitTodayPct)}%</div>
+                  <div style={{fontSize:8,color:T.muted,fontWeight:800,letterSpacing:.8}}>HABIT</div>
+                </div>
+              </div>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.1,textTransform:"uppercase",marginBottom:4}}>Progress hari ini</div>
+                <div style={{fontSize:16,fontWeight:900,color:T.text,marginBottom:5}}>{habitTotalToday?`${habitDoneToday}/${habitTotalToday} quest selesai`:"Mulai quest harian pertamamu"}</div>
+                <div style={{fontSize:12,color:T.muted,lineHeight:1.55}}>
+                  {todayTxCount} transaksi dicatat hari ini
+                  {perfectDayStreak>0?` • perfect streak ${perfectDayStreak} hari`:" • ceklis habit biar streak mulai hidup"}
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:isMobile?"stretch":"flex-end"}}>
+                <Btn onClick={()=>setPage("habit")} ch="Buka Habit" c={habitTodayPct>=100?T.ok:T.accent} style={{padding:"9px 12px",fontSize:12,flex:isMobile?1:"0 0 auto"}}/>
+                <Btn onClick={()=>setModal({type:"tx"})} ch="+ Transaksi" c={T.info} outline style={{padding:"9px 12px",fontSize:12,flex:isMobile?1:"0 0 auto"}}/>
+              </div>
             </div>} style={{marginBottom:18,padding:isMobile?14:"16px 18px"}}/>
 
             {/* Notifications banner */}
@@ -6485,8 +6568,8 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <Sec t="Export Data" sub="Akses export cepat tanpa perlu cari dari halaman lain."/>
                   <div style={{fontSize:12,color:T.muted,lineHeight:1.7}}>
                     Download data keuanganmu kapanpun:<br/>
-                    <strong style={{color:T.text}}>Export Sheets</strong> -> buka di Google Sheets<br/>
-                    <strong style={{color:T.text}}>Export PDF</strong> -> laporan siap cetak
+                      <strong style={{color:T.text}}>Export Sheets</strong> {"->"} buka di Google Sheets<br/>
+                      <strong style={{color:T.text}}>Export PDF</strong> {"->"} laporan siap cetak
                   </div>
                   <Btn onClick={()=>navTo("laporan")} ch="Buka laporan" style={{marginTop:8,padding:"8px 14px",fontSize:12}}/>
                 </>}/>
@@ -6702,6 +6785,23 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 </div>
               </div>
               <div style={{display:"grid",gap:12}}>
+                {adminLoading&&Array.from({length:3}).map((_,i)=>(
+                  <div key={`admin-skeleton-${i}`} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:14,padding:14}}>
+                    <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:12}}>
+                      <div className="smooth-skeleton" style={{width:42,height:42,borderRadius:14}}/>
+                      <div style={{flex:1}}>
+                        <div className="smooth-skeleton" style={{width:"42%",height:14,marginBottom:8}}/>
+                        <div className="smooth-skeleton" style={{width:"64%",height:10}}/>
+                      </div>
+                    </div>
+                    <div className="smooth-skeleton" style={{height:42,marginBottom:10}}/>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 120px",gap:10}}>
+                      <div className="smooth-skeleton" style={{height:38}}/>
+                      <div className="smooth-skeleton" style={{height:38}}/>
+                      <div className="smooth-skeleton" style={{height:38}}/>
+                    </div>
+                  </div>
+                ))}
                 {adminPagedUsers.map((user)=>(
                   <div key={user.uid} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:14,padding:14}}>
                     <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start",flexWrap:"wrap",marginBottom:10}}>
@@ -6983,7 +7083,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       `}</style>
 
       {/* Float Button */}
-      {!aiOpen&&!moreOpen&&<button
+      {!aiOpen&&!moreOpen&&!quickOpen&&<button
         className="ai-float-btn"
         onClick={()=>setAiOpen(true)}
         style={{
