@@ -5170,6 +5170,12 @@ Saldo amplop bertambah.`}]);
             ?"Akun ini sudah direview tetapi belum bisa diaktifkan. Kamu masih bisa hubungi admin untuk minta pengecekan ulang."
             :"Akun berhasil dibuat. Sekarang admin akan cek pembayaran dan mengaktifkan akses penuh setelah semuanya sesuai."}
         </div>
+        {accessProfile?.approvalStatus!=="rejected"&&<div style={{display:"grid",gridTemplateColumns:"1fr",gap:8,marginBottom:14}}>
+          {["Akun berhasil dibuat","Admin cek kecocokan pembayaran","Akses penuh dibuka setelah valid"].map((item,i)=><div key={item} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:12,padding:"10px 12px",color:i===2?"#C4B5FD":"white",fontSize:12,fontWeight:700}}><span style={{width:22,height:22,borderRadius:999,display:"inline-flex",alignItems:"center",justifyContent:"center",background:i===0?"rgba(134,239,172,.18)":i===1?"rgba(250,204,21,.18)":"rgba(196,181,253,.18)",color:i===0?"#86EFAC":i===1?"#FDE68A":"#C4B5FD",fontSize:11}}>{i+1}</span>{item}</div>)}
+        </div>}
+        {accessProfile?.adminNotes&&<div style={{background:"rgba(255,255,255,.06)",borderRadius:14,padding:14,color:"#E9D5FF",fontSize:12,lineHeight:1.6,marginBottom:14}}>
+          Catatan admin: {accessProfile.adminNotes}
+        </div>}
         <div style={{background:"linear-gradient(135deg,rgba(34,197,94,.14),rgba(124,58,237,.16))",border:"1px solid rgba(196,181,253,.22)",borderRadius:16,padding:14,marginBottom:14}}>
           <div style={{display:"flex",gap:11,alignItems:"flex-start",marginBottom:10}}>
             <img src="/icon-192.png" alt="" style={{width:38,height:38,borderRadius:12,objectFit:"cover",boxShadow:"0 8px 20px rgba(124,58,237,.24)",flexShrink:0}}/>
@@ -5181,30 +5187,6 @@ Saldo amplop bertambah.`}]);
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
             <a href={supportWhatsappHref} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7,color:"#052E16",fontWeight:900,textDecoration:"none",background:"#86EFAC",border:"1px solid rgba(134,239,172,.45)",borderRadius:12,padding:"10px 11px",fontSize:12}}>WhatsApp</a>
             <a href={supportInstagramHref} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7,color:"white",fontWeight:900,textDecoration:"none",background:"rgba(124,58,237,.72)",border:"1px solid rgba(196,181,253,.32)",borderRadius:12,padding:"10px 11px",fontSize:12}}>Instagram</a>
-          </div>
-        </div>
-        {accessProfile?.approvalStatus!=="rejected"&&<div style={{display:"grid",gridTemplateColumns:"1fr",gap:8,marginBottom:14}}>
-          {["Akun berhasil dibuat","Admin cek kecocokan pembayaran","Akses penuh dibuka setelah valid"].map((item,i)=><div key={item} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:12,padding:"10px 12px",color:i===2?"#C4B5FD":"white",fontSize:12,fontWeight:700}}><span style={{width:22,height:22,borderRadius:999,display:"inline-flex",alignItems:"center",justifyContent:"center",background:i===0?"rgba(134,239,172,.18)":i===1?"rgba(250,204,21,.18)":"rgba(196,181,253,.18)",color:i===0?"#86EFAC":i===1?"#FDE68A":"#C4B5FD",fontSize:11}}>{i+1}</span>{item}</div>)}
-        </div>}
-        {accessProfile?.adminNotes&&<div style={{background:"rgba(255,255,255,.06)",borderRadius:14,padding:14,color:"#E9D5FF",fontSize:12,lineHeight:1.6,marginBottom:14}}>
-          Catatan admin: {accessProfile.adminNotes}
-        </div>}
-        <div style={{background:"rgba(255,255,255,.06)",border:"1px solid rgba(255,255,255,.08)",borderRadius:14,padding:13,color:"#DDD6FE",fontSize:12,lineHeight:1.6,marginBottom:14}}>
-          Sudah bayar via Scalev? Kirim email pembeli dan order ID ke admin supaya approval lebih cepat.
-          <div style={{display:"grid",gridTemplateColumns:"1fr",gap:7,marginTop:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:11,padding:"8px 10px"}}>
-              <span style={{color:"#E9D5FF",fontWeight:800}}>WhatsApp</span>
-              <span style={{color:"#86EFAC",fontWeight:900}}>{supportWhatsapp}</span>
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:11,padding:"8px 10px"}}>
-              <span style={{color:"#E9D5FF",fontWeight:800}}>Instagram</span>
-              <span style={{color:"#C4B5FD",fontWeight:900}}>{supportInstagram}</span>
-            </div>
-          </div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:10}}>
-            <a href={supportWhatsappHref} target="_blank" rel="noreferrer" style={{color:"#86EFAC",fontWeight:900,textDecoration:"none",background:"rgba(34,197,94,.12)",border:"1px solid rgba(134,239,172,.25)",borderRadius:999,padding:"8px 11px"}}>WhatsApp</a>
-            <a href={supportInstagramHref} target="_blank" rel="noreferrer" style={{color:"#C4B5FD",fontWeight:900,textDecoration:"none",background:"rgba(196,181,253,.12)",border:"1px solid rgba(196,181,253,.25)",borderRadius:999,padding:"8px 11px"}}>Instagram</a>
-            <a href={supportHref} style={{color:"#FDE68A",fontWeight:900,textDecoration:"none",background:"rgba(250,204,21,.12)",border:"1px solid rgba(253,230,138,.25)",borderRadius:999,padding:"8px 11px"}}>Email</a>
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
