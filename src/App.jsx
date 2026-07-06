@@ -5147,8 +5147,21 @@ Saldo amplop bertambah.`}]);
         </div>}
         <div style={{background:"rgba(255,255,255,.06)",border:"1px solid rgba(255,255,255,.08)",borderRadius:14,padding:13,color:"#DDD6FE",fontSize:12,lineHeight:1.6,marginBottom:14}}>
           Sudah bayar via Scalev? Kirim email pembeli dan order ID ke admin supaya approval lebih cepat.
-          <br/>
-          <a href={supportHref} style={{color:"#FDE68A",fontWeight:800,textDecoration:"none"}}>Hubungi {supportEmail}</a>
+          <div style={{display:"grid",gridTemplateColumns:"1fr",gap:7,marginTop:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:11,padding:"8px 10px"}}>
+              <span style={{color:"#E9D5FF",fontWeight:800}}>WhatsApp</span>
+              <span style={{color:"#86EFAC",fontWeight:900}}>{supportWhatsapp}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:11,padding:"8px 10px"}}>
+              <span style={{color:"#E9D5FF",fontWeight:800}}>Instagram</span>
+              <span style={{color:"#C4B5FD",fontWeight:900}}>{supportInstagram}</span>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:10}}>
+            <a href={supportWhatsappHref} target="_blank" rel="noreferrer" style={{color:"#86EFAC",fontWeight:900,textDecoration:"none",background:"rgba(34,197,94,.12)",border:"1px solid rgba(134,239,172,.25)",borderRadius:999,padding:"8px 11px"}}>WhatsApp</a>
+            <a href={supportInstagramHref} target="_blank" rel="noreferrer" style={{color:"#C4B5FD",fontWeight:900,textDecoration:"none",background:"rgba(196,181,253,.12)",border:"1px solid rgba(196,181,253,.25)",borderRadius:999,padding:"8px 11px"}}>Instagram</a>
+            <a href={supportHref} style={{color:"#FDE68A",fontWeight:900,textDecoration:"none",background:"rgba(250,204,21,.12)",border:"1px solid rgba(253,230,138,.25)",borderRadius:999,padding:"8px 11px"}}>Email</a>
+          </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <button onClick={async()=>{setAccessLoading(true);try{await loadAccessProfile();}finally{setAccessLoading(false);}}} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.08)",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{accessLoading?"Mengecek...":"Cek status lagi"}</button>
