@@ -2453,10 +2453,14 @@ export default function App(){
   const MSHORT_L = getMShort(lang);
   const [dark,setDark]=useState(()=>{try{return localStorage.getItem("aturduitku_dark")==="1";}catch(e){return false;}});
   const [blurSaldo,setBlurSaldo]=useState(()=>{try{return localStorage.getItem("aturduitku_blur")==="1";}catch(e){return false;}});
+  const [simpleMode,setSimpleMode]=useState(()=>{try{return localStorage.getItem("aturduitku_simple_mode")==="1";}catch(e){return false;}});
+  const [tourDismissed,setTourDismissed]=useState(()=>{try{return localStorage.getItem("aturduitku_tour_done")==="1";}catch(e){return false;}});
 
   const [page,setPage]=useState("home");
   const [toast,setToast]=useState("");
   const [modal,setModal]=useState(null);
+  const [commandOpen,setCommandOpen]=useState(false);
+  const [commandQuery,setCommandQuery]=useState("");
   const [showCalc,setShowCalc]=useState(false);
   const [calcFor,setCalcFor]=useState(null);
   const [notifOpen,setNotifOpen]=useState(false);
@@ -2469,11 +2473,15 @@ export default function App(){
   const [tz,setTz]=useState({city:"",offset:""});
   const [editSaldo,setEditSaldo]=useState({});
   const [inAppAlerts,setInAppAlerts]=useState([]);
+  const [isOnline,setIsOnline]=useState(()=>typeof navigator==="undefined"?true:navigator.onLine);
 
   const T=dark?DARK:LIGHT;
   const isApproved=accessProfile?.approvalStatus==="approved";
   const isAdmin=accessProfile?.role==="admin";
-  const navItems=useMemo(()=>isAdmin?[...NAV,ADMIN_NAV]:NAV,[isAdmin]);
+  const navItems=useMemo(()=>{
+    const base=isAdmin?[...NAV,ADMIN_NAV]:NAV;
+    return simpleMode?base.filter(n=>["home","trans","budget","laporan","setting","admin"].includes(n.id)):base;
+  },[isAdmin,simpleMode]);
   const YEAR_OPTIONS = Array.from({ length: 20 }, (_, i) => String(2020 + i));
   const toggleBlur=()=>{setBlurSaldo(v=>{try{localStorage.setItem("aturduitku_blur",!v?"1":"0");}catch(e){}return !v;});};
   const MV=({v,style,className})=>blurSaldo?<span className={className} style={{filter:"blur(7px)",userSelect:"none",transition:"filter .25s",...style}}>{v}</span>:<span className={className} style={style}>{v}</span>;
@@ -2493,6 +2501,28 @@ export default function App(){
     window.addEventListener("appinstalled",onInstalled);
     return()=>{window.removeEventListener("beforeinstallprompt",onBeforeInstall);window.removeEventListener("appinstalled",onInstalled);};
   },[]);
+
+  useEffect(()=>{
+    const update=()=>setIsOnline(navigator.onLine);
+    window.addEventListener("online",update);
+    window.addEventListener("offline",update);
+    return()=>{window.removeEventListener("online",update);window.removeEventListener("offline",update);};
+  },[]);
+
+  useEffect(()=>{
+    const onKey=(e)=>{
+      if((e.ctrlKey||e.metaKey)&&String(e.key).toLowerCase()==="k"){e.preventDefault();setCommandOpen(v=>!v);}
+      if(e.key==="Escape"){setCommandOpen(false);}
+    };
+    window.addEventListener("keydown",onKey);
+    return()=>window.removeEventListener("keydown",onKey);
+  },[]);
+
+  useEffect(()=>{
+    if(isApproved&&!tourDismissed&&!modal){
+      setModal({type:"tour"});
+    }
+  },[isApproved,tourDismissed,modal]);
 
   const authedJson = async (url, options={}) => {
     const token = await getCurrentIdToken();
@@ -3248,6 +3278,58 @@ export default function App(){
     else if(target==="dompet") setModal({type:"dompet"});
     else if(target) setPage(target);
   };
+  const toggleSimpleMode=()=>{
+    setSimpleMode(v=>{
+      const next=!v;
+      try{localStorage.setItem("aturduitku_simple_mode",next?"1":"0");}catch(e){}
+      if(next&&!["home","trans","budget","laporan","setting"].includes(page)) setPage("home");
+      showToast(next?"Simple Mode aktif":"Simple Mode dimatikan");
+      return next;
+    });
+  };
+  const applyBudgetTemplate=()=>{
+    const incomeBase=totalIn>0?totalIn:0;
+    const defaults={
+      "Makan & Minum":0.22,"Transportasi":0.12,"Tagihan & Utilitas":0.18,"Kesehatan":0.06,
+      "Belanja":0.08,"Hiburan":0.05,"Pendidikan":0.05,"Investasi":0.14,"Lainnya":0.10,
+    };
+    setS(p=>({...p,budgets:p.budgets.map(b=>({...b,alokasi:String(Math.round((defaults[b.kat]||0.05)*incomeBase)),sub:b.sub||[]}))}));
+    showToast(incomeBase>0?"Template budget pemula diterapkan":"Template kategori disiapkan. Isi pemasukan dulu agar nominal otomatis lebih pas.");
+  };
+  const addHabitPresets=()=>{
+    const presets=[
+      {nama:"Catat transaksi hari ini",icon:"🧾",target:"1x per hari"},
+      {nama:"Cek saldo dompet",icon:"👛",target:"1x per hari"},
+      {nama:"Tahan belanja impulsif",icon:"🧘",target:"1x per hari"},
+      {nama:"Sisihkan tabungan",icon:"💎",target:"1x per hari"},
+    ];
+    setS(p=>{
+      const existing=new Set((p.habits||[]).map(h=>String(h.nama).toLowerCase()));
+      const add=presets.filter(x=>!existing.has(x.nama.toLowerCase())).map((x,i)=>({id:Date.now()+i,...x,createdAt:today(),active:true,doneDates:[]}));
+      return {...p,habits:[...add,...(p.habits||[])]};
+    });
+    showToast("Preset habit uang ditambahkan");
+  };
+  const closeMonth=()=>{
+    const next=new Date(yr,bulanIdx+1,1);
+    setS(p=>({...p,prevPemasukan:String(totalIn),prevPengeluaran:String(totalOut),bulan:MONTHS[next.getMonth()],tahun:String(next.getFullYear())}));
+    setModal({type:"monthlyRecap",recap:monthlyRecap});
+    showToast("Tutup buku selesai. Periode dipindah ke bulan berikutnya.");
+  };
+  const finishTour=()=>{
+    setTourDismissed(true);
+    try{localStorage.setItem("aturduitku_tour_done","1");}catch(e){}
+    setModal(null);
+  };
+  const commandActions=[
+    {title:"Catat transaksi",desc:"Tambah pemasukan atau pengeluaran",icon:"🧾",run:()=>setModal({type:"tx"})},
+    {title:"Pakai template budget",desc:"Set kategori budget pemula",icon:"📊",run:applyBudgetTemplate},
+    {title:"Tambah preset habit",desc:"Quest uang harian siap pakai",icon:"🐾",run:addHabitPresets},
+    {title:"Buka laporan",desc:"Lihat insight dan export",icon:"📈",run:()=>setPage("laporan")},
+    {title:"Tanya Dokter Keuangan",desc:"Buka AI advisor",icon:"🐱",run:()=>setAiOpen(true)},
+    {title:"Tutup buku bulan ini",desc:"Simpan pembanding dan pindah periode",icon:"📚",run:()=>setModal({type:"confirm",title:"Tutup buku bulan ini?",msg:"Pemasukan dan pengeluaran bulan ini akan disimpan sebagai pembanding, lalu periode aktif pindah ke bulan berikutnya. Data transaksi tetap aman.",onConfirm:closeMonth})},
+  ];
+  const runCommand=(cmd)=>{setCommandOpen(false);setCommandQuery("");cmd.run();};
   const openCalc=(field,cur,setter)=>{setCalcFor({field,cur,setter});setShowCalc(true);};
   const addHabit=()=>{
     const nama=habitForm.nama.trim();
@@ -4894,6 +4976,8 @@ Saldo amplop bertambah.`}]);
     showToast(`Selamat datang, ${name}! 🎉`);
   };
 
+  const activeRecap=modal?.recap||monthlyRecap;
+
   // Show loading screen while checking auth
   if(fireLoading || accessLoading) return (
     <div style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"radial-gradient(circle at 50% 20%,#5B21B6 0%,#2E1065 42%,#13051F 100%)",gap:16,padding:"env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)",fontFamily:"system-ui,sans-serif"}}>
@@ -5142,6 +5226,33 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       {/* More Menu (mobile) */}
       {moreOpen&&<MoreMenu page={page} setPage={setPage} navItems={navItems} onClose={()=>setMoreOpen(false)}/>}
 
+      {/* Command Palette */}
+      {commandOpen&&<div style={{position:"fixed",inset:0,background:"rgba(15,6,38,.52)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:980,display:"flex",alignItems:isMobile?"flex-start":"center",justifyContent:"center",padding:isMobile?"max(18px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 14px max(14px, env(safe-area-inset-left))":"22px"}} onClick={()=>setCommandOpen(false)}>
+        <div className="modal-pop" style={{width:"100%",maxWidth:560,background:T.card,border:`1px solid ${T.border}`,borderRadius:22,boxShadow:T.shadowMd,padding:isMobile?16:18,color:T.text}} onClick={e=>e.stopPropagation()}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+            <img src="/icon-192.png" alt="" style={{width:42,height:42,borderRadius:14,objectFit:"cover",boxShadow:`0 10px 24px ${T.accentPop}`}}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:16,fontWeight:950,color:T.text,letterSpacing:-.3}}>Cari aksi cepat</div>
+              <div style={{fontSize:11,color:T.muted,marginTop:2}}>Buka menu penting tanpa pindah-pindah halaman.</div>
+            </div>
+            {!isMobile&&<span style={{fontSize:10,fontWeight:900,color:T.muted,background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:999,padding:"5px 9px"}}>Ctrl K</span>}
+          </div>
+          <input autoFocus value={commandQuery} onChange={e=>setCommandQuery(e.target.value)} placeholder="Cari: transaksi, budget, habit, laporan..." style={{...IS,marginBottom:12,background:T.cardAlt}}/>
+          <div style={{display:"grid",gap:8,maxHeight:isMobile?"62svh":420,overflowY:"auto",paddingRight:2}}>
+            {commandActions.filter(cmd=>`${cmd.title} ${cmd.desc}`.toLowerCase().includes(commandQuery.trim().toLowerCase())).map(cmd=>(
+              <button key={cmd.title} onClick={()=>runCommand(cmd)} style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:11,alignItems:"center",textAlign:"left",border:`1px solid ${T.border}`,background:T.cardAlt,borderRadius:14,padding:"11px 12px",cursor:"pointer",fontFamily:"inherit"}}>
+                <span style={{width:38,height:38,borderRadius:13,background:T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{cmd.icon}</span>
+                <span style={{minWidth:0}}>
+                  <span style={{display:"block",fontSize:13,fontWeight:900,color:T.text,marginBottom:3}}>{cmd.title}</span>
+                  <span style={{display:"block",fontSize:11,color:T.muted,lineHeight:1.4}}>{cmd.desc}</span>
+                </span>
+              </button>
+            ))}
+            {!commandActions.some(cmd=>`${cmd.title} ${cmd.desc}`.toLowerCase().includes(commandQuery.trim().toLowerCase()))&&<div style={{padding:22,textAlign:"center",fontSize:12,color:T.muted,background:T.cardAlt,borderRadius:14,border:`1px dashed ${T.border}`}}>Aksi tidak ditemukan.</div>}
+          </div>
+        </div>
+      </div>}
+
       {/* ── MODALS ── */}
       {modal&&(
         <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",zIndex:1000,padding:isMobile?0:"16px",paddingTop:isMobile?"max(12px, env(safe-area-inset-top))":undefined}} onClick={()=>setModal(null)}>
@@ -5157,7 +5268,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:14}}>
                 <div>
                   <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase"}}>Share card</div>
-                  <div style={{fontSize:18,fontWeight:900,color:T.text}}>Recap {monthlyRecap.month} {monthlyRecap.year}</div>
+                  <div style={{fontSize:18,fontWeight:900,color:T.text}}>Recap {activeRecap.month} {activeRecap.year}</div>
                 </div>
                 <img src="/icon-192.png" alt="" style={{width:44,height:44,borderRadius:14,objectFit:"cover",boxShadow:`0 10px 24px ${T.accentPop}`}}/>
               </div>
@@ -5166,20 +5277,20 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <div style={{position:"relative",display:"flex",justifyContent:"space-between",gap:14,alignItems:"flex-start",marginBottom:18}}>
                   <div>
                     <div style={{fontSize:11,opacity:.75,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase"}}>AturDuitku recap</div>
-                    <div style={{fontSize:24,fontWeight:950,letterSpacing:-.5,marginTop:4}}>{monthlyRecap.score}/100</div>
+                    <div style={{fontSize:24,fontWeight:950,letterSpacing:-.5,marginTop:4}}>{activeRecap.score}/100</div>
                     <div style={{fontSize:12,opacity:.78}}>Skor finansial bulan ini</div>
                   </div>
                   <div style={{textAlign:"right"}}>
                     <div style={{fontSize:11,opacity:.75}}>Saving rate</div>
-                    <div style={{fontSize:22,fontWeight:950}}>{PCT(monthlyRecap.savingRate)}</div>
+                    <div style={{fontSize:22,fontWeight:950}}>{PCT(activeRecap.savingRate)}</div>
                   </div>
                 </div>
                 <div style={{position:"relative",display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10,marginBottom:14}}>
                   {[
-                    ["Masuk",IDRs(monthlyRecap.income)],
-                    ["Keluar",IDRs(monthlyRecap.expense)],
-                    ["Nabung",IDRs(monthlyRecap.saving)],
-                    ["Net",IDRs(monthlyRecap.net)],
+                    ["Masuk",IDRs(activeRecap.income)],
+                    ["Keluar",IDRs(activeRecap.expense)],
+                    ["Nabung",IDRs(activeRecap.saving)],
+                    ["Net",IDRs(activeRecap.net)],
                   ].map(([l,v])=><div key={l} style={{background:"rgba(255,255,255,.14)",border:"1px solid rgba(255,255,255,.16)",borderRadius:14,padding:"10px 12px"}}>
                     <div style={{fontSize:9,opacity:.7,fontWeight:800,letterSpacing:1,textTransform:"uppercase"}}>{l}</div>
                     <div style={{fontSize:15,fontWeight:900,marginTop:3}}>{v}</div>
@@ -5187,12 +5298,12 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 </div>
                 <div style={{position:"relative",display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,fontSize:11}}>
                   <div style={{background:"rgba(0,0,0,.18)",borderRadius:12,padding:"10px 12px"}}>
-                    <strong>{monthlyRecap.txCount}</strong> transaksi dicatat<br/>
-                    Top: {monthlyRecap.topCategory} {monthlyRecap.topValue?`(${IDRs(monthlyRecap.topValue)})`:""}
+                    <strong>{activeRecap.txCount}</strong> transaksi dicatat<br/>
+                    Top: {activeRecap.topCategory} {activeRecap.topValue?`(${IDRs(activeRecap.topValue)})`:""}
                   </div>
                   <div style={{background:"rgba(0,0,0,.18)",borderRadius:12,padding:"10px 12px"}}>
-                    Habit {monthlyRecap.habitDone}/{monthlyRecap.habitTotal||0}<br/>
-                    Streak {monthlyRecap.streak} hari
+                    Habit {activeRecap.habitDone}/{activeRecap.habitTotal||0}<br/>
+                    Streak {activeRecap.streak} hari
                   </div>
                 </div>
                 <div style={{position:"relative",display:"flex",alignItems:"center",gap:8,marginTop:16,fontSize:11,opacity:.82}}>
@@ -5204,6 +5315,34 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
                 <Btn onClick={()=>setPage("laporan")} ch="Buka laporan" c={T.accent} style={{padding:11}}/>
                 <Btn onClick={()=>setModal(null)} ch="Tutup" c={T.muted} outline style={{padding:11}}/>
+              </div>
+            </>}
+            {modal.type==="tour"&&<>
+              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+                <img src="/icon-192.png" alt="" style={{width:54,height:54,borderRadius:16,objectFit:"cover",boxShadow:`0 12px 26px ${T.accentPop}`}}/>
+                <div>
+                  <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.1,textTransform:"uppercase",marginBottom:4}}>Mulai cepat</div>
+                  <div style={{fontSize:20,fontWeight:950,color:T.text,letterSpacing:-.4}}>Kenalan 2 menit</div>
+                  <div style={{fontSize:12,color:T.muted,marginTop:2}}>Ikuti alur ini supaya data langsung rapi dari hari pertama.</div>
+                </div>
+              </div>
+              <div style={{display:"grid",gap:9,marginBottom:16}}>
+                {[
+                  ["🧾","Catat transaksi","Mulai dari pemasukan atau pengeluaran pertama."],
+                  ["📊","Pakai template budget","Kategori dasar langsung terisi, tinggal sesuaikan nominal."],
+                  ["🐾","Tambah habit uang","Quest harian bikin user lebih sering balik."],
+                  ["🐱","Tanya Dokter Keuangan","Minta saran setelah data mulai masuk."],
+                ].map(([i,title,desc])=><div key={title} style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:11,alignItems:"center",background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:14,padding:"11px 12px"}}>
+                  <span style={{width:38,height:38,borderRadius:13,display:"flex",alignItems:"center",justifyContent:"center",background:T.accentBg,fontSize:19}}>{i}</span>
+                  <span>
+                    <span style={{display:"block",fontSize:13,fontWeight:900,color:T.text,marginBottom:3}}>{title}</span>
+                    <span style={{display:"block",fontSize:11,color:T.muted,lineHeight:1.45}}>{desc}</span>
+                  </span>
+                </div>)}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
+                <Btn onClick={()=>{finishTour();setModal({type:"tx"});}} ch="Mulai catat" c={T.accent} style={{padding:12}}/>
+                <Btn onClick={finishTour} ch="Nanti dulu" c={T.muted} outline style={{padding:12}}/>
               </div>
             </>}
             {modal.type==="kalkulator"&&<KalkulatorCicilan onClose={()=>setModal(null)} T={T}/>}
@@ -5435,6 +5574,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {!isMobile&&page==="goals"&&<Btn onClick={()=>setModal({type:"goal"})} ch={t("addGoalBtn")+" "} style={{padding:"8px 14px",fontSize:12}}/>}
             {!isMobile&&page==="aset"&&<Btn onClick={()=>setModal({type:"aset"})} ch={"+ "+t("aset")} style={{padding:"8px 14px",fontSize:12}}/>}
 
+            {!isMobile&&<button className="icon-action" onClick={()=>setCommandOpen(true)} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,minWidth:44,height:36,cursor:"pointer",fontSize:14,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",gap:7,fontFamily:"inherit",transition:"all .2s",padding:"0 12px",color:T.text}} title="Cari aksi cepat" aria-label="Cari aksi cepat"><span>⌘</span><span style={{fontSize:12}}>Aksi</span></button>}
             {!isMobile&&<button className="icon-action" onClick={()=>setModal({type:"kalkulator"})} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,minWidth:44,height:36,cursor:"pointer",fontSize:17,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s",padding:"0 8px"}} title="Kalkulator" aria-label="Kalkulator">🧮</button>}
 
             {/* Notification Bell */}
@@ -5461,8 +5601,8 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               </div>
             </div>}
             {/* Sync status */}
-            {fireUser&&syncStatus!=="idle"&&<div style={{fontSize:10,color:syncStatus==="saving"?T.warn:syncStatus==="saved"?"#10B981":T.err,fontWeight:600,flexShrink:0}}>
-              {syncStatus==="saving"?"sync...":syncStatus==="saved"?"tersimpan":"error"}
+            {fireUser&&!isMobile&&<div title={isOnline?"Sinkron aktif":"Koneksi offline"} style={{fontSize:10,color:!isOnline?T.warn:syncStatus==="error"?T.err:syncStatus==="saving"?T.warn:T.ok,fontWeight:900,flexShrink:0,background:!isOnline?T.warnBg:syncStatus==="error"?T.errBg:syncStatus==="saving"?T.warnBg:T.okBg,border:`1px solid ${!isOnline?T.warnBorder:syncStatus==="error"?T.errBorder:syncStatus==="saving"?T.warnBorder:T.okBorder}`,borderRadius:999,padding:"6px 9px",whiteSpace:"nowrap"}}>
+              {!isOnline?"Offline":syncStatus==="saving"?"Menyimpan":syncStatus==="error"?"Sync error":"Tersimpan"}
             </div>}
             {/* Google avatar + logout */}
             <div style={{position:"relative",flexShrink:0}} className="avatar-menu-wrap">
@@ -5617,6 +5757,11 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             {setupPct<100&&<Card ch={<>
               <Sec t="Start checklist" sub="Langkah kecil agar user baru cepat paham alur AturDuitku" right={<span style={{fontSize:11,fontWeight:900,color:T.accent}}>{Math.round(setupPct)}%</span>}/>
               <PBar pct={setupPct} c={T.accent} h={8}/>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:12}}>
+                <Btn onClick={applyBudgetTemplate} ch="Template budget" c={T.info} outline style={{padding:"8px 11px",fontSize:11}}/>
+                <Btn onClick={addHabitPresets} ch="Preset habit uang" c={T.ok} outline style={{padding:"8px 11px",fontSize:11}}/>
+                <Btn onClick={()=>setCommandOpen(true)} ch="Cari aksi cepat" c={T.accent} outline style={{padding:"8px 11px",fontSize:11}}/>
+              </div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(4,1fr)",gap:10,marginTop:14}}>
                 {setupSteps.map(step=><button key={step.key} onClick={()=>goPremiumTarget(step.target)} style={{textAlign:"left",border:`1px solid ${step.ok?T.okBorder:T.border}`,background:step.ok?T.okBg:T.cardAlt,borderRadius:14,padding:"12px 13px",cursor:"pointer",fontFamily:"inherit",display:"flex",gap:10,alignItems:"flex-start"}}>
                   <span style={{width:34,height:34,borderRadius:12,background:step.ok?T.ok:T.accentBg,color:step.ok?"white":T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{step.ok?"✓":step.icon}</span>
@@ -5678,7 +5823,10 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <div style={{fontSize:16,fontWeight:900,color:T.text,marginBottom:4}}>Kartu ringkasan siap screenshot</div>
                 <div style={{fontSize:12,color:T.muted,lineHeight:1.55}}>Tampilkan skor, saving rate, transaksi, kategori terbesar, dan streak habit dalam satu kartu cantik.</div>
               </div>
-              <Btn onClick={()=>setModal({type:"monthlyRecap"})} ch="Buka recap" c={T.accent} style={{padding:"10px 14px",fontSize:12,width:isMobile?"100%":"auto"}}/>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:isMobile?"stretch":"flex-end"}}>
+                <Btn onClick={()=>setModal({type:"monthlyRecap"})} ch="Buka recap" c={T.accent} style={{padding:"10px 14px",fontSize:12,flex:isMobile?1:"0 0 auto"}}/>
+                <Btn onClick={()=>setModal({type:"confirm",title:"Tutup buku bulan ini?",msg:"Pemasukan dan pengeluaran bulan ini disimpan sebagai pembanding, lalu periode aktif pindah ke bulan berikutnya. Data transaksi tetap aman.",onConfirm:closeMonth})} ch="Tutup buku" c={T.info} outline style={{padding:"10px 14px",fontSize:12,flex:isMobile?1:"0 0 auto"}}/>
+              </div>
             </div>} style={{marginBottom:18,padding:isMobile?14:"16px 18px"}}/>
 
             {/* Notifications banner */}
@@ -6004,9 +6152,12 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             </div>
 
             <Card ch={<>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:showAddKat?14:0}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:showAddKat?14:0,gap:10,flexWrap:"wrap"}}>
                 <div style={{fontSize:10,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:T.muted}}>{t("manageCategory")}</div>
-                <Btn onClick={()=>setShowAddKat(!showAddKat)} ch={showAddKat?"Tutup form":"+ Tambah kategori"} c={T.accent} outline style={{padding:"7px 14px",fontSize:12}}/>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  <Btn onClick={applyBudgetTemplate} ch="Template pemula" c={T.info} outline style={{padding:"7px 12px",fontSize:12}}/>
+                  <Btn onClick={()=>setShowAddKat(!showAddKat)} ch={showAddKat?"Tutup form":"+ Tambah kategori"} c={T.accent} outline style={{padding:"7px 14px",fontSize:12}}/>
+                </div>
               </div>
               {showAddKat&&<div style={{background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:12,padding:16,marginTop:10}}>
                 <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:10,marginBottom:12}}>
@@ -6277,10 +6428,11 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <PBar pct={habitTodayPct} c={T.accent} h={9}/>
                 </div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.2fr .9fr auto",gap:10,alignItems:"center"}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.2fr .9fr auto auto",gap:10,alignItems:"center"}}>
                 <input value={habitForm.nama} onChange={e=>setHabitForm(f=>({...f,nama:e.target.value}))} placeholder="Nama habit, contoh: Catat transaksi malam" style={IS}/>
                 <input value={habitForm.target} onChange={e=>setHabitForm(f=>({...f,target:e.target.value}))} placeholder="Target, contoh: 5 menit" style={IS}/>
                 <Btn onClick={addHabit} ch="Tambah quest" style={{padding:"10px 16px",whiteSpace:"nowrap"}}/>
+                <Btn onClick={addHabitPresets} ch="Starter uang" c={T.ok} outline style={{padding:"10px 14px",whiteSpace:"nowrap"}}/>
               </div>
               <div style={{marginTop:12}}>
                 <div style={{fontSize:10,color:T.muted,fontWeight:900,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Pilih ikon quest</div>
@@ -6297,11 +6449,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               actionLabel="Buat habit pertama"
               onAction={()=>addHabit()}
               secondaryLabel="Pakai starter"
-              onSecondary={()=>setS(p=>({...p,habits:[
-                {id:Date.now()+1,nama:"Catat pengeluaran malam",icon:"🧾",target:"1x per hari",createdAt:today(),active:true,doneDates:[]},
-                {id:Date.now()+2,nama:"Cek saldo dompet",icon:"💰",target:"2 menit",createdAt:today(),active:true,doneDates:[]},
-                {id:Date.now()+3,nama:"Minum air",icon:"💧",target:"6 gelas",createdAt:today(),active:true,doneDates:[]},
-              ]}))}
+              onSecondary={addHabitPresets}
               style={{marginBottom:18}}
             />}
 
@@ -6709,6 +6857,17 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   </button>
                 </div>
 
+                {/* Simple mode */}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",background:T.cardAlt,borderRadius:10,border:`1px solid ${T.border}`,marginBottom:14}}>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:13,color:T.text}}>Simple Mode</div>
+                    <div style={{fontSize:11,color:T.muted}}>Sembunyikan menu lanjutan supaya user baru fokus ke Home, Transaksi, Budget, Laporan, dan Setting.</div>
+                  </div>
+                  <button onClick={toggleSimpleMode} style={{width:52,height:28,borderRadius:99,background:simpleMode?T.accent:T.border,border:"none",cursor:"pointer",position:"relative",transition:"background .3s",flexShrink:0}}>
+                    <div style={{width:22,height:22,borderRadius:"50%",background:"white",position:"absolute",top:3,left:simpleMode?27:3,transition:"left .25s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+                  </button>
+                </div>
+
                 {/* Notification permission */}
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",background:T.cardAlt,borderRadius:10,border:`1px solid ${T.border}`,marginBottom:14}}>
                   <div>
@@ -6758,6 +6917,12 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                       <strong style={{color:T.text}}>Export PDF</strong> {"->"} laporan siap cetak
                   </div>
                   <Btn onClick={()=>navTo("laporan")} ch="Buka laporan" style={{marginTop:8,padding:"8px 14px",fontSize:12}}/>
+                </>}/>
+
+                <Card ch={<>
+                  <Sec t="Tutup Buku" sub="Simpan pembanding bulan ini sebelum masuk periode berikutnya."/>
+                  <div style={{fontSize:12,color:T.muted,lineHeight:1.65,marginBottom:12}}>Cocok dipakai akhir bulan. Sistem menyimpan pemasukan dan pengeluaran bulan aktif sebagai acuan laporan bulan depan.</div>
+                  <Btn onClick={()=>setModal({type:"confirm",title:"Tutup buku bulan ini?",msg:"Pemasukan dan pengeluaran bulan ini disimpan sebagai pembanding, lalu periode aktif pindah ke bulan berikutnya. Data transaksi tetap aman.",onConfirm:closeMonth})} ch="Tutup buku bulan ini" c={T.info} style={{padding:"9px 14px",fontSize:12}}/>
                 </>}/>
 
                 <Card ch={<>
