@@ -3777,8 +3777,42 @@ Saldo amplop bertambah.`}]);
     showToast("✅ Backup JSON berhasil diunduh!");
   };
 
+  const loadExternalScript=(src,globalCheck)=>{
+    if(globalCheck?.()) return Promise.resolve();
+    if(!window.__aturduitkuScriptLoads) window.__aturduitkuScriptLoads={};
+    if(window.__aturduitkuScriptLoads[src]) return window.__aturduitkuScriptLoads[src];
+    window.__aturduitkuScriptLoads[src]=new Promise((resolve,reject)=>{
+      const existing=document.querySelector(`script[src="${src}"]`);
+      if(existing){
+        existing.addEventListener("load",()=>resolve(),{once:true});
+        existing.addEventListener("error",()=>reject(new Error(`Gagal memuat ${src}`)),{once:true});
+        return;
+      }
+      const script=document.createElement("script");
+      script.src=src;
+      script.async=true;
+      script.crossOrigin="anonymous";
+      script.onload=()=>resolve();
+      script.onerror=()=>reject(new Error(`Gagal memuat ${src}`));
+      document.head.appendChild(script);
+    });
+    return window.__aturduitkuScriptLoads[src];
+  };
+  const loadPdfLibraries=async()=>{
+    if(window.jspdf?.jsPDF && window.jspdf?.jsPDF?.API?.autoTable) return;
+    showToast("Memuat export PDF...");
+    await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",()=>window.jspdf?.jsPDF);
+    await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js",()=>window.jspdf?.jsPDF?.API?.autoTable);
+  };
+  const loadSheetLibrary=async()=>{
+    if(window.XLSX) return;
+    showToast("Memuat export Sheets...");
+    await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",()=>window.XLSX);
+  };
+
   // ── EXPORT PDF (Bank Style) ─────────────────────────────────────────────────
-  const exportPDF = () => {
+  const exportPDF = async () => {
+    try{await loadPdfLibraries();}catch(err){showToast("Gagal memuat library PDF. Coba lagi.");return;}
     const jsPDF = window.jspdf?.jsPDF;
     if (!jsPDF) { showToast("Tunggu sebentar, library PDF sedang dimuat..."); return; }
 
@@ -4408,7 +4442,8 @@ Saldo amplop bertambah.`}]);
   };
 
   // ── EXPORT GOOGLE SHEETS (XLSX) ─────────────────────────────────────────────
-  const exportSheets = () => {
+  const exportSheets = async () => {
+    try{await loadSheetLibrary();}catch(err){showToast("Gagal memuat library Sheets. Coba lagi.");return;}
     const XLSX = window.XLSX;
     if (!XLSX) { showToast("Tunggu sebentar, library sedang dimuat..."); return; }
     try {

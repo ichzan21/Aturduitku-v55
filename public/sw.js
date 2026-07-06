@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aturduitku-v12-rp-cat';
+const CACHE_NAME = 'aturduitku-v13-boot-splash';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -29,6 +29,18 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put('/index.html', clone));
+        }
+        return res;
+      }).catch(() => caches.match('/index.html').then(cached => cached || caches.match('/')))
+    );
+    return;
+  }
   // Network-first for JS/CSS (always get fresh code)
   const isAsset = e.request.url.match(/\.(js|css|jsx)$/);
   if (isAsset) {
