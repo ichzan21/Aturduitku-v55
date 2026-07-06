@@ -2739,6 +2739,18 @@ export default function App(){
     setFireLoading(false);
     setAccessLoading(false);
   };
+  const confirmSignOut = () => {
+    setModal({
+      type:"confirm",
+      title:"Keluar dari akun?",
+      msg:"Kamu akan keluar dari AturDuitku di perangkat ini. Data tetap aman tersimpan di akunmu.",
+      danger:true,
+      onConfirm:async()=>{
+        setModal(null);
+        await handleSignOut();
+      }
+    });
+  };
 
   useEffect(()=>{
     if(isAdmin) loadAdminUsers();
@@ -2803,6 +2815,16 @@ export default function App(){
     }catch(e){
       showToast(`⚠️ Gagal copy ${label.toLowerCase()}`);
     }
+  };
+
+  const copyAdminWhatsappMessage = async (user, mode="approved") => {
+    const name=user.displayName || "Kak";
+    const email=user.email || "";
+    const orderId=adminOrderId[user.uid] || user.orderId || "";
+    const message = mode==="approved"
+      ? `Halo ${name}, akun AturDuitku kamu sudah aktif.\n\nEmail akun: ${email}\n${orderId?`Order ID: ${orderId}\n`:""}Silakan login kembali dan tekan "Cek status lagi" kalau masih muncul halaman approval.\n\nJika ada kendala, hubungi admin AturDuitku.`
+      : `Halo ${name}, admin AturDuitku sedang cek pembayaran kamu.\n\nEmail akun: ${email}\n${orderId?`Order ID: ${orderId}\n`:""}Mohon pastikan email pembeli dan Order ID Scalev sudah benar supaya approval lebih cepat.`;
+    await copyAdminField(mode==="approved"?"Pesan WhatsApp aktif":"Pesan WhatsApp follow up", message);
   };
 
 
@@ -3251,13 +3273,13 @@ export default function App(){
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(""),2500);};
   const isIosDevice=typeof navigator!=="undefined"&&/iphone|ipad|ipod/i.test(navigator.userAgent||"");
   const isStandalone=typeof window!=="undefined"&&(window.matchMedia?.("(display-mode: standalone)")?.matches||window.navigator?.standalone);
-  const dismissInstallPrompt=()=>{setInstallDismissed(true);try{localStorage.setItem("aturduitku_install_dismissed","1");}catch(e){}};
+  const dismissInstallPrompt=()=>{setInstallPrompt(null);setInstallDismissed(true);try{localStorage.setItem("aturduitku_install_dismissed","1");}catch(e){}showToast("Banner install disembunyikan");};
   const handleInstallApp=async()=>{
     if(installPrompt){
       installPrompt.prompt();
       const choice=await installPrompt.userChoice.catch(()=>null);
       setInstallPrompt(null);
-      if(choice?.outcome==="accepted") dismissInstallPrompt();
+      if(choice?.outcome==="accepted"||choice?.outcome==="dismissed") dismissInstallPrompt();
       return;
     }
     if(isIosDevice){showToast("iPhone: tap Share lalu Add to Home Screen");return;}
@@ -5191,7 +5213,7 @@ Saldo amplop bertambah.`}]);
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <button onClick={async()=>{setAccessLoading(true);try{await loadAccessProfile();}finally{setAccessLoading(false);}}} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.08)",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{accessLoading?"Mengecek...":"Cek status lagi"}</button>
-          <button onClick={handleSignOut} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(252,165,165,.35)",background:"rgba(127,29,29,.22)",color:"#FCA5A5",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Keluar</button>
+          <button onClick={confirmSignOut} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(252,165,165,.35)",background:"rgba(127,29,29,.22)",color:"#FCA5A5",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Keluar</button>
         </div>
       </div>
     </div>
@@ -5493,7 +5515,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 {!isStandalone&&!installDismissed&&<Btn onClick={()=>{setModal(null);handleInstallApp();}} ch="Pasang ke Home Screen" c={T.accent} style={{width:"100%",padding:11}}/>}
                 <Btn onClick={()=>{exportJSON();}} ch="Backup data JSON" c={T.ok} outline style={{width:"100%",padding:11}}/>
                 <Btn onClick={()=>{setModal(null);navTo("setting");}} ch="Pengaturan" outline c={T.accent} style={{width:"100%",padding:11}}/>
-                <button onClick={async()=>{setModal(null);await handleSignOut();}} style={{width:"100%",padding:11,borderRadius:10,border:"1.5px solid #FCA5A5",background:"#FEF2F2",color:"#B91C1C",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+                <button onClick={()=>{setModal(null);setTimeout(confirmSignOut,0);}} style={{width:"100%",padding:11,borderRadius:10,border:"1.5px solid #FCA5A5",background:"#FEF2F2",color:"#B91C1C",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
                   Keluar akun
                 </button>
               </div>
@@ -7370,8 +7392,10 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                           <option value="problem">Bermasalah</option>
                         </select>
                         <textarea value={adminNotes[user.uid] || ""} onChange={e=>setAdminNotes(prev=>({...prev,[user.uid]:e.target.value}))} placeholder="Catatan admin, mismatch, atau detail validasi pembayaran" style={{minHeight:72,resize:"vertical",...IS}}/>
-                        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr 1fr":"1fr",gap:8}}>
+                        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr",gap:8}}>
                           <Btn onClick={()=>updateAdminApproval(user.uid,"approved")} ch="Approve" c="#16A34A" style={{padding:"9px 12px",fontSize:12}}/>
+                          <Btn onClick={()=>copyAdminWhatsappMessage(user,"approved")} ch="Copy WA Aktif" c={T.ok} outline style={{padding:"9px 12px",fontSize:12}}/>
+                          <Btn onClick={()=>copyAdminWhatsappMessage(user,"followup")} ch="Copy WA Cek" c={T.info} outline style={{padding:"9px 12px",fontSize:12}}/>
                           <Btn onClick={()=>updateAdminApproval(user.uid,"pending_review")} ch="Pending" c="#D97706" outline style={{padding:"9px 12px",fontSize:12}}/>
                           <Btn onClick={()=>updateAdminApproval(user.uid,"rejected")} ch="Reject" c="#DC2626" outline style={{padding:"9px 12px",fontSize:12}}/>
                         </div>
