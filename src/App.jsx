@@ -2444,6 +2444,8 @@ export default function App(){
   const [notifOpen,setNotifOpen]=useState(false);
   const [moreOpen,setMoreOpen]=useState(false);
   const [sidebarOpen,setSidebarOpen]=useState(false);
+  const [installPrompt,setInstallPrompt]=useState(null);
+  const [installDismissed,setInstallDismissed]=useState(()=>{try{return localStorage.getItem("aturduitku_install_dismissed")==="1";}catch(e){return false;}});
   const [now,setNow]=useState(new Date());
   const [tz,setTz]=useState({city:"",offset:""});
   const [editSaldo,setEditSaldo]=useState({});
@@ -2463,6 +2465,14 @@ export default function App(){
     if(!meta){meta=document.createElement("meta");meta.name="viewport";document.head.appendChild(meta);}
     meta.content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no";
     document.title="AturDuitku";
+  },[]);
+
+  useEffect(()=>{
+    const onBeforeInstall=(e)=>{e.preventDefault();setInstallPrompt(e);};
+    const onInstalled=()=>{setInstallPrompt(null);try{localStorage.setItem("aturduitku_install_dismissed","1");}catch(e){}setInstallDismissed(true);showToast("AturDuitku siap dibuka dari Home Screen");};
+    window.addEventListener("beforeinstallprompt",onBeforeInstall);
+    window.addEventListener("appinstalled",onInstalled);
+    return()=>{window.removeEventListener("beforeinstallprompt",onBeforeInstall);window.removeEventListener("appinstalled",onInstalled);};
   },[]);
 
   const authedJson = async (url, options={}) => {
@@ -2993,6 +3003,37 @@ export default function App(){
     while(activeHabits.every(h=>habitDone(h,cursor))){count++;cursor=dateAdd(cursor,-1);}
     return count;
   },[activeHabits,habitDay]);
+  const weeklyReport=useMemo(()=>{
+    const end=today();
+    const start=dateAdd(end,-6);
+    const weekTx=s.txs.filter(tx=>tx.tgl&&tx.tgl>=start&&tx.tgl<=end);
+    const income=weekTx.filter(tx=>tx.tipe==="pemasukan").reduce((a,tx)=>a+N(tx.jml),0);
+    const expense=weekTx.filter(tx=>tx.tipe==="pengeluaran").reduce((a,tx)=>a+N(tx.jml),0);
+    const saving=weekTx.filter(tx=>tx.tipe==="tabungan").reduce((a,tx)=>a+N(tx.jml),0);
+    const byCat={};
+    weekTx.filter(tx=>tx.tipe==="pengeluaran").forEach(tx=>{
+      const b=s.budgets.find(x=>x.id===Number(tx.katId));
+      const name=b?.kat||"Lainnya";
+      byCat[name]=(byCat[name]||0)+N(tx.jml);
+    });
+    const top=Object.entries(byCat).sort((a,b)=>b[1]-a[1])[0];
+    const health=income===0&&expense>0?"Perlu catat pemasukan":expense>income?"Minggu ini defisit":saving>0?"Ada progres nabung":"Mulai catat konsisten";
+    const advice=top?`Pengeluaran terbesar minggu ini ada di ${top[0]} (${IDRs(top[1])}). Coba pasang batas harian kecil untuk kategori ini.`:weekTx.length?"Minggu ini belum ada pengeluaran besar. Pertahankan ritme catat transaksi.":"Belum ada transaksi minggu ini. Catat 1 transaksi hari ini biar laporan mulai hidup.";
+    return {start,end,weekTx,income,expense,saving,top,health,advice};
+  },[s.txs,s.budgets]);
+  const premiumBadges=useMemo(()=>{
+    const txDays=new Set(s.txs.map(tx=>tx.tgl).filter(Boolean));
+    const last7=Array.from({length:7},(_,i)=>dateAdd(today(),-i));
+    const txStreak=last7.filter(d=>txDays.has(d)).length;
+    return [
+      {title:"Mulai Rapi",desc:"Sudah punya transaksi pertama",icon:"🧾",done:s.txs.length>0,progress:Math.min(s.txs.length,1),target:1},
+      {title:"Konsisten 3 Hari",desc:"Catat transaksi di 3 hari berbeda",icon:"🔥",done:txStreak>=3,progress:Math.min(txStreak,3),target:3},
+      {title:"Budget Keeper",desc:"Budget bulan ini tidak lewat batas",icon:"🛡️",done:totalBudget>0&&totalOut<=totalBudget,progress:totalBudget>0?Math.min(totalOut/totalBudget*100,100):0,target:100},
+      {title:"Nabung Sehat",desc:"Saving rate minimal 20%",icon:"💎",done:savRate>=20,progress:Math.min(savRate,20),target:20},
+      {title:"Habit Hero",desc:"Selesaikan semua habit hari ini",icon:"⭐",done:habitTotalToday>0&&habitDoneToday===habitTotalToday,progress:habitDoneToday,target:Math.max(habitTotalToday,1)},
+      {title:"Streak 7",desc:"7 hari perfect habit",icon:"🏆",done:perfectDayStreak>=7,progress:Math.min(perfectDayStreak,7),target:7},
+    ];
+  },[s.txs,totalBudget,totalOut,savRate,habitTotalToday,habitDoneToday,perfectDayStreak]);
 
 
   // Notifications
@@ -3107,6 +3148,20 @@ export default function App(){
 
   // Handlers
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(""),2500);};
+  const isIosDevice=typeof navigator!=="undefined"&&/iphone|ipad|ipod/i.test(navigator.userAgent||"");
+  const isStandalone=typeof window!=="undefined"&&(window.matchMedia?.("(display-mode: standalone)")?.matches||window.navigator?.standalone);
+  const dismissInstallPrompt=()=>{setInstallDismissed(true);try{localStorage.setItem("aturduitku_install_dismissed","1");}catch(e){}};
+  const handleInstallApp=async()=>{
+    if(installPrompt){
+      installPrompt.prompt();
+      const choice=await installPrompt.userChoice.catch(()=>null);
+      setInstallPrompt(null);
+      if(choice?.outcome==="accepted") dismissInstallPrompt();
+      return;
+    }
+    if(isIosDevice){showToast("iPhone: tap Share lalu Add to Home Screen");return;}
+    showToast("Buka menu browser lalu pilih Install app / Add to Home screen");
+  };
   const openCalc=(field,cur,setter)=>{setCalcFor({field,cur,setter});setShowCalc(true);};
   const addHabit=()=>{
     const nama=habitForm.nama.trim();
@@ -5026,13 +5081,16 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 }
                 <div style={{fontWeight:800,fontSize:16,color:T.text}}>{fireUser?.displayName||s.name}</div>
                 <div style={{fontSize:12,color:T.muted,marginTop:2}}>{fireUser?.email||""}</div>
-                <div style={{marginTop:8,display:"inline-flex",alignItems:"center",gap:6,background:"#D1FAE5",borderRadius:20,padding:"4px 12px"}}>
-                  <span style={{width:7,height:7,borderRadius:"50%",background:"#10B981",display:"inline-block"}}/>
-                  <span style={{fontSize:11,color:"#065F46",fontWeight:600}}>Tersinkron ke cloud</span>
+                <div style={{marginTop:8,display:"inline-flex",alignItems:"center",gap:6,background:isApproved?"#D1FAE5":"#FEF3C7",borderRadius:20,padding:"4px 12px"}}>
+                  <span style={{width:7,height:7,borderRadius:"50%",background:isApproved?"#10B981":"#F59E0B",display:"inline-block"}}/>
+                  <span style={{fontSize:11,color:isApproved?"#065F46":"#92400E",fontWeight:700}}>{isApproved?"Lifetime aktif":"Menunggu approval"}</span>
                 </div>
+                <div style={{fontSize:11,color:T.muted,marginTop:8}}>Data tersimpan otomatis ke akun ini.</div>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 {isAdmin&&<Btn onClick={()=>{setModal(null);navTo("admin");}} ch="Dashboard Admin" c={T.info} style={{width:"100%",padding:11}}/>}
+                {!isStandalone&&!installDismissed&&<Btn onClick={()=>{setModal(null);handleInstallApp();}} ch="Pasang ke Home Screen" c={T.accent} style={{width:"100%",padding:11}}/>}
+                <Btn onClick={()=>{exportJSON();}} ch="Backup data JSON" c={T.ok} outline style={{width:"100%",padding:11}}/>
                 <Btn onClick={()=>{setModal(null);navTo("setting");}} ch="Pengaturan" outline c={T.accent} style={{width:"100%",padding:11}}/>
                 <button onClick={async()=>{setModal(null);await handleSignOut();}} style={{width:"100%",padding:11,borderRadius:10,border:"1.5px solid #FCA5A5",background:"#FEF2F2",color:"#B91C1C",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
                   Keluar akun
@@ -5291,6 +5349,20 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               ))}
               {inAppAlerts.length>3&&<div style={{fontSize:11,color:T.muted,textAlign:"center",padding:"4px 0"}}>+{inAppAlerts.length-3} notifikasi lainnya</div>}
             </div>}
+            {!isStandalone&&!installDismissed&&<Card ch={<div style={{display:"flex",alignItems:isMobile?"flex-start":"center",justifyContent:"space-between",gap:14,flexDirection:isMobile?"column":"row"}}>
+              <div style={{display:"flex",gap:12,alignItems:"center",minWidth:0}}>
+                <img src="/icon-192.png" alt="" style={{width:44,height:44,borderRadius:14,objectFit:"cover",boxShadow:`0 8px 20px ${T.accentPop}`,flexShrink:0}}/>
+                <div>
+                  <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.1,textTransform:"uppercase",marginBottom:4}}>Web app siap dipasang</div>
+                  <div style={{fontSize:15,fontWeight:900,color:T.text,marginBottom:3}}>Buka AturDuitku dari Home Screen</div>
+                  <div style={{fontSize:12,color:T.muted,lineHeight:1.55}}>{isIosDevice?"Di iPhone: tap Share, lalu Add to Home Screen.":"Pasang seperti app agar lebih cepat dibuka dan terasa native."}</div>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8,width:isMobile?"100%":"auto"}}>
+                <Btn onClick={handleInstallApp} ch={isIosDevice?"Lihat cara":"Pasang app"} c={T.accent} style={{padding:"9px 13px",fontSize:12,flex:isMobile?1:"0 0 auto"}}/>
+                <Btn onClick={dismissInstallPrompt} ch="Nanti" c={T.muted} outline style={{padding:"9px 13px",fontSize:12,flex:isMobile?1:"0 0 auto"}}/>
+              </div>
+            </div>} style={{marginBottom:14,padding:isMobile?14:"15px 18px"}}/>}
             {/* Hero */}
             <div style={{background:T.hero,borderRadius:isMobile?14:18,padding:"22px 28px",marginBottom:18,color:"white",position:"relative",overflow:"hidden"}}>
               <div style={{position:"absolute",right:-30,top:-50,width:220,height:220,borderRadius:"50%",background:"rgba(255,255,255,.04)"}}/>
@@ -5397,6 +5469,45 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <div style={{fontSize:10,color:T.muted}}>{x.sub}</div>
                 </div>
               ))}
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.05fr .95fr",gap:18,marginBottom:18}}>
+              <Card ch={<>
+                <Sec t="Laporan Mingguan" sub={`${weeklyReport.start} sampai ${weeklyReport.end}`} right={<button onClick={()=>setPage("laporan")} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:700}}>Detail</button>}/>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12}}>
+                  {[
+                    {l:"Masuk",v:IDRs(weeklyReport.income),c:T.ok,bg:T.okBg},
+                    {l:"Keluar",v:IDRs(weeklyReport.expense),c:T.err,bg:T.errBg},
+                    {l:"Nabung",v:IDRs(weeklyReport.saving),c:T.info,bg:T.infoBg},
+                  ].map(item=><div key={item.l} style={{background:item.bg,borderRadius:11,padding:"10px 11px"}}>
+                    <div style={{fontSize:9,color:T.muted,fontWeight:800,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>{item.l}</div>
+                    <div style={{fontSize:13,fontWeight:900,color:item.c,whiteSpace:"nowrap"}}>{item.v}</div>
+                  </div>)}
+                </div>
+                <div style={{display:"flex",gap:10,alignItems:"flex-start",background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:12,padding:"12px 13px"}}>
+                  <img src="/icon-192.png" alt="" style={{width:34,height:34,borderRadius:10,objectFit:"cover",flexShrink:0}}/>
+                  <div style={{minWidth:0}}>
+                    <div style={{fontSize:12,fontWeight:900,color:T.text,marginBottom:3}}>{weeklyReport.health}</div>
+                    <div style={{fontSize:11,color:T.muted,lineHeight:1.6}}>{weeklyReport.advice}</div>
+                  </div>
+                </div>
+              </>}/>
+              <Card ch={<>
+                <Sec t="Achievement" sub="Badge kecil biar progress terasa seru"/>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:8}}>
+                  {premiumBadges.slice(0,6).map(b=>{
+                    const pct=b.target?Math.min(100,(Number(b.progress)||0)/(Number(b.target)||1)*100):0;
+                    return <div key={b.title} style={{background:b.done?T.okBg:T.cardAlt,border:`1px solid ${b.done?T.okBorder:T.border}`,borderRadius:12,padding:"10px 11px",minHeight:86}}>
+                      <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6}}>
+                        <span style={{width:26,height:26,borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center",background:b.done?T.ok:T.accentBg,color:b.done?"white":T.accent,fontSize:15}}>{b.icon}</span>
+                        <span style={{fontSize:11,fontWeight:900,color:T.text,lineHeight:1.2}}>{b.title}</span>
+                      </div>
+                      <div style={{fontSize:10,color:T.muted,lineHeight:1.35,marginBottom:7}}>{b.desc}</div>
+                      <PBar pct={pct} c={b.done?T.ok:T.accent} h={5}/>
+                    </div>;
+                  })}
+                </div>
+              </>}/>
             </div>
 
             {/* Progress Pengeluaran */}
@@ -6275,6 +6386,22 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
           ══════════════════════════════════════════════════════════ */}
           {page==="setting"&&(
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:20}}>
+              <Card ch={<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"auto 1fr auto",gap:14,alignItems:"center"}}>
+                <img src={fireUser?.photoURL || "/icon-192.png"} alt="" style={{width:58,height:58,borderRadius:18,objectFit:"cover",boxShadow:`0 10px 24px ${T.accentPop}`,border:`2px solid ${T.border}`,flexShrink:0}}/>
+                <div style={{minWidth:0}}>
+                  <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:6}}>
+                    <span style={{fontSize:10,fontWeight:900,padding:"5px 9px",borderRadius:999,background:isApproved?T.okBg:T.warnBg,color:isApproved?T.ok:T.warn,letterSpacing:.9,textTransform:"uppercase"}}>{isApproved?"Lifetime aktif":"Menunggu approval"}</span>
+                    <span style={{fontSize:10,fontWeight:900,padding:"5px 9px",borderRadius:999,background:T.accentBg,color:T.accent,letterSpacing:.9,textTransform:"uppercase"}}>Rp39.000 sekali bayar</span>
+                  </div>
+                  <div style={{fontSize:17,fontWeight:900,color:T.text,letterSpacing:-.2,marginBottom:3}}>{accessProfile?.displayName || fireUser?.displayName || s.name || "Akun AturDuitku"}</div>
+                  <div style={{fontSize:12,color:T.muted,lineHeight:1.55,overflowWrap:"anywhere"}}>{accessProfile?.email || fireUser?.email || "-"} · Data tersimpan otomatis ke akun kamu.</div>
+                  <div style={{fontSize:11,color:T.sub,marginTop:6}}>Status sinkron: <strong style={{color:syncStatus==="error"?T.err:syncStatus==="saving"?T.warn:T.ok}}>{syncStatus==="saving"?"menyimpan":syncStatus==="error"?"perlu dicek":"aman"}</strong>{accessProfile?.approvedAt?` · Approved ${new Date(accessProfile.approvedAt).toLocaleDateString("id-ID")}`:""}</div>
+                </div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:isMobile?"flex-start":"flex-end"}}>
+                  {!isStandalone&&!installDismissed&&<Btn onClick={handleInstallApp} ch="Pasang app" c={T.accent} style={{padding:"9px 12px",fontSize:12}}/>}
+                  <Btn onClick={exportJSON} ch="Backup" c={T.ok} outline style={{padding:"9px 12px",fontSize:12}}/>
+                </div>
+              </div>} style={{gridColumn:"1/-1",padding:isMobile?14:"16px 18px"}}/>
               <Card ch={<>
                 <Sec t={t("profile")}/>
                 <label style={LS}>{t("displayName")}</label><input value={sfForm.name} onChange={e=>setSfForm(f=>({...f,name:e.target.value}))} style={{...IS,marginBottom:10}}/>
