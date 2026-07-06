@@ -1360,8 +1360,9 @@ const MoreMenu=({page,setPage,onClose,navItems=NAV})=>{
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
           {navItems.slice(4).map(n=>{
             const a=page===n.id;
+            const go=()=>{setPage(n.id);onClose();};
             return(
-              <button key={n.id} onClick={()=>{setPage(n.id);onClose();}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:"12px 8px",borderRadius:12,border:`1.5px solid ${a?T.navBorder:T.border}`,background:a?T.navActive:T.cardAlt,cursor:"pointer",fontFamily:"inherit"}}>
+              <button key={n.id} onPointerUp={e=>{e.preventDefault();go();}} onClick={go} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:"12px 8px",borderRadius:12,border:`1.5px solid ${a?T.navBorder:T.border}`,background:a?T.navActive:T.cardAlt,cursor:"pointer",fontFamily:"inherit",touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
                 <span style={{fontSize:22}}>{uiIcon(n.icon)}</span>
                 <span style={{fontSize:10,fontWeight:700,color:a?T.accent:T.sub}}>{n.label}</span>
               </button>
@@ -7361,14 +7362,14 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
 
       {/* ── BOTTOM NAV (mobile only) ── */}
       {isMobile&&<nav className="bottom-nav" style={{background:T.nav,borderTopColor:T.border,display:sidebarOpen?"none":"flex"}}>
-        {[NAV[0],NAV[1],NAV[2],NAV[3]].map(nav=>{const a=page===nav.id;return(
-          <button key={nav.id} onClick={()=>navTo(nav.id)} className="bottom-nav-item" style={{color:a?T.accent:T.muted}}>
+        {[NAV[0],NAV[1],NAV[2],NAV[3]].map(nav=>{const a=page===nav.id;const go=()=>navTo(nav.id);return(
+          <button key={nav.id} onPointerUp={e=>{e.preventDefault();go();}} onClick={go} className="bottom-nav-item" style={{color:a?T.accent:T.muted}}>
             <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,fontSize:16,fontWeight:700,letterSpacing:0,lineHeight:1,transition:"transform .15s",transform:a?"scale(1.05)":"scale(1)"}}>{uiIcon(nav.icon)}</span>
             <span style={{fontSize:9,fontWeight:a?800:500}}>{nav.label}</span>
             {a&&<span style={{width:4,height:4,borderRadius:"50%",background:T.accent,marginTop:1,boxShadow:`0 0 6px ${T.accent}`}}/>}
           </button>
         );})}
-        <button onClick={()=>setMoreOpen(true)} className="bottom-nav-item" style={{color:T.muted,position:"relative"}}>
+        <button onPointerUp={e=>{e.preventDefault();setMoreOpen(true);}} onClick={()=>setMoreOpen(true)} className="bottom-nav-item" style={{color:T.muted,position:"relative"}}>
           <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:T.cardAlt,color:T.muted,fontSize:16,fontWeight:700,letterSpacing:0,lineHeight:1}}>⋯</span>
           <span style={{fontSize:9,fontWeight:500}}>{t("more")}</span>
           {notifications.length>0&&<span style={{position:"absolute",top:6,right:"calc(50% - 14px)",background:T.err,color:"white",borderRadius:"50%",width:14,height:14,fontSize:8,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>{Math.min(notifications.length,9)}</span>}
@@ -7502,7 +7503,21 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
         }
         @media (max-width: 767px) {
           .ai-panel { width:100vw; }
-          .ai-float-btn { max-width:calc(100vw - 24px); }
+          .ai-float-btn {
+            width:54px;
+            height:54px;
+            max-width:54px;
+            border-radius:50%;
+            padding:0;
+            justify-content:center;
+            gap:0;
+            z-index:180;
+            bottom:calc(env(safe-area-inset-bottom) + 86px)!important;
+            right:max(14px, env(safe-area-inset-right))!important;
+          }
+          .ai-float-btn::before { border-radius:50%; animation:none; opacity:.18; }
+          .ai-float-btn img { width:34px!important; height:34px!important; border-radius:11px!important; }
+          .ai-float-label,.ai-float-chip { display:none!important; }
           .ai-msg-user,.ai-msg-ai { max-width:88%; }
         }
         .ai-send-btn {
@@ -7554,8 +7569,8 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
         }}
       >
         <img src="/icon-192.png" alt="cat" style={{width:22,height:22,borderRadius:6,objectFit:"cover"}}/>
-        <span>Dokter Keuangan</span>
-        <span style={{background:"rgba(255,255,255,0.22)",borderRadius:20,padding:"2px 8px",fontSize:13,fontWeight:800,letterSpacing:0.3}}>🤖</span>
+        <span className="ai-float-label">Dokter Keuangan</span>
+        <span className="ai-float-chip" style={{background:"rgba(255,255,255,0.22)",borderRadius:20,padding:"2px 8px",fontSize:13,fontWeight:800,letterSpacing:0.3}}>🤖</span>
       </button>}
 
       {/* Panel */}
