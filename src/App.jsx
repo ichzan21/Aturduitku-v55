@@ -2527,14 +2527,18 @@ export default function App(){
 
   const authedJson = async (url, options={}) => {
     const token = await getCurrentIdToken();
+    const { timeoutMs, ...fetchOptions } = options;
+    const controller = new AbortController();
+    const timeout = setTimeout(()=>controller.abort(), timeoutMs || 12000);
     const resp = await fetch(url, {
-      ...options,
+      ...fetchOptions,
+      signal:controller.signal,
       headers: {
         "Content-Type":"application/json",
         Authorization:`Bearer ${token}`,
-        ...(options.headers||{}),
+        ...(fetchOptions.headers||{}),
       },
-    });
+    }).finally(()=>clearTimeout(timeout));
     const data = await resp.json().catch(()=>({}));
     if(!resp.ok){
       const error = new Error(data.error || `Request failed: ${resp.status}`);
@@ -5210,6 +5214,7 @@ Saldo amplop bertambah.`}]);
         input,select,textarea{transition:border-color .15s,box-shadow .15s;}
         input:focus,select:focus,textarea:focus{outline:none!important;border-color:${T.accent}!important;box-shadow:0 0 0 3px ${T.accentPop}!important;}
         button:focus{outline:none;}
+        button,[role="button"],.nav-item,.icon-action,.btn-go,.quick-action-item,.bottom-nav-item{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
         .topbar-safe{box-shadow:0 8px 28px rgba(31,20,70,.06);}
         .icon-action{transition:all .15s cubic-bezier(.4,0,.2,1);-webkit-tap-highlight-color:transparent;}
         .icon-action:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(139,92,246,.14);}
@@ -5293,7 +5298,7 @@ button:active,.bottom-nav-item:active{opacity:.75;}
   .topbar-safe{padding-top:max(10px,env(safe-area-inset-top))!important;}
 }
 /* Prevent text selection on UI elements */
-button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
+button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-select:none;user-select:none;}
       `}</style>
 
       {/* Toast */}
@@ -5699,8 +5704,8 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
         {/* Mobile Quick Action */}
         {isMobile&&(page==="home"||page==="trans"||page==="budget"||page==="habit")&&(
           <>
-            {quickOpen&&<div onClick={()=>setQuickOpen(false)} style={{position:"fixed",inset:0,zIndex:185,background:"rgba(15,23,42,.18)",backdropFilter:"blur(2px)"}}/>}
-            {quickOpen&&<div className="quick-action-sheet" style={{position:"fixed",right:"max(18px,env(safe-area-inset-right))",bottom:"calc(132px + max(env(safe-area-inset-bottom),8px))",zIndex:191,width:"min(292px, calc(100vw - 36px))",background:T.card,border:`1px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowMd,padding:12}}>
+            {quickOpen&&<div onClick={()=>setQuickOpen(false)} style={{position:"fixed",inset:0,zIndex:610,background:"rgba(15,23,42,.18)",backdropFilter:"blur(2px)",WebkitBackdropFilter:"blur(2px)",touchAction:"none"}}/>}
+            {quickOpen&&<div className="quick-action-sheet" style={{position:"fixed",right:"max(18px,env(safe-area-inset-right))",bottom:"calc(82px + max(env(safe-area-inset-bottom),8px))",zIndex:611,width:"min(292px, calc(100vw - 36px))",background:T.card,border:`1px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowMd,padding:12}}>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,padding:"4px 4px 8px",borderBottom:`1px solid ${T.borderLight}`}}>
                 <img src="/icon-192.png" alt="" style={{width:34,height:34,borderRadius:11,objectFit:"cover",boxShadow:`0 6px 16px ${T.accentPop}`}}/>
                 <div>
@@ -5723,7 +5728,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 </button>
               ))}
             </div>}
-            <button className={`fab ${quickOpen?"is-open":""}`} onClick={()=>setQuickOpen(v=>!v)} aria-label="Aksi cepat">{quickOpen?"×":"+"}</button>
+            <button className={`fab ${quickOpen?"is-open":""}`} onClick={()=>setQuickOpen(v=>!v)} aria-label="Aksi cepat" style={quickOpen?{zIndex:612}:undefined}>{quickOpen?"×":"+"}</button>
           </>
         )}
 
@@ -7361,7 +7366,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       </div>
 
       {/* ── BOTTOM NAV (mobile only) ── */}
-      {isMobile&&<nav className="bottom-nav" style={{background:T.nav,borderTopColor:T.border,display:(sidebarOpen||moreOpen)?"none":"flex"}}>
+      {isMobile&&<nav className="bottom-nav" style={{background:T.nav,borderTopColor:T.border,display:(sidebarOpen||moreOpen||quickOpen)?"none":"flex"}}>
         {[NAV[0],NAV[1],NAV[2],NAV[3]].map(nav=>{const a=page===nav.id;const go=()=>navTo(nav.id);return(
           <button key={nav.id} onPointerUp={e=>{e.preventDefault();go();}} onClick={go} className="bottom-nav-item" style={{color:a?T.accent:T.muted}}>
             <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,fontSize:16,fontWeight:700,letterSpacing:0,lineHeight:1,transition:"transform .15s",transform:a?"scale(1.05)":"scale(1)"}}>{uiIcon(nav.icon)}</span>

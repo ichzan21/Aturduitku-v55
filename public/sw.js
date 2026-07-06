@@ -1,7 +1,5 @@
-const CACHE_NAME = 'aturduitku-v14-release-polish';
+const CACHE_NAME = 'aturduitku-v15-mobile-tap-polish';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
   '/manifest.json',
   '/favicon-32.png',
   '/favicon-48.png',
@@ -31,7 +29,7 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   if (e.request.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request).then(res => {
+      fetch(e.request, { cache: 'no-store' }).then(res => {
         if (res.ok) {
           const clone = res.clone();
           caches.open(CACHE_NAME).then(cache => cache.put('/index.html', clone));
@@ -41,11 +39,11 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
-  // Network-first for JS/CSS (always get fresh code)
-  const isAsset = e.request.url.match(/\.(js|css|jsx)$/);
+  // Network-first for app shell and built assets so PWA users do not get stuck on an old UI.
+  const isAsset = e.request.url.match(/\.(html|js|css|jsx)$/);
   if (isAsset) {
     e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
+      fetch(e.request, { cache: 'no-store' }).catch(() => caches.match(e.request))
     );
     return;
   }
