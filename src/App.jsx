@@ -76,7 +76,7 @@ const DARK = {
 };
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-const IDR  = v=>"Rp "+Number(v||0).toLocaleString("id-ID");
+const IDR  = v=>"Rp "+Math.round(Number(v||0)).toLocaleString("id-ID");
 const IDRs = v=>{const n=Number(v||0),a=Math.abs(n);if(a>=1e9)return(n<0?"-":"")+"Rp "+(a/1e9).toFixed(1)+"M";if(a>=1e6)return(n<0?"-":"")+"Rp "+(a/1e6).toFixed(1)+"jt";if(a>=1e3)return(n<0?"-":"")+"Rp "+(a/1e3).toFixed(0)+"rb";return"Rp "+n;};
 const fmtN = v=>{const n=String(v).replace(/\D/g,"");return n?n.replace(/\B(?=(\d{3})+(?!\d))/g,"."):"";};
 const pN   = v=>String(v).replace(/\./g,"");
