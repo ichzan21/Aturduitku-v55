@@ -5030,6 +5030,10 @@ Saldo amplop bertambah.`}]);
 
   const activeRecap=modal?.recap||monthlyRecap;
   const supportEmail="ichzan24@gmail.com";
+  const supportWhatsapp="087785472696";
+  const supportWhatsappHref="https://wa.me/6287785472696?text="+encodeURIComponent("Halo admin AturDuitku, saya butuh bantuan.");
+  const supportInstagram="@iksanarsana";
+  const supportInstagramHref="https://www.instagram.com/iksanarsana/";
   const supportSubject=encodeURIComponent("Bantuan AturDuitku");
   const supportBody=encodeURIComponent(`Halo admin AturDuitku,\n\nSaya butuh bantuan untuk akun:\nEmail akun: ${fireUser?.email||accessProfile?.email||""}\nStatus: ${accessProfile?.approvalStatus||"belum login"}\n\nKendala saya:\n`);
   const supportHref=`mailto:${supportEmail}?subject=${supportSubject}&body=${supportBody}`;
@@ -7001,8 +7005,22 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                       <span style={{fontSize:12,color,fontWeight:900}}>{value}</span>
                     </div>)}
                   </div>
-                  <div style={{fontSize:12,color:T.muted,lineHeight:1.65,marginBottom:12}}>Kalau user punya kendala login, pembayaran, atau approval, arahkan ke email admin ini.</div>
-                  <a href={supportHref} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,padding:"9px 13px",borderRadius:999,background:T.accentBg,color:T.accent,fontSize:12,fontWeight:900,textDecoration:"none",border:`1px solid ${T.border}`}}>Hubungi admin</a>
+                  <div style={{fontSize:12,color:T.muted,lineHeight:1.65,marginBottom:12}}>Kalau ada error, kendala login, pembayaran, atau approval, hubungi admin lewat kontak berikut.</div>
+                  <div style={{display:"grid",gap:8,marginBottom:10}}>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:11,padding:"9px 11px"}}>
+                      <span style={{fontSize:12,color:T.text,fontWeight:800}}>WhatsApp</span>
+                      <span style={{fontSize:12,color:T.ok,fontWeight:900}}>{supportWhatsapp}</span>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:11,padding:"9px 11px"}}>
+                      <span style={{fontSize:12,color:T.text,fontWeight:800}}>Instagram</span>
+                      <span style={{fontSize:12,color:T.accent,fontWeight:900}}>{supportInstagram}</span>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    <a href={supportWhatsappHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,padding:"9px 13px",borderRadius:999,background:T.okBg,color:T.ok,fontSize:12,fontWeight:900,textDecoration:"none",border:`1px solid ${T.okBorder}`}}>WhatsApp</a>
+                    <a href={supportInstagramHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,padding:"9px 13px",borderRadius:999,background:T.accentBg,color:T.accent,fontSize:12,fontWeight:900,textDecoration:"none",border:`1px solid ${T.border}`}}>Instagram</a>
+                    <a href={supportHref} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,padding:"9px 13px",borderRadius:999,background:T.cardAlt,color:T.text,fontSize:12,fontWeight:900,textDecoration:"none",border:`1px solid ${T.border}`}}>Email</a>
+                  </div>
                 </>}/>
 
                 <Card ch={<>
