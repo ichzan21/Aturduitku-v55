@@ -5062,11 +5062,11 @@ Saldo amplop bertambah.`}]);
   const activeRecap=modal?.recap||monthlyRecap;
   const supportEmail="ichzan24@gmail.com";
   const supportWhatsapp="087785472696";
-  const supportWhatsappHref="https://wa.me/6287785472696?text="+encodeURIComponent("Halo admin AturDuitku, saya butuh bantuan.");
   const supportInstagram="@iksanarsana";
   const supportInstagramHref="https://www.instagram.com/iksanarsana/";
   const supportSubject=encodeURIComponent("Bantuan AturDuitku");
   const supportBody=encodeURIComponent(`Halo admin AturDuitku,\n\nSaya butuh bantuan untuk akun:\nEmail akun: ${fireUser?.email||accessProfile?.email||""}\nStatus: ${accessProfile?.approvalStatus||"belum login"}\n\nKendala saya:\n`);
+  const supportWhatsappHref="https://wa.me/6287785472696?text="+supportBody;
   const supportHref=`mailto:${supportEmail}?subject=${supportSubject}&body=${supportBody}`;
 
   // Show loading screen while checking auth
@@ -5169,6 +5169,19 @@ Saldo amplop bertambah.`}]);
           {accessProfile?.approvalStatus==="rejected"
             ?"Akun ini sudah direview tetapi belum bisa diaktifkan. Kamu masih bisa hubungi admin untuk minta pengecekan ulang."
             :"Akun berhasil dibuat. Sekarang admin akan cek pembayaran dan mengaktifkan akses penuh setelah semuanya sesuai."}
+        </div>
+        <div style={{background:"linear-gradient(135deg,rgba(34,197,94,.14),rgba(124,58,237,.16))",border:"1px solid rgba(196,181,253,.22)",borderRadius:16,padding:14,marginBottom:14}}>
+          <div style={{display:"flex",gap:11,alignItems:"flex-start",marginBottom:10}}>
+            <img src="/icon-192.png" alt="" style={{width:38,height:38,borderRadius:12,objectFit:"cover",boxShadow:"0 8px 20px rgba(124,58,237,.24)",flexShrink:0}}/>
+            <div style={{minWidth:0}}>
+              <div style={{color:"white",fontWeight:900,fontSize:14,marginBottom:3}}>Butuh bantuan approval?</div>
+              <div style={{color:"#DDD6FE",fontSize:12,lineHeight:1.55}}>Kirim email pembeli dan Order ID Scalev ke admin. Biasanya ini yang paling cepat mempercepat pengecekan.</div>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <a href={supportWhatsappHref} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7,color:"#052E16",fontWeight:900,textDecoration:"none",background:"#86EFAC",border:"1px solid rgba(134,239,172,.45)",borderRadius:12,padding:"10px 11px",fontSize:12}}>WhatsApp</a>
+            <a href={supportInstagramHref} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7,color:"white",fontWeight:900,textDecoration:"none",background:"rgba(124,58,237,.72)",border:"1px solid rgba(196,181,253,.32)",borderRadius:12,padding:"10px 11px",fontSize:12}}>Instagram</a>
+          </div>
         </div>
         {accessProfile?.approvalStatus!=="rejected"&&<div style={{display:"grid",gridTemplateColumns:"1fr",gap:8,marginBottom:14}}>
           {["Akun berhasil dibuat","Admin cek kecocokan pembayaran","Akses penuh dibuka setelah valid"].map((item,i)=><div key={item} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:12,padding:"10px 12px",color:i===2?"#C4B5FD":"white",fontSize:12,fontWeight:700}}><span style={{width:22,height:22,borderRadius:999,display:"inline-flex",alignItems:"center",justifyContent:"center",background:i===0?"rgba(134,239,172,.18)":i===1?"rgba(250,204,21,.18)":"rgba(196,181,253,.18)",color:i===0?"#86EFAC":i===1?"#FDE68A":"#C4B5FD",fontSize:11}}>{i+1}</span>{item}</div>)}
@@ -6948,6 +6961,18 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:isMobile?"flex-start":"flex-end"}}>
                   {!isStandalone&&!installDismissed&&<Btn onClick={handleInstallApp} ch="Pasang app" c={T.accent} style={{padding:"9px 12px",fontSize:12}}/>}
                   <Btn onClick={exportJSON} ch="Backup" c={T.ok} outline style={{padding:"9px 12px",fontSize:12}}/>
+                </div>
+              </div>} style={{gridColumn:"1/-1",padding:isMobile?14:"16px 18px"}}/>
+              <Card ch={<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"auto 1fr auto",gap:14,alignItems:"center"}}>
+                <div style={{width:52,height:52,borderRadius:17,background:T.okBg,border:`1px solid ${T.okBorder}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,boxShadow:`0 10px 24px ${T.accentPop}`,flexShrink:0}}>💬</div>
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.1,textTransform:"uppercase",marginBottom:4}}>Bantuan admin</div>
+                  <div style={{fontSize:16,fontWeight:900,color:T.text,marginBottom:4}}>Ada error, login macet, atau approval belum aktif?</div>
+                  <div style={{fontSize:12,color:T.muted,lineHeight:1.6}}>Hubungi admin lewat WhatsApp <strong style={{color:T.ok}}>{supportWhatsapp}</strong> atau Instagram <strong style={{color:T.accent}}>{supportInstagram}</strong>. Sertakan email akun dan Order ID Scalev kalau terkait pembayaran.</div>
+                </div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:isMobile?"stretch":"flex-end"}}>
+                  <a href={supportWhatsappHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"10px 14px",borderRadius:999,background:T.ok,color:"white",fontSize:12,fontWeight:900,textDecoration:"none",boxShadow:`0 10px 22px ${T.ok}22`,flex:isMobile?"1 1 140px":"0 0 auto"}}>WhatsApp</a>
+                  <a href={supportInstagramHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"10px 14px",borderRadius:999,background:T.accent,color:"white",fontSize:12,fontWeight:900,textDecoration:"none",boxShadow:`0 10px 22px ${T.accentPop}`,flex:isMobile?"1 1 140px":"0 0 auto"}}>Instagram</a>
                 </div>
               </div>} style={{gridColumn:"1/-1",padding:isMobile?14:"16px 18px"}}/>
               <Card ch={<>
