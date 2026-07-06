@@ -7565,7 +7565,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
       `}</style>
 
       {/* Float Button */}
-      {!aiOpen&&!moreOpen&&!quickOpen&&<button
+      {!aiOpen&&!moreOpen&&!quickOpen&&!modal&&!sidebarOpen&&!notifOpen&&!commandOpen&&!(isMobile&&(page==="home"||page==="trans"||page==="budget"||page==="habit"))&&<button
         className="ai-float-btn"
         onClick={()=>setAiOpen(true)}
         style={{
