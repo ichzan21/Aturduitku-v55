@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aturduitku-v13-boot-splash';
+const CACHE_NAME = 'aturduitku-v14-release-polish';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

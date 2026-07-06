@@ -3449,10 +3449,27 @@ export default function App(){
     // Sheets sync removed - use Export XLSX/PDF instead
 
   const [aiOpen,setAiOpen]=useState(false);
+  const shortcutHandledRef=useRef(false);
   const aiMsgsRef = useRef(null);
   const [aiMsgs,setAiMsgs]=useState([{role:"assistant",content:"Halo! Saya **Dokter Keuangan**. Saya bisa bantu kamu membaca kondisi keuangan, mencatat transaksi, dan kasih saran yang lebih praktis buat dipakai setiap hari.\n\nYang bisa kita bahas sekarang:\n- Catat transaksi, utang, goals, dan aset\n- Analisis cashflow, budget, dan saving rate\n- Susun langkah hemat dan target nabung\n- Cek risiko kalau pengeluaran mulai terlalu tinggi\n\nMulai cepat dengan: `Analisis keuanganku` atau `Bagaimana kondisi finansialku bulan ini?`"}]);
   const [aiInput,setAiInput]=useState("");
   const [aiLoading,setAiLoading]=useState(false);
+
+  useEffect(()=>{
+    if(shortcutHandledRef.current||!isApproved||!onboarded) return;
+    let shortcut="";
+    try{shortcut=new URLSearchParams(window.location.search).get("shortcut")||"";}catch(e){}
+    if(!shortcut) return;
+    shortcutHandledRef.current=true;
+    if(shortcut==="transaction"){setPage("trans");setModal({type:"tx"});}
+    else if(shortcut==="reports"){setPage("laporan");}
+    else if(shortcut==="habit"){setPage("habit");}
+    else if(shortcut==="ai"){setAiOpen(true);}
+    try{
+      const cleanUrl=window.location.pathname+(window.location.hash||"");
+      window.history.replaceState({},document.title,cleanUrl);
+    }catch(e){}
+  },[isApproved,onboarded]);
 
   const getAiSystemPrompt = () => {
     // ── Compute financial metrics ──────────────────────
@@ -5012,6 +5029,10 @@ Saldo amplop bertambah.`}]);
   };
 
   const activeRecap=modal?.recap||monthlyRecap;
+  const supportEmail="ichzan24@gmail.com";
+  const supportSubject=encodeURIComponent("Bantuan AturDuitku");
+  const supportBody=encodeURIComponent(`Halo admin AturDuitku,\n\nSaya butuh bantuan untuk akun:\nEmail akun: ${fireUser?.email||accessProfile?.email||""}\nStatus: ${accessProfile?.approvalStatus||"belum login"}\n\nKendala saya:\n`);
+  const supportHref=`mailto:${supportEmail}?subject=${supportSubject}&body=${supportBody}`;
 
   // Show loading screen while checking auth
   if(fireLoading || accessLoading) return (
@@ -5089,6 +5110,9 @@ Saldo amplop bertambah.`}]);
         <div style={{color:"#6D28D9",fontSize:11,marginTop:16,textAlign:"center",lineHeight:1.6}}>
           Setelah daftar, akunmu akan dicek admin dulu<br/>supaya akses penuh tetap rapi dan aman
         </div>
+        <a href={supportHref} style={{marginTop:14,color:"#C4B5FD",fontSize:12,fontWeight:800,textDecoration:"none",background:"rgba(255,255,255,.07)",border:"1px solid rgba(255,255,255,.1)",borderRadius:999,padding:"9px 13px"}}>
+          Butuh bantuan? Hubungi admin
+        </a>
       </div>
     </div>
   );
@@ -5117,6 +5141,11 @@ Saldo amplop bertambah.`}]);
         {accessProfile?.adminNotes&&<div style={{background:"rgba(255,255,255,.06)",borderRadius:14,padding:14,color:"#E9D5FF",fontSize:12,lineHeight:1.6,marginBottom:14}}>
           Catatan admin: {accessProfile.adminNotes}
         </div>}
+        <div style={{background:"rgba(255,255,255,.06)",border:"1px solid rgba(255,255,255,.08)",borderRadius:14,padding:13,color:"#DDD6FE",fontSize:12,lineHeight:1.6,marginBottom:14}}>
+          Sudah bayar via Scalev? Kirim email pembeli dan order ID ke admin supaya approval lebih cepat.
+          <br/>
+          <a href={supportHref} style={{color:"#FDE68A",fontWeight:800,textDecoration:"none"}}>Hubungi {supportEmail}</a>
+        </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <button onClick={async()=>{setAccessLoading(true);try{await loadAccessProfile();}finally{setAccessLoading(false);}}} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.08)",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{accessLoading?"Mengecek...":"Cek status lagi"}</button>
           <button onClick={handleSignOut} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(252,165,165,.35)",background:"rgba(127,29,29,.22)",color:"#FCA5A5",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Keluar</button>
@@ -6958,6 +6987,22 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <Sec t="Tutup Buku" sub="Simpan pembanding bulan ini sebelum masuk periode berikutnya."/>
                   <div style={{fontSize:12,color:T.muted,lineHeight:1.65,marginBottom:12}}>Cocok dipakai akhir bulan. Sistem menyimpan pemasukan dan pengeluaran bulan aktif sebagai acuan laporan bulan depan.</div>
                   <Btn onClick={()=>setModal({type:"confirm",title:"Tutup buku bulan ini?",msg:"Pemasukan dan pengeluaran bulan ini disimpan sebagai pembanding, lalu periode aktif pindah ke bulan berikutnya. Data transaksi tetap aman.",onConfirm:closeMonth})} ch="Tutup buku bulan ini" c={T.info} style={{padding:"9px 14px",fontSize:12}}/>
+                </>}/>
+
+                <Card ch={<>
+                  <Sec t="Bantuan & Rilis" sub="Kontak admin dan cek kesiapan app sebelum dipakai harian."/>
+                  <div style={{display:"grid",gap:8,marginBottom:12}}>
+                    {[
+                      ["Akun",isApproved?"Lifetime aktif":"Perlu approval",isApproved?T.ok:T.warn],
+                      ["Sync",!isOnline?"Offline":syncStatus==="error"?"Perlu dicek":"Aman",!isOnline||syncStatus==="error"?T.warn:T.ok],
+                      ["PWA",isStandalone?"Terpasang":"Bisa dipasang",isStandalone?T.ok:T.accent],
+                    ].map(([label,value,color])=><div key={label} style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:11,padding:"9px 11px"}}>
+                      <span style={{fontSize:11,color:T.muted,fontWeight:800,textTransform:"uppercase",letterSpacing:.8}}>{label}</span>
+                      <span style={{fontSize:12,color,fontWeight:900}}>{value}</span>
+                    </div>)}
+                  </div>
+                  <div style={{fontSize:12,color:T.muted,lineHeight:1.65,marginBottom:12}}>Kalau user punya kendala login, pembayaran, atau approval, arahkan ke email admin ini.</div>
+                  <a href={supportHref} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,padding:"9px 13px",borderRadius:999,background:T.accentBg,color:T.accent,fontSize:12,fontWeight:900,textDecoration:"none",border:`1px solid ${T.border}`}}>Hubungi admin</a>
                 </>}/>
 
                 <Card ch={<>

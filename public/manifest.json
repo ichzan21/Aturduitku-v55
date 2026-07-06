@@ -39,6 +39,20 @@
       "description": "Buka laporan keuangan AturDuitku.",
       "url": "/?shortcut=reports",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Quest Habit",
+      "short_name": "Habit",
+      "description": "Buka habit planner harian AturDuitku.",
+      "url": "/?shortcut=habit",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Dokter Keuangan",
+      "short_name": "AI",
+      "description": "Buka Dokter Keuangan AturDuitku.",
+      "url": "/?shortcut=ai",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ],
   "screenshots": [

@@ -132,6 +132,28 @@
         font-size: 11px;
         font-weight: 700;
       }
+      .boot-help {
+        display: none;
+        color: #C4B5FD;
+        font-size: 11px;
+        line-height: 1.55;
+        max-width: 260px;
+      }
+      .boot-reload {
+        margin-top: 2px;
+        padding: 8px 13px;
+        border: 1px solid rgba(255,255,255,.16);
+        border-radius: 999px;
+        background: rgba(255,255,255,.08);
+        color: #fff;
+        font: inherit;
+        font-size: 11px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .boot-splash.is-slow .boot-help {
+        display: block;
+      }
       @keyframes bootFloat {
         0%,100% { transform: translateY(0) rotate(-2deg); }
         50% { transform: translateY(-9px) rotate(2deg); }
@@ -165,8 +187,19 @@
         <div class="boot-subtitle">Menyiapkan dashboard keuanganmu...</div>
         <div class="boot-bar" aria-hidden="true"></div>
         <div class="boot-note">Sinkronisasi cloud berjalan otomatis</div>
+        <div class="boot-help">
+          Kalau lebih dari beberapa detik, cek koneksi atau muat ulang halaman.
+          <br />
+          <button class="boot-reload" onclick="location.reload()">Muat ulang</button>
+        </div>
       </div>
     </div>
+    <script>
+      setTimeout(function () {
+        var splash = document.querySelector(".boot-splash");
+        if (splash) splash.classList.add("is-slow");
+      }, 8000);
+    </script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
     <script type="module" src="/src/main.jsx"></script>
