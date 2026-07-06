@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useMemo, useRef, createContext, useContext } from "react";
-import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
-} from "recharts";
+import React, { Suspense, useState, useEffect, useMemo, useRef, createContext, useContext } from "react";
 import {
   getCurrentIdToken, signInWithEmail, signInWithGoogle, signOutUser, onAuthChange, signUpWithEmail,
   saveUserData, getUserData,
 } from "./firebase.js";
+
+const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
+const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
+const DonutChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DonutChart })));
 
 
 // ─── ERROR BOUNDARY ───────────────────────────────────────────────────────────
@@ -858,6 +858,17 @@ const uiIcon=(icon)=>ICON_CODE_MAP[String(icon||"").trim()]||icon||"";
 const Card=({ch,style={},lift})=>{
   const T=useT();
   return <div className={lift?"card-lift":""} style={{background:T.card,borderRadius:16,padding:"18px 20px",boxShadow:T.shadow,border:`1.5px solid ${T.border}`,transition:"background .3s,border-color .3s,box-shadow .3s",...style}}>{ch}</div>;
+};
+const ChartFallback=({height=160})=>{
+  const T=useT();
+  return(
+    <div style={{height,borderRadius:12,background:T.cardAlt,border:`1px solid ${T.border}`,padding:12,display:"grid",gap:8,alignContent:"end",overflow:"hidden"}}>
+      <div className="smooth-skeleton" style={{height:12,width:"42%"}}/>
+      <div style={{display:"flex",alignItems:"flex-end",gap:6,height:Math.max(height-46,64)}}>
+        {[34,54,28,72,45,64,38,58,30].map((h,i)=><div key={i} className="smooth-skeleton" style={{height:`${h}%`,flex:1,borderRadius:"8px 8px 4px 4px"}}/>)}
+      </div>
+    </div>
+  );
 };
 const Sec=({t,sub,right})=>{
   const T=useT();
@@ -5644,7 +5655,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":`${isMobile?"1fr":"1fr 1fr 1fr"}`,gap:18,marginBottom:18}}>
               <Card ch={<>
                 <Sec t={`Ringkasan ${t("dailyExpense")}`} sub={s.bulan}/>
-                <DailyChart txBulan={txBulan} bulan={s.bulan} tahun={s.tahun}/>
+                <Suspense fallback={<ChartFallback height={130}/>}>
+                  <DailyChartLazy txBulan={txBulan} bulan={s.bulan} tahun={s.tahun} months={MONTHS} T={T} idr={IDR} n={N}/>
+                </Suspense>
               </>}/>
               <Card ch={<>
                 <Sec t={t("upcomingBills")}/>
@@ -5684,9 +5697,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   </div>
                 ))}
                 {pieData.length>0&&<div style={{marginTop:12}}>
-                  <ResponsiveContainer width="100%" height={120}>
-                    <PieChart><Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={52} innerRadius={28}>{pieData.map((_,i)=><Cell key={i} fill={PIE_C[i%PIE_C.length]}/>)}</Pie><Tooltip formatter={v=>IDR(v)} contentStyle={{borderRadius:8,fontSize:11,background:T.card,border:`1px solid ${T.border}`,color:T.text}}/></PieChart>
-                  </ResponsiveContainer>
+                  <Suspense fallback={<ChartFallback height={120}/>}>
+                    <DonutChartLazy pieData={pieData} pieColors={PIE_C} T={T} idr={IDR} height={120} outerRadius={52} innerRadius={28}/>
+                  </Suspense>
                 </div>}
                 {!topKat.length&&<div style={{textAlign:"center",padding:20,color:T.muted,fontSize:12}}>{t("noBudgetData")}</div>}
               </>}/>
@@ -6341,7 +6354,9 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                   <span style={{color:"#6366F1",fontWeight:700}}>SAVE</span>
                 </div>
               }/>
-              <TrendChart trendData={trendData} isMobile={isMobile}/>
+              <Suspense fallback={<ChartFallback height={isMobile?160:200}/>}>
+                <TrendChartLazy trendData={trendData} isMobile={isMobile} T={T} idrs={IDRs}/>
+              </Suspense>
             </>} style={{marginBottom:18}}/>
 
             {/* Summary */}
@@ -6364,13 +6379,15 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:18,marginBottom:18}}>
               <Card ch={<>
                 <Sec t={t("spendDetail")}/>
-                {pieData.length?<ResponsiveContainer width="100%" height={isMobile?150:200}>
-                  <PieChart><Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={80} innerRadius={40} label={({percent})=>`${(percent*100).toFixed(0)}%`}>{pieData.map((_,i)=><Cell key={i} fill={PIE_C[i%PIE_C.length]}/>)}</Pie><Tooltip formatter={v=>IDR(v)} contentStyle={{borderRadius:8,fontSize:12,background:T.card,border:`1px solid ${T.border}`,color:T.text}}/></PieChart>
-                </ResponsiveContainer>:<LaunchEmpty icon="📊" title="Belum ada distribusi pengeluaran" desc="Tambahkan beberapa transaksi pengeluaran di bulan ini supaya kategori belanja, pola spending, dan insight laporan mulai terbentuk." actionLabel="Tambah transaksi" onAction={()=>setModal({type:"tx"})} secondaryLabel="Buka transaksi" onSecondary={()=>setPage("trans")} style={{padding:"28px 16px"}}/>}
+                {pieData.length?<Suspense fallback={<ChartFallback height={isMobile?150:200}/>}>
+                  <DonutChartLazy pieData={pieData} pieColors={PIE_C} T={T} idr={IDR} height={isMobile?150:200} outerRadius={80} innerRadius={40} showLabel/>
+                </Suspense>:<LaunchEmpty icon="📊" title="Belum ada distribusi pengeluaran" desc="Tambahkan beberapa transaksi pengeluaran di bulan ini supaya kategori belanja, pola spending, dan insight laporan mulai terbentuk." actionLabel="Tambah transaksi" onAction={()=>setModal({type:"tx"})} secondaryLabel="Buka transaksi" onSecondary={()=>setPage("trans")} style={{padding:"28px 16px"}}/>}
               </>}/>
               <Card ch={<>
                 <Sec t={t("dailyExpense")} sub={s.bulan}/>
-                <DailyChart txBulan={txBulan} bulan={s.bulan} tahun={s.tahun}/>
+                <Suspense fallback={<ChartFallback height={130}/>}>
+                  <DailyChartLazy txBulan={txBulan} bulan={s.bulan} tahun={s.tahun} months={MONTHS} T={T} idr={IDR} n={N}/>
+                </Suspense>
               </>}/>
             </div>
 
