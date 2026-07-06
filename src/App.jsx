@@ -811,9 +811,9 @@ const authErrorMessage=(error)=>{
   if(code.includes("email-already-in-use")) return "Email ini sudah terdaftar. Coba masuk saja.";
   if(code.includes("weak-password")) return "Password minimal 6 karakter.";
   if(code.includes("invalid-email")) return "Format email belum valid.";
-  if(code.includes("operation-not-allowed")) return "Login email belum aktif. Admin perlu mengaktifkan Email/Password di Firebase Authentication dulu.";
+  if(code.includes("operation-not-allowed")) return "Daftar lewat email belum aktif di server. Sementara pakai Google dulu, atau hubungi admin agar dibantu.";
   if(code.includes("too-many-requests")) return "Terlalu banyak percobaan. Coba lagi sebentar.";
-  return error?.message || "Autentikasi gagal. Coba lagi ya.";
+  return "Akses belum berhasil. Cek email/password dan koneksi internet, lalu coba lagi.";
 };
 const INIT={
   name:"Iksanarsana",bulan:MONTHS[nowM()],tahun:String(nowY()),
@@ -1872,7 +1872,12 @@ function Onboarding({ onDone, lang="id", changeLang }) {
   const fmtN = v => { const n=String(v).replace(/\D/g,""); return n?n.replace(/\B(?=(\d{3})+(?!\d))/g,"."):""};
   const updateDompet = (id,f,v) => setDompetList(p=>p.map(d=>d.id===id?{...d,[f]:v}:d));
   const addDompet = () => setDompetList(p=>[...p,{id:Date.now(),tipe:"Bank",nama:"",icon:"💳",saldo:""}]);
-  const removeDompet = id => setDompetList(p=>p.filter(d=>d.id!==id));
+  const removeDompet = id => {
+    const target=dompetList.find(d=>d.id===id);
+    if(window.confirm(`Hapus dompet "${target?.nama||"ini"}" dari setup awal?`)){
+      setDompetList(p=>p.filter(d=>d.id!==id));
+    }
+  };
   const handleDone = () => {
     const cleanDompet = dompetList.filter(d=>d.nama.trim()).map((d,i)=>({...d,id:i+1,norek:"",saldo:d.saldo||"0"}));
     const budgets = INIT_BUDGETS.map(b=>{
@@ -4975,6 +4980,42 @@ Saldo amplop bertambah.`}]);
     showToast(t("toast_fundOk"));
   };
 
+  const confirmDelete=({title,msg,onConfirm,toastMsg="Data berhasil dihapus"})=>{
+    setModal({
+      type:"confirm",
+      title,
+      msg,
+      danger:true,
+      onConfirm:()=>{
+        onConfirm();
+        setModal(null);
+        showToast(toastMsg);
+      }
+    });
+  };
+
+  const deleteTx=(tx)=>confirmDelete({
+    title:"Hapus transaksi?",
+    msg:`Transaksi "${tx.ket||tx.tipe}" akan dihapus dan saldo dompet terkait akan disesuaikan ulang.`,
+    toastMsg:"Transaksi dihapus",
+    onConfirm:()=>setS(p=>{
+      const jmlNum=N(tx.jml);
+      let newDompet=p.dompet;
+      if(tx.tipe==="pemasukan"&&tx.dompetId){
+        newDompet=p.dompet.map(d=>d.id===tx.dompetId?{...d,saldo:String(N(d.saldo)-jmlNum)}:d);
+      }else if((tx.tipe==="pengeluaran"||tx.tipe==="tabungan")&&tx.dompetId){
+        newDompet=p.dompet.map(d=>d.id===tx.dompetId?{...d,saldo:String(N(d.saldo)+jmlNum)}:d);
+      }else if(tx.tipe==="transfer"){
+        newDompet=p.dompet.map(d=>{
+          if(d.id===tx.dompetId)return{...d,saldo:String(N(d.saldo)+jmlNum+N(tx.biaya||0))};
+          if(d.id===tx.dompetTo)return{...d,saldo:String(N(d.saldo)-jmlNum)};
+          return d;
+        });
+      }
+      return{...p,txs:p.txs.filter(x=>x.id!==tx.id),dompet:newDompet};
+    })
+  });
+
   const renderTxItem=t=>{
     const dompet=s.dompet.find(d=>d.id===t.dompetId);
     const kat=s.budgets.find(b=>b.id===t.katId);
@@ -4995,22 +5036,7 @@ Saldo amplop bertambah.`}]);
           <span style={{fontWeight:700,fontSize:13,color:isIn?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="transfer"?T.accent:T.err}}>
             {isIn?"+":t.tipe==="tabungan"?"💰":t.tipe==="transfer"?"→":"-"}{IDRs(N(t.jml))}
           </span>
-          <Del onClick={()=>setS(p=>{
-            const jmlNum=N(t.jml);
-            let newDompet=p.dompet;
-            if(t.tipe==="pemasukan"&&t.dompetId){
-              newDompet=p.dompet.map(d=>d.id===t.dompetId?{...d,saldo:String(N(d.saldo)-jmlNum)}:d);
-            }else if((t.tipe==="pengeluaran"||t.tipe==="tabungan")&&t.dompetId){
-              newDompet=p.dompet.map(d=>d.id===t.dompetId?{...d,saldo:String(N(d.saldo)+jmlNum)}:d);
-            }else if(t.tipe==="transfer"){
-              newDompet=p.dompet.map(d=>{
-                if(d.id===t.dompetId)return{...d,saldo:String(N(d.saldo)+jmlNum+N(t.biaya||0))};
-                if(d.id===t.dompetTo)return{...d,saldo:String(N(d.saldo)-jmlNum)};
-                return d;
-              });
-            }
-            return{...p,txs:p.txs.filter(x=>x.id!==t.id),dompet:newDompet};
-          })}/>
+          <Del onClick={()=>deleteTx(t)}/>
         </div>
       </div>
     );
@@ -5270,7 +5296,12 @@ Saldo amplop bertambah.`}]);
         .fab.is-open{animation:quickPop .28s ease-out both;}
         .smooth-skeleton{background:linear-gradient(90deg,${T.cardAlt} 25%,rgba(255,255,255,.65) 42%,${T.cardAlt} 62%);background-size:220% 100%;animation:shimmer 1.35s ease-in-out infinite;border-radius:12px;}
         .premium-ring{animation:fadeUp .32s ease-out both;}
-        .fab{position:fixed;bottom:calc(68px + max(env(safe-area-inset-bottom),8px));right:max(18px,env(safe-area-inset-right));z-index:190;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,${T.accent},${T.accentSoft});border:none;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px ${T.accentPop};transition:transform .15s,box-shadow .15s;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+        .fab{position:fixed;bottom:calc(92px + max(env(safe-area-inset-bottom),8px));right:max(18px,env(safe-area-inset-right));z-index:190;min-width:92px;height:58px;border-radius:999px;background:linear-gradient(135deg,#8B5CF6 0%,#6D28D9 52%,#4C1D95 100%);border:1px solid rgba(255,255,255,.32);cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 17px 0 13px;box-shadow:0 18px 34px rgba(109,40,217,.34),0 5px 12px rgba(15,23,42,.16),inset 0 1px 0 rgba(255,255,255,.32);transition:transform .15s,box-shadow .15s,min-width .15s,padding .15s;-webkit-tap-highlight-color:transparent;touch-action:manipulation;color:white;overflow:hidden;}
+        .fab:before{content:"";position:absolute;inset:5px;border-radius:999px;border:1px solid rgba(255,255,255,.16);pointer-events:none;}
+        .fab:after{content:"";position:absolute;top:-60%;bottom:-60%;left:-35%;width:34px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.46),transparent);transform:rotate(18deg);animation:premiumShine 4.8s ease-in-out infinite;pointer-events:none;}
+        .fab-plus{position:relative;z-index:1;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.18);font-size:24px;font-weight:900;line-height:1;box-shadow:inset 0 1px 0 rgba(255,255,255,.26);}
+        .fab-label{position:relative;z-index:1;font-size:13px;font-weight:950;letter-spacing:.1px;line-height:1;white-space:nowrap;}
+        .fab.is-open{min-width:58px;padding:0;}
         .fab:hover{transform:scale(1.07);}
         .fab:active{transform:scale(.94);}
         @media(max-width:767px){
@@ -5728,7 +5759,11 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </button>
               ))}
             </div>}
-            <button className={`fab ${quickOpen?"is-open":""}`} onClick={()=>setQuickOpen(v=>!v)} aria-label="Aksi cepat" style={quickOpen?{zIndex:612}:undefined}>{quickOpen?"×":"+"}</button>
+            <button className={`fab ${quickOpen?"is-open":""}`} onClick={()=>setQuickOpen(v=>!v)} aria-label="Aksi cepat" style={quickOpen?{zIndex:612}:undefined}>
+              {quickOpen
+                ? <span className="fab-plus">×</span>
+                : <><span className="fab-plus">+</span><span className="fab-label">Catat</span></>}
+            </button>
           </>
         )}
 
@@ -5959,7 +5994,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 {l:"Saving Rate",v:savRate>999?"999%+":PCT(savRate),vc:savRate>=20?T.ok:T.err,bg:savRate>=20?T.okBg:T.errBg,sub:savRate>=20?"Ideal >= 20%":"Di bawah target 20%"},
                 {l:t("netCashLabel"),v:IDRs(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg,sub:netCash>=0?"Surplus bulan ini":"Defisit bulan ini"},
                 {l:t("runwayLabel"),v:`${runwayReal} ${t("runwayMonths")}`,vc:T.info,bg:T.infoBg,sub:t("runwayDesc")},
-                {l:"Pengeluaran Terbesar",v:topKat[0]?topKat[0].nama:"-",vc:T.warn,bg:T.warnBg,sub:topKat[0]?IDRs(topKat[0].nilai):"Belum ada data"},
+                {l:"Pengeluaran Terbesar",v:topKat[0]?.[0]||"-",vc:T.warn,bg:T.warnBg,sub:topKat[0]?IDRs(topKat[0][1]):"Belum ada data"},
               ].map(x=>(
                 <div key={x.l} style={{background:x.bg,borderRadius:13,padding:"14px 16px",border:`1px solid ${x.vc}22`,transition:"background .3s"}}>
                   <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1.2,marginBottom:6}}>{x.l}</div>
@@ -6096,8 +6131,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <Sec t={t("topExpense")}/>
                 {topKat.map((k,i)=>(
                   <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.borderLight}`}}>
-                    <span style={{fontSize:12,color:T.text,fontWeight:500}}>{k.nama}</span>
-                    <span style={{fontSize:12,fontWeight:700,color:T.err}}>{IDRs(k.nilai)}</span>
+                    <span style={{fontSize:12,color:T.text,fontWeight:500}}>{k[0]}</span>
+                    <span style={{fontSize:12,fontWeight:700,color:T.err}}>{IDRs(k[1])}</span>
                   </div>
                 ))}
                 {pieData.length>0&&<div style={{marginTop:12}}>
@@ -6105,7 +6140,16 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     <DonutChartLazy pieData={pieData} pieColors={PIE_C} T={T} idr={IDR} height={120} outerRadius={52} innerRadius={28}/>
                   </Suspense>
                 </div>}
-                {!topKat.length&&<div style={{textAlign:"center",padding:20,color:T.muted,fontSize:12}}>{t("noBudgetData")}</div>}
+                {!topKat.length&&<LaunchEmpty
+                  icon="📊"
+                  title="Belum ada pengeluaran bulan ini"
+                  desc="Catat satu pengeluaran dulu supaya kategori terbesar, grafik, dan insight laporan mulai muncul."
+                  actionLabel="Catat pengeluaran"
+                  onAction={()=>setModal({type:"tx",tipe:"pengeluaran"})}
+                  secondaryLabel="Buka transaksi"
+                  onSecondary={()=>setPage("trans")}
+                  style={{padding:"24px 14px"}}
+                />}
               </>}/>
             </div>
           </>}
@@ -6283,7 +6327,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                             <div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:20}}>{uiIcon(b.icon)}</span><span style={{fontWeight:700,fontSize:13,color:T.text}}>{b.kat}</span></div>
                             <div style={{display:"flex",gap:6,alignItems:"center"}}>
                               <Pill c={over?"red":pct>80?"yellow":"green"} ch={over?t("overLabel"):pct>80?t("almostLabel"):t("safeLabel")} xs/>
-                              <button onClick={()=>setS(p=>({...p,budgets:p.budgets.filter(x=>x.id!==b.id)}))} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:11,fontWeight:800,padding:"2px 5px",borderRadius:4,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>Hapus</button>
+                              <button onClick={()=>confirmDelete({title:"Hapus kategori budget?",msg:`Kategori "${b.kat}" beserta subkategori di dalamnya akan dihapus. Transaksi lama tetap tersimpan.`,toastMsg:"Kategori budget dihapus",onConfirm:()=>setS(p=>({...p,budgets:p.budgets.filter(x=>x.id!==b.id)}))})} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:11,fontWeight:800,padding:"2px 5px",borderRadius:4,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>Hapus</button>
                             </div>
                           </div>
                           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:10}}>
@@ -6303,7 +6347,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                               </div>
                               <div style={{display:"flex",gap:8,alignItems:"center"}}>
                                 <span style={{fontSize:12,fontWeight:700,color:T.text}}>{IDRs(N(sb.alokasi))}</span>
-                                <button onClick={()=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:x.sub.filter((_,j)=>j!==si)})}))} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:12,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>X</button>
+                                <button onClick={()=>confirmDelete({title:"Hapus subkategori?",msg:`Subkategori "${sb.nama}" akan dihapus dari budget ${b.kat}.`,toastMsg:"Subkategori dihapus",onConfirm:()=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:x.sub.filter((_,j)=>j!==si)})}))})} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:12,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>X</button>
                               </div>
                             </div>
                           ))}
@@ -6429,7 +6473,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               ))}
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
-              {s.goals.map(g=><GoalCard key={g.id} g={g} dompetList={s.dompet} onDelete={()=>setS(p=>({...p,goals:p.goals.filter(x=>x.id!==g.id)}))} onTambah={tambahGoalDana} onSelesai={id=>setS(p=>({...p,goals:p.goals.map(x=>x.id!==id?x:{...x,selesai:true})}))}/>)}
+              {s.goals.map(g=><GoalCard key={g.id} g={g} dompetList={s.dompet} onDelete={()=>confirmDelete({title:"Hapus goal?",msg:`Goal "${g.nama}" dan riwayat tabungannya akan dihapus dari daftar.`,toastMsg:"Goal dihapus",onConfirm:()=>setS(p=>({...p,goals:p.goals.filter(x=>x.id!==g.id)}))})} onTambah={tambahGoalDana} onSelesai={id=>setS(p=>({...p,goals:p.goals.map(x=>x.id!==id?x:{...x,selesai:true})}))}/>)}
               {!s.goals.length&&<div style={{gridColumn:"1/-1"}}><LaunchEmpty
                 icon="🎯"
                 title={t("noGoal")}
@@ -6649,7 +6693,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     <div><div style={{fontSize:13,fontWeight:600,color:T.text}}>{a.nama}</div>{a.ket&&<div style={{fontSize:11,color:T.muted}}>{a.ket}</div>}</div>
                     <div style={{display:"flex",gap:8,alignItems:"center"}}>
                       <span style={{fontWeight:700,color:T.text}}>{IDR(N(a.nilai))}</span>
-                      <Del onClick={()=>setS(p=>({...p,asetTetap:p.asetTetap.filter(x=>x.id!==a.id)}))}/>
+                      <Del onClick={()=>confirmDelete({title:"Hapus aset?",msg:`Aset "${a.nama}" akan dihapus dari ringkasan kekayaanmu.`,toastMsg:"Aset dihapus",onConfirm:()=>setS(p=>({...p,asetTetap:p.asetTetap.filter(x=>x.id!==a.id)}))})}/>
                     </div>
                   </div>
                 ))}
@@ -6703,12 +6747,12 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               if(!list.length)return null;
               return <div key={tipe} style={{marginBottom:14}}>
                 <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>{tipe==="utang"?"Utang Aktif":tipe==="piutangBisnis"?"Piutang Bisnis":"Piutang Aktif"}</div>
-                {list.map(u=><UtangCard key={u.id} u={u} dompetList={s.dompet} onDelete={()=>setS(p=>({...p,utang:p.utang.filter(x=>x.id!==u.id)}))} onCicilan={catatCicilan}/>)}
+                {list.map(u=><UtangCard key={u.id} u={u} dompetList={s.dompet} onDelete={()=>confirmDelete({title:"Hapus catatan utang/piutang?",msg:`Catatan "${u.nama}" beserta riwayat cicilannya akan dihapus.`,toastMsg:"Catatan dihapus",onConfirm:()=>setS(p=>({...p,utang:p.utang.filter(x=>x.id!==u.id)}))})} onCicilan={catatCicilan}/>)}
               </div>;
             })}
             {s.utang.filter(u=>u.lunas).length>0&&<div>
               <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>✓ Sudah Lunas</div>
-              {s.utang.filter(u=>u.lunas).map(u=><UtangCard key={u.id} u={u} dompetList={s.dompet} onDelete={()=>setS(p=>({...p,utang:p.utang.filter(x=>x.id!==u.id)}))} onCicilan={catatCicilan}/>)}
+              {s.utang.filter(u=>u.lunas).map(u=><UtangCard key={u.id} u={u} dompetList={s.dompet} onDelete={()=>confirmDelete({title:"Hapus catatan lunas?",msg:`Riwayat "${u.nama}" akan dihapus dari daftar utang/piutang lunas.`,toastMsg:"Catatan lunas dihapus",onConfirm:()=>setS(p=>({...p,utang:p.utang.filter(x=>x.id!==u.id)}))})} onCicilan={catatCicilan}/>)}
             </div>}
             {!s.utang.length&&<Card ch={<div style={{textAlign:"center",padding:40,color:T.muted}}>{t("noDebt")} 🙌</div>}/>}
           </>}
@@ -7105,7 +7149,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                             <div style={{display:"flex",gap:8,alignItems:"center"}}>
                               <span style={{fontSize:12,fontWeight:700,color:r.tipe==="pemasukan"?T.ok:r.tipe==="tabungan"?T.info:T.err}}>{IDRs(N(r.jml))}</span>
                               <button onClick={()=>setS(p=>({...p,recurring:p.recurring.map(x=>x.id!==r.id?x:{...x,aktif:!x.aktif})}))} style={{padding:"3px 8px",borderRadius:6,border:`1px solid ${r.aktif?T.okBorder:T.border}`,background:r.aktif?T.okBg:T.cardAlt,color:r.aktif?T.ok:T.muted,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>{r.aktif?"Aktif":"Nonaktif"}</button>
-                              <Del onClick={()=>setS(p=>({...p,recurring:p.recurring.filter(x=>x.id!==r.id)}))}/>
+                              <Del onClick={()=>confirmDelete({title:"Hapus transaksi rutin?",msg:`Transaksi rutin "${r.nama}" tidak akan diproses otomatis lagi.`,toastMsg:"Transaksi rutin dihapus",onConfirm:()=>setS(p=>({...p,recurring:p.recurring.filter(x=>x.id!==r.id)}))})}/>
                             </div>
                           </div>
                         ))}
