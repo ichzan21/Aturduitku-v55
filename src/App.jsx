@@ -3055,6 +3055,45 @@ export default function App(){
     ];
   },[s.txs,totalBudget,totalOut,savRate,habitTotalToday,habitDoneToday,perfectDayStreak]);
 
+  const setupSteps=useMemo(()=>[
+    {key:"wallet",ok:s.dompet.some(d=>N(d.saldo)>0),title:"Isi saldo awal",desc:"Masukkan saldo dompet utama supaya dashboard langsung akurat.",icon:"👛",action:"Isi saldo",target:"dompet"},
+    {key:"tx",ok:s.txs.length>0,title:"Catat transaksi pertama",desc:"Satu transaksi cukup untuk menghidupkan laporan dan insight.",icon:"🧾",action:"Catat",target:"tx"},
+    {key:"budget",ok:totalBudget>0,title:"Buat budget dasar",desc:"Atur batas bulanan untuk kategori penting.",icon:"📊",action:"Budget",target:"budget"},
+    {key:"habit",ok:habitTotalToday>0,title:"Tambah habit uang",desc:"Buat quest harian seperti catat transaksi atau cek saldo.",icon:"🐾",action:"Habit",target:"habit"},
+  ],[s.dompet,s.txs,totalBudget,habitTotalToday]);
+  const setupPct=setupSteps.filter(x=>x.ok).length/setupSteps.length*100;
+
+  const weeklyMissions=useMemo(()=>{
+    const txDays=new Set(s.txs.map(tx=>tx.tgl).filter(Boolean));
+    const last7=Array.from({length:7},(_,i)=>dateAdd(today(),-i));
+    const activeTxDays=last7.filter(d=>txDays.has(d)).length;
+    return [
+      {title:"Catat 3 hari",desc:"Punya transaksi di 3 hari berbeda minggu ini.",icon:"🔥",progress:activeTxDays,target:3,done:activeTxDays>=3,targetPage:"trans"},
+      {title:"Quest habit",desc:"Selesaikan semua habit hari ini.",icon:"🐾",progress:habitDoneToday,target:Math.max(habitTotalToday,1),done:habitTotalToday>0&&habitDoneToday>=habitTotalToday,targetPage:"habit"},
+      {title:"Budget aman",desc:"Pengeluaran tidak melewati budget bulanan.",icon:"🛡️",progress:totalBudget>0?Math.max(0,Math.min(100,100-(totalOut/Math.max(totalBudget,1)*100))):0,target:100,done:totalBudget>0&&totalOut<=totalBudget,targetPage:"budget"},
+      {title:"Saving 20%",desc:"Jaga saving rate minimal 20%.",icon:"💎",progress:Math.min(savRate,20),target:20,done:savRate>=20,targetPage:"goals"},
+    ];
+  },[s.txs,habitDoneToday,habitTotalToday,totalBudget,totalOut,savRate]);
+  const weeklyMissionPct=weeklyMissions.filter(m=>m.done).length/weeklyMissions.length*100;
+
+  const smartInsightCards=useMemo(()=>{
+    const topName=topKat[0]?.[0]||"belanja";
+    const topValue=topKat[0]?.[1]||0;
+    const cards=[];
+    if(topValue>0) cards.push({tone:"warn",icon:"💡",title:"Peluang hemat cepat",body:`Kurangi 10% dari ${topName}, kamu bisa hemat sekitar ${IDRs(topValue*.1)} bulan ini.`,action:"Review budget",target:"budget"});
+    if(totalIn===0&&totalOut>0) cards.push({tone:"danger",icon:"⚠️",title:"Pemasukan belum tercatat",body:"Catat pemasukan bulan ini supaya rasio dan prediksi tidak terbaca terlalu buruk.",action:"Catat pemasukan",target:"income"});
+    if(savRate<20&&totalIn>0) cards.push({tone:"info",icon:"🎯",title:"Naikkan saving rate",body:`Butuh sekitar ${IDRs(Math.max(totalIn*.2-totalTabung,0))} lagi untuk menyentuh target sehat 20%.`,action:"Buka goals",target:"goals"});
+    if(habitTotalToday>0&&habitDoneToday<habitTotalToday) cards.push({tone:"habit",icon:"🐾",title:"Quest belum selesai",body:`Masih ada ${habitTotalToday-habitDoneToday} habit hari ini. Ceklis dulu biar streak tetap hidup.`,action:"Buka habit",target:"habit"});
+    if(!cards.length) cards.push({tone:"good",icon:"✨",title:"Ritme kamu bagus",body:"Cashflow, habit, dan budget terlihat rapi. Pertahankan pola ini sampai akhir bulan.",action:"Lihat laporan",target:"laporan"});
+    return cards.slice(0,3);
+  },[topKat,totalIn,totalOut,totalTabung,savRate,habitTotalToday,habitDoneToday]);
+
+  const monthlyRecap=useMemo(()=>({
+    month:s.bulan,year:s.tahun,score:skorTotal,income:totalIn,expense:totalOut,saving:totalTabung,net:netCash,
+    savingRate:savRate,topCategory:topKat[0]?.[0]||"Belum ada",topValue:topKat[0]?.[1]||0,
+    txCount:txBulan.length,habitDone:habitDoneToday,habitTotal:habitTotalToday,streak:perfectDayStreak,
+  }),[s.bulan,s.tahun,skorTotal,totalIn,totalOut,totalTabung,netCash,savRate,topKat,txBulan.length,habitDoneToday,habitTotalToday,perfectDayStreak]);
+
 
   // Notifications
   const notifications=useMemo(()=>{
@@ -3088,8 +3127,10 @@ export default function App(){
       const diff=Math.ceil((tempo-now_date)/(1000*60*60*24));
       if(diff>=0&&diff<=14){list.push({icon:"📋",title:u.tipe==="utang"?`Utang: ${u.nama}`:`Piutang: ${u.nama}`,msg:diff===0?"Jatuh tempo HARI INI!":diff+" hari lagi",tag:u.tipe==="utang"?"Utang":"Piutang",color:diff<=3?"danger":"warning",amount:N(u.jml)});}
     });
+    if(todayTxCount===0) list.push({icon:"🧾",title:"Belum catat transaksi hari ini",msg:"Catat satu pemasukan atau pengeluaran agar laporan tetap hidup.",tag:"Transaksi",color:"info"});
+    if(habitTotalToday>0&&habitDoneToday<habitTotalToday) list.push({icon:"🐾",title:"Habit harian belum selesai",msg:`Masih ada ${habitTotalToday-habitDoneToday} quest yang belum diceklis.`,tag:"Habit",color:"info"});
     return list.sort((a,b)=>a.color==="danger"?-1:1);
-  },[s.budgets,s.goals,s.utang,spendByKat]);
+  },[s.budgets,s.goals,s.utang,spendByKat,todayTxCount,habitTotalToday,habitDoneToday]);
 
   const saranList=useMemo(()=>{
     const list=[];
@@ -3196,8 +3237,16 @@ export default function App(){
     const tag=String(n?.tag||"").toLowerCase();
     if(tag.includes("budget")||tag.includes("tagihan")) setPage("budget");
     else if(tag.includes("goal")) setPage("goals");
+    else if(tag.includes("habit")) setPage("habit");
+    else if(tag.includes("transaksi")) setPage("trans");
     else if(tag.includes("utang")||tag.includes("piutang")) setPage("utang");
     else setPage("home");
+  };
+  const goPremiumTarget=(target)=>{
+    if(target==="tx") setModal({type:"tx"});
+    else if(target==="income") setModal({type:"tx",tipe:"pemasukan"});
+    else if(target==="dompet") setModal({type:"dompet"});
+    else if(target) setPage(target);
   };
   const openCalc=(field,cur,setter)=>{setCalcFor({field,cur,setter});setShowCalc(true);};
   const addHabit=()=>{
@@ -5104,6 +5153,59 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
 
             {/* Kalkulator Cicilan */}
             {modal.type==="yearReview"&&<YearInReview s={s} T={T} lang={lang} onClose={()=>setModal(null)}/>}
+            {modal.type==="monthlyRecap"&&<>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:14}}>
+                <div>
+                  <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase"}}>Share card</div>
+                  <div style={{fontSize:18,fontWeight:900,color:T.text}}>Recap {monthlyRecap.month} {monthlyRecap.year}</div>
+                </div>
+                <img src="/icon-192.png" alt="" style={{width:44,height:44,borderRadius:14,objectFit:"cover",boxShadow:`0 10px 24px ${T.accentPop}`}}/>
+              </div>
+              <div style={{position:"relative",overflow:"hidden",borderRadius:22,padding:20,background:"linear-gradient(135deg,#2D1060,#6D28D9 48%,#C026D3)",color:"white",boxShadow:`0 18px 48px ${T.accentPop}`,marginBottom:14}}>
+                <div style={{position:"absolute",right:-40,top:-50,width:180,height:180,borderRadius:"50%",background:"rgba(255,255,255,.12)"}}/>
+                <div style={{position:"relative",display:"flex",justifyContent:"space-between",gap:14,alignItems:"flex-start",marginBottom:18}}>
+                  <div>
+                    <div style={{fontSize:11,opacity:.75,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase"}}>AturDuitku recap</div>
+                    <div style={{fontSize:24,fontWeight:950,letterSpacing:-.5,marginTop:4}}>{monthlyRecap.score}/100</div>
+                    <div style={{fontSize:12,opacity:.78}}>Skor finansial bulan ini</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:11,opacity:.75}}>Saving rate</div>
+                    <div style={{fontSize:22,fontWeight:950}}>{PCT(monthlyRecap.savingRate)}</div>
+                  </div>
+                </div>
+                <div style={{position:"relative",display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10,marginBottom:14}}>
+                  {[
+                    ["Masuk",IDRs(monthlyRecap.income)],
+                    ["Keluar",IDRs(monthlyRecap.expense)],
+                    ["Nabung",IDRs(monthlyRecap.saving)],
+                    ["Net",IDRs(monthlyRecap.net)],
+                  ].map(([l,v])=><div key={l} style={{background:"rgba(255,255,255,.14)",border:"1px solid rgba(255,255,255,.16)",borderRadius:14,padding:"10px 12px"}}>
+                    <div style={{fontSize:9,opacity:.7,fontWeight:800,letterSpacing:1,textTransform:"uppercase"}}>{l}</div>
+                    <div style={{fontSize:15,fontWeight:900,marginTop:3}}>{v}</div>
+                  </div>)}
+                </div>
+                <div style={{position:"relative",display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,fontSize:11}}>
+                  <div style={{background:"rgba(0,0,0,.18)",borderRadius:12,padding:"10px 12px"}}>
+                    <strong>{monthlyRecap.txCount}</strong> transaksi dicatat<br/>
+                    Top: {monthlyRecap.topCategory} {monthlyRecap.topValue?`(${IDRs(monthlyRecap.topValue)})`:""}
+                  </div>
+                  <div style={{background:"rgba(0,0,0,.18)",borderRadius:12,padding:"10px 12px"}}>
+                    Habit {monthlyRecap.habitDone}/{monthlyRecap.habitTotal||0}<br/>
+                    Streak {monthlyRecap.streak} hari
+                  </div>
+                </div>
+                <div style={{position:"relative",display:"flex",alignItems:"center",gap:8,marginTop:16,fontSize:11,opacity:.82}}>
+                  <img src="/icon-192.png" alt="" style={{width:24,height:24,borderRadius:8,objectFit:"cover"}}/>
+                  <span>aturduitku.com</span>
+                </div>
+              </div>
+              <div style={{fontSize:12,color:T.muted,lineHeight:1.6,marginBottom:14}}>Tips: buka modal ini, lalu screenshot untuk konten Threads atau laporan pribadi bulanan.</div>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
+                <Btn onClick={()=>setPage("laporan")} ch="Buka laporan" c={T.accent} style={{padding:11}}/>
+                <Btn onClick={()=>setModal(null)} ch="Tutup" c={T.muted} outline style={{padding:11}}/>
+              </div>
+            </>}
             {modal.type==="kalkulator"&&<KalkulatorCicilan onClose={()=>setModal(null)} T={T}/>}
 
             {/* Import JSON Modal */}
@@ -5510,6 +5612,73 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
                 <Btn onClick={()=>setPage("habit")} ch="Buka Habit" c={habitTodayPct>=100?T.ok:T.accent} style={{padding:"9px 12px",fontSize:12,flex:isMobile?1:"0 0 auto"}}/>
                 <Btn onClick={()=>setModal({type:"tx"})} ch="+ Transaksi" c={T.info} outline style={{padding:"9px 12px",fontSize:12,flex:isMobile?1:"0 0 auto"}}/>
               </div>
+            </div>} style={{marginBottom:18,padding:isMobile?14:"16px 18px"}}/>
+
+            {setupPct<100&&<Card ch={<>
+              <Sec t="Start checklist" sub="Langkah kecil agar user baru cepat paham alur AturDuitku" right={<span style={{fontSize:11,fontWeight:900,color:T.accent}}>{Math.round(setupPct)}%</span>}/>
+              <PBar pct={setupPct} c={T.accent} h={8}/>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(4,1fr)",gap:10,marginTop:14}}>
+                {setupSteps.map(step=><button key={step.key} onClick={()=>goPremiumTarget(step.target)} style={{textAlign:"left",border:`1px solid ${step.ok?T.okBorder:T.border}`,background:step.ok?T.okBg:T.cardAlt,borderRadius:14,padding:"12px 13px",cursor:"pointer",fontFamily:"inherit",display:"flex",gap:10,alignItems:"flex-start"}}>
+                  <span style={{width:34,height:34,borderRadius:12,background:step.ok?T.ok:T.accentBg,color:step.ok?"white":T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{step.ok?"✓":step.icon}</span>
+                  <span style={{minWidth:0}}>
+                    <span style={{display:"block",fontSize:12,fontWeight:900,color:T.text,marginBottom:3}}>{step.title}</span>
+                    <span style={{display:"block",fontSize:10,color:T.muted,lineHeight:1.45,marginBottom:7}}>{step.desc}</span>
+                    <span style={{fontSize:10,fontWeight:900,color:step.ok?T.ok:T.accent}}>{step.ok?"Selesai":step.action}</span>
+                  </span>
+                </button>)}
+              </div>
+            </>} style={{marginBottom:18,padding:isMobile?14:"16px 18px"}}/>}
+
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.1fr .9fr",gap:18,marginBottom:18}}>
+              <Card ch={<>
+                <Sec t="Insight pintar" sub="Saran singkat yang langsung bisa ditindaklanjuti"/>
+                <div style={{display:"grid",gap:10}}>
+                  {smartInsightCards.map(card=>{
+                    const c=card.tone==="danger"?T.err:card.tone==="warn"?T.warn:card.tone==="good"?T.ok:T.accent;
+                    const bg=card.tone==="danger"?T.errBg:card.tone==="warn"?T.warnBg:card.tone==="good"?T.okBg:T.accentBg;
+                    return <div key={card.title} style={{display:"grid",gridTemplateColumns:"auto 1fr auto",gap:11,alignItems:"center",background:bg,border:`1px solid ${c}22`,borderRadius:14,padding:"12px 13px"}}>
+                      <span style={{width:38,height:38,borderRadius:13,background:T.card,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,boxShadow:T.shadow}}>{card.icon}</span>
+                      <span style={{minWidth:0}}>
+                        <span style={{display:"block",fontSize:13,fontWeight:900,color:T.text,marginBottom:3}}>{card.title}</span>
+                        <span style={{display:"block",fontSize:11,color:T.sub,lineHeight:1.5}}>{card.body}</span>
+                      </span>
+                      <button onClick={()=>goPremiumTarget(card.target)} style={{border:"none",background:T.card,color:c,borderRadius:999,padding:"7px 10px",fontSize:10,fontWeight:900,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{card.action}</button>
+                    </div>;
+                  })}
+                </div>
+              </>}/>
+              <Card ch={<>
+                <Sec t="Misi mingguan" sub={`${weeklyMissions.filter(m=>m.done).length}/${weeklyMissions.length} selesai`}/>
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+                  <div style={{width:58,height:58,borderRadius:"50%",background:`conic-gradient(${T.accent} ${weeklyMissionPct}%, ${T.cardAlt} 0)`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <div style={{width:44,height:44,borderRadius:"50%",background:T.card,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:900,color:T.accent}}>{Math.round(weeklyMissionPct)}%</div>
+                  </div>
+                  <div style={{fontSize:12,color:T.muted,lineHeight:1.5}}>Misi kecil bikin app terasa seperti game, tapi tetap bantu keuangan makin rapi.</div>
+                </div>
+                <div style={{display:"grid",gap:8}}>
+                  {weeklyMissions.map(m=>{
+                    const pct=Math.min(100,(Number(m.progress)||0)/(Number(m.target)||1)*100);
+                    return <button key={m.title} onClick={()=>setPage(m.targetPage)} style={{border:`1px solid ${m.done?T.okBorder:T.border}`,background:m.done?T.okBg:T.cardAlt,borderRadius:12,padding:"9px 10px",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:6}}>
+                        <span style={{fontSize:12,fontWeight:900,color:T.text}}>{m.icon} {m.title}</span>
+                        <span style={{fontSize:10,fontWeight:900,color:m.done?T.ok:T.accent}}>{m.done?"Selesai":`${Math.min(m.progress,m.target)}/${m.target}`}</span>
+                      </div>
+                      <div style={{fontSize:10,color:T.muted,lineHeight:1.35,marginBottom:6}}>{m.desc}</div>
+                      <PBar pct={pct} c={m.done?T.ok:T.accent} h={5}/>
+                    </button>;
+                  })}
+                </div>
+              </>}/>
+            </div>
+
+            <Card ch={<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"auto 1fr auto",gap:14,alignItems:"center"}}>
+              <div style={{width:58,height:58,borderRadius:18,background:T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,boxShadow:`0 12px 28px ${T.accentPop}`}}>📣</div>
+              <div>
+                <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",marginBottom:4}}>Monthly recap</div>
+                <div style={{fontSize:16,fontWeight:900,color:T.text,marginBottom:4}}>Kartu ringkasan siap screenshot</div>
+                <div style={{fontSize:12,color:T.muted,lineHeight:1.55}}>Tampilkan skor, saving rate, transaksi, kategori terbesar, dan streak habit dalam satu kartu cantik.</div>
+              </div>
+              <Btn onClick={()=>setModal({type:"monthlyRecap"})} ch="Buka recap" c={T.accent} style={{padding:"10px 14px",fontSize:12,width:isMobile?"100%":"auto"}}/>
             </div>} style={{marginBottom:18,padding:isMobile?14:"16px 18px"}}/>
 
             {/* Notifications banner */}
