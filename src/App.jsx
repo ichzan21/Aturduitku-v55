@@ -5702,7 +5702,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
         </div>
 
         {/* Mobile Quick Action */}
-        {isMobile&&(page==="home"||page==="trans"||page==="budget"||page==="habit")&&(
+        {isMobile&&!moreOpen&&!sidebarOpen&&!aiOpen&&!modal&&(page==="home"||page==="trans"||page==="budget"||page==="habit")&&(
           <>
             {quickOpen&&<div onClick={()=>setQuickOpen(false)} style={{position:"fixed",inset:0,zIndex:610,background:"rgba(15,23,42,.18)",backdropFilter:"blur(2px)",WebkitBackdropFilter:"blur(2px)",touchAction:"none"}}/>}
             {quickOpen&&<div className="quick-action-sheet" style={{position:"fixed",right:"max(18px,env(safe-area-inset-right))",bottom:"calc(82px + max(env(safe-area-inset-bottom),8px))",zIndex:611,width:"min(292px, calc(100vw - 36px))",background:T.card,border:`1px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowMd,padding:12}}>
