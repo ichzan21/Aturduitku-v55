@@ -1,5 +1,15 @@
-const CACHE_NAME = 'aturduitku-v10';
-const STATIC_ASSETS = ['/', '/index.html'];
+const CACHE_NAME = 'aturduitku-v12-rp-cat';
+const STATIC_ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/favicon-32.png',
+  '/favicon-48.png',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/icon-maskable.png',
+  '/apple-touch-icon.png',
+];
 
 self.addEventListener('install', e => {
   e.waitUntil(

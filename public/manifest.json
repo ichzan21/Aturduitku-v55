@@ -2,8 +2,11 @@
   "name": "AturDuitku - Manajemen Keuangan",
   "short_name": "AturDuitku",
   "description": "Aplikasi manajemen keuangan personal terlengkap",
-  "start_url": "/",
+  "id": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "fullscreen"],
   "background_color": "#7C3AED",
   "theme_color": "#6D28D9",
   "orientation": "portrait-primary",
@@ -20,6 +23,24 @@
   ],
   "categories": ["finance", "productivity"],
   "lang": "id-ID",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Catat Transaksi",
+      "short_name": "Transaksi",
+      "description": "Buka AturDuitku untuk mencatat transaksi baru.",
+      "url": "/?shortcut=transaction",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Cek Laporan",
+      "short_name": "Laporan",
+      "description": "Buka laporan keuangan AturDuitku.",
+      "url": "/?shortcut=reports",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
   "screenshots": [
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
   ]

@@ -40,19 +40,19 @@
     <meta name="mobile-web-app-capable" content="yes" />
 
     <!-- Icons -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=cat-20260706" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=cat-20260706" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/icon-96.png?v=cat-20260706" />
-    <link rel="shortcut icon" href="/icon-192.png?v=cat-20260706" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=cat-20260706" />
-    <link rel="apple-touch-icon" sizes="152x152" href="/icon-152.png" />
-    <link rel="apple-touch-icon" sizes="144x144" href="/icon-144.png" />
-    <link rel="apple-touch-icon" sizes="128x128" href="/icon-128.png" />
-    <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=rp-cat-20260707" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png?v=rp-cat-20260707" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=rp-cat-20260707" />
+    <link rel="shortcut icon" href="/favicon-48.png?v=rp-cat-20260707" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=rp-cat-20260707" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icon-152.png?v=rp-cat-20260707" />
+    <link rel="apple-touch-icon" sizes="144x144" href="/icon-144.png?v=rp-cat-20260707" />
+    <link rel="apple-touch-icon" sizes="128x128" href="/icon-128.png?v=rp-cat-20260707" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png?v=rp-cat-20260707" />
 
     <!-- Splash screen colors for iOS -->
     <meta name="msapplication-TileColor" content="#6D28D9" />
-    <meta name="msapplication-TileImage" content="/icon-144.png" />
+    <meta name="msapplication-TileImage" content="/icon-144.png?v=rp-cat-20260707" />
 
     <link rel="manifest" href="/manifest.json" />
     <title>AturDuitku | Atur keuangan, budget, dan goals</title>
@@ -85,17 +85,14 @@
     <script type="module" src="/src/main.jsx"></script>
     <script>
       if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.getRegistrations().then((regs) => {
-          regs.forEach((reg) => reg.unregister());
-        });
         window.addEventListener("load", () => {
           navigator.serviceWorker.register("/sw.js")
-            .then((reg) => console.log("SW registered:", reg.scope))
+            .then((reg) => {
+              console.log("SW registered:", reg.scope);
+              reg.update && reg.update();
+            })
             .catch((err) => console.log("SW error:", err));
         });
-      }
-      if ("caches" in window) {
-        caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
       }
     </script>
   </body>
