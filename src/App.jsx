@@ -1353,8 +1353,8 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai})=>{
 const MoreMenu=({page,setPage,onClose,navItems=NAV})=>{
   const T=useT();
   return(
-    <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",zIndex:400}} onClick={onClose}>
-      <div style={{cursor:"pointer",position:"absolute",bottom:"calc(58px + env(safe-area-inset-bottom, 0px))",left:0,right:0,background:T.card,borderRadius:"20px 20px 0 0",padding:"20px max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 20px) max(16px, env(safe-area-inset-left))",boxShadow:T.shadowMd,maxHeight:"calc(var(--app-height, 100dvh) - 76px)",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+    <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",zIndex:650}} onClick={onClose}>
+      <div style={{cursor:"pointer",position:"fixed",bottom:0,left:0,right:0,background:T.card,border:`1px solid ${T.border}`,borderBottom:"none",borderRadius:"22px 22px 0 0",padding:"20px max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(16px, env(safe-area-inset-left))",boxShadow:T.shadowMd,maxHeight:"min(74svh, calc(var(--app-height, 100dvh) - 16px))",overflowY:"auto",WebkitOverflowScrolling:"touch"}} onClick={e=>e.stopPropagation()}>
         <div style={{width:40,height:4,background:T.border,borderRadius:4,margin:"0 auto 16px"}}/>
         <div style={{fontSize:10,color:T.muted,fontWeight:700,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>Menu Lainnya</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
@@ -7361,7 +7361,7 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
       </div>
 
       {/* ── BOTTOM NAV (mobile only) ── */}
-      {isMobile&&<nav className="bottom-nav" style={{background:T.nav,borderTopColor:T.border,display:sidebarOpen?"none":"flex"}}>
+      {isMobile&&<nav className="bottom-nav" style={{background:T.nav,borderTopColor:T.border,display:(sidebarOpen||moreOpen)?"none":"flex"}}>
         {[NAV[0],NAV[1],NAV[2],NAV[3]].map(nav=>{const a=page===nav.id;const go=()=>navTo(nav.id);return(
           <button key={nav.id} onPointerUp={e=>{e.preventDefault();go();}} onClick={go} className="bottom-nav-item" style={{color:a?T.accent:T.muted}}>
             <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,fontSize:16,fontWeight:700,letterSpacing:0,lineHeight:1,transition:"transform .15s",transform:a?"scale(1.05)":"scale(1)"}}>{uiIcon(nav.icon)}</span>
