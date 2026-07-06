@@ -892,6 +892,7 @@ const LaunchEmpty=({title,desc,actionLabel,onAction,secondaryLabel,onSecondary,i
   return(
     <div className="empty-polish" style={{position:"relative",overflow:"hidden",textAlign:"center",padding:"30px 20px",borderRadius:18,background:`linear-gradient(180deg,${T.cardAlt},${T.card})`,border:`1.5px dashed ${T.border}`,color:T.muted,boxShadow:"inset 0 1px 0 rgba(255,255,255,.32)",...style}}>
       <div style={{position:"absolute",inset:"auto -28px -44px auto",width:120,height:120,borderRadius:"50%",background:T.accentBg,opacity:.65,pointerEvents:"none"}}/>
+      <img className="cat-mascot" src="/icon-192.png" alt="" style={{position:"absolute",right:16,bottom:14,width:42,height:42,borderRadius:13,objectFit:"cover",opacity:.18,pointerEvents:"none",filter:"saturate(1.08)"}}/>
       <div style={{position:"relative",display:"inline-flex",alignItems:"center",justifyContent:"center",width:48,height:48,borderRadius:16,background:T.accentBg,color:T.accent,fontSize:23,boxShadow:`0 10px 26px ${T.accentPop}`,marginBottom:12}}>{icon}</div>
       <div style={{position:"relative",display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"5px 10px",borderRadius:999,background:T.accentBg,color:T.accent,fontSize:10,fontWeight:800,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>{kicker}</div>
       <div style={{position:"relative",fontSize:16,fontWeight:900,color:T.text,marginBottom:8}}>{title}</div>
@@ -1898,6 +1899,18 @@ function Onboarding({ onDone, lang="id", changeLang }) {
                 <div key={f} style={{background:"#F5F3FF",borderRadius:10,padding:"9px 14px",fontSize:13,color:"#5B21B6",fontWeight:600,textAlign:"left"}}>{f}</div>
               ))}
             </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,margin:"0 auto 18px",maxWidth:300}}>
+              <div style={{background:"linear-gradient(135deg,#F0FDF4,#ECFEFF)",border:"1px solid #BBF7D0",borderRadius:14,padding:"11px 12px",textAlign:"left"}}>
+                <div style={{fontSize:10,fontWeight:900,color:"#15803D",letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>Lifetime</div>
+                <div style={{fontSize:16,fontWeight:900,color:"#065F46"}}>Sekali bayar</div>
+                <div style={{fontSize:11,color:"#047857",lineHeight:1.35}}>Data aman di akun kamu</div>
+              </div>
+              <div style={{background:"linear-gradient(135deg,#EEF2FF,#F5F3FF)",border:"1px solid #DDD6FE",borderRadius:14,padding:"11px 12px",textAlign:"left"}}>
+                <div style={{fontSize:10,fontWeight:900,color:"#6D28D9",letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>3 menit</div>
+                <div style={{fontSize:16,fontWeight:900,color:"#4C1D95"}}>Langsung siap</div>
+                <div style={{fontSize:11,color:"#6D28D9",lineHeight:1.35}}>Isi saldo, budget, mulai catat</div>
+              </div>
+            </div>
             <div style={{fontSize:12,color:"#94A3B8",marginBottom:18}}>{t("ob_steps")}</div>
             <button onClick={nextStep} style={{background:"linear-gradient(135deg,#5B21B6,#7C3AED)",color:"white",border:"none",borderRadius:14,padding:"13px 34px",fontSize:15,fontWeight:800,cursor:"pointer",boxShadow:"0 6px 24px rgba(91,33,182,.35)"}}>{t("ob_start")}</button>
           </div>}
@@ -2699,6 +2712,8 @@ export default function App(){
     const start = (adminPage - 1) * ADMIN_PAGE_SIZE;
     return adminFilteredUsers.slice(start, start + ADMIN_PAGE_SIZE);
   },[adminFilteredUsers, adminPage]);
+  const adminReadyToApprove=useMemo(()=>adminUsers.filter(u=>(u.approvalStatus||"pending_review")==="pending_review"&&(u.paymentStatus||"pending_info")==="paid"),[adminUsers]);
+  const adminNeedPaymentCheck=useMemo(()=>adminUsers.filter(u=>(u.approvalStatus||"pending_review")==="pending_review"&&["checking","pending_info"].includes(u.paymentStatus||"pending_info")),[adminUsers]);
 
   useEffect(()=>{
     setAdminPage(1);
@@ -2876,6 +2891,33 @@ export default function App(){
 
   const statusC=totalIn===0&&totalOut>0?T.err:rasioOut>80?T.err:rasioOut>60?T.warn:T.ok;
   const status=totalIn===0&&totalOut>0?t("fair")+" 🟡":rasioOut>80?t("poor")+" 🔴":rasioOut>60?t("fair")+" 🟡":t("good")+" 🟢";
+
+  const moneyDoctorInsight=useMemo(()=>{
+    const missing=[];
+    if(!s.dompet.some(d=>N(d.saldo)>0)) missing.push("isi saldo awal");
+    if(!s.txs.length) missing.push("catat transaksi pertama");
+    if(!s.budgets.some(b=>N(b.alokasi)>0||(b.sub||[]).some(x=>N(x.alokasi)>0))) missing.push("atur budget dasar");
+    if(missing.length){
+      return {
+        tone:"setup",
+        badge:"Setup awal",
+        title:"Biar Dokter Keuangan bisa membaca uangmu",
+        body:`Lengkapi ${missing.slice(0,2).join(" dan ")} dulu. Setelah itu dashboard, laporan, dan saran AI akan terasa jauh lebih akurat.`,
+        action:"Lengkapi sekarang",
+        onAction:()=>setModal({type:missing[0]?.includes("saldo")?"dompet":"tx"}),
+      };
+    }
+    if(totalIn===0&&totalOut>0){
+      return {tone:"danger",badge:"Perlu data pemasukan",title:"Pengeluaran sudah jalan, pemasukan belum tercatat",body:"Catat pemasukan bulan ini supaya rasio, saving rate, dan prediksi akhir bulan tidak terbaca terlalu buruk.",action:"Catat pemasukan",onAction:()=>setModal({type:"tx",tipe:"pemasukan"})};
+    }
+    if(skorTotal<45||rasioOut>85){
+      return {tone:"danger",badge:"Perlu perhatian",title:"Cashflow bulan ini mulai ketat",body:`Pengeluaran sudah ${PCT(rasioOut)} dari pemasukan. Coba tahan kategori terbesar ${topKat[0]?.[0]||"bulan ini"} dan review budget hari ini.`,action:"Review budget",onAction:()=>setPage("budget")};
+    }
+    if(savRate<20&&totalIn>0){
+      return {tone:"warn",badge:"Peluang naik kelas",title:"Saving rate masih bisa dinaikkan",body:`Saving rate kamu ${PCT(savRate)}. Target sehat minimal 20%, mulai dari sisihkan ${IDRs(Math.max(totalIn*.2-totalTabung,0))} lagi bulan ini.`,action:"Buat goal nabung",onAction:()=>setPage("goals")};
+    }
+    return {tone:"good",badge:"Aman terkendali",title:"Keuangan bulan ini terlihat rapi",body:`Cashflow ${netCash>=0?"surplus":"defisit kecil"} ${IDRs(Math.abs(netCash))}, runway ${runwayReal} bulan, dan skor kesehatan ${skorTotal}/100. Pertahankan ritme ini.`,action:"Lihat laporan",onAction:()=>setPage("laporan")};
+  },[s.dompet,s.txs,s.budgets,totalIn,totalOut,totalTabung,savRate,rasioOut,skorTotal,netCash,runwayReal,topKat]);
 
   const isCurrentPeriod=bulanIdx===new Date().getMonth()&&yr===new Date().getFullYear();
   const daysPassed=isCurrentPeriod?hariIni:hariDlmBulan;
@@ -3334,8 +3376,8 @@ Untuk chat/analisis/saran → jawab langsung tanpa JSON.
 - Dompet tersedia: ${s.dompet.map(d=>d.nama).join(", ")}`;
   };
 
-  const handleAiSend = async () => {
-    const msg = aiInput.trim();
+  const handleAiSend = async (presetText="") => {
+    const msg = String(presetText || aiInput).trim();
     if(!msg || aiLoading) return;
     const newMsgs = [...aiMsgs, {role:"user",content:msg}];
     setAiMsgs(newMsgs);
@@ -5282,6 +5324,28 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
               </div>
             </div>
 
+            <Card ch={<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"auto 1fr auto",gap:14,alignItems:"center"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}>
+                <img className="cat-mascot" src="/icon-192.png" alt="" style={{width:52,height:52,borderRadius:16,objectFit:"cover",boxShadow:`0 10px 24px ${T.accentPop}`,flexShrink:0}}/>
+                <div style={{minWidth:0}}>
+                  <div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 9px",borderRadius:999,background:moneyDoctorInsight.tone==="danger"?T.errBg:moneyDoctorInsight.tone==="warn"?T.warnBg:moneyDoctorInsight.tone==="good"?T.okBg:T.accentBg,color:moneyDoctorInsight.tone==="danger"?T.err:moneyDoctorInsight.tone==="warn"?T.warn:moneyDoctorInsight.tone==="good"?T.ok:T.accent,fontSize:10,fontWeight:900,letterSpacing:.8,textTransform:"uppercase",marginBottom:6}}>{moneyDoctorInsight.badge}</div>
+                  <div style={{fontSize:16,fontWeight:900,color:T.text,letterSpacing:-.2,marginBottom:4}}>{moneyDoctorInsight.title}</div>
+                  <div style={{fontSize:12,color:T.muted,lineHeight:1.6,maxWidth:720}}>{moneyDoctorInsight.body}</div>
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,120px)",gap:8}}>
+                {[
+                  {l:"Skor",v:`${skorTotal}/100`,c:getC(skorTotal)},
+                  {l:"Harian",v:IDRs(budgetHarian),c:T.accent},
+                  {l:"Runway",v:`${runwayReal} bln`,c:T.info},
+                ].map(item=><div key={item.l} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:12,padding:"10px 12px"}}>
+                  <div style={{fontSize:9,color:T.muted,fontWeight:800,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>{item.l}</div>
+                  <div style={{fontSize:14,fontWeight:900,color:item.c,whiteSpace:"nowrap"}}>{item.v}</div>
+                </div>)}
+              </div>
+              <Btn onClick={moneyDoctorInsight.onAction} ch={moneyDoctorInsight.action} c={moneyDoctorInsight.tone==="danger"?T.err:moneyDoctorInsight.tone==="warn"?T.warn:T.accent} style={{padding:"10px 14px",fontSize:12,width:isMobile?"100%":"auto"}}/>
+            </div>} style={{marginBottom:18,padding:isMobile?14:"16px 18px"}}/>
+
             {/* Notifications banner */}
             {notifications.length>0&&<div onClick={()=>setNotifOpen(true)} style={{background:T.errBg,border:`1px solid ${T.errBorder}`,borderRadius:12,padding:"11px 16px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
               <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
@@ -6419,6 +6483,26 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
 
         {page==="admin"&&isAdmin&&(
           <>
+            <Card ch={<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.35fr .9fr .9fr",gap:14,alignItems:"stretch"}}>
+              <div style={{display:"flex",gap:12,alignItems:"flex-start",minWidth:0}}>
+                <img className="cat-mascot" src="/icon-192.png" alt="" style={{width:54,height:54,borderRadius:16,objectFit:"cover",boxShadow:`0 10px 24px ${T.accentPop}`,flexShrink:0}}/>
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:10,fontWeight:900,color:T.accent,letterSpacing:1.2,textTransform:"uppercase",marginBottom:4}}>Scalev manual flow</div>
+                  <div style={{fontSize:18,fontWeight:900,color:T.text,letterSpacing:-.2,marginBottom:5}}>Approval user dibuat seperti kasir kecil</div>
+                  <div style={{fontSize:12,color:T.muted,lineHeight:1.65}}>Cocokkan buyer email dan order ID dari Scalev, ubah pembayaran menjadi <b>Sudah cocok</b>, lalu approve akun. User tidak perlu isi data pembelian sendiri.</div>
+                </div>
+              </div>
+              <button onClick={()=>{setAdminFilter("pending_review");setAdminPaymentFilter("paid");setAdminReviewFilter("all");}} style={{textAlign:"left",border:`1px solid ${T.okBorder}`,background:T.okBg,borderRadius:14,padding:"13px 14px",cursor:"pointer",fontFamily:"inherit"}}>
+                <div style={{fontSize:10,fontWeight:900,color:T.ok,letterSpacing:1,textTransform:"uppercase",marginBottom:5}}>Siap approve</div>
+                <div style={{fontSize:24,fontWeight:900,color:T.ok,marginBottom:2}}>{adminReadyToApprove.length}</div>
+                <div style={{fontSize:11,color:T.sub,lineHeight:1.45}}>Pembayaran sudah cocok, tinggal buka akses.</div>
+              </button>
+              <button onClick={()=>{setAdminFilter("pending_review");setAdminPaymentFilter("checking");setAdminReviewFilter("all");}} style={{textAlign:"left",border:`1px solid ${T.warnBorder}`,background:T.warnBg,borderRadius:14,padding:"13px 14px",cursor:"pointer",fontFamily:"inherit"}}>
+                <div style={{fontSize:10,fontWeight:900,color:T.warn,letterSpacing:1,textTransform:"uppercase",marginBottom:5}}>Perlu dicek</div>
+                <div style={{fontSize:24,fontWeight:900,color:T.warn,marginBottom:2}}>{adminNeedPaymentCheck.length}</div>
+                <div style={{fontSize:11,color:T.sub,lineHeight:1.45}}>Butuh validasi email/order ID Scalev.</div>
+              </button>
+            </div>} style={{marginBottom:18,padding:isMobile?14:"16px 18px"}}/>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:18}}>
               {[
                 {label:"Total User",value:adminStats.total,color:T.accent,bg:T.accentBg},
@@ -6843,14 +6927,14 @@ button,.bottom-nav-item,.nav-item{-webkit-user-select:none;user-select:none;}
 
           {/* Quick actions */}
           <div style={{padding:"6px 12px 4px",display:"flex",gap:8,overflowX:"auto",flexShrink:0,WebkitOverflowScrolling:"touch"}}>
-            {[{q:"Analisis keuanganku",tag:"ANALISIS"},{q:"Saran hemat bulan ini",tag:"HEMAT"},{q:"Review goals",tag:"GOALS"},{q:"Cek budget",tag:"BUDGET"},{q:"Cara tingkatkan saving rate",tag:"SAVING"}].map(({q,tag})=>(
+            {[{q:"Cek kondisi uangku hari ini dan beri 3 langkah paling penting",tag:"CEK HARI INI"},{q:"Buat rencana hemat praktis untuk bulan ini dari dataku",tag:"HEMAT"},{q:"Review budget dan tunjukkan kategori yang harus dikurangi",tag:"BUDGET"},{q:"Bantu buat target nabung yang realistis dari saldo dan cashflowku",tag:"NABUNG"},{q:"Berikan reminder kebiasaan uang yang perlu aku lakukan hari ini",tag:"HABIT"}].map(({q,tag})=>(
               <button key={q} className="ai-quick-btn"
-                onClick={()=>{setAiInput(q);}}
+                onClick={()=>handleAiSend(q)}
                 style={{
                   background:dark?"#2D1B69":"#EDE9FE",
                   color:dark?"#C4B5FD":"#5B21B6",
                 }}
-              ><span style={{display:"inline-block",padding:"2px 6px",borderRadius:999,background:dark?"rgba(255,255,255,0.08)":"rgba(255,255,255,0.55)",fontSize:9,fontWeight:800,marginRight:6}}>{tag}</span>{q}</button>
+              ><span style={{display:"inline-block",padding:"2px 6px",borderRadius:999,background:dark?"rgba(255,255,255,0.08)":"rgba(255,255,255,0.55)",fontSize:9,fontWeight:800,marginRight:6}}>{tag}</span>{q.replace(" dan beri 3 langkah paling penting","").replace(" dari dataku","").replace(" dari saldo dan cashflowku","")}</button>
             ))}
           </div>
 
