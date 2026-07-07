@@ -2896,8 +2896,13 @@ export default function App(){
   useEffect(()=>{
     const updateViewport=()=>{
       setVw(window.innerWidth);
-      const h = window.visualViewport?.height || window.innerHeight;
+      const vv = window.visualViewport;
+      const h = vv?.height || window.innerHeight;
+      const top = vv?.offsetTop || 0;
+      const keyboardBottom = Math.max(0, window.innerHeight - h - top);
       document.documentElement.style.setProperty("--app-height", `${h}px`);
+      document.documentElement.style.setProperty("--visual-top", `${top}px`);
+      document.documentElement.style.setProperty("--keyboard-bottom", `${keyboardBottom}px`);
     };
     updateViewport();
     window.addEventListener("resize",updateViewport);
@@ -3455,7 +3460,9 @@ export default function App(){
       throw error;
     }
     const data = await resp.json();
-    return data.reply || "";
+    if(typeof data.reply === "string") return data.reply;
+    if(data.reply == null) return "";
+    try{return JSON.stringify(data.reply);}catch(e){return String(data.reply);}
   };
 
   // ─── Google Sheets OAuth ────────────────────────────────────────
@@ -3649,7 +3656,8 @@ Untuk chat/analisis/saran → jawab langsung tanpa JSON.
   };
 
   const handleAiSend = async (presetText="") => {
-    const msg = String(presetText || aiInput).trim();
+    const textArg = typeof presetText === "string" ? presetText : "";
+    const msg = String(textArg || aiInput).trim();
     if(!msg || aiLoading) return;
     const newMsgs = [...aiMsgs, {role:"user",content:msg}];
     setAiMsgs(newMsgs);
@@ -7518,10 +7526,10 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
         .ai-panel {
           position:fixed;
           right:0;
-          top:0;
+          top:var(--visual-top, 0px);
           width:min(380px,100vw);
-          height:-webkit-fill-available;
           height:var(--app-height, 100dvh);
+          max-height:var(--app-height, 100dvh);
           z-index:1100;
           display:flex;
           flex-direction:column;
@@ -7657,7 +7665,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
       {aiOpen&&<>
         {/* Overlay */}
         <div style={{
-          position:"fixed",inset:0,
+          position:"fixed",
+          inset:"var(--visual-top, 0px) 0 auto 0",
+          height:"var(--app-height, 100dvh)",
           background:"rgba(0,0,0,0.45)",
           zIndex:1099,
           touchAction:"none",
@@ -7735,6 +7745,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               className="ai-textarea"
               value={aiInput}
               onChange={e=>{setAiInput(e.target.value);e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,120)+"px";}}
+              onFocus={()=>setTimeout(()=>{if(aiMsgsRef.current) aiMsgsRef.current.scrollTop=aiMsgsRef.current.scrollHeight;},180)}
               onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();handleAiSend();}}}
               placeholder={lang==="en"?"Message... e.g: paid electricity 50k":"Tulis pesan... misalnya: bantu atur budget makan bulan ini"}
               rows={1}
@@ -7746,7 +7757,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             />
             <button
               className="ai-send-btn"
-              onClick={handleAiSend}
+              onClick={()=>handleAiSend()}
               disabled={aiLoading||!aiInput.trim()}
               style={{
                 background:aiLoading||!aiInput.trim()?"#9CA3AF":"linear-gradient(135deg,#7C3AED,#5B21B6)",
