@@ -3669,7 +3669,7 @@ Balas HANYA JSON (tanpa teks lain) untuk action:
 {"action":"bayar_utang","nama":"nama utang","jumlah":500000,"dompet":"nama dompet"}
 
 7. Buat amplop:
-{"action":"buat_amplop","nama":"Makan","jumlah":500000,"dompet":"nama dompet","icon":"FOD"}
+{"action":"buat_amplop","nama":"Makan","jumlah":500000,"dompet":"nama dompet","icon":"FOOD"}
 
 8. Isi amplop:
 {"action":"isi_amplop","nama":"nama amplop","jumlah":500000,"dompet":"nama dompet"}
@@ -3684,7 +3684,7 @@ Balas HANYA JSON (tanpa teks lain) untuk action:
 {"action":"selesai_habit","nama":"Minum air"}
 
 12. Tambah budget kategori:
-{"action":"tambah_budget","kat":"Makan","alokasi":2000000,"kelas":"Kebutuhan","icon":"FOD"}
+{"action":"tambah_budget","kat":"Makan","alokasi":2000000,"kelas":"Kebutuhan","icon":"FOOD"}
 
 13. Tambah subbudget/tagihan:
 {"action":"tambah_subbudget","kat":"Tagihan & Utilitas","nama":"Netflix","alokasi":65000,"tempo":"15","emoji":"🎬"}
@@ -3770,6 +3770,10 @@ CONTOH GAYA:
       const aiUtang = name => findAiItem(s.utang.filter(u=>!u.lunas), name, ["nama"]);
       const aiMoney = v => Number(v||0).toLocaleString("id-ID");
       const aiDone = content => setAiMsgs(prev=>[...prev,{role:"assistant",content}]);
+      const aiAmount = (...vals) => N(vals.find(v=>v!==undefined&&v!==null&&String(v)!=="")||0);
+      const aiDompetStrict = name => cleanAiText(name) ? findAiItem(s.dompet, name, ["nama"]) : null;
+      const aiBudgetStrict = name => cleanAiText(name) ? findAiItem(s.budgets, name, ["kat"]) : null;
+      const aiBalanceOk = (dompet, jumlah) => !dompet || N(dompet.saldo)>=jumlah;
 
       const legacyAiActions = ["catat","tambah_goal","tambah_aset","tambah_utang"];
       const extendedAiAction = parsed?.action && !legacyAiActions.includes(parsed.action);
@@ -3777,9 +3781,11 @@ CONTOH GAYA:
         if(parsed.action==="setor_goal") {
           const goal=aiGoal(parsed.nama);
           const dompet=aiDompet(parsed.dompet);
-          const jumlah=N(parsed.jumlah);
+          const jumlah=aiAmount(parsed.jumlah, parsed.jml, parsed.nominal);
           if(!goal) aiDone(`⚠️ Goal "${parsed.nama}" tidak ditemukan. Goal yang ada: ${s.goals.map(g=>g.nama).join(", ")||"belum ada"}`);
           else if(!dompet) aiDone("⚠️ Dompet tidak ditemukan.");
+          else if(!jumlah) aiDone("⚠️ Nominal setoran goal belum jelas.");
+          else if(!aiBalanceOk(dompet,jumlah)) aiDone(`⚠️ Saldo ${dompet.nama} tidak cukup. Saldo tersedia Rp ${aiMoney(N(dompet.saldo))}.`);
           else {
             setS(p=>({...p,
               dompet:p.dompet.map(d=>d.id===dompet.id?{...d,saldo:String(N(d.saldo)-jumlah)}:d),
@@ -3791,9 +3797,12 @@ CONTOH GAYA:
           }
         } else if(parsed.action==="bayar_utang") {
           const utang=aiUtang(parsed.nama);
-          const dompet=aiDompet(parsed.dompet);
-          const jumlah=N(parsed.jumlah);
+          const dompet=cleanAiText(parsed.dompet)?aiDompetStrict(parsed.dompet):aiDompet(parsed.dompet);
+          const jumlah=aiAmount(parsed.jumlah, parsed.jml, parsed.nominal);
           if(!utang) aiDone(`⚠️ Utang/piutang "${parsed.nama}" tidak ditemukan.`);
+          else if(!dompet) aiDone(`⚠️ Dompet "${parsed.dompet}" tidak ditemukan.`);
+          else if(!jumlah) aiDone("⚠️ Nominal pembayaran utang belum jelas.");
+          else if(!aiBalanceOk(dompet,jumlah)) aiDone(`⚠️ Saldo ${dompet.nama} tidak cukup. Saldo tersedia Rp ${aiMoney(N(dompet.saldo))}.`);
           else {
             const totalC=(utang.cicilan||[]).reduce((a,b)=>a+N(b.jml),0)+jumlah;
             const lunas=totalC>=N(utang.jml);
@@ -3806,9 +3815,13 @@ CONTOH GAYA:
             showToast("Cicilan utang dicatat via AI");
           }
         } else if(parsed.action==="buat_amplop") {
-          const dompet=aiDompet(parsed.dompet);
-          const jumlah=N(parsed.jumlah);
+          const dompet=cleanAiText(parsed.dompet)?aiDompetStrict(parsed.dompet):aiDompet(parsed.dompet);
+          const jumlah=aiAmount(parsed.jumlah, parsed.jml, parsed.nominal);
           const nama=String(parsed.nama||"Amplop Baru").trim();
+          if(!dompet) aiDone(`⚠️ Dompet "${parsed.dompet}" tidak ditemukan.`);
+          else if(!jumlah) aiDone("⚠️ Nominal saldo awal amplop belum jelas.");
+          else if(!aiBalanceOk(dompet,jumlah)) aiDone(`⚠️ Saldo ${dompet.nama} tidak cukup. Saldo tersedia Rp ${aiMoney(N(dompet.saldo))}.`);
+          else {
           setS(p=>({...p,
             amplop:[...p.amplop,{id:Date.now(),nama,icon:parsed.icon||"ENV",warna:"#8B5CF6",dompetId:dompet?.id||1,alokasi:String(jumlah),terpakai:"0"}],
             dompet:p.dompet.map(d=>d.id===(dompet?.id||1)?{...d,saldo:String(N(d.saldo)-jumlah)}:d),
@@ -3816,11 +3829,15 @@ CONTOH GAYA:
           }));
           aiDone(`✉️ **Amplop dibuat!**\n\n${nama}\nSaldo awal Rp ${aiMoney(jumlah)}\nSumber: ${dompet?.nama||"Dompet utama"}`);
           showToast("Amplop dibuat via AI");
+          }
         } else if(parsed.action==="isi_amplop") {
           const amp=aiAmplop(parsed.nama);
-          const dompet=aiDompet(parsed.dompet);
-          const jumlah=N(parsed.jumlah);
+          const dompet=cleanAiText(parsed.dompet)?aiDompetStrict(parsed.dompet):(amp?s.dompet.find(d=>d.id===amp.dompetId)||aiDompet(parsed.dompet):null);
+          const jumlah=aiAmount(parsed.jumlah, parsed.jml, parsed.nominal);
           if(!amp) aiDone(`⚠️ Amplop "${parsed.nama}" tidak ditemukan. Amplop yang ada: ${s.amplop.map(a=>a.nama).join(", ")||"belum ada amplop"}`);
+          else if(!dompet) aiDone(`⚠️ Dompet "${parsed.dompet}" tidak ditemukan.`);
+          else if(!jumlah) aiDone("⚠️ Nominal isi amplop belum jelas.");
+          else if(!aiBalanceOk(dompet,jumlah)) aiDone(`⚠️ Saldo ${dompet.nama} tidak cukup. Saldo tersedia Rp ${aiMoney(N(dompet.saldo))}.`);
           else {
             setS(p=>({...p,
               amplop:p.amplop.map(a=>a.id===amp.id?{...a,alokasi:String(N(a.alokasi)+jumlah)}:a),
@@ -3832,8 +3849,9 @@ CONTOH GAYA:
           }
         } else if(parsed.action==="pakai_amplop") {
           const amp=aiAmplop(parsed.nama);
-          const jumlah=N(parsed.jumlah);
+          const jumlah=aiAmount(parsed.jumlah, parsed.jml, parsed.nominal);
           if(!amp) aiDone(`⚠️ Amplop "${parsed.nama}" tidak ditemukan.`);
+          else if(!jumlah) aiDone("⚠️ Nominal pemakaian amplop belum jelas.");
           else {
             const sisa=N(amp.alokasi)-N(amp.terpakai||0);
             if(jumlah>sisa) aiDone(`⚠️ Dana amplop ${amp.nama} tidak cukup. Sisa Rp ${aiMoney(sisa)}.`);
@@ -3861,39 +3879,54 @@ CONTOH GAYA:
             showToast("Habit selesai via AI");
           }
         } else if(parsed.action==="tambah_budget") {
-          const newBudget={id:Date.now(),kat:parsed.kat||"Kategori Baru",icon:parsed.icon||"ETC",kelas:parsed.kelas==="Keinginan"?"Keinginan":"Kebutuhan",alokasi:String(N(parsed.alokasi)),sub:[]};
-          setS(p=>({...p,budgets:[...p.budgets,newBudget]}));
-          aiDone(`📊 **Budget ditambahkan!**\n\n${newBudget.kat}\nAlokasi Rp ${aiMoney(newBudget.alokasi)}\nKelas: ${newBudget.kelas}`);
-          showToast("Budget ditambahkan via AI");
+          const kat=String(parsed.kat||"Kategori Baru").trim();
+          const alokasi=aiAmount(parsed.alokasi, parsed.jumlah, parsed.jml, parsed.nominal);
+          const existing=aiBudgetStrict(kat);
+          const kelas=parsed.kelas==="Keinginan"?"Keinginan":"Kebutuhan";
+          if(existing) {
+            setS(p=>({...p,budgets:p.budgets.map(b=>b.id===existing.id?{...b,alokasi:String(alokasi||N(b.alokasi)),icon:parsed.icon||b.icon,kelas}:b)}));
+            aiDone(`📊 **Budget diperbarui!**\n\n${existing.kat}\nAlokasi Rp ${aiMoney(alokasi||N(existing.alokasi))}\nKelas: ${kelas}`);
+            showToast("Budget diperbarui via AI");
+          } else {
+            const newBudget={id:Date.now(),kat,icon:parsed.icon||"ETC",kelas,alokasi:String(alokasi),sub:[]};
+            setS(p=>({...p,budgets:[...p.budgets,newBudget]}));
+            aiDone(`📊 **Budget ditambahkan!**\n\n${newBudget.kat}\nAlokasi Rp ${aiMoney(newBudget.alokasi)}\nKelas: ${newBudget.kelas}`);
+            showToast("Budget ditambahkan via AI");
+          }
         } else if(parsed.action==="tambah_subbudget") {
-          const budget=aiBudget(parsed.kat);
+          const budget=aiBudgetStrict(parsed.kat);
+          const alokasi=aiAmount(parsed.alokasi, parsed.jumlah, parsed.jml, parsed.nominal);
           if(!budget) aiDone(`⚠️ Kategori budget "${parsed.kat}" tidak ditemukan.`);
+          else if(!alokasi) aiDone("⚠️ Nominal subbudget belum jelas.");
           else {
-            setS(p=>({...p,budgets:p.budgets.map(b=>b.id===budget.id?{...b,sub:[...(b.sub||[]),{nama:parsed.nama||"Subbudget",emoji:parsed.emoji||"PIN",alokasi:String(N(parsed.alokasi)),tempo:parsed.tempo||null}]}:b)}));
-            aiDone(`🧾 **Subbudget ditambahkan!**\n\n${budget.kat} > ${parsed.nama}\nRp ${aiMoney(parsed.alokasi)}${parsed.tempo?`\nJatuh tempo tgl ${parsed.tempo}`:""}`);
+            setS(p=>({...p,budgets:p.budgets.map(b=>b.id===budget.id?{...b,sub:[...(b.sub||[]),{nama:parsed.nama||"Subbudget",emoji:parsed.emoji||"PIN",alokasi:String(alokasi),tempo:parsed.tempo||null}]}:b)}));
+            aiDone(`🧾 **Subbudget ditambahkan!**\n\n${budget.kat} > ${parsed.nama}\nRp ${aiMoney(alokasi)}${parsed.tempo?`\nJatuh tempo tgl ${parsed.tempo}`:""}`);
             showToast("Subbudget ditambahkan via AI");
           }
         } else if(parsed.action==="tambah_dompet") {
           const tipe=DOMPET_TIPE.includes(parsed.tipe)?parsed.tipe:"Lainnya";
-          const newDompet={id:Date.now(),tipe,nama:parsed.nama||"Dompet Baru",norek:parsed.norek||"",saldo:String(N(parsed.saldo)),icon:DOMPET_ICONS[tipe]||"💳"};
+          const saldo=aiAmount(parsed.saldo, parsed.jumlah, parsed.jml, parsed.nominal);
+          const newDompet={id:Date.now(),tipe,nama:parsed.nama||"Dompet Baru",norek:parsed.norek||"",saldo:String(saldo),icon:DOMPET_ICONS[tipe]||"💳"};
           setS(p=>({...p,dompet:[...p.dompet,newDompet]}));
           aiDone(`💳 **Dompet ditambahkan!**\n\n${newDompet.nama}\nSaldo Rp ${aiMoney(newDompet.saldo)}`);
           showToast("Dompet ditambahkan via AI");
         } else if(parsed.action==="update_saldo") {
-          const dompet=aiDompet(parsed.dompet);
+          const dompet=aiDompetStrict(parsed.dompet);
           if(!dompet) aiDone(`⚠️ Dompet "${parsed.dompet}" tidak ditemukan.`);
           else {
-            const saldo=N(parsed.saldo);
+            const saldo=aiAmount(parsed.saldo, parsed.jumlah, parsed.jml, parsed.nominal);
             setS(p=>({...p,dompet:p.dompet.map(d=>d.id===dompet.id?{...d,saldo:String(saldo)}:d),txs:[{id:Date.now(),tipe:"penyesuaian",tgl:today(),ket:`Penyesuaian saldo: ${dompet.nama}`,jml:String(saldo),dompetId:dompet.id,katId:"",subKat:"",bulan:s.bulan,tahun:s.tahun},...p.txs]}));
             aiDone(`💳 **Saldo diperbarui!**\n\n${dompet.nama}\nSaldo baru Rp ${aiMoney(saldo)}`);
             showToast("Saldo dompet diperbarui via AI");
           }
         } else if(parsed.action==="transfer") {
-          const dari=aiDompet(parsed.dari);
-          const ke=aiDompet(parsed.ke);
-          const jumlah=N(parsed.jumlah);
-          const biaya=N(parsed.biaya);
+          const dari=aiDompetStrict(parsed.dari);
+          const ke=aiDompetStrict(parsed.ke);
+          const jumlah=aiAmount(parsed.jumlah, parsed.jml, parsed.nominal);
+          const biaya=aiAmount(parsed.biaya);
           if(!dari||!ke||dari.id===ke.id) aiDone("⚠️ Dompet sumber/tujuan transfer belum valid.");
+          else if(!jumlah) aiDone("⚠️ Nominal transfer belum jelas.");
+          else if(!aiBalanceOk(dari,jumlah+biaya)) aiDone(`⚠️ Saldo ${dari.nama} tidak cukup. Saldo tersedia Rp ${aiMoney(N(dari.saldo))}.`);
           else {
             setS(p=>({...p,
               dompet:p.dompet.map(d=>d.id===dari.id?{...d,saldo:String(N(d.saldo)-jumlah-biaya)}:d.id===ke.id?{...d,saldo:String(N(d.saldo)+jumlah)}:d),
@@ -3905,7 +3938,8 @@ CONTOH GAYA:
         } else if(parsed.action==="tambah_recurring") {
           const dompet=aiDompet(parsed.dompet);
           const budget=aiBudget(parsed.kat);
-          const newRecurring={id:Date.now(),nama:parsed.nama||"Transaksi rutin",tipe:parsed.tipe==="pemasukan"?"pemasukan":"pengeluaran",jml:String(N(parsed.jml)),katId:budget?.id||s.budgets[0]?.id||"",dompetId:dompet?.id||1,hari:String(parsed.hari||"1"),aktif:true};
+          const jumlah=aiAmount(parsed.jml, parsed.jumlah, parsed.nominal);
+          const newRecurring={id:Date.now(),nama:parsed.nama||"Transaksi rutin",tipe:parsed.tipe==="pemasukan"?"pemasukan":"pengeluaran",jml:String(jumlah),katId:budget?.id||s.budgets[0]?.id||"",dompetId:dompet?.id||1,hari:String(parsed.hari||"1"),aktif:true};
           setS(p=>({...p,recurring:[...p.recurring,newRecurring]}));
           aiDone(`🔁 **Transaksi rutin ditambahkan!**\n\n${newRecurring.nama}\n${newRecurring.tipe} Rp ${aiMoney(newRecurring.jml)} tiap tgl ${newRecurring.hari}`);
           showToast("Transaksi rutin ditambahkan via AI");
@@ -3916,15 +3950,20 @@ CONTOH GAYA:
         // ── CATAT TRANSAKSI ──────────────────────────────
         if(parsed.action==="catat") {
           const tipe = ["pemasukan","pengeluaran","tabungan"].includes(parsed.tipe) ? parsed.tipe : "pengeluaran";
+          const jumlah = aiAmount(parsed.jml, parsed.jumlah, parsed.nominal);
           const katMatch = aiBudget(parsed.kat);
           const katId = katMatch?.id || s.budgets[0]?.id || "";
-          const dompetMatch = aiDompet(parsed.dompet);
+          const dompetMatch = cleanAiText(parsed.dompet)?aiDompetStrict(parsed.dompet):aiDompet(parsed.dompet);
           const dompetId = dompetMatch?.id || s.dompet[0]?.id;
           const goalMatch = tipe==="tabungan" ? aiGoal(parsed.goal) : null;
+          if(!dompetMatch) aiDone(`⚠️ Dompet "${parsed.dompet}" tidak ditemukan.`);
+          else if(!jumlah) aiDone("⚠️ Nominal transaksi belum jelas.");
+          else if(tipe!=="pemasukan" && !aiBalanceOk(dompetMatch,jumlah)) aiDone(`⚠️ Saldo ${dompetMatch.nama} tidak cukup. Saldo tersedia Rp ${aiMoney(N(dompetMatch.saldo))}.`);
+          else {
           const newTx = {
             id:Date.now(), tgl:today(),
             tipe,
-            ket:parsed.ket||msg, jml:String(parsed.jml||0),
+            ket:parsed.ket||msg, jml:String(jumlah),
             katId, dompetId, subKat:"", goalId:goalMatch?.id||"",
             bulan:s.bulan, tahun:s.tahun,
           };
@@ -3935,14 +3974,16 @@ CONTOH GAYA:
             goals:goalMatch?p.goals.map(g=>g.id===goalMatch.id?{...g,kumpul:String(N(g.kumpul)+N(newTx.jml)),history:[...(g.history||[]),{tgl:today(),jml:String(newTx.jml)}]}:g):p.goals
           }));
           const idr = Number(newTx.jml).toLocaleString("id-ID");
-          const emoji = parsed.tipe==="pemasukan"?"💵":"💸";
-          setAiMsgs(prev=>[...prev,{role:"assistant",content:`${emoji} **${parsed.tipe==="pemasukan"?"Pemasukan":"Pengeluaran"} dicatat!**
+          const emoji = tipe==="pemasukan"?"💵":tipe==="tabungan"?"🏦":"💸";
+          const label = tipe==="pemasukan"?"Pemasukan":tipe==="tabungan"?"Tabungan":"Pengeluaran";
+          setAiMsgs(prev=>[...prev,{role:"assistant",content:`${emoji} **${label} dicatat!**
 
 📝 ${newTx.ket}
 💰 Rp ${idr}
 📂 ${katMatch?.kat||"Lainnya"}
-💳 ${dompetMatch?.nama||s.dompet[0]?.nama}`}]);
+💳 ${dompetMatch?.nama||s.dompet[0]?.nama}${goalMatch?`\n🎯 Goal: ${goalMatch.nama}`:""}`}]);
           showToast(t("aiRecorded"));
+          }
 
         // ── TAMBAH GOAL ──────────────────────────────────
         } else if(parsed.action==="tambah_goal") {
