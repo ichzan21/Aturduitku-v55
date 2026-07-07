@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aturduitku-v17-pwa-fast-shell';
+const CACHE_NAME = 'aturduitku-v18-pwa-report-polish';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -34,7 +34,7 @@ self.addEventListener('fetch', e => {
   if (e.request.mode === 'navigate') {
     e.respondWith(
       caches.match('/index.html').then(cached => {
-        const fresh = fetch(e.request, { cache: 'no-store' }).then(res => {
+        return fetch(e.request, { cache: 'no-store' }).then(res => {
           if (res.ok) {
             const clone = res.clone();
             caches.open(CACHE_NAME).then(cache => {
@@ -44,7 +44,6 @@ self.addEventListener('fetch', e => {
           }
           return res;
         }).catch(() => cached || caches.match('/'));
-        return cached || fresh;
       })
     );
     return;
