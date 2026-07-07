@@ -2894,15 +2894,19 @@ export default function App(){
   // Responsive
   const [vw,setVw]=useState(typeof window!=="undefined"?window.innerWidth:1200);
   useEffect(()=>{
+    let raf=0;
     const updateViewport=()=>{
-      setVw(window.innerWidth);
-      const vv = window.visualViewport;
-      const h = vv?.height || window.innerHeight;
-      const top = vv?.offsetTop || 0;
-      const keyboardBottom = Math.max(0, window.innerHeight - h - top);
-      document.documentElement.style.setProperty("--app-height", `${h}px`);
-      document.documentElement.style.setProperty("--visual-top", `${top}px`);
-      document.documentElement.style.setProperty("--keyboard-bottom", `${keyboardBottom}px`);
+      cancelAnimationFrame(raf);
+      raf=requestAnimationFrame(()=>{
+        setVw(window.innerWidth);
+        const vv = window.visualViewport;
+        const h = vv?.height || window.innerHeight;
+        const top = vv?.offsetTop || 0;
+        const keyboardBottom = Math.max(0, window.innerHeight - h - top);
+        document.documentElement.style.setProperty("--app-height", `${h}px`);
+        document.documentElement.style.setProperty("--visual-top", `${top}px`);
+        document.documentElement.style.setProperty("--keyboard-bottom", `${keyboardBottom}px`);
+      });
     };
     updateViewport();
     window.addEventListener("resize",updateViewport);
@@ -2912,10 +2916,19 @@ export default function App(){
       window.removeEventListener("resize",updateViewport);
       window.visualViewport?.removeEventListener("resize",updateViewport);
       window.visualViewport?.removeEventListener("scroll",updateViewport);
+      cancelAnimationFrame(raf);
     };
   },[]);
   const isMobile=vw<900;const isTablet=vw>=900&&vw<1180;
-  const navTo=id=>{setPage(id);if(isMobile)setSidebarOpen(false);};
+  const navTo=id=>{
+    const run=()=>{
+      setPage(id);
+      setQuickOpen(false);
+      if(isMobile) setSidebarOpen(false);
+    };
+    if(React.startTransition) React.startTransition(run);
+    else run();
+  };
 
   // Forms
   const [txForm,setTxForm]=useState({tipe:"pengeluaran",tgl:today(),ket:"",jml:"",katId:1,subKat:"",dompetId:1,dompetTo:2,biaya:"",goalId:""});
@@ -3314,6 +3327,10 @@ export default function App(){
     else if(target==="income") setModal({type:"tx",tipe:"pemasukan"});
     else if(target==="dompet") setModal({type:"dompet"});
     else if(target) setPage(target);
+  };
+  const startAiSetup=()=>{
+    setAiOpen(true);
+    setTimeout(()=>handleAiSend("Bantu saya setup awal AturDuitku. Pandu saya langkah demi langkah: saldo dompet, pemasukan, budget utama, habit uang harian, dan goal tabungan pertama."),0);
   };
   const toggleSimpleMode=()=>{
     setSimpleMode(v=>{
@@ -5609,6 +5626,18 @@ Saldo amplop bertambah.`}]);
         .fab.is-open{min-width:58px;padding:0;}
         .fab:hover{transform:scale(1.07);}
         .fab:active{transform:scale(.94);}
+        @media(max-width:899px){
+          .bottom-nav{backdrop-filter:none;-webkit-backdrop-filter:none;}
+          .bottom-nav-item:hover,.quick-action-item:hover,.icon-action:hover,.btn-go:hover{transform:none;box-shadow:none!important;}
+          .cat-mascot{animation-duration:6.5s;}
+          .premium-panel:after,.fab:after{animation:none;opacity:.14;}
+          .smooth-skeleton{animation-duration:1.9s;}
+        }
+        @media(display-mode:standalone) and (max-width:899px){
+          .cat-mascot{animation:none;}
+          .premium-panel:after,.fab:after{display:none;}
+          .page-in,.modal-pop,.quick-action-sheet{animation:none;}
+        }
         @media(max-width:767px){
   .mobile-hide{display:none!important;}
   .mobile-2col{grid-template-columns:1fr 1fr!important;}
@@ -6276,6 +6305,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   </div>
                 </div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:isMobile?"flex-start":"flex-end",width:isMobile?"100%":"auto"}}>
+                  <Btn onClick={startAiSetup} ch="Dokter setup" c={T.ok} outline style={{padding:"9px 12px",fontSize:12,flex:isMobile?"1 1 130px":"0 0 auto"}}/>
                   <Btn onClick={()=>setModal({type:"dompet"})} ch="👛 Dompet" c={T.accent} outline style={{padding:"9px 12px",fontSize:12,flex:isMobile?"1 1 130px":"0 0 auto"}}/>
                   <Btn onClick={()=>setModal({type:"tx"})} ch="🧾 Transaksi" style={{padding:"9px 12px",fontSize:12,flex:isMobile?"1 1 130px":"0 0 auto"}}/>
                   <Btn onClick={()=>setPage("budget")} ch="📊 Budget" c={T.info} outline style={{padding:"9px 12px",fontSize:12,flex:isMobile?"1 1 130px":"0 0 auto"}}/>
@@ -7731,13 +7761,13 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
       {/* ── BOTTOM NAV (mobile only) ── */}
       {isMobile&&<nav className="bottom-nav" style={{background:T.nav,borderTopColor:T.border,display:(sidebarOpen||moreOpen||quickOpen||aiOpen||modal||notifOpen||commandOpen)?"none":"flex"}}>
         {[NAV[0],NAV[1],NAV[2],NAV[3]].map(nav=>{const a=page===nav.id;const go=()=>navTo(nav.id);return(
-          <button key={nav.id} onPointerUp={e=>{e.preventDefault();go();}} onClick={go} className="bottom-nav-item" style={{color:a?T.accent:T.muted}}>
+          <button key={nav.id} type="button" onClick={go} className="bottom-nav-item" style={{color:a?T.accent:T.muted}}>
             <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,fontSize:16,fontWeight:700,letterSpacing:0,lineHeight:1,transition:"transform .15s",transform:a?"scale(1.05)":"scale(1)"}}>{uiIcon(nav.icon)}</span>
             <span style={{fontSize:9,fontWeight:a?800:500}}>{nav.label}</span>
             {a&&<span style={{width:4,height:4,borderRadius:"50%",background:T.accent,marginTop:1,boxShadow:`0 0 6px ${T.accent}`}}/>}
           </button>
         );})}
-        <button onPointerUp={e=>{e.preventDefault();setMoreOpen(true);}} onClick={()=>setMoreOpen(true)} className="bottom-nav-item" style={{color:T.muted,position:"relative"}}>
+        <button type="button" onClick={()=>setMoreOpen(true)} className="bottom-nav-item" style={{color:T.muted,position:"relative"}}>
           <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:T.cardAlt,color:T.muted,fontSize:16,fontWeight:700,letterSpacing:0,lineHeight:1}}>⋯</span>
           <span style={{fontSize:9,fontWeight:500}}>{t("more")}</span>
           {notifications.length>0&&<span style={{position:"absolute",top:6,right:"calc(50% - 14px)",background:T.err,color:"white",borderRadius:"50%",width:14,height:14,fontSize:8,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>{Math.min(notifications.length,9)}</span>}

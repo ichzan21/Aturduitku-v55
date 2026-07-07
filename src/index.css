@@ -158,9 +158,9 @@ input[type="date"] {
   :root { --app-height: 100dvh; }
 }
 
-/* Smooth scroll everywhere */
-* {
-  scroll-behavior: smooth;
+/* Keep PWA taps and route changes instant; use explicit smooth scroll only where needed. */
+html {
+  scroll-behavior: auto;
 }
 
 /* Fix iOS momentum scroll on scrollable divs */

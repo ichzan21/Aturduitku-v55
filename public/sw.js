@@ -1,5 +1,7 @@
-const CACHE_NAME = 'aturduitku-v15-mobile-tap-polish';
+const CACHE_NAME = 'aturduitku-v16-pwa-fast-shell';
 const STATIC_ASSETS = [
+  '/',
+  '/index.html',
   '/manifest.json',
   '/favicon-32.png',
   '/favicon-48.png',
@@ -29,21 +31,36 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   if (e.request.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request, { cache: 'no-store' }).then(res => {
-        if (res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put('/index.html', clone));
-        }
-        return res;
-      }).catch(() => caches.match('/index.html').then(cached => cached || caches.match('/')))
+      caches.match('/index.html').then(cached => {
+        const fresh = fetch(e.request, { cache: 'no-store' }).then(res => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put('/index.html', clone);
+              cache.put('/', res.clone());
+            });
+          }
+          return res;
+        }).catch(() => cached || caches.match('/'));
+        return cached || fresh;
+      })
     );
     return;
   }
-  // Network-first for app shell and built assets so PWA users do not get stuck on an old UI.
+  // Stale-while-revalidate for built assets: instant PWA taps/launch, still updates in background.
   const isAsset = e.request.url.match(/\.(html|js|css|jsx)$/);
   if (isAsset) {
     e.respondWith(
-      fetch(e.request, { cache: 'no-store' }).catch(() => caches.match(e.request))
+      caches.match(e.request).then(cached => {
+        const fresh = fetch(e.request, { cache: 'no-store' }).then(res => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+          }
+          return res;
+        }).catch(() => cached);
+        return cached || fresh;
+      })
     );
     return;
   }
