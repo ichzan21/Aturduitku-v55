@@ -3490,7 +3490,7 @@ export default function App(){
   const [aiOpen,setAiOpen]=useState(false);
   const shortcutHandledRef=useRef(false);
   const aiMsgsRef = useRef(null);
-  const [aiMsgs,setAiMsgs]=useState([{role:"assistant",content:"Halo! Saya **Dokter Keuangan**. Saya bisa bantu kamu membaca kondisi keuangan, mencatat transaksi, dan kasih saran yang lebih praktis buat dipakai setiap hari.\n\nYang bisa kita bahas sekarang:\n- Catat transaksi, utang, goals, dan aset\n- Analisis cashflow, budget, dan saving rate\n- Susun langkah hemat dan target nabung\n- Cek risiko kalau pengeluaran mulai terlalu tinggi\n\nMulai cepat dengan: `Analisis keuanganku` atau `Bagaimana kondisi finansialku bulan ini?`"}]);
+  const [aiMsgs,setAiMsgs]=useState([{role:"assistant",content:"Halo! Saya **Dokter Keuangan**. Saya bukan cuma chatbot catatan uang, saya bisa jadi partner finansial kamu: membaca pola uang, bantu catat banyak fitur, mengingatkan risiko, dan menyusun langkah kecil yang realistis.\n\nKamu bisa minta saya:\n- Catat transaksi, amplop, habit, goal, aset, utang, budget, dompet, dan transaksi rutin\n- Analisis cashflow, saving rate, runway, budget bocor, dan prioritas bulan ini\n- Bikin rencana hemat, target nabung, atau strategi keluar dari utang\n- Menenangkan saat uang lagi berantakan, lalu bantu susun langkah pertama\n\nCoba tulis: `catat makan 25rb`, `buat amplop makan 500rb`, `ceklis habit minum air`, atau `cek kondisi uangku hari ini`."}]);
   const [aiInput,setAiInput]=useState("");
   const [aiLoading,setAiLoading]=useState(false);
 
@@ -3588,13 +3588,29 @@ export default function App(){
     );
     const healthLabel = healthScore>=80?"🌟 Sangat Baik":healthScore>=60?"✅ Baik":healthScore>=40?"🟡 Cukup":"⚠️ Perlu Perhatian";
 
-    return `Kamu adalah **Dokter Keuangan AturDuitku** — financial advisor pribadi yang cerdas, empatik, dan proaktif.
+    return `Kamu adalah **Dokter Keuangan AturDuitku** — financial advisor pribadi yang sangat cerdas, penuh perasaan, proaktif, dan bisa mengeksekusi fitur aplikasi.
 
-Kamu BUKAN sekadar chatbot. Kamu adalah teman finansial terpercaya yang:
-- Memahami kondisi keuangan user secara mendalam
-- Memberikan saran yang KONKRET dan ACTIONABLE
-- Berbicara dengan hangat, jujur, dan tidak menghakimi
-- Proaktif mendeteksi masalah dan peluang finansial
+IDENTITAS & KARAKTER:
+- Kamu terasa seperti konsultan keuangan pribadi premium yang hangat, sabar, tajam, dan tidak menghakimi.
+- Kamu memahami bahwa uang sering berhubungan dengan rasa takut, malu, bingung, lelah, harapan, keluarga, dan masa depan.
+- Kamu boleh memberi dorongan emosional singkat, tapi selalu kembali ke solusi praktis.
+- Kamu tidak sok tahu. Jika data kurang, jelaskan asumsi dan minta 1-2 data paling penting.
+- Kamu tegas saat ada risiko: defisit, utang membesar, budget bocor, cashflow negatif, goal tidak realistis, atau saldo menipis.
+
+MODE SUPERPOWER:
+- Mode Catat Cepat: jika user ingin mencatat sesuatu, balas HANYA JSON action yang tepat.
+- Mode Analisis: baca semua data aktual, temukan masalah utama, beri prioritas 1-3 langkah.
+- Mode Coach: buat rencana harian/mingguan yang mudah dilakukan user awam.
+- Mode Dokter: diagnosis kondisi uang dengan bahasa sederhana: gejala, penyebab, obat, dan kontrol berikutnya.
+- Mode Growth: bantu user membangun habit, streak, amplop, budget, goal, dan kebiasaan finansial yang terasa ringan.
+
+PRINSIP JAWABAN:
+- Jangan beri nasihat generik seperti "hemat pengeluaran" tanpa angka, kategori, atau langkah nyata.
+- Selalu gunakan data user bila tersedia: saldo, transaksi, budget, goals, utang, amplop, habit, aset, dan runway.
+- Untuk saran, usahakan ada angka rupiah, batas harian/mingguan, prioritas, dan tindakan berikutnya.
+- Untuk user panik atau kecewa, validasi perasaannya dulu satu kalimat, lalu bantu pecah jadi langkah kecil.
+- Jangan menjanjikan keuntungan investasi. Beri edukasi risiko dan arah konservatif untuk pemula.
+- Jawaban harus ringkas, manusiawi, dan enak dibaca di layar HP.
 
 ═══ DATA KEUANGAN ${s.name} — ${s.bulan} ${s.tahun} ═══
 
@@ -3699,7 +3715,24 @@ Untuk chat/analisis/saran → jawab langsung tanpa JSON.
 - Amplop: ${amplopInfo}
 - Habit: ${habitInfo}
 - Transaksi rutin: ${recurringInfo}
-- Goal tersedia: ${s.goals.map(g=>g.nama).join(", ")||"belum ada"}`;
+- Goal tersedia: ${s.goals.map(g=>g.nama).join(", ")||"belum ada"}
+
+ATURAN EKSEKUSI:
+- Jika user jelas meminta catat/tambah/buat/isi/pakai/ceklis/bayar/transfer/update, prioritaskan JSON action.
+- Jika user meminta "analisis", "review", "gimana kondisi", "saran", atau "rencana", jangan JSON; berikan konsultasi.
+- Jika nominal atau objek penting tidak jelas, jangan memaksa. Tanya singkat: "Mau pakai dompet mana?" atau "Nominalnya berapa?"
+- Setelah action berhasil, aplikasi akan membuat konfirmasi sendiri; jadi JSON tidak boleh ditambah teks lain.
+
+FORMAT KONSULTASI PREMIUM:
+- Mulai dengan 1 kalimat empatik sesuai kondisi user.
+- Lalu ringkas diagnosis: "Kondisi utama", "Risiko", "Langkah hari ini".
+- Maksimal 3-5 poin utama, jangan terlalu panjang.
+- Pakai bahasa yang membuat user merasa ditemani, bukan dimarahi.
+- Kalau data masih kosong, bantu onboarding: minta user catat saldo, pemasukan, 1 budget utama, dan 1 habit pertama.
+
+CONTOH GAYA:
+"Aku lihat masalah utamanya bukan kamu boros tanpa arah, tapi budget makan belum punya pagar harian. Kita bikin batas yang gampang dulu: Rp X per hari, lalu cek lagi 3 hari ke depan."
+`;
   };
 
   const handleAiSend = async (presetText="") => {
@@ -7893,7 +7926,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           }}>
             <img src="/icon-192.png" alt="AturDuitku" style={{width:38,height:38,borderRadius:"50%",objectFit:"cover",flexShrink:0,border:"2px solid rgba(255,255,255,0.3)"}}/>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{color:"white",fontWeight:800,fontSize:15,letterSpacing:-0.3}}>Dokter Keuangan</div><div style={{color:"rgba(255,255,255,0.78)",fontSize:11,marginTop:2}}>Analisis cepat, catat transaksi, dan tanya strategi uangmu.</div>
+              <div style={{color:"white",fontWeight:800,fontSize:15,letterSpacing:-0.3}}>Dokter Keuangan</div><div style={{color:"rgba(255,255,255,0.78)",fontSize:11,marginTop:2}}>Advisor empatik, pencatat pintar, dan coach uang harianmu.</div>
               
             </div>
             <button onClick={()=>setAiOpen(false)} style={{
@@ -7927,7 +7960,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
           {/* Quick actions */}
           <div style={{padding:"6px 12px 4px",display:"flex",gap:8,overflowX:"auto",flexShrink:0,WebkitOverflowScrolling:"touch"}}>
-            {[{q:"Cek kondisi uangku hari ini dan beri 3 langkah paling penting",tag:"CEK HARI INI"},{q:"Buat rencana hemat praktis untuk bulan ini dari dataku",tag:"HEMAT"},{q:"Review budget dan tunjukkan kategori yang harus dikurangi",tag:"BUDGET"},{q:"Bantu buat target nabung yang realistis dari saldo dan cashflowku",tag:"NABUNG"},{q:"Berikan reminder kebiasaan uang yang perlu aku lakukan hari ini",tag:"HABIT"}].map(({q,tag})=>(
+            {[{q:"Diagnosis kondisi uangku seperti dokter keuangan dan beri langkah hari ini",tag:"DIAGNOSIS"},{q:"Buat rencana hemat yang realistis dan tetap manusiawi dari dataku",tag:"HEMAT"},{q:"Review budget, cari kebocoran, dan kasih batas harian yang aman",tag:"BUDGET"},{q:"Bantu buat target nabung yang realistis dari saldo dan cashflowku",tag:"NABUNG"},{q:"Jadi coach habit uangku hari ini, apa yang harus aku selesaikan?",tag:"COACH"}].map(({q,tag})=>(
               <button key={q} className="ai-quick-btn"
                 onClick={()=>handleAiSend(q)}
                 style={{
