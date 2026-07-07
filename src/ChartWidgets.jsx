@@ -46,7 +46,7 @@ export const TrendChart = ({ trendData, isMobile, T, idrs }) => {
   );
 };
 
-export const DailyChart = ({ txBulan, bulan, tahun, months, T, idr, n }) => {
+export const DailyChart = ({ txBulan, bulan, tahun, months, T, idr, n, isMobile=false }) => {
   const now = new Date();
   const isCurrentMonth = months[now.getMonth()] === bulan && now.getFullYear() === Number(tahun);
   const mIdx = months.indexOf(bulan);
@@ -61,10 +61,17 @@ export const DailyChart = ({ txBulan, bulan, tahun, months, T, idr, n }) => {
   const todayNum = isCurrentMonth ? now.getDate() : -1;
 
   return (
-    <ResponsiveContainer width="100%" height={130}>
-      <BarChart data={data} margin={{ top:4, right:4, bottom:0, left:0 }}>
-        <Tooltip formatter={v => idr(v)} labelFormatter={l => `Tgl ${l}`} contentStyle={{ borderRadius:8, fontSize:11, background:T.card, border:`1px solid ${T.border}`, color:T.text }}/>
-        <Bar dataKey="val" radius={[3, 3, 0, 0]}>
+    <ResponsiveContainer width="100%" height={isMobile ? 180 : 130}>
+      <BarChart data={data} margin={isMobile ? { top:10, right:4, bottom:2, left:4 } : { top:4, right:4, bottom:0, left:0 }}>
+        <XAxis dataKey="d" interval={isMobile ? 4 : 2} tick={{ fontSize:9, fill:T.muted }} axisLine={false} tickLine={false}/>
+        <Tooltip
+          cursor={false}
+          wrapperStyle={isMobile ? { display:"none" } : undefined}
+          formatter={v => idr(v)}
+          labelFormatter={l => `Tgl ${l}`}
+          contentStyle={{ borderRadius:8, fontSize:11, background:T.card, border:`1px solid ${T.border}`, color:T.text }}
+        />
+        <Bar dataKey="val" radius={[4, 4, 0, 0]} barSize={isMobile ? 8 : undefined}>
           {data.map((entry, i) => (
             <Cell key={i} fill={i + 1 === todayNum ? "#8B5CF6" : entry.val > 0 ? "#6366F1" : T.borderLight}/>
           ))}
@@ -74,7 +81,7 @@ export const DailyChart = ({ txBulan, bulan, tahun, months, T, idr, n }) => {
   );
 };
 
-export const DonutChart = ({ pieData, pieColors, T, idr, height=160, outerRadius=64, innerRadius=34, showLabel=false }) => (
+export const DonutChart = ({ pieData, pieColors, T, idr, height=160, outerRadius=64, innerRadius=34, showLabel=false, isMobile=false }) => (
   <ResponsiveContainer width="100%" height={height}>
     <PieChart>
       <Pie
@@ -84,10 +91,16 @@ export const DonutChart = ({ pieData, pieColors, T, idr, height=160, outerRadius
         cy="50%"
         outerRadius={outerRadius}
         innerRadius={innerRadius}
-        label={showLabel ? ({ percent }) => `${(percent * 100).toFixed(0)}%` : false}
+        label={showLabel && !isMobile ? ({ percent }) => `${(percent * 100).toFixed(0)}%` : false}
+        labelLine={false}
+        stroke={T.card}
+        strokeWidth={2}
       >
         {pieData.map((_, i) => <Cell key={i} fill={pieColors[i % pieColors.length]}/>)}
       </Pie>
+      {showLabel && isMobile && pieData.length === 1 && (
+        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fill={T.text} fontSize="18" fontWeight="800">100%</text>
+      )}
       <Tooltip formatter={v => idr(v)} contentStyle={{ borderRadius:8, fontSize:12, background:T.card, border:`1px solid ${T.border}`, color:T.text }}/>
     </PieChart>
   </ResponsiveContainer>

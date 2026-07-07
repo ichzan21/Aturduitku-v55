@@ -2947,7 +2947,7 @@ export default function App(){
       cancelAnimationFrame(raf);
     };
   },[]);
-  const isMobile=vw<900;const isTablet=vw>=900&&vw<1180;
+  const isMobile=vw<900;const isTablet=vw>=900&&vw<1180;const isReportCompact=isMobile||isTablet;
   const navTo=id=>{
     const run=()=>{
       setPage(id);
@@ -7321,14 +7321,14 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:18,marginBottom:18}}>
               <Card ch={<>
                 <Sec t={t("spendDetail")}/>
-                {pieData.length?<Suspense fallback={<ChartFallback height={isMobile?150:200}/>}>
-                  <DonutChartLazy pieData={pieData} pieColors={PIE_C} T={T} idr={IDR} height={isMobile?150:200} outerRadius={80} innerRadius={40} showLabel/>
+                {pieData.length?<Suspense fallback={<ChartFallback height={isReportCompact?180:200}/>}>
+                  <DonutChartLazy pieData={pieData} pieColors={PIE_C} T={T} idr={IDR} height={isReportCompact?180:200} outerRadius={isReportCompact?64:80} innerRadius={isReportCompact?38:40} showLabel isMobile={isReportCompact}/>
                 </Suspense>:<LaunchEmpty icon="📊" title="Belum ada distribusi pengeluaran" desc="Tambahkan beberapa transaksi pengeluaran di bulan ini supaya kategori belanja, pola spending, dan insight laporan mulai terbentuk." actionLabel="Tambah transaksi" onAction={()=>setModal({type:"tx"})} secondaryLabel="Buka transaksi" onSecondary={()=>setPage("trans")} style={{padding:"28px 16px"}}/>}
               </>}/>
               <Card ch={<>
                 <Sec t={t("dailyExpense")} sub={s.bulan}/>
-                <Suspense fallback={<ChartFallback height={130}/>}>
-                  <DailyChartLazy txBulan={txBulan} bulan={s.bulan} tahun={s.tahun} months={MONTHS} T={T} idr={IDR} n={N}/>
+                <Suspense fallback={<ChartFallback height={isReportCompact?180:130}/>}>
+                  <DailyChartLazy txBulan={txBulan} bulan={s.bulan} tahun={s.tahun} months={MONTHS} T={T} idr={IDR} n={N} isMobile={isReportCompact}/>
                 </Suspense>
               </>}/>
             </div>
@@ -7336,22 +7336,60 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             {/* Performa Anggaran */}
             <Card ch={<>
               <Sec t={t("budgetPerformance")} sub="Alokasi vs realisasi per kategori"/>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 100px 100px minmax(120px,1fr) 70px",padding:"6px 0",borderBottom:`1.5px solid ${T.border}`,marginBottom:4,gap:8}}>
-                {[lang==="en"?["Category","Allocation","Realized","Progress","% Used"]:["Kategori","Alokasi","Realisasi","Progress","% Terpakai"]].map(h=><span key={h} style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8}}>{h}</span>)}
-              </div>
-              {s.budgets.map(b=>{
+              {isReportCompact?(
+                <div style={{display:"grid",gap:10}}>
+                  {s.budgets.map(b=>{
+                    const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
+                    const spend=spendByKat[b.id]||0;const pct=alloc>0?spend/alloc*100:0;const over=alloc>0&&spend>alloc;
+                    return(
+                      <div key={b.id} style={{background:T.cardAlt,border:`1px solid ${over?T.errBorder:T.border}`,borderRadius:16,padding:12,boxShadow:"0 8px 18px rgba(88,28,135,.05)",overflow:"hidden"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",marginBottom:10}}>
+                          <div style={{display:"flex",gap:9,alignItems:"center",minWidth:0}}>
+                            <span style={{width:34,height:34,borderRadius:12,background:T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{uiIcon(b.icon)}</span>
+                            <div style={{minWidth:0}}>
+                              <div style={{fontSize:13,fontWeight:900,color:T.text,lineHeight:1.25,wordBreak:"break-word"}}>{b.kat}</div>
+                              <div style={{fontSize:10,color:T.muted,marginTop:2}}>Alokasi {IDRs(alloc)}</div>
+                            </div>
+                          </div>
+                          <Pill c={over?"red":pct>80?"yellow":"green"} ch={`${pct.toFixed(0)}%`} xs/>
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                          <div style={{background:T.bg,border:`1px solid ${T.borderLight}`,borderRadius:12,padding:"9px 10px",minWidth:0}}>
+                            <div style={{fontSize:9,color:T.muted,fontWeight:800,textTransform:"uppercase",letterSpacing:.8,marginBottom:3}}>Realisasi</div>
+                            <div style={{fontSize:13,fontWeight:900,color:over?T.err:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{IDRs(spend)}</div>
+                          </div>
+                          <div style={{background:T.bg,border:`1px solid ${T.borderLight}`,borderRadius:12,padding:"9px 10px",minWidth:0}}>
+                            <div style={{fontSize:9,color:T.muted,fontWeight:800,textTransform:"uppercase",letterSpacing:.8,marginBottom:3}}>Sisa</div>
+                            <div style={{fontSize:13,fontWeight:900,color:over?T.err:T.ok,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{IDRs(Math.max(alloc-spend,0))}</div>
+                          </div>
+                        </div>
+                        <PBar pct={Math.min(pct,100)} c={over?"#EF4444":pct>80?"#F59E0B":"#22C55E"}/>
+                        <div style={{display:"flex",justifyContent:"space-between",gap:10,fontSize:10,color:T.muted,marginTop:6}}>
+                          <span>Progress</span>
+                          <span style={{fontWeight:800,color:over?T.err:T.muted}}>{over?"Melebihi budget":`${pct.toFixed(0)}% terpakai`}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ):<>
+                <div style={{display:"grid",gridTemplateColumns:"minmax(160px,1fr) 110px 110px minmax(150px,1fr) 78px",padding:"6px 0",borderBottom:`1.5px solid ${T.border}`,marginBottom:4,gap:10}}>
+                  {[lang==="en"?["Category","Allocation","Realized","Progress","% Used"]:["Kategori","Alokasi","Realisasi","Progress","% Terpakai"]].map(h=><span key={h} style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,whiteSpace:"nowrap"}}>{h}</span>)}
+                </div>
+                {s.budgets.map(b=>{
                 const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
                 const spend=spendByKat[b.id]||0;const pct=alloc>0?spend/alloc*100:0;const over=alloc>0&&spend>alloc;
                 return(
-                  <div key={b.id} style={{display:"grid",gridTemplateColumns:"1fr 100px 100px minmax(120px,1fr) 70px",padding:"9px 0",borderBottom:`1px solid ${T.borderLight}`,gap:8,alignItems:"center"}}>
-                    <span style={{fontSize:12,display:"flex",gap:6,alignItems:"center",color:T.text}}><span>{uiIcon(b.icon)}</span>{b.kat}</span>
+                  <div key={b.id} style={{display:"grid",gridTemplateColumns:"minmax(160px,1fr) 110px 110px minmax(150px,1fr) 78px",padding:"9px 0",borderBottom:`1px solid ${T.borderLight}`,gap:10,alignItems:"center"}}>
+                    <span style={{fontSize:12,display:"flex",gap:6,alignItems:"center",color:T.text,minWidth:0}}><span style={{flexShrink:0}}>{uiIcon(b.icon)}</span><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.kat}</span></span>
                     <span style={{fontSize:12,color:T.sub}}>{IDRs(alloc)}</span>
                     <span style={{fontSize:12,fontWeight:600,color:over?T.err:T.text}}>{IDRs(spend)}</span>
                     <PBar pct={Math.min(pct,100)} c={over?"#EF4444":pct>80?"#F59E0B":"#22C55E"}/>
                     <Pill c={over?"red":pct>80?"yellow":"green"} ch={`${pct.toFixed(0)}%`} xs/>
                   </div>
                 );
-              })}
+                })}
+              </>}
             </>} style={{marginBottom:18}}/>
 
             {/* Prediksi + Saran */}
@@ -8118,7 +8156,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
       `}</style>
 
       {/* Float Button */}
-      {!aiOpen&&!moreOpen&&!quickOpen&&!modal&&!sidebarOpen&&!notifOpen&&!commandOpen&&!(isMobile&&(page==="home"||page==="trans"||page==="budget"||page==="habit"))&&<button
+      {!aiOpen&&!moreOpen&&!quickOpen&&!modal&&!sidebarOpen&&!notifOpen&&!commandOpen&&!(isMobile&&(page==="home"||page==="trans"||page==="budget"||page==="habit"||page==="laporan"))&&<button
         className="ai-float-btn"
         onClick={()=>setAiOpen(true)}
         style={{
