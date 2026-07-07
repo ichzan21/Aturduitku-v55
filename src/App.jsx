@@ -960,7 +960,7 @@ const Calculator=({value,onChange,onClose})=>{
 // ─── KALKULATOR FINANSIAL (NEW) ────────────────────────────────────────────────
 const KalkulatorFinansial = ({onClose}) => {
   const T=useT();
-  const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
+  const isMobile = typeof window !== "undefined" ? window.innerWidth < 900 : false;
   const [tab, setTab] = useState("investasi");
   const [inv, setInv] = useState({awal: "1000000", rutin: "500000", bunga: "8", tahun: "5"});
   const [pinj, setPinj] = useState({pokok: "10000000", bunga: "10", tenor: "12"});
@@ -1199,7 +1199,7 @@ const DailyChart=({txBulan,bulan,tahun})=>{
 const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset})=>{
   const T=useT();
   const [showPakai,setShowPakai]=useState(false);
-  const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
+  const isMobile = typeof window !== "undefined" ? window.innerWidth < 900 : false;
   const [pakaiJml,setPakaiJml]=useState("");
   const [pakaiKet,setPakaiKet]=useState("");
   const [showIsi,setShowIsi]=useState(false);
@@ -1577,7 +1577,7 @@ const parseBankCSV = (text, bank) => {
 
 // ─── KALKULATOR CICILAN ───────────────────────────────────────────────────────
 function KalkulatorCicilan({ onClose, T }) {
-  const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
+  const isMobile = typeof window !== "undefined" ? window.innerWidth < 900 : false;
   const [harga, setHarga] = useState("");
   const [dp, setDp] = useState("");
   const [tenor, setTenor] = useState("12");
@@ -1855,7 +1855,7 @@ function KomparasiBulanan({ txs, budgets, T, isMobile }) {
 
 // ─── ONBOARDING COMPONENT ─────────────────────────────────────────────────────
 function Onboarding({ onDone, lang="id", changeLang }) {
-  const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
+  const isMobile = typeof window !== "undefined" ? window.innerWidth < 900 : false;
   const t = (key) => TR[lang]?.[key] ?? TR["id"]?.[key] ?? key;
   const [step, setStep] = useState(0);
   const [nama, setNama] = useState("");
@@ -2914,7 +2914,7 @@ export default function App(){
       window.visualViewport?.removeEventListener("scroll",updateViewport);
     };
   },[]);
-  const isMobile=vw<768;const isTablet=vw>=768&&vw<1024;
+  const isMobile=vw<900;const isTablet=vw>=900&&vw<1180;
   const navTo=id=>{setPage(id);if(isMobile)setSidebarOpen(false);};
 
   // Forms
@@ -7869,7 +7869,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           -webkit-overflow-scrolling:touch;
           -webkit-appearance:none;
         }
-        @media (max-width: 767px) {
+        @media (max-width: 899px) {
           .ai-panel { width:100vw; }
           .ai-float-btn {
             width:54px;

@@ -230,7 +230,7 @@ body {
   overscroll-behavior: none;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 899px) {
   body {
     font-size: 14px;
   }
