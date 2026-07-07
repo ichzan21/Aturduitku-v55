@@ -3221,6 +3221,24 @@ export default function App(){
     });
     return list;
   },[s.budgets,spendByKat,daysPassed]);
+  const reportNarrative=useMemo(()=>{
+    const topName=topKat[0]?.[0] || "belum ada kategori dominan";
+    const topValue=topKat[0]?.[1] || 0;
+    const budgetPct=totalBudget>0 ? totalOut/totalBudget*100 : 0;
+    const title = txBulan.length
+      ? `Bulan ini kamu paling banyak keluar di ${topName}`
+      : "Laporan akan hidup setelah transaksi pertama";
+    const body = txBulan.length
+      ? `Rata-rata pengeluaran harian sekitar ${IDRs(dailyAvg)}. Kalau pola ini berlanjut, estimasi pengeluaran bulan ini menjadi ${IDRs(prediksiOut)} dan sisa akhir bulan ${prediksiSisa>=0?"masih aman":"perlu dijaga"} di ${IDRs(prediksiSisa)}.`
+      : "Catat pemasukan, pengeluaran, atau tabungan pertama supaya AturDuitku bisa membaca pola uangmu dengan lebih akurat.";
+    const points = [
+      totalIn>0 ? `Saving rate kamu ${PCT(savRate)}${savRate>=20?", sudah masuk zona sehat.":", target sehatnya minimal 20%."}` : "Pemasukan bulan ini belum tercatat, jadi rasio laporan belum lengkap.",
+      topValue>0 ? `${topName} menyerap ${IDRs(topValue)} bulan ini. Ini kategori pertama yang paling layak dicek.` : "Belum ada kategori pengeluaran yang bisa dianalisis.",
+      totalBudget>0 ? `Budget terpakai ${PCT(budgetPct)} dari total alokasi.` : "Budget dasar belum diisi, jadi batas belanja belum terlihat.",
+    ];
+    const tone = prediksiSisa<0 || budgetPct>100 ? "danger" : savRate>=20 && netCash>=0 ? "good" : "warn";
+    return {title,body,points,tone};
+  },[txBulan.length,topKat,totalBudget,totalOut,totalIn,dailyAvg,prediksiOut,prediksiSisa,savRate,netCash]);
 
   // Amplop computed
   const amplopTotal=useMemo(()=>s.amplop.reduce((a,b)=>a+N(b.alokasi),0),[s.amplop]);
@@ -5395,6 +5413,8 @@ Saldo amplop bertambah.`}]);
   const supportBody=encodeURIComponent(`Halo admin AturDuitku,\n\nSaya butuh bantuan untuk akun:\nEmail akun: ${fireUser?.email||accessProfile?.email||""}\nStatus: ${accessProfile?.approvalStatus||"belum login"}\n\nKendala saya:\n`);
   const supportWhatsappHref="https://wa.me/6287785472696?text="+supportBody;
   const supportHref=`mailto:${supportEmail}?subject=${supportSubject}&body=${supportBody}`;
+  const supportBugBody=encodeURIComponent(`Halo admin AturDuitku,\n\nSaya mau lapor kendala/bug.\n\nEmail akun: ${fireUser?.email||accessProfile?.email||"-"}\nNama: ${accessProfile?.displayName||fireUser?.displayName||s.name||"-"}\nHalaman: ${page}\nStatus akun: ${accessProfile?.approvalStatus||"belum login"}\nStatus sync: ${!isOnline?"offline":syncStatus}\nMode PWA: ${isStandalone?"terpasang":"browser"}\nPerangkat: ${typeof navigator!=="undefined"?(navigator.userAgent||"").slice(0,160):"-"}\n\nKendala yang saya alami:\n`);
+  const supportBugWhatsappHref="https://wa.me/6287785472696?text="+supportBugBody;
 
   // Show loading screen while checking auth
   if(fireLoading || accessLoading) return (
@@ -6065,6 +6085,17 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             </div>
           </div>
         </div>
+
+        {fireUser&&(!isOnline||syncStatus==="error")&&<div style={{padding:isMobile?`10px max(14px,env(safe-area-inset-right)) 0 max(14px,env(safe-area-inset-left))`:"12px 28px 0",maxWidth:1340,margin:"0 auto"}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:11,background:!isOnline?T.warnBg:T.errBg,border:`1px solid ${!isOnline?T.warnBorder:T.errBorder}`,borderRadius:14,padding:"11px 13px",boxShadow:T.shadow,color:T.text}}>
+            <span style={{width:34,height:34,borderRadius:12,background:T.card,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{!isOnline?"â›…":"âš ï¸"}</span>
+            <div style={{minWidth:0,flex:1}}>
+              <div style={{fontSize:13,fontWeight:900,color:!isOnline?T.warn:T.err,marginBottom:2}}>{!isOnline?"Kamu sedang offline":"Sinkronisasi perlu dicek"}</div>
+              <div style={{fontSize:11,color:T.sub,lineHeight:1.55}}>Data tetap aman tersimpan di perangkat ini. AturDuitku akan mencoba sync otomatis lagi saat koneksi stabil.</div>
+            </div>
+            <a href={supportBugWhatsappHref} target="_blank" rel="noreferrer" style={{fontSize:11,fontWeight:900,color:!isOnline?T.warn:T.err,textDecoration:"none",background:T.card,border:`1px solid ${T.border}`,borderRadius:999,padding:"7px 10px",whiteSpace:"nowrap"}}>Lapor</a>
+          </div>
+        </div>}
 
         {/* Mobile Quick Action */}
         {isMobile&&!moreOpen&&!sidebarOpen&&!aiOpen&&!modal&&(page==="home"||page==="trans"||page==="budget"||page==="habit")&&(
@@ -7105,6 +7136,22 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <Btn onClick={exportPDF} ch={t("exportPDF")} c="#5B21B6" style={{padding:"7px 14px",fontSize:12}}/>
             </div>
 
+            <Card ch={<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"auto 1fr auto",gap:14,alignItems:"center"}}>
+              <img src="/icon-192.png" alt="" style={{width:54,height:54,borderRadius:17,objectFit:"cover",boxShadow:`0 12px 28px ${T.accentPop}`,flexShrink:0}}/>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",marginBottom:4}}>Ringkasan manusiawi</div>
+                <div style={{fontSize:17,fontWeight:950,color:T.text,letterSpacing:-.25,marginBottom:5}}>{reportNarrative.title}</div>
+                <div style={{fontSize:12,color:T.muted,lineHeight:1.65,maxWidth:760}}>{reportNarrative.body}</div>
+                <div style={{display:"grid",gap:7,marginTop:12}}>
+                  {reportNarrative.points.map((point,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",fontSize:11,color:T.sub,lineHeight:1.5}}>
+                    <span style={{width:20,height:20,borderRadius:999,display:"inline-flex",alignItems:"center",justifyContent:"center",background:reportNarrative.tone==="danger"?T.errBg:reportNarrative.tone==="good"?T.okBg:T.warnBg,color:reportNarrative.tone==="danger"?T.err:reportNarrative.tone==="good"?T.ok:T.warn,fontSize:10,fontWeight:900,flexShrink:0}}>{i+1}</span>
+                    <span>{point}</span>
+                  </div>)}
+                </div>
+              </div>
+              <Btn onClick={()=>{setAiOpen(true);setTimeout(()=>handleAiSend("Jelaskan laporan bulan ini dengan bahasa yang sederhana dan beri 3 langkah terbaik untuk saya"),0);}} ch="Tanya Dokter" c={reportNarrative.tone==="danger"?T.err:reportNarrative.tone==="good"?T.ok:T.accent} style={{padding:"10px 14px",fontSize:12,width:isMobile?"100%":"auto"}}/>
+            </div>} style={{marginBottom:18,padding:isMobile?14:"16px 18px"}}/>
+
             {/* Komparasi Bulanan */}
             <KomparasiBulanan txs={s.txs} budgets={s.budgets} T={T} isMobile={isMobile}/>
 
@@ -7294,6 +7341,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:isMobile?"stretch":"flex-end"}}>
                   <a href={supportWhatsappHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"10px 14px",borderRadius:999,background:T.ok,color:"white",fontSize:12,fontWeight:900,textDecoration:"none",boxShadow:`0 10px 22px ${T.ok}22`,flex:isMobile?"1 1 140px":"0 0 auto"}}>WhatsApp</a>
                   <a href={supportInstagramHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"10px 14px",borderRadius:999,background:T.accent,color:"white",fontSize:12,fontWeight:900,textDecoration:"none",boxShadow:`0 10px 22px ${T.accentPop}`,flex:isMobile?"1 1 140px":"0 0 auto"}}>Instagram</a>
+                  <a href={supportBugWhatsappHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"10px 14px",borderRadius:999,background:T.warnBg,color:T.warn,fontSize:12,fontWeight:900,textDecoration:"none",border:`1px solid ${T.warnBorder}`,flex:isMobile?"1 1 140px":"0 0 auto"}}>Lapor bug</a>
                 </div>
               </div>} style={{gridColumn:"1/-1",padding:isMobile?14:"16px 18px"}}/>
               <Card ch={<>
@@ -7427,6 +7475,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   </div>
                   <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                     <a href={supportWhatsappHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,padding:"9px 13px",borderRadius:999,background:T.okBg,color:T.ok,fontSize:12,fontWeight:900,textDecoration:"none",border:`1px solid ${T.okBorder}`}}>WhatsApp</a>
+                    <a href={supportBugWhatsappHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,padding:"9px 13px",borderRadius:999,background:T.warnBg,color:T.warn,fontSize:12,fontWeight:900,textDecoration:"none",border:`1px solid ${T.warnBorder}`}}>Lapor bug</a>
                     <a href={supportInstagramHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,padding:"9px 13px",borderRadius:999,background:T.accentBg,color:T.accent,fontSize:12,fontWeight:900,textDecoration:"none",border:`1px solid ${T.border}`}}>Instagram</a>
                     <a href={supportHref} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,padding:"9px 13px",borderRadius:999,background:T.cardAlt,color:T.text,fontSize:12,fontWeight:900,textDecoration:"none",border:`1px solid ${T.border}`}}>Email</a>
                   </div>
