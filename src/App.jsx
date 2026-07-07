@@ -5784,7 +5784,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           </>
         )}
 
-        <div className="page-in" style={{padding:isMobile?`14px max(14px,env(safe-area-inset-right)) calc(80px + max(env(safe-area-inset-bottom),0px)) max(14px,env(safe-area-inset-left))`:"22px 28px 40px",maxWidth:1340,margin:"0 auto"}}>
+        <div className="page-in" style={{display:page==="admin"?"none":undefined,padding:isMobile?`14px max(14px,env(safe-area-inset-right)) calc(80px + max(env(safe-area-inset-bottom),0px)) max(14px,env(safe-area-inset-left))`:"22px 28px 40px",maxWidth:1340,margin:"0 auto"}}>
 
           {/* ══════════════════════════════════════════════════════════
               HOME
@@ -7233,7 +7233,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
         </div>
 
         {page==="admin"&&isAdmin&&(
-          <>
+          <div style={{padding:isMobile?`12px max(12px,env(safe-area-inset-right)) calc(80px + max(env(safe-area-inset-bottom),0px)) max(12px,env(safe-area-inset-left))`:"14px 14px 40px",maxWidth:1340,margin:"0 auto"}}>
             <Card ch={<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.35fr .9fr .9fr",gap:14,alignItems:"stretch"}}>
               <div style={{display:"flex",gap:12,alignItems:"flex-start",minWidth:0}}>
                 <img className="cat-mascot" src="/icon-192.png" alt="" style={{width:54,height:54,borderRadius:16,objectFit:"cover",boxShadow:`0 10px 24px ${T.accentPop}`,flexShrink:0}}/>
@@ -7432,7 +7432,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </div>
               </div>}
             </>}/>
-          </>
+          </div>
         )}
 
         <div style={{textAlign:"center",padding:14,fontSize:11,color:T.muted,borderTop:`1.5px solid ${T.border}`,background:T.topbar,marginTop:8,transition:"background .3s", paddingBottom: isMobile ? 80 : 14}}>
