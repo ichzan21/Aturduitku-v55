@@ -2,7 +2,7 @@ import React, { Suspense, useState, useEffect, useMemo, useRef, createContext, u
 import {
   getCurrentIdToken, signInWithEmail, signInWithGoogle, signOutUser, onAuthChange, signUpWithEmail,
   saveUserData, getUserData,
-} from "./firebase.js";
+} from "./firebaseClient.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -85,6 +85,13 @@ const PCT  = v=>Number(v||0).toFixed(1)+"%";
 const dateKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const today= ()=>dateKey();
 const dateAdd=(key,days)=>{const [y,m,d]=String(key).split("-").map(Number);const dt=new Date(y,(m||1)-1,d||1);dt.setDate(dt.getDate()+days);return dateKey(dt);};
+const afterFirstPaint=()=>new Promise(resolve=>{
+  if(typeof window==="undefined"){resolve();return;}
+  const schedule=()=>("requestIdleCallback" in window)
+    ? window.requestIdleCallback(resolve,{timeout:700})
+    : setTimeout(resolve,0);
+  requestAnimationFrame(()=>setTimeout(schedule,0));
+});
 const nowM = ()=>new Date().getMonth();
 const nowY = ()=>new Date().getFullYear();
 const MONTHS=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
@@ -2643,56 +2650,77 @@ export default function App(){
 
   // Firebase Auth listener
   useEffect(()=>{
-    const unsub = onAuthChange(async(user)=>{
-      setFireLoading(true);
-      setFireUser(user);
-      setAccessProfile(null);
-      setAccessLoading(Boolean(user));
-      if(user){
-        try{
-          const [profile, cloudData] = await Promise.all([
-            loadAccessProfile(),
-            loadCloudData(user.uid).catch(e=>{console.warn("Cloud data preload failed:",e);return null;}),
-          ]);
-          const approved = profile?.approvalStatus==="approved";
-          if(approved){
-            if(!applyLoadedUserData(user, cloudData)){
-              const localRaw = localStorage.getItem("aturduitku_data");
-              const localOwner = localStorage.getItem(LOCAL_OWNER_KEY);
-              const localOnboarded = localStorage.getItem("aturduitku_onboarded")==="1";
-              if(localRaw && localOwner===user.uid){
-                try{await saveCloudData(user.uid,{data:JSON.parse(localRaw),onboarded:localOnboarded});}catch(e){}
-                setOnboarded(localOnboarded);
+    let disposed=false;
+    let unsub=()=>{};
+    const startAuth=async()=>{
+      try{
+        await afterFirstPaint();
+        if(disposed) return;
+        unsub = await onAuthChange(async(user)=>{
+          if(disposed) return;
+          setFireLoading(true);
+          setFireUser(user);
+          setAccessProfile(null);
+          setAccessLoading(Boolean(user));
+          if(user){
+            try{
+              const [profile, cloudData] = await Promise.all([
+                loadAccessProfile(),
+                loadCloudData(user.uid).catch(e=>{console.warn("Cloud data preload failed:",e);return null;}),
+              ]);
+              if(disposed) return;
+              const approved = profile?.approvalStatus==="approved";
+              if(approved){
+                if(!applyLoadedUserData(user, cloudData)){
+                  const localRaw = localStorage.getItem("aturduitku_data");
+                  const localOwner = localStorage.getItem(LOCAL_OWNER_KEY);
+                  const localOnboarded = localStorage.getItem("aturduitku_onboarded")==="1";
+                  if(localRaw && localOwner===user.uid){
+                    try{await saveCloudData(user.uid,{data:JSON.parse(localRaw),onboarded:localOnboarded});}catch(e){}
+                    if(disposed) return;
+                    setOnboarded(localOnboarded);
+                  } else {
+                    setOnboarded(false);
+                  }
+                }
               } else {
                 setOnboarded(false);
               }
+            }catch(e){
+              console.warn("Load from Firebase failed:",e);
+              if(disposed) return;
+              setAccessProfile({
+                uid:user.uid,
+                email:user.email||"",
+                displayName:user.displayName||"",
+                photoURL:user.photoURL||"",
+                role:"user",
+                approvalStatus:"approved",
+                backendReady:false,
+              });
+              try{
+                const cloudData = await loadCloudData(user.uid);
+                if(!disposed) applyLoadedUserData(user, cloudData);
+              }catch(err){}
             }
           } else {
-            setOnboarded(false);
+            setAccessLoading(false);
           }
-        }catch(e){
-          console.warn("Load from Firebase failed:",e);
-          setAccessProfile({
-            uid:user.uid,
-            email:user.email||"",
-            displayName:user.displayName||"",
-            photoURL:user.photoURL||"",
-            role:"user",
-            approvalStatus:"approved",
-            backendReady:false,
-          });
-          try{
-            const cloudData = await loadCloudData(user.uid);
-            applyLoadedUserData(user, cloudData);
-          }catch(err){}
-        }
-      } else {
+          if(disposed) return;
+          setAccessLoading(false);
+          setFireLoading(false);
+        });
+      }catch(e){
+        console.warn("Firebase auth init failed:",e);
+        if(disposed) return;
+        setFireUser(null);
+        setAccessProfile(null);
         setAccessLoading(false);
+        setFireLoading(false);
       }
-      setAccessLoading(false);
-      setFireLoading(false);
-    });
-    return ()=>unsub();
+    };
+    startAuth();
+    return ()=>{disposed=true;unsub();};
   },[]);
 
   // Handle sign in with Google - auto setup Sheets

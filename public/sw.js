@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aturduitku-v16-pwa-fast-shell';
+const CACHE_NAME = 'aturduitku-v17-pwa-fast-shell';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -29,6 +29,8 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
   if (e.request.mode === 'navigate') {
     e.respondWith(
       caches.match('/index.html').then(cached => {
