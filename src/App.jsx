@@ -5999,7 +5999,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{fontSize:12,color:T.muted,marginBottom:16}}>Masukkan beberapa transaksi sekaligus dengan format yang rapi. Cocok untuk input histori harian atau pindahan catatan lama.</div>
               <div style={{overflowX:"auto",border:`1px solid ${T.border}`,borderRadius:12,background:T.cardAlt}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-                  <thead><tr style={{background:T.cardAlt}}>{[lang==="en"?[t("txHead1"),t("amount"),t("type"),t("dompet"),t("txHead2"),""]:["Tanggal","Jumlah","Tipe","Dompet","Keterangan",""]].map(h=><th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,borderBottom:`1px solid ${T.border}`}}>{h}</th>)}</tr></thead>
+                  <thead><tr style={{background:T.cardAlt}}>{(lang==="en"?[t("txHead1"),t("amount"),t("type"),t("dompet"),t("txHead2"),""]:["Tanggal","Jumlah","Tipe","Dompet","Keterangan",""]).map(h=><th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,borderBottom:`1px solid ${T.border}`}}>{h}</th>)}</tr></thead>
                   <tbody>{bulkRows.map((r,i)=>(
                     <tr key={i}>
                       <td style={{padding:4}}><input type="date" value={r.tgl} onChange={e=>{const n=[...bulkRows];n[i]={...n[i],tgl:e.target.value};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:120}}/></td>
@@ -7374,7 +7374,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </div>
               ):<>
                 <div style={{display:"grid",gridTemplateColumns:"minmax(160px,1fr) 110px 110px minmax(150px,1fr) 78px",padding:"6px 0",borderBottom:`1.5px solid ${T.border}`,marginBottom:4,gap:10}}>
-                  {[lang==="en"?["Category","Allocation","Realized","Progress","% Used"]:["Kategori","Alokasi","Realisasi","Progress","% Terpakai"]].map(h=><span key={h} style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,whiteSpace:"nowrap"}}>{h}</span>)}
+                  {(lang==="en"?["Category","Allocation","Realized","Progress","% Used"]:["Kategori","Alokasi","Realisasi","Progress","% Terpakai"]).map(h=><span key={h} style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,whiteSpace:"nowrap"}}>{h}</span>)}
                 </div>
                 {s.budgets.map(b=>{
                 const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
