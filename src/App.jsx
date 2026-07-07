@@ -3890,7 +3890,47 @@ CONTOH GAYA:
         const body = lines.filter(Boolean).map(line=>`• ${line}`).join("\n");
         aiDone(`${icon} **${title}**${body?`\n\n${body}`:""}${next?`\n\n${next}`:""}`);
       };
-      const aiAmount = (...vals) => N(vals.find(v=>v!==undefined&&v!==null&&String(v)!=="")||0);
+      const parseAiMoney = v => {
+        const text=String(v||"").toLowerCase().replace(/\s+/g,"");
+        if(!text) return 0;
+        const match=text.match(/[0-9][0-9.,]*/);
+        if(!match) return 0;
+        const numeric=Number(match[0].replace(/\./g,"").replace(",", "."))||0;
+        if(/jt|juta/.test(text)) return Math.round(numeric*1000000);
+        if(/rb|ribu|k/.test(text)) return Math.round(numeric*1000);
+        return Math.round(numeric);
+      };
+      const aiAmount = (...vals) => parseAiMoney(vals.find(v=>v!==undefined&&v!==null&&String(v)!=="")||0);
+      const aiAmountAfter = (source, keys=[]) => {
+        const text = String(source||"");
+        for (const key of keys) {
+          const escaped = String(key).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const m = text.match(new RegExp(`${escaped}\\s*(?:rp|idr)?\\s*([0-9][0-9.,]*\\s*(?:rb|ribu|jt|juta|k)?)`, "i"));
+          if (m?.[1]) {
+            return parseAiMoney(m[1]);
+          }
+        }
+        return 0;
+      };
+      const inferAiAction = (source) => {
+        const lower = String(source||"").toLowerCase();
+        const amount = aiAmountAfter(source, ["jumlah", "nominal", "sebesar", "nilai"]) || aiAmountAfter(source, ["utang", "hutang", "pinjaman", "piutang"]);
+        if (/(catat|tambah|buat).*(utang|hutang|pinjaman)/.test(lower)) {
+          const nama = String(source||"")
+            .replace(/catat|tambah|buat|utang|hutang|pinjaman|sebesar|jumlah|nominal|rp|[0-9.,]+(?:rb|ribu|jt|juta|k)?/gi, " ")
+            .replace(/\s+/g, " ")
+            .trim() || "Utang Baru";
+          return {action:"tambah_utang",tipe:"utang",nama,jml:amount};
+        }
+        if (/(catat|tambah|buat).*(piutang)/.test(lower)) {
+          const nama = String(source||"")
+            .replace(/catat|tambah|buat|piutang|sebesar|jumlah|nominal|rp|[0-9.,]+(?:rb|ribu|jt|juta|k)?/gi, " ")
+            .replace(/\s+/g, " ")
+            .trim() || "Piutang Baru";
+          return {action:"tambah_utang",tipe:"piutang",nama,jml:amount};
+        }
+        return null;
+      };
       const aiDompetStrict = name => cleanAiText(name) ? findAiItem(s.dompet, name, ["nama"]) : null;
       const aiBudgetStrict = name => cleanAiText(name) ? findAiItem(s.budgets, name, ["kat"]) : null;
       const aiBalanceOk = (dompet, jumlah) => !dompet || N(dompet.saldo)>=jumlah;
@@ -3936,7 +3976,8 @@ CONTOH GAYA:
           }
         } else if(parsed.action==="buat_amplop") {
           const dompet=cleanAiText(parsed.dompet)?aiDompetStrict(parsed.dompet):aiDompet(parsed.dompet);
-          const jumlah=aiAmount(parsed.jumlah, parsed.jml, parsed.nominal);
+          const saldoAwal=aiAmountAfter(msg, ["saldo awal", "isi awal", "dana awal", "awal"]);
+          const jumlah=saldoAwal || aiAmount(parsed.saldoAwal, parsed.saldo_awal, parsed.jumlah, parsed.jml, parsed.nominal);
           const nama=String(parsed.nama||"Amplop Baru").trim();
           if(!dompet) aiDone(`⚠️ Dompet "${parsed.dompet}" tidak ditemukan.`);
           else if(!jumlah) aiDone("⚠️ Nominal saldo awal amplop belum jelas.");
@@ -4072,7 +4113,8 @@ CONTOH GAYA:
           const tipe = ["pemasukan","pengeluaran","tabungan"].includes(parsed.tipe) ? parsed.tipe : "pengeluaran";
           const jumlah = aiAmount(parsed.jml, parsed.jumlah, parsed.nominal);
           const katMatch = aiBudget(parsed.kat);
-          const katId = katMatch?.id || s.budgets[0]?.id || "";
+          const incomeKat = parsed.kat && KAT_IN.includes(parsed.kat) ? parsed.kat : (tipe==="pemasukan" ? (parsed.kat || "Lainnya") : "");
+          const katId = tipe==="pemasukan" ? incomeKat : (katMatch?.id || s.budgets[0]?.id || "");
           const dompetMatch = cleanAiText(parsed.dompet)?aiDompetStrict(parsed.dompet):aiDompet(parsed.dompet);
           const dompetId = dompetMatch?.id || s.dompet[0]?.id;
           const goalMatch = tipe==="tabungan" ? aiGoal(parsed.goal) : null;
@@ -4100,7 +4142,7 @@ CONTOH GAYA:
 
 📝 ${newTx.ket}
 💰 Rp ${idr}
-📂 ${katMatch?.kat||"Lainnya"}
+📂 ${tipe==="pemasukan" ? katId : (katMatch?.kat||"Lainnya")}
 💳 ${dompetMatch?.nama||s.dompet[0]?.nama}${goalMatch?`\n🎯 Goal: ${goalMatch.nama}`:""}`}]);
           showToast(t("aiRecorded"));
           }
@@ -4143,26 +4185,32 @@ Lihat di menu **Aset** untuk detail lengkap.`}]);
 
         // ── TAMBAH UTANG ─────────────────────────────────
         } else if(parsed.action==="tambah_utang") {
-          const newUtang = {
-            id:Date.now(),
-            tipe:parsed.tipe==="piutang"?"piutang":"utang",
-            nama:parsed.nama||"Utang Baru",
-            jml:String(parsed.jml||0),
-            tempo:parsed.tempo||"",
-            lunas:false, cicilan:[],
-            catatan:"Dicatat via AI",
-          };
-          setS(p=>({...p, utang:[...p.utang, newUtang]}));
-          const idr = Number(parsed.jml||0).toLocaleString("id-ID");
-          const emoji = parsed.tipe==="piutang"?"📤":"📋";
-          setAiMsgs(prev=>[...prev,{role:"assistant",content:`${emoji} **${parsed.tipe==="piutang"?"Piutang":"Utang"} dicatat!**
+          const jumlah=aiAmount(parsed.jml, parsed.jumlah, parsed.nominal);
+          if(!jumlah){
+            aiDone("⚠️ Nominal utang/piutang belum jelas.");
+          } else {
+            const newUtang = {
+              id:Date.now(),
+              tipe:parsed.tipe==="piutang"?"piutang":"utang",
+              nama:parsed.nama||"Utang Baru",
+              jml:String(jumlah),
+              tgl:today(),
+              tempo:parsed.tempo||"",
+              lunas:false, cicilan:[],
+              catatan:parsed.catatan||"Dicatat via AI",
+            };
+            setS(p=>({...p, utang:[newUtang,...(p.utang||[])]}));
+            const idr = jumlah.toLocaleString("id-ID");
+            const emoji = parsed.tipe==="piutang"?"📤":"📋";
+            setAiMsgs(prev=>[...prev,{role:"assistant",content:`${emoji} **${parsed.tipe==="piutang"?"Piutang":"Utang"} dicatat!**
 
 📝 ${newUtang.nama}
 💰 Rp ${idr}
 📅 Jatuh tempo: ${parsed.tempo||"tidak ditentukan"}
 
 Lihat di menu **Utang** untuk pantau cicilan.`}]);
-          showToast("📋 Utang/Piutang dicatat!");
+            showToast("📋 Utang/Piutang dicatat!");
+          }
 
         // ── ISI AMPLOP ───────────────────────────────────
         } else if(parsed.action==="isi_amplop") {
@@ -4182,8 +4230,30 @@ Saldo amplop bertambah.`}]);
           }
         }
       } else {
-        // Chat biasa
-        setAiMsgs(prev=>[...prev,{role:"assistant",content:reply}]);
+        const fallback=inferAiAction(msg);
+        if(fallback?.action==="tambah_utang"){
+          if(!fallback.jml){
+            aiDone("⚠️ Nominal utang/piutang belum jelas. Contoh: `catat utang ke Budi 200rb`.");
+          } else {
+            const newUtang={
+              id:Date.now(),
+              tipe:fallback.tipe==="piutang"?"piutang":"utang",
+              nama:fallback.nama||"Utang Baru",
+              jml:String(fallback.jml),
+              tgl:today(),
+              tempo:"",
+              lunas:false,
+              cicilan:[],
+              catatan:"Dicatat via AI",
+            };
+            setS(p=>({...p,utang:[newUtang,...(p.utang||[])]}));
+            aiDone(`📋 **${newUtang.tipe==="piutang"?"Piutang":"Utang"} dicatat!**\n\n📝 ${newUtang.nama}\n💰 Rp ${aiMoney(fallback.jml)}\n\nLihat di menu **Utang** untuk pantau cicilan.`);
+            showToast("Utang/Piutang dicatat via AI");
+          }
+        } else {
+          // Chat biasa
+          setAiMsgs(prev=>[...prev,{role:"assistant",content:reply}]);
+        }
       }
     } catch(e) {
       const msg = e?.code === "missing_cloudflare_api_token"
@@ -4206,7 +4276,8 @@ Saldo amplop bertambah.`}]);
     const headers = ["ID", "Tanggal", "Tipe", "Keterangan", "Jumlah (Rp)", "Dompet", "Kategori", "Subkategori"];
     const rows = s.txs.map(t => {
       const d = s.dompet.find(x => x.id === t.dompetId)?.nama || "";
-      const k = s.budgets.find(x => x.id === t.katId)?.kat || "";
+      const isIncome = t.tipe==="pemasukan" || t.tipe==="pemasukan_transfer";
+      const k = isIncome ? (typeof t.katId==="string" ? t.katId : "") : (s.budgets.find(x => x.id === t.katId)?.kat || "");
       return [t.id, t.tgl, t.tipe, `"${t.ket||""}"`, N(t.jml), `"${d}"`, `"${k}"`, `"${t.subKat||""}"`].join(",");
     });
     const BOM = "\uFEFF"; // agar Excel baca UTF-8 dengan benar
@@ -5294,11 +5365,12 @@ Saldo amplop bertambah.`}]);
     }
 
     if(tipe==="pemasukan"){
+      const incomeKat = KAT_IN.includes(katId) ? katId : "Lainnya";
       setS(p=>({...p,
         dompet:p.dompet.map(d=>d.id===dompetId?{...d,saldo:String(N(d.saldo)+jmlNum)}:d),
-        txs:[{...txForm,id,jml:pN(jml)},...p.txs]
+        txs:[{...txForm,id,jml:pN(jml),katId:incomeKat,subKat:""},...p.txs]
       }));
-      setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",subKat:"",goalId:""}));
+      setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",katId:incomeKat,subKat:"",goalId:""}));
       showToast(t("toast_incomeOk"));setModal(null);return;
     }
 
@@ -5450,6 +5522,9 @@ Saldo amplop bertambah.`}]);
     const dompet=s.dompet.find(d=>d.id===t.dompetId);
     const kat=s.budgets.find(b=>b.id===t.katId);
     const isIn=t.tipe==="pemasukan"||t.tipe==="pemasukan_transfer";
+    const txKatLabel=isIn
+      ? (KAT_IN.includes(t.katId) ? t.katId : (typeof t.katId==="string" ? t.katId : "Lainnya"))
+      : kat?.kat;
     const colorMap={pemasukan:T.ok,tabungan:T.info,transfer:T.accent,pengeluaran:T.err};
     return(
       <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
@@ -5459,7 +5534,7 @@ Saldo amplop bertambah.`}]);
           </div>
           <div style={{minWidth:0}}>
             <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.ket||t.tipe}</div>
-            <div style={{fontSize:11,color:T.muted}}>{t.tgl}{dompet&&` · ${uiIcon(dompet.icon)} ${dompet.nama}`}{kat&&` · ${kat.kat}`}{t.subKat&&` › ${t.subKat}`}</div>
+            <div style={{fontSize:11,color:T.muted}}>{t.tgl}{dompet&&` · ${uiIcon(dompet.icon)} ${dompet.nama}`}{txKatLabel&&` · ${txKatLabel}`}{t.subKat&&` › ${t.subKat}`}</div>
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
@@ -5964,7 +6039,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{t("newTx")}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>Catat transaksi baru dengan detail yang cukup supaya laporan tetap akurat.</div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
                 {[{v:"pengeluaran",l:t("outflow2")},{v:"pemasukan",l:t("inflow2")},{v:"tabungan",l:t("savingShort")},{v:"transfer",l:"Transfer"}].map(({v,l})=>(
-                  <button key={v} onClick={()=>setTxForm(f=>({...f,tipe:v}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${txForm.tipe===v?T.accent:T.inputBorder}`,background:txForm.tipe===v?T.accentBg:T.input,color:txForm.tipe===v?T.accent:T.sub}}>{l}</button>
+                  <button key={v} onClick={()=>setTxForm(f=>({...f,tipe:v,katId:v==="pemasukan"?(KAT_IN[0]||"Lainnya"):v==="pengeluaran"?(s.budgets[0]?.id||""):f.katId,subKat:"",goalId:""}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${txForm.tipe===v?T.accent:T.inputBorder}`,background:txForm.tipe===v?T.accentBg:T.input,color:txForm.tipe===v?T.accent:T.sub}}>{l}</button>
                 ))}
               </div>
               <label style={LS}>{t("date")}</label><input type="date" value={txForm.tgl} onChange={e=>setTxForm(f=>({...f,tgl:e.target.value}))} style={{...IS,marginBottom:10}}/>
@@ -6798,24 +6873,28 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     {cats.map(b=>{
                       const spend=spendByKat[b.id]||0;
                       const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
-                      const pct=alloc>0?spend/alloc*100:0;const over=alloc>0&&spend>alloc;
+                      const pct=alloc>0?spend/alloc*100:0;
+                      const unallocated=alloc<=0&&spend>0;
+                      const over=alloc>0&&spend>alloc;
+                      const statusColor=unallocated?"yellow":over?"red":pct>80?"yellow":"green";
+                      const statusLabel=unallocated?"Perlu budget":over?t("overLabel"):pct>80?t("almostLabel"):t("safeLabel");
                       return(
-                        <div key={b.id} style={{background:T.card,borderRadius:13,padding:16,border:`1px solid ${over?T.errBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s"}}>
+                        <div key={b.id} style={{background:T.card,borderRadius:13,padding:16,border:`1px solid ${over?T.errBorder:unallocated?T.warnBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s"}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                             <div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:20}}>{uiIcon(b.icon)}</span><span style={{fontWeight:700,fontSize:13,color:T.text}}>{b.kat}</span></div>
                             <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                              <Pill c={over?"red":pct>80?"yellow":"green"} ch={over?t("overLabel"):pct>80?t("almostLabel"):t("safeLabel")} xs/>
+                              <Pill c={statusColor} ch={statusLabel} xs/>
                               <button onClick={()=>confirmDelete({title:"Hapus kategori budget?",msg:`Kategori "${b.kat}" beserta subkategori di dalamnya akan dihapus. Transaksi lama tetap tersimpan.`,toastMsg:"Kategori budget dihapus",onConfirm:()=>setS(p=>({...p,budgets:p.budgets.filter(x=>x.id!==b.id)}))})} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:11,fontWeight:800,padding:"2px 5px",borderRadius:4,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>Hapus</button>
                             </div>
                           </div>
                           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:10}}>
                             <div><label style={LS}>Alokasi</label><CurIn value={b.alokasi} onChange={v=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,alokasi:v})}))} /></div>
                             <div><label style={LS}>Realisasi</label>
-                            <div style={{padding:"9px 12px",borderRadius:8,border:`1.5px dashed ${over?T.errBorder:T.infoBorder}`,background:over?T.errBg:T.infoBg,color:over?T.err:T.info,fontWeight:700,fontSize:13}}>{IDRs(spend)||"Rp 0"}</div></div>
+                            <div style={{padding:"9px 12px",borderRadius:8,border:`1.5px dashed ${over?T.errBorder:unallocated?T.warnBorder:T.infoBorder}`,background:over?T.errBg:unallocated?T.warnBg:T.infoBg,color:over?T.err:unallocated?T.warn:T.info,fontWeight:700,fontSize:13}}>{IDRs(spend)||"Rp 0"}</div></div>
                           </div>
                           <PBar pct={pct} c={over?"#EF4444":pct>80?"#F59E0B":"#22C55E"} h={5}/>
                           <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.muted,marginTop:3,marginBottom:b.sub.length?10:0}}>
-                            <span>{pct.toFixed(0)}% terpakai</span><span>Sisa: {IDR(Math.max(alloc-spend,0))}</span>
+                            <span>{unallocated?"Belum ada alokasi":`${pct.toFixed(0)}% terpakai`}</span><span>Sisa: {IDR(Math.max(alloc-spend,0))}</span>
                           </div>
                           {b.sub.map((sb,si)=>(
                             <div key={si} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:T.cardAlt,borderRadius:8,marginBottom:4,border:`1px solid ${T.borderLight}`}}>
@@ -7481,19 +7560,6 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <Btn onClick={exportJSON} ch="Backup" c={T.ok} outline style={{padding:"9px 12px",fontSize:12}}/>
                 </div>
               </div>} style={{gridColumn:"1/-1",padding:isMobile?14:"16px 18px"}}/>
-              <Card ch={<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"auto 1fr auto",gap:14,alignItems:"center"}}>
-                <div style={{width:52,height:52,borderRadius:17,background:T.okBg,border:`1px solid ${T.okBorder}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,boxShadow:`0 10px 24px ${T.accentPop}`,flexShrink:0}}>💬</div>
-                <div style={{minWidth:0}}>
-                  <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.1,textTransform:"uppercase",marginBottom:4}}>Bantuan admin</div>
-                  <div style={{fontSize:16,fontWeight:900,color:T.text,marginBottom:4}}>Ada error, login macet, atau approval belum aktif?</div>
-                  <div style={{fontSize:12,color:T.muted,lineHeight:1.6}}>Hubungi admin lewat WhatsApp <strong style={{color:T.ok}}>{supportWhatsapp}</strong> atau Instagram <strong style={{color:T.accent}}>{supportInstagram}</strong>. Sertakan email akun dan Order ID Scalev kalau terkait pembayaran.</div>
-                </div>
-                <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:isMobile?"stretch":"flex-end"}}>
-                  <a href={supportWhatsappHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"10px 14px",borderRadius:999,background:T.ok,color:"white",fontSize:12,fontWeight:900,textDecoration:"none",boxShadow:`0 10px 22px ${T.ok}22`,flex:isMobile?"1 1 140px":"0 0 auto"}}>WhatsApp</a>
-                  <a href={supportInstagramHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"10px 14px",borderRadius:999,background:T.accent,color:"white",fontSize:12,fontWeight:900,textDecoration:"none",boxShadow:`0 10px 22px ${T.accentPop}`,flex:isMobile?"1 1 140px":"0 0 auto"}}>Instagram</a>
-                  <a href={supportBugWhatsappHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"10px 14px",borderRadius:999,background:T.warnBg,color:T.warn,fontSize:12,fontWeight:900,textDecoration:"none",border:`1px solid ${T.warnBorder}`,flex:isMobile?"1 1 140px":"0 0 auto"}}>Lapor bug</a>
-                </div>
-              </div>} style={{gridColumn:"1/-1",padding:isMobile?14:"16px 18px"}}/>
               <Card ch={<>
                 <Sec t={t("profile")}/>
                 <label style={LS}>{t("displayName")}</label><input value={sfForm.name} onChange={e=>setSfForm(f=>({...f,name:e.target.value}))} style={{...IS,marginBottom:10}}/>
@@ -7612,7 +7678,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       <span style={{fontSize:12,color,fontWeight:900}}>{value}</span>
                     </div>)}
                   </div>
-                  <div style={{fontSize:12,color:T.muted,lineHeight:1.65,marginBottom:12}}>Kalau ada error, kendala login, pembayaran, atau approval, hubungi admin lewat kontak berikut.</div>
+                  <div style={{fontSize:12,color:T.muted,lineHeight:1.65,marginBottom:12}}>Kalau ada error, kendala login, pembayaran, atau approval, hubungi admin lewat WhatsApp. Sertakan email akun dan Order ID Scalev kalau terkait pembayaran.</div>
                   <div style={{display:"grid",gap:8,marginBottom:10}}>
                     <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:11,padding:"9px 11px"}}>
                       <span style={{fontSize:12,color:T.text,fontWeight:800}}>WhatsApp</span>
@@ -7623,12 +7689,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       <span style={{fontSize:12,color:T.accent,fontWeight:900}}>{supportInstagram}</span>
                     </div>
                   </div>
-                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    <a href={supportWhatsappHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,padding:"9px 13px",borderRadius:999,background:T.okBg,color:T.ok,fontSize:12,fontWeight:900,textDecoration:"none",border:`1px solid ${T.okBorder}`}}>WhatsApp</a>
-                    <a href={supportBugWhatsappHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,padding:"9px 13px",borderRadius:999,background:T.warnBg,color:T.warn,fontSize:12,fontWeight:900,textDecoration:"none",border:`1px solid ${T.warnBorder}`}}>Lapor bug</a>
-                    <a href={supportInstagramHref} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,padding:"9px 13px",borderRadius:999,background:T.accentBg,color:T.accent,fontSize:12,fontWeight:900,textDecoration:"none",border:`1px solid ${T.border}`}}>Instagram</a>
-                    <a href={supportHref} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,padding:"9px 13px",borderRadius:999,background:T.cardAlt,color:T.text,fontSize:12,fontWeight:900,textDecoration:"none",border:`1px solid ${T.border}`}}>Email</a>
-                  </div>
+                  <a href={supportWhatsappHref} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"11px 14px",borderRadius:14,background:T.ok,color:"white",fontSize:13,fontWeight:900,textDecoration:"none",boxShadow:`0 12px 28px ${T.ok}22`}}>Hubungi Admin</a>
                 </>}/>
 
                 <Card ch={<>
