@@ -3170,6 +3170,45 @@ export default function App(){
     {key:"habit",ok:habitTotalToday>0,title:"Tambah habit uang",desc:"Buat quest harian seperti catat transaksi atau cek saldo.",icon:"🐾",action:"Habit",target:"habit"},
   ],[s.dompet,s.txs,totalBudget,habitTotalToday]);
   const setupPct=setupSteps.filter(x=>x.ok).length/setupSteps.length*100;
+  const healthChecklist=useMemo(()=>[
+    {
+      key:"saldo",
+      ok:s.dompet.some(d=>N(d.saldo)>0),
+      icon:"👛",
+      title:"Saldo sudah diisi",
+      desc:"Dashboard membaca uang dari dompet utama.",
+      action:"Isi saldo",
+      target:"dompet",
+    },
+    {
+      key:"budget",
+      ok:totalBudget>0,
+      icon:"📊",
+      title:"Budget sudah dibuat",
+      desc:"Batas belanja bulanan mulai terlihat.",
+      action:"Buat budget",
+      target:"budget",
+    },
+    {
+      key:"tx_today",
+      ok:todayTxCount>0,
+      icon:"🧾",
+      title:"Transaksi hari ini",
+      desc:todayTxCount>0?`${todayTxCount} transaksi dicatat hari ini.`:"Catat satu transaksi agar laporan tetap hidup.",
+      action:"Catat",
+      target:"tx",
+    },
+    {
+      key:"habit_today",
+      ok:habitTotalToday>0&&habitDoneToday>=habitTotalToday,
+      icon:"🐾",
+      title:"Habit hari ini",
+      desc:habitTotalToday?`${habitDoneToday}/${habitTotalToday} quest selesai.`:"Buat habit kecil agar user rutin balik.",
+      action:habitTotalToday?"Ceklis":"Buat habit",
+      target:"habit",
+    },
+  ],[s.dompet,totalBudget,todayTxCount,habitTotalToday,habitDoneToday]);
+  const healthChecklistPct=healthChecklist.filter(x=>x.ok).length/healthChecklist.length*100;
 
   const weeklyMissions=useMemo(()=>{
     const txDays=new Set(s.txs.map(tx=>tx.tgl).filter(Boolean));
@@ -3495,7 +3534,19 @@ export default function App(){
   // ═══════════════════════════════════════════════════
   // CLOUDFLARE WORKERS AI + GOOGLE SHEETS SYNC
   // ═══════════════════════════════════════════════════
-  const renderAiContent = (content) => String(content || "").split("\n").map((line, lineIdx, lines) => (
+  const polishAiMessage = (content) => String(content || "")
+    .replace(/\*\*(Pemasukan|Pengeluaran|Tabungan) dicatat!\*\*/g, "**$1 aman, sudah dicatat.**")
+    .replace(/\*\*Goal ditambahkan!\*\*/g, "**Goal baru sudah siap.**")
+    .replace(/\*\*Aset dicatat!\*\*/g, "**Aset sudah masuk catatan.**")
+    .replace(/\*\*(Utang|Piutang) dicatat!\*\*/g, "**$1 sudah dicatat.**")
+    .replace(/\*\*Habit ditambahkan!\*\*/g, "**Habit baru sudah jadi quest harian.**")
+    .replace(/\*\*Habit selesai hari ini!\*\*/g, "**Nice, habit hari ini selesai.**")
+    .replace(/Lihat di menu \*\*Goals\*\* untuk mulai nabung![\s\S]*?$/g, "Langkah kecil berikutnya: setor nominal pertama biar progress-nya langsung hidup.")
+    .replace(/Lihat di menu \*\*Aset\*\* untuk detail lengkap\./g, "Net worth kamu akan ikut terbaca lebih lengkap setelah aset ini masuk.")
+    .replace(/Lihat di menu \*\*Utang\*\* untuk pantau cicilan\./g, "Aku akan bantu ingatkan supaya ini tidak kelewat.")
+    .replace(/Saldo amplop bertambah\./g, "Amplopnya sudah lebih siap dipakai sesuai rencana.");
+
+  const renderAiContent = (content) => polishAiMessage(content).split("\n").map((line, lineIdx, lines) => (
     <React.Fragment key={lineIdx}>
       {line.split(/(\*\*[^*]+\*\*)/g).map((part, partIdx) => (
         part.startsWith("**") && part.endsWith("**")
@@ -3785,6 +3836,8 @@ ATURAN EKSEKUSI:
 - Jika user meminta "analisis", "review", "gimana kondisi", "saran", atau "rencana", jangan JSON; berikan konsultasi.
 - Jika nominal atau objek penting tidak jelas, jangan memaksa. Tanya singkat: "Mau pakai dompet mana?" atau "Nominalnya berapa?"
 - Setelah action berhasil, aplikasi akan membuat konfirmasi sendiri; jadi JSON tidak boleh ditambah teks lain.
+- Untuk konfirmasi setelah data berhasil dicatat oleh aplikasi: singkat, hangat, maksimal 2-4 baris, sebut nominal/objek utama, lalu beri satu langkah berikutnya.
+- Jangan membuat user merasa dihakimi. Pakai nada seperti coach finansial pribadi yang menemani.
 
 FORMAT KONSULTASI PREMIUM:
 - Mulai dengan 1 kalimat empatik sesuai kondisi user.
@@ -3833,6 +3886,10 @@ CONTOH GAYA:
       const aiUtang = name => findAiItem(s.utang.filter(u=>!u.lunas), name, ["nama"]);
       const aiMoney = v => Number(v||0).toLocaleString("id-ID");
       const aiDone = content => setAiMsgs(prev=>[...prev,{role:"assistant",content}]);
+      const aiConfirm = ({icon="✅",title,lines=[],next=""}) => {
+        const body = lines.filter(Boolean).map(line=>`• ${line}`).join("\n");
+        aiDone(`${icon} **${title}**${body?`\n\n${body}`:""}${next?`\n\n${next}`:""}`);
+      };
       const aiAmount = (...vals) => N(vals.find(v=>v!==undefined&&v!==null&&String(v)!=="")||0);
       const aiDompetStrict = name => cleanAiText(name) ? findAiItem(s.dompet, name, ["nama"]) : null;
       const aiBudgetStrict = name => cleanAiText(name) ? findAiItem(s.budgets, name, ["kat"]) : null;
@@ -6269,6 +6326,22 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               </div>
             </div>} style={{marginBottom:18,padding:isMobile?14:"16px 18px"}}/>
 
+            <Card ch={<>
+              <Sec t="Checklist sehat hari ini" sub="Empat tanda kecil bahwa akunmu sudah siap dipakai nyaman" right={<span style={{fontSize:11,fontWeight:900,color:healthChecklistPct>=100?T.ok:T.accent}}>{Math.round(healthChecklistPct)}%</span>}/>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(4,1fr)",gap:10}}>
+                {healthChecklist.map(item=>(
+                  <button key={item.key} onClick={()=>goPremiumTarget(item.target)} style={{textAlign:"left",border:`1px solid ${item.ok?T.okBorder:T.border}`,background:item.ok?T.okBg:T.cardAlt,borderRadius:14,padding:"12px 13px",cursor:"pointer",fontFamily:"inherit",minHeight:118,display:"flex",flexDirection:"column",gap:8}}>
+                    <span style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                      <span style={{width:34,height:34,borderRadius:12,background:item.ok?T.ok:T.accentBg,color:item.ok?"white":T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{item.ok?"✓":item.icon}</span>
+                      <span style={{fontSize:10,fontWeight:900,color:item.ok?T.ok:T.accent,background:T.card,border:`1px solid ${T.border}`,borderRadius:999,padding:"4px 8px",whiteSpace:"nowrap"}}>{item.ok?"Beres":item.action}</span>
+                    </span>
+                    <span style={{display:"block",fontSize:12,fontWeight:900,color:T.text,lineHeight:1.25}}>{item.title}</span>
+                    <span style={{display:"block",fontSize:10,color:T.muted,lineHeight:1.45}}>{item.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </>} style={{marginBottom:18,padding:isMobile?14:"16px 18px"}}/>
+
             {setupPct<100&&<Card ch={<>
               <Sec t="Start checklist" sub="Langkah kecil agar user baru cepat paham alur AturDuitku" right={<span style={{fontSize:11,fontWeight:900,color:T.accent}}>{Math.round(setupPct)}%</span>}/>
               <PBar pct={setupPct} c={T.accent} h={8}/>
@@ -6696,6 +6769,17 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <Btn onClick={()=>{if(!newKat.kat.trim()){showToast(t("toast_fillName"));return;}setS(p=>({...p,budgets:[...p.budgets,{id:Date.now(),kat:newKat.kat,icon:newKat.icon,kelas:newKat.kelas,alokasi:"0",sub:[]}]}));setNewKat({kat:"",icon:"ETC",kelas:"Kebutuhan"});setShowAddKat(false);showToast("Kategori ditambahkan!");}} ch="Simpan kategori" style={{padding:"10px 20px"}}/>
               </div>}
             </>} style={{marginBottom:20}}/>
+
+            {totalBudget===0&&<LaunchEmpty
+              icon="📊"
+              title="Budget belum punya batas bulanan"
+              desc="Kategori sudah siap. Isi alokasi untuk kebutuhan utama, atau pakai template pemula agar user baru langsung punya pagar belanja."
+              actionLabel="Pakai template pemula"
+              onAction={applyBudgetTemplate}
+              secondaryLabel="Tanya Dokter"
+              onSecondary={()=>{setAiOpen(true);setTimeout(()=>handleAiSend("Bantu saya buat budget bulanan pertama yang sederhana dan realistis."),0);}}
+              style={{marginBottom:20,padding:isMobile?"34px 16px":"42px 20px"}}
+            />}
 
             {[t("needsCat"),t("wantsCat")].map(kelas=>{
               const cats=s.budgets.filter(b=>b.kelas===kelas);
