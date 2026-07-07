@@ -7274,7 +7274,6 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{minWidth:0}}>
                   <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:6}}>
                     <span style={{fontSize:10,fontWeight:900,padding:"5px 9px",borderRadius:999,background:isApproved?T.okBg:T.warnBg,color:isApproved?T.ok:T.warn,letterSpacing:.9,textTransform:"uppercase"}}>{isApproved?"Lifetime aktif":"Menunggu approval"}</span>
-                    <span style={{fontSize:10,fontWeight:900,padding:"5px 9px",borderRadius:999,background:T.accentBg,color:T.accent,letterSpacing:.9,textTransform:"uppercase"}}>Rp39.000 sekali bayar</span>
                   </div>
                   <div style={{fontSize:17,fontWeight:900,color:T.text,letterSpacing:-.2,marginBottom:3}}>{accessProfile?.displayName || fireUser?.displayName || s.name || "Akun AturDuitku"}</div>
                   <div style={{fontSize:12,color:T.muted,lineHeight:1.55,overflowWrap:"anywhere"}}>{accessProfile?.email || fireUser?.email || "-"} · Data tersimpan otomatis ke akun kamu.</div>
