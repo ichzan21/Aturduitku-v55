@@ -3512,7 +3512,7 @@ export default function App(){
 
   const getAiSystemPrompt = () => {
     // ── Compute financial metrics ──────────────────────
-    const totalSaldo = s.dompet.reduce((a,d)=>a+Number(d.saldo||0),0);
+    const totalSaldo = s.dompet.reduce((a,d)=>a+N(d.saldo),0);
     const txBulan = s.txs.filter(t=>t.bulan===s.bulan&&t.tahun===s.tahun);
     const totalIn = txBulan.filter(t=>t.tipe==="pemasukan").reduce((a,t)=>a+Number(t.jml),0);
     const totalOut = txBulan.filter(t=>t.tipe==="pengeluaran").reduce((a,t)=>a+Number(t.jml),0);
@@ -3616,7 +3616,7 @@ PRINSIP JAWABAN:
 
 💼 SALDO & ARUS KAS
 - Total Saldo: Rp ${totalSaldo.toLocaleString("id-ID")}
-- Dompet: ${s.dompet.map(d=>d.nama+" (Rp "+Number(d.saldo||0).toLocaleString("id-ID")+")").join(", ")}
+- Dompet: ${s.dompet.map(d=>d.nama+" (Rp "+N(d.saldo).toLocaleString("id-ID")+")").join(", ")}
 - Pemasukan: Rp ${totalIn.toLocaleString("id-ID")}
 - Pengeluaran: Rp ${totalOut.toLocaleString("id-ID")}
 - Net Cash: Rp ${(totalIn-totalOut).toLocaleString("id-ID")} ${totalIn>totalOut?"(surplus ✅)":"(defisit ⚠️)"}
@@ -3967,13 +3967,13 @@ CONTOH GAYA:
             katId, dompetId, subKat:"", goalId:goalMatch?.id||"",
             bulan:s.bulan, tahun:s.tahun,
           };
-          const delta = tipe==="pemasukan" ? Number(newTx.jml) : -Number(newTx.jml);
+          const delta = tipe==="pemasukan" ? N(newTx.jml) : -N(newTx.jml);
           setS(p=>({...p,
             txs:[newTx,...p.txs],
-            dompet:p.dompet.map(d=>d.id===dompetId?{...d,saldo:String(Number(d.saldo||0)+delta)}:d),
+            dompet:p.dompet.map(d=>d.id===dompetId?{...d,saldo:String(N(d.saldo)+delta)}:d),
             goals:goalMatch?p.goals.map(g=>g.id===goalMatch.id?{...g,kumpul:String(N(g.kumpul)+N(newTx.jml)),history:[...(g.history||[]),{tgl:today(),jml:String(newTx.jml)}]}:g):p.goals
           }));
-          const idr = Number(newTx.jml).toLocaleString("id-ID");
+          const idr = N(newTx.jml).toLocaleString("id-ID");
           const emoji = tipe==="pemasukan"?"💵":tipe==="tabungan"?"🏦":"💸";
           const label = tipe==="pemasukan"?"Pemasukan":tipe==="tabungan"?"Tabungan":"Pengeluaran";
           setAiMsgs(prev=>[...prev,{role:"assistant",content:`${emoji} **${label} dicatat!**
