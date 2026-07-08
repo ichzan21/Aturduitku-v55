@@ -3026,6 +3026,50 @@ export default function App(){
   },[s.txs,yr,bulanIdx]);
 
   const tagihan=useMemo(()=>{const list=[];s.budgets.forEach(b=>b.sub.forEach(sb=>{if(sb.tempo){list.push({...sb,kat:b.kat});}}));return list.sort((a,b)=>Number(a.tempo)-Number(b.tempo));},[s.budgets]);
+  const billCalendar=useMemo(()=>{
+    const base=today();
+    const toKey=dt=>dateKey(dt);
+    const diffDays=key=>Math.ceil((new Date(`${key}T00:00:00`)-new Date(`${base}T00:00:00`))/(1000*60*60*24));
+    const currentDueKey=day=>{
+      const n=Number(day);
+      if(!n) return "";
+      let dt=new Date(yr,bulanIdx,n);
+      let key=toKey(dt);
+      if(key<base){dt=new Date(yr,bulanIdx+1,n);key=toKey(dt);}
+      return key;
+    };
+    const items=[];
+    s.utang.filter(u=>!u.lunas&&u.tempo).forEach(u=>{
+      const sisa=Math.max(N(u.jml)-(u.cicilan||[]).reduce((a,c)=>a+N(c.jml),0),0);
+      const provider=u.provider||detectDebtProvider(u.nama);
+      items.push({id:`debt-${u.id}`,date:u.tempo,title:u.nama,type:provider||"Utang",amount:sisa,icon:provider?"🧾":"📌",tone:"debt",days:diffDays(u.tempo)});
+    });
+    tagihan.forEach((sb,i)=>{
+      const key=currentDueKey(sb.tempo);
+      if(key) items.push({id:`budget-${i}-${sb.nama}`,date:key,title:sb.nama,type:sb.kat||"Tagihan",amount:N(sb.alokasi),icon:sb.emoji||"🔔",tone:"bill",days:diffDays(key)});
+    });
+    (s.recurring||[]).filter(r=>r.aktif).forEach(r=>{
+      const key=currentDueKey(r.hari);
+      if(key) items.push({id:`rec-${r.id}`,date:key,title:r.nama,type:r.tipe==="pemasukan"?"Pemasukan rutin":r.tipe==="tabungan"?"Tabungan rutin":"Transaksi rutin",amount:N(r.jml),icon:r.tipe==="pemasukan"?"📈":r.tipe==="tabungan"?"🏦":"🔁",tone:r.tipe==="pemasukan"?"income":"bill",days:diffDays(key)});
+    });
+    return items.sort((a,b)=>a.date.localeCompare(b.date)).slice(0,12);
+  },[s.utang,tagihan,s.recurring,yr,bulanIdx]);
+  const paylaterHealth=useMemo(()=>{
+    const tracked=["Shopee PayLater","SPayLater","Kredivo","Akulaku","GoPayLater","Traveloka PayLater","LazPayLater","Home Credit","Kartu Kredit"];
+    const list=s.utang.filter(u=>u.tipe==="utang"&&!u.lunas).map(u=>{
+      const provider=u.provider||detectDebtProvider(u.nama);
+      const paid=(u.cicilan||[]).reduce((a,c)=>a+N(c.jml),0);
+      return {...u,provider,sisa:Math.max(N(u.jml)-paid,0),days:u.tempo?Math.ceil((new Date(`${u.tempo}T00:00:00`)-new Date(`${today()}T00:00:00`))/(1000*60*60*24)):null};
+    }).filter(u=>tracked.includes(u.provider)||/paylater|spaylater|kredivo|akulaku|home credit|kartu kredit/i.test(`${u.nama} ${u.provider}`));
+    const total=list.reduce((a,u)=>a+u.sisa,0);
+    const dueSoon=list.filter(u=>u.days!==null&&u.days>=0&&u.days<=7).length;
+    const overdue=list.filter(u=>u.days!==null&&u.days<0).length;
+    const nearest=[...list].filter(u=>u.tempo).sort((a,b)=>a.tempo.localeCompare(b.tempo))[0]||null;
+    const ratio=totalIn>0?total/totalIn*100:(total>0?100:0);
+    const score=Math.max(0,Math.round(100-(ratio>60?38:ratio>40?28:ratio>20?15:ratio>0?6:0)-overdue*18-dueSoon*8-(list.length>3?10:0)));
+    const label=score>=80?"Sehat":score>=60?"Terkendali":score>=40?"Perlu dijaga":"Berisiko";
+    return {list,total,dueSoon,overdue,nearest,ratio,score,label};
+  },[s.utang,totalIn]);
   const topKat=useMemo(()=>{const m={};txBulan.filter(t=>t.tipe==="pengeluaran").forEach(t=>{const b=s.budgets.find(b=>b.id===Number(t.katId));const nm=b?.kat||(lang==="en"?"Other":"Lainnya");m[nm]=(m[nm]||0)+N(t.jml);});return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,5);},[txBulan,s.budgets,lang]);
 
   const skorTabungan=Math.min(savRate/20*100,100);
@@ -7321,6 +7365,76 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   </div>
                 ))}
               </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:18,marginBottom:20}}>
+              <Card ch={<>
+                <Sec t="PayLater Health" sub="Pantau risiko cicilan digital, kartu kredit, dan pinjaman konsumtif."/>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"auto 1fr",gap:14,alignItems:"center",marginBottom:14}}>
+                  <div style={{width:96,height:96,borderRadius:"50%",background:paylaterHealth.score>=80?T.okBg:paylaterHealth.score>=60?T.infoBg:paylaterHealth.score>=40?T.warnBg:T.errBg,border:`1.5px solid ${paylaterHealth.score>=80?T.okBorder:paylaterHealth.score>=60?T.infoBorder:paylaterHealth.score>=40?T.warnBorder:T.errBorder}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:T.shadow}}>
+                    <div style={{textAlign:"center"}}>
+                      <div style={{fontSize:26,fontWeight:900,color:paylaterHealth.score>=80?T.ok:paylaterHealth.score>=60?T.info:paylaterHealth.score>=40?T.warn:T.err}}>{paylaterHealth.score}</div>
+                      <div style={{fontSize:9,color:T.muted,fontWeight:800,letterSpacing:1}}>SCORE</div>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{fontSize:20,fontWeight:900,color:paylaterHealth.score>=80?T.ok:paylaterHealth.score>=60?T.info:paylaterHealth.score>=40?T.warn:T.err,marginBottom:4}}>{paylaterHealth.label}</div>
+                    <div style={{fontSize:12,color:T.muted,lineHeight:1.6,marginBottom:10}}>
+                      {paylaterHealth.list.length
+                        ? `Total cicilan/paylater aktif ${IDR(paylaterHealth.total)}. ${paylaterHealth.nearest?`Tempo terdekat: ${paylaterHealth.nearest.nama} (${paylaterHealth.nearest.tempo}).`:""}`
+                        : "Belum ada PayLater atau kartu kredit aktif. Bagus, risiko cicilan konsumtif masih rendah."}
+                    </div>
+                    <PBar pct={paylaterHealth.score} c={paylaterHealth.score>=80?T.ok:paylaterHealth.score>=60?T.info:paylaterHealth.score>=40?T.warn:T.err} h={8}/>
+                  </div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12}}>
+                  {[
+                    ["Total",IDRs(paylaterHealth.total),T.err,T.errBg],
+                    ["Jatuh tempo 7 hari",paylaterHealth.dueSoon,T.warn,T.warnBg],
+                    ["Terlambat",paylaterHealth.overdue,T.err,T.errBg],
+                  ].map(([label,value,color,bg])=><div key={label} style={{background:bg,border:`1px solid ${T.border}`,borderRadius:12,padding:"10px 11px"}}>
+                    <div style={{fontSize:9,color:T.muted,fontWeight:900,letterSpacing:.8,textTransform:"uppercase",marginBottom:4}}>{label}</div>
+                    <div style={{fontSize:13,fontWeight:900,color}}>{value}</div>
+                  </div>)}
+                </div>
+                {paylaterHealth.list.length>0?<div style={{display:"grid",gap:8}}>
+                  {paylaterHealth.list.slice(0,4).map(u=><div key={u.id} style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",padding:"9px 10px",borderRadius:11,background:T.cardAlt,border:`1px solid ${T.border}`}}>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontSize:12,fontWeight:900,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.nama}</div>
+                      <div style={{fontSize:10,color:T.muted}}>{u.provider||"PayLater"}{u.tempo?` · tempo ${u.tempo}`:""}</div>
+                    </div>
+                    <div style={{fontSize:12,fontWeight:900,color:T.err,whiteSpace:"nowrap"}}>{IDRs(u.sisa)}</div>
+                  </div>)}
+                </div>:<div style={{padding:"14px 12px",borderRadius:12,background:T.okBg,border:`1px solid ${T.okBorder}`,fontSize:12,color:T.ok,fontWeight:800,textAlign:"center"}}>Tidak ada cicilan PayLater aktif.</div>}
+              </>}/>
+              <Card ch={<>
+                <Sec t="Kalender Tagihan" sub="Utang, PayLater, subbudget bertempo, dan transaksi rutin terdekat."/>
+                {billCalendar.length?<div style={{display:"grid",gap:9}}>
+                  {billCalendar.slice(0,8).map(item=>{
+                    const urgent=item.days<0||item.days<=3;
+                    const soon=item.days>=0&&item.days<=7;
+                    return <div key={item.id} style={{display:"grid",gridTemplateColumns:"auto 1fr auto",gap:10,alignItems:"center",padding:"10px 11px",borderRadius:13,background:urgent?T.errBg:soon?T.warnBg:T.cardAlt,border:`1px solid ${urgent?T.errBorder:soon?T.warnBorder:T.border}`}}>
+                      <div style={{width:38,height:38,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,background:T.card,border:`1px solid ${T.border}`}}>{item.icon}</div>
+                      <div style={{minWidth:0}}>
+                        <div style={{fontSize:12,fontWeight:900,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.title}</div>
+                        <div style={{fontSize:10,color:T.muted}}>{item.type} · {item.date}</div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:11,fontWeight:900,color:urgent?T.err:soon?T.warn:T.accent}}>{item.days<0?`${Math.abs(item.days)} hari lewat`:item.days===0?"Hari ini":`${item.days} hari`}</div>
+                        <div style={{fontSize:11,fontWeight:800,color:T.text}}>{item.amount?IDRs(item.amount):"-"}</div>
+                      </div>
+                    </div>;
+                  })}
+                </div>:<LaunchEmpty
+                  icon="🔔"
+                  title="Belum ada jadwal tagihan"
+                  desc="Tambahkan jatuh tempo utang, subbudget tagihan, atau transaksi rutin supaya kalender mulai mengingatkan."
+                  actionLabel="Tambah utang"
+                  onAction={()=>setUtForm(f=>({...f,tipe:"utang"}))}
+                  secondaryLabel="Buka budget"
+                  onSecondary={()=>setPage("budget")}
+                  style={{padding:"26px 16px"}}
+                />}
+              </>}/>
             </div>
             {["utang","piutang","piutangBisnis"].map(tipe=>{
               const list=s.utang.filter(u=>u.tipe===tipe&&!u.lunas);
