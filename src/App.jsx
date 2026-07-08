@@ -102,6 +102,12 @@ const ICONS=["🍜","🚗","🛍️","💡","💊","🎮","📚","📈","🏦","
 const DREAM_ICONS=["⭐","🏠","🚗","✈️","💻","👗","🎓","💍","🐾","🎵","🏋️","🌿","🍕","📸","🎮","💎","🏖️","🎯","🚀","🎺","🏄","🌏","🎭","🏕️","🛶"];
 const PIE_C=["#6366F1","#22C55E","#F59E0B","#EF4444","#3B82F6","#EC4899","#14B8A6","#8B5CF6","#F97316","#06B6D4","#84CC16","#A855F7"];
 const DOMPET_TIPE=["Bank","E-Wallet","Tunai","Investasi","Lainnya"];
+const DEBT_PROVIDER_OPTIONS=["Shopee PayLater","SPayLater","Kredivo","Akulaku","GoPayLater","Traveloka PayLater","LazPayLater","Home Credit","Kartu Kredit","Pinjaman Teman","Lainnya"];
+const detectDebtProvider=name=>{
+  const q=String(name||"").toLowerCase();
+  if(q.includes("spaylater")||q.includes("shopee paylater")) return "Shopee PayLater";
+  return DEBT_PROVIDER_OPTIONS.find(p=>p!=="Lainnya"&&q.includes(p.toLowerCase()))||"";
+};
 const DOMPET_ICONS={"Bank":"🏦","E-Wallet":"📱","Tunai":"💵","Investasi":"📈","Lainnya":"💳"};
 
 // ─── TRANSLATIONS (i18n) ─────────────────────────────────────────────────────
@@ -1277,7 +1283,10 @@ const UtangCard=({u,dompetList,onDelete,onCicilan})=>{
   return(
     <div style={{background:T.cardAlt,borderRadius:12,padding:16,marginBottom:10,border:`1px solid ${u.lunas?T.okBorder:u.tipe==="utang"?T.errBorder:T.infoBorder}`,transition:"background .3s,border-color .3s"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-        <div><div style={{fontWeight:700,fontSize:14,color:T.text}}>{u.nama}</div><div style={{fontSize:11,color:T.muted}}>{u.tgl}{u.tempo&&` · Tempo: ${u.tempo}`}</div></div>
+        <div>
+          <div style={{fontWeight:700,fontSize:14,color:T.text}}>{u.nama}</div>
+          <div style={{fontSize:11,color:T.muted}}>{u.tgl}{(u.provider||detectDebtProvider(u.nama))&&` · ${(u.provider||detectDebtProvider(u.nama))}`}{u.tempo&&` · Tempo: ${u.tempo}`}</div>
+        </div>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
           <Pill c={u.lunas?"green":u.tipe==="utang"?"red":u.tipe==="piutangBisnis"?"purple":"blue"} ch={u.lunas?"✓ Lunas":u.tipe==="utang"?"Utang":u.tipe==="piutangBisnis"?"Piutang Bisnis":"Piutang"}/>
           <Del onClick={onDelete}/>
@@ -2961,7 +2970,7 @@ export default function App(){
   // Forms
   const [txForm,setTxForm]=useState({tipe:"pengeluaran",tgl:today(),ket:"",jml:"",katId:1,subKat:"",dompetId:1,dompetTo:2,biaya:"",goalId:""});
   const [bulkRows,setBulkRows]=useState([{tgl:today(),jml:"",tipe:"pengeluaran",dompetId:1,katId:"",ket:""}]);
-  const [utForm,setUtForm]=useState({tipe:"utang",tgl:today(),nama:"",jml:"",tempo:"",ket:""});
+  const [utForm,setUtForm]=useState({tipe:"utang",tgl:today(),provider:"",nama:"",jml:"",tempo:"",ket:""});
   const [goalForm,setGoalForm]=useState({nama:"",target:"",kumpul:"",deadline:"",icon:"⭐"});
   const [dompetForm,setDompetForm]=useState({tipe:"Bank",nama:"",norek:"",saldo:""});
   const [asetForm,setAsetForm]=useState({nama:"",nilai:"",ket:"",beliDariDompet:false,dompetId:1});
@@ -4193,6 +4202,7 @@ Lihat di menu **Aset** untuk detail lengkap.`}]);
               id:Date.now(),
               tipe:parsed.tipe==="piutang"?"piutang":"utang",
               nama:parsed.nama||"Utang Baru",
+              provider:parsed.provider||detectDebtProvider(parsed.nama),
               jml:String(jumlah),
               tgl:today(),
               tempo:parsed.tempo||"",
@@ -4239,6 +4249,7 @@ Saldo amplop bertambah.`}]);
               id:Date.now(),
               tipe:fallback.tipe==="piutang"?"piutang":"utang",
               nama:fallback.nama||"Utang Baru",
+              provider:detectDebtProvider(fallback.nama),
               jml:String(fallback.jml),
               tgl:today(),
               tempo:"",
@@ -5420,8 +5431,9 @@ Saldo amplop bertambah.`}]);
 
   const addUt=()=>{
     if(!utForm.tgl||!utForm.nama||!utForm.jml){showToast("⚠️ Isi semua field!");return;}
-    setS(p=>({...p,utang:[{...utForm,id:Date.now(),lunas:false,cicilan:[]},...p.utang]}));
-    setUtForm({tipe:"utang",tgl:today(),nama:"",jml:"",tempo:"",ket:""});
+    const provider=utForm.provider==="Lainnya"?"":(utForm.provider||detectDebtProvider(utForm.nama));
+    setS(p=>({...p,utang:[{...utForm,provider,id:Date.now(),lunas:false,cicilan:[]},...p.utang]}));
+    setUtForm({tipe:"utang",tgl:today(),provider:"",nama:"",jml:"",tempo:"",ket:""});
     showToast(t("toast_noteOk"));
   };
 
@@ -7279,8 +7291,19 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     <button key={v} onClick={()=>setUtForm(f=>({...f,tipe:v}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${utForm.tipe===v?T.accent:T.inputBorder}`,background:utForm.tipe===v?T.accentBg:T.input,color:utForm.tipe===v?T.accent:T.sub}}>{l}</button>
                   ))}
                 </div>
+                <label style={LS}>Penyedia / Jenis</label>
+                <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:10}}>
+                  {DEBT_PROVIDER_OPTIONS.map(provider=>{
+                    const active=utForm.provider===provider;
+                    return <button key={provider} onClick={()=>setUtForm(f=>{
+                      const isKnownName=DEBT_PROVIDER_OPTIONS.includes(f.nama);
+                      const nextName=provider==="Lainnya"?(isKnownName?"":f.nama):(f.nama&&!isKnownName?f.nama:provider);
+                      return {...f,provider,nama:nextName};
+                    })} style={{padding:"7px 10px",borderRadius:999,border:`1.5px solid ${active?T.accent:T.border}`,background:active?T.accentBg:T.cardAlt,color:active?T.accent:T.sub,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit",touchAction:"manipulation"}}>{provider}</button>;
+                  })}
+                </div>
                 <label style={LS}>{t("date")}</label><input type="date" value={utForm.tgl} onChange={e=>setUtForm(f=>({...f,tgl:e.target.value}))} style={{...IS,marginBottom:10}}/>
-                <label style={LS}>{t("debtor")}</label><input placeholder={t("debtorPlaceholder")} value={utForm.nama} onChange={e=>setUtForm(f=>({...f,nama:e.target.value}))} style={{...IS,marginBottom:10}}/>
+                <label style={LS}>{utForm.tipe==="utang"?"Nama utang / detail":t("debtor")}</label><input placeholder={utForm.provider&&utForm.provider!=="Lainnya"?`${utForm.provider} - contoh: cicilan HP`:"Contoh: Shopee PayLater cicilan HP, pinjam teman, kartu kredit"} value={utForm.nama} onChange={e=>setUtForm(f=>({...f,nama:e.target.value,provider:DEBT_PROVIDER_OPTIONS.includes(e.target.value)?e.target.value:f.provider}))} style={{...IS,marginBottom:10}}/>
                 <label style={LS}>{t("amount")} (Rp)</label>
                 <div style={{position:"relative",marginBottom:10}}>
                   <CurIn value={utForm.jml} onChange={v=>setUtForm(f=>({...f,jml:v}))} placeholder="0" style={{paddingRight:40}}/>
