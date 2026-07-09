@@ -2454,6 +2454,7 @@ export default function App(){
   const [authBusy,setAuthBusy]=useState(false);
   const [authError,setAuthError]=useState("");
   const [authForm,setAuthForm]=useState({name:"",email:"",password:""});
+  const [showPassword,setShowPassword]=useState(false);
   const [adminUsers,setAdminUsers]=useState([]);
   const [adminStats,setAdminStats]=useState({total:0,pending_review:0,approved:0,rejected:0,payment:{pending_info:0,checking:0,paid:0,problem:0}});
   const [adminLoading,setAdminLoading]=useState(false);
@@ -2789,11 +2790,25 @@ export default function App(){
 
   // Handle sign out
   const handleSignOut = async() => {
-    await signOutUser();
-    setFireUser(null);
-    setAccessProfile(null);
-    setFireLoading(false);
-    setAccessLoading(false);
+    try{
+      await signOutUser();
+    }catch(e){
+      console.warn("Sign out failed:", e);
+    }finally{
+      setFireUser(null);
+      setAccessProfile(null);
+      setFireLoading(false);
+      setAccessLoading(false);
+      setOnboarded(false);
+      setPage("home");
+      setModal(null);
+      setAuthError("");
+      setAuthBusy(false);
+      setSidebarOpen(false);
+      setMoreOpen(false);
+      setQuickOpen(false);
+      setNotifOpen(false);
+    }
   };
   const confirmSignOut = () => {
     setModal({
@@ -5801,12 +5816,17 @@ Saldo amplop bertambah.`}]);
         <div style={{width:"100%",background:"rgba(255,255,255,.06)",borderRadius:16,padding:18,border:"1px solid rgba(255,255,255,.08)"}}>
           <div style={{display:"flex",gap:8,marginBottom:14}}>
             {[["signin","Masuk"],["signup","Daftar"]].map(([mode,label])=>(
-              <button key={mode} onClick={()=>{setAuthMode(mode);setAuthError("");}} style={{flex:1,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${authMode===mode?"#C4B5FD":"rgba(255,255,255,.1)"}`,background:authMode===mode?"rgba(196,181,253,.18)":"transparent",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
+              <button key={mode} onClick={()=>{setAuthMode(mode);setAuthError("");setShowPassword(false);}} style={{flex:1,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${authMode===mode?"#C4B5FD":"rgba(255,255,255,.1)"}`,background:authMode===mode?"rgba(196,181,253,.18)":"transparent",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
             ))}
           </div>
           {authMode==="signup"&&<input value={authForm.name} onChange={e=>setAuthForm(f=>({...f,name:e.target.value}))} placeholder="Nama lengkap" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/>}
           <input value={authForm.email} onChange={e=>setAuthForm(f=>({...f,email:e.target.value}))} placeholder="Email" type="email" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/>
-          <input value={authForm.password} onChange={e=>setAuthForm(f=>({...f,password:e.target.value}))} placeholder="Password" type="password" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/>
+          <div style={{position:"relative",marginBottom:10}}>
+            <input value={authForm.password} onChange={e=>setAuthForm(f=>({...f,password:e.target.value}))} placeholder="Password" type={showPassword?"text":"password"} autoComplete={authMode==="signup"?"new-password":"current-password"} style={{width:"100%",padding:"12px 78px 12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",outline:"none"}}/>
+            <button type="button" onClick={()=>setShowPassword(v=>!v)} aria-label={showPassword?"Sembunyikan password":"Lihat password"} style={{position:"absolute",right:6,top:6,bottom:6,minWidth:62,border:"1px solid rgba(255,255,255,.14)",borderRadius:10,background:"rgba(255,255,255,.08)",color:"#E9D5FF",fontSize:11,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>
+              {showPassword?"Tutup":"Lihat"}
+            </button>
+          </div>
           {authError&&<div style={{fontSize:11,color:"#FCA5A5",marginBottom:10,lineHeight:1.5,background:"rgba(127,29,29,.22)",border:"1px solid rgba(252,165,165,.26)",borderRadius:10,padding:"9px 11px"}}>{authError}</div>}
           <button onClick={handleEmailAuth} style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#8B5CF6,#6D28D9)",color:"white",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
             {authMode==="signup" ? "Daftar dengan Email" : "Masuk dengan Email"}
@@ -5865,7 +5885,7 @@ Saldo amplop bertambah.`}]);
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <button onClick={async()=>{setAccessLoading(true);try{await loadAccessProfile();}finally{setAccessLoading(false);}}} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.08)",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{accessLoading?"Mengecek...":"Cek status lagi"}</button>
-          <button onClick={confirmSignOut} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(252,165,165,.35)",background:"rgba(127,29,29,.22)",color:"#FCA5A5",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Keluar</button>
+          <button onClick={handleSignOut} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(252,165,165,.35)",background:"rgba(127,29,29,.22)",color:"#FCA5A5",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Keluar</button>
         </div>
       </div>
     </div>
