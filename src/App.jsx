@@ -3191,12 +3191,18 @@ export default function App(){
       const done=active.filter(h=>doneOn(h,day)).length;
       return {day,date:new Date(`${day}T00:00:00`).getDate(),done,total:active.length,pct:active.length?done/active.length*100:0};
     });
+    const todayRef=today();
+    const elapsedCount=todayRef.startsWith(monthPrefix) ? Math.min(new Date(`${todayRef}T00:00:00`).getDate(),daysInMonth) : daysInMonth;
+    const elapsedDays=monthDays.slice(0,Math.max(1,elapsedCount));
+    const dailyElapsed=daily.slice(0,Math.max(1,elapsedCount));
     const habitRows=active.map(h=>{
       const done=monthDays.filter(day=>doneOn(h,day)).length;
       return {...h,monthDone:done,monthPct:daysInMonth?done/daysInMonth*100:0,best:habitBestStreak(h),now:habitStreak(h)};
     }).sort((a,b)=>b.monthPct-a.monthPct);
     const monthDone=daily.reduce((a,d)=>a+d.done,0);
     const monthSlots=active.length*daysInMonth;
+    const monthDoneToDate=elapsedDays.reduce((sum,day)=>sum+active.filter(h=>doneOn(h,day)).length,0);
+    const monthSlotsToDate=active.length*elapsedDays.length;
     const yearMonths=Array.from({length:12},(_,mi)=>{
       const dim=new Date(year,mi+1,0).getDate();
       const prefix=`${year}-${pad(mi+1)}`;
@@ -3214,7 +3220,7 @@ export default function App(){
       const slots=days.length*active.length;
       return {label:DAYS_SHORT[wd],pct:slots?done/slots*100:0};
     });
-    return {year,monthName:MONTHS[month],monthDays,daily,habitRows,monthDone,monthSlots,monthPct:monthSlots?monthDone/monthSlots*100:0,yearMonths,yearDone,yearSlots,yearPct:yearSlots?yearDone/yearSlots*100:0,bestMonth,weekday};
+    return {year,monthName:MONTHS[month],monthDays,elapsedDays,daily,dailyElapsed,habitRows,monthDone,monthSlots,monthPct:monthSlots?monthDone/monthSlots*100:0,monthDoneToDate,monthSlotsToDate,monthPctToDate:monthSlotsToDate?monthDoneToDate/monthSlotsToDate*100:0,yearMonths,yearDone,yearSlots,yearPct:yearSlots?yearDone/yearSlots*100:0,bestMonth,weekday};
   },[activeHabits,habitDay]);
   const todayTxCount=useMemo(()=>s.txs.filter(tx=>tx.tgl===habitDay).length,[s.txs,habitDay]);
   const perfectDayStreak=useMemo(()=>{
@@ -7222,44 +7228,62 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               </div>)}
             </div>
 
-            {habitTotalToday>0&&<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.45fr .85fr",gap:14,marginBottom:18}}>
+            {habitTotalToday>0&&<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.35fr .85fr",gap:14,marginBottom:18}}>
               <Card ch={<>
-                <Sec t={`Habit Graphic ${habitAnalytics.monthName}`} sub="Visual bulanan seperti tracker: baris habit, kolom tanggal, dan grafik konsistensi harian."/>
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:8,marginBottom:12}}>
+                <Sec t={`Habit Tracker ${habitAnalytics.monthName}`} sub="Progress dihitung sampai hari ini, jadi awal bulan tetap terasa adil dan mudah dibaca."/>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:12}}>
                   {[
                     ["Habit aktif",habitTotalToday,T.accent,T.accentBg],
-                    ["Completed",habitAnalytics.monthDone,T.ok,T.okBg],
-                    ["Progress",`${Math.round(habitAnalytics.monthPct)}%`,T.info,T.infoBg],
+                    ["Selesai",habitAnalytics.monthDoneToDate,T.ok,T.okBg],
+                    ["Progress",`${Math.round(habitAnalytics.monthPctToDate)}%`,T.info,T.infoBg],
+                    ["Hari aktif",`${habitAnalytics.elapsedDays.length}/${habitAnalytics.monthDays.length}`,T.warn,T.warnBg],
                   ].map(([label,value,color,bg])=><div key={label} style={{background:bg,border:`1px solid ${T.border}`,borderRadius:12,padding:"10px 12px"}}>
                     <div style={{fontSize:9,color:T.muted,fontWeight:900,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>{label}</div>
                     <div style={{fontSize:17,fontWeight:950,color}}>{value}</div>
                   </div>)}
                 </div>
-                <div style={{overflowX:"auto",border:`1px solid ${T.border}`,borderRadius:14,background:T.cardAlt,padding:10,marginBottom:12}}>
-                  <div style={{minWidth:Math.max(620,150+habitAnalytics.monthDays.length*30),display:"grid",gridTemplateColumns:`150px repeat(${habitAnalytics.monthDays.length}, 30px)`,gap:5,alignItems:"center"}}>
-                    <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1,textTransform:"uppercase"}}>My Habits</div>
-                    {habitAnalytics.monthDays.map(day=><div key={day} style={{fontSize:9,color:day===habitDay?T.accent:T.muted,fontWeight:900,textAlign:"center",padding:"5px 0",borderRadius:8,background:day===habitDay?T.accentBg:"transparent"}}>{Number(day.slice(-2))}</div>)}
+                <div style={{overflowX:"auto",border:`1px solid ${T.border}`,borderRadius:16,background:T.cardAlt,padding:10,marginBottom:12,boxShadow:"inset 0 1px 0 rgba(255,255,255,.55)"}}>
+                  <div style={{minWidth:Math.max(isMobile?560:720,180+habitAnalytics.monthDays.length*32),display:"grid",gridTemplateColumns:`180px repeat(${habitAnalytics.monthDays.length}, 28px)`,gap:6,alignItems:"center"}}>
+                    <div style={{position:"sticky",left:0,zIndex:3,background:T.cardAlt,fontSize:10,color:T.accent,fontWeight:950,letterSpacing:1,textTransform:"uppercase",padding:"7px 8px",borderRadius:10}}>Quest</div>
+                    {habitAnalytics.monthDays.map(day=>{
+                      const isToday=day===habitDay;
+                      const isPast=day<=habitDay;
+                      return <div key={day} style={{fontSize:9,color:isToday?T.accent:isPast?T.text:T.muted,fontWeight:950,textAlign:"center",padding:"6px 0",borderRadius:9,background:isToday?T.accentBg:"transparent",border:isToday?`1px solid ${T.accent}33`:"1px solid transparent"}}>{Number(day.slice(-2))}</div>;
+                    })}
                     {habitAnalytics.habitRows.map(h=><React.Fragment key={h.id}>
-                      <div style={{display:"flex",alignItems:"center",gap:7,minWidth:0,fontSize:11,fontWeight:900,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"6px 8px",borderRadius:10,background:T.card,border:`1px solid ${T.border}`}}>
+                      <div style={{position:"sticky",left:0,zIndex:2,display:"flex",alignItems:"center",gap:8,minWidth:0,fontSize:11,fontWeight:950,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"7px 9px",borderRadius:11,background:T.card,border:`1px solid ${T.border}`,boxShadow:"0 8px 18px rgba(76,29,149,.05)"}}>
                         <span>{h.icon||"🐾"}</span><span style={{overflow:"hidden",textOverflow:"ellipsis"}}>{h.nama}</span>
                       </div>
                       {habitAnalytics.monthDays.map(day=>{
                         const checked=(h.doneDates||[]).includes(day);
-                        return <button key={`${h.id}-${day}`} onClick={()=>day===habitDay&&toggleHabit(h.id)} disabled={day!==habitDay} title={`${h.nama} · ${day}`} style={{width:26,height:26,borderRadius:8,border:`1.5px solid ${checked?T.okBorder:T.border}`,background:checked?T.okBg:T.card,color:checked?T.ok:T.muted,cursor:day===habitDay?"pointer":"default",fontWeight:950,fontSize:12,fontFamily:"inherit",padding:0}}>
+                        const isToday=day===habitDay;
+                        return <button key={`${h.id}-${day}`} onClick={()=>isToday&&toggleHabit(h.id)} disabled={!isToday} title={`${h.nama} · ${day}`} style={{width:28,height:28,borderRadius:10,border:`1.5px solid ${checked?T.okBorder:isToday?T.accent+"66":T.border}`,background:checked?`linear-gradient(135deg, ${T.okBg}, rgba(34,197,94,.18))`:isToday?T.accentBg:T.card,color:checked?T.ok:isToday?T.accent:T.muted,cursor:isToday?"pointer":"default",fontWeight:950,fontSize:checked?13:11,fontFamily:"inherit",padding:0,boxShadow:checked?"0 8px 14px rgba(34,197,94,.12)":"none",opacity:day>habitDay ? .55 : 1}}>
                           {checked?"✓":"·"}
                         </button>;
                       })}
                     </React.Fragment>)}
                   </div>
                 </div>
-                <div style={{height:120,borderRadius:14,background:T.cardAlt,border:`1px solid ${T.border}`,padding:10,overflow:"hidden"}}>
+                <div style={{borderRadius:16,background:T.cardAlt,border:`1px solid ${T.border}`,padding:"12px 14px",overflow:"hidden"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",marginBottom:10}}>
+                    <div>
+                      <div style={{fontSize:10,color:T.accent,fontWeight:950,letterSpacing:1,textTransform:"uppercase"}}>Konsistensi harian</div>
+                      <div style={{fontSize:11,color:T.muted}}>Tinggi bar menunjukkan persentase habit yang selesai per hari.</div>
+                    </div>
+                    <div style={{fontSize:18,fontWeight:950,color:T.accent}}>{Math.round(habitAnalytics.monthPctToDate)}%</div>
+                  </div>
                   {(()=>{
-                    const len=Math.max(habitAnalytics.daily.length-1,1);
-                    const pts=habitAnalytics.daily.map((d,i)=>`${(i/len*100).toFixed(2)},${(100-d.pct).toFixed(2)}`).join(" ");
-                    return <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{width:"100%",height:"100%",display:"block"}}>
-                      <polygon points={`0,100 ${pts} 100,100`} fill={T.accent} opacity=".16"/>
-                      <polyline points={pts} fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>;
+                    const bars=habitAnalytics.dailyElapsed;
+                    return <div style={{display:"grid",gridTemplateColumns:`repeat(${bars.length}, minmax(14px, 1fr))`,gap:5,alignItems:"end",height:112}}>
+                      {bars.map(d=>{
+                        const isToday=d.day===habitDay;
+                        const h=Math.max(6,d.pct);
+                        return <div key={d.day} title={`${d.day}: ${d.done}/${d.total} selesai`} style={{height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:5,minWidth:0}}>
+                          <div style={{width:"100%",height:`${h}%`,borderRadius:"9px 9px 4px 4px",background:d.pct>=100?`linear-gradient(180deg, ${T.ok}, ${T.ok}99)`:d.pct>=50?`linear-gradient(180deg, ${T.accent}, ${T.accent}99)`:d.pct>0?`linear-gradient(180deg, ${T.warn}, ${T.warn}99)`:T.border,boxShadow:isToday?`0 0 0 3px ${T.accent}22`:"none",transition:"height .35s ease, background .25s ease"}}/>
+                          {(isToday||d.date===1||d.date%5===0)&&<span style={{fontSize:8,color:isToday?T.accent:T.muted,fontWeight:900}}>{d.date}</span>}
+                        </div>;
+                      })}
+                    </div>;
                   })()}
                 </div>
               </>}/>
