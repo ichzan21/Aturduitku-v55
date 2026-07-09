@@ -3177,6 +3177,45 @@ export default function App(){
   const habitXP=habitTotalDone*15+habitBestAll*10;
   const habitLevel=Math.floor(habitXP/120)+1;
   const habitLevelPct=(habitXP%120)/120*100;
+  const habitAnalytics=useMemo(()=>{
+    const ref=new Date(`${habitDay}T00:00:00`);
+    const year=ref.getFullYear();
+    const month=ref.getMonth();
+    const pad=n=>String(n).padStart(2,"0");
+    const monthPrefix=`${year}-${pad(month+1)}`;
+    const daysInMonth=new Date(year,month+1,0).getDate();
+    const monthDays=Array.from({length:daysInMonth},(_,i)=>`${monthPrefix}-${pad(i+1)}`);
+    const active=activeHabits;
+    const doneOn=(h,day)=>new Set(h.doneDates||[]).has(day);
+    const daily=monthDays.map(day=>{
+      const done=active.filter(h=>doneOn(h,day)).length;
+      return {day,date:new Date(`${day}T00:00:00`).getDate(),done,total:active.length,pct:active.length?done/active.length*100:0};
+    });
+    const habitRows=active.map(h=>{
+      const done=monthDays.filter(day=>doneOn(h,day)).length;
+      return {...h,monthDone:done,monthPct:daysInMonth?done/daysInMonth*100:0,best:habitBestStreak(h),now:habitStreak(h)};
+    }).sort((a,b)=>b.monthPct-a.monthPct);
+    const monthDone=daily.reduce((a,d)=>a+d.done,0);
+    const monthSlots=active.length*daysInMonth;
+    const yearMonths=Array.from({length:12},(_,mi)=>{
+      const dim=new Date(year,mi+1,0).getDate();
+      const prefix=`${year}-${pad(mi+1)}`;
+      const days=Array.from({length:dim},(_,i)=>`${prefix}-${pad(i+1)}`);
+      const done=active.reduce((sum,h)=>sum+days.filter(day=>doneOn(h,day)).length,0);
+      const slots=active.length*dim;
+      return {label:MSHORT[mi],full:MONTHS[mi],done,slots,pct:slots?done/slots*100:0};
+    });
+    const yearDone=yearMonths.reduce((a,m)=>a+m.done,0);
+    const yearSlots=yearMonths.reduce((a,m)=>a+m.slots,0);
+    const bestMonth=yearMonths.reduce((best,m)=>m.pct>best.pct?m:best,yearMonths[0]||{pct:0,label:"-"});
+    const weekday=Array.from({length:7},(_,wd)=>{
+      const days=monthDays.filter(day=>new Date(`${day}T00:00:00`).getDay()===wd);
+      const done=days.reduce((sum,day)=>sum+active.filter(h=>doneOn(h,day)).length,0);
+      const slots=days.length*active.length;
+      return {label:DAYS_SHORT[wd],pct:slots?done/slots*100:0};
+    });
+    return {year,monthName:MONTHS[month],monthDays,daily,habitRows,monthDone,monthSlots,monthPct:monthSlots?monthDone/monthSlots*100:0,yearMonths,yearDone,yearSlots,yearPct:yearSlots?yearDone/yearSlots*100:0,bestMonth,weekday};
+  },[activeHabits,habitDay]);
   const todayTxCount=useMemo(()=>s.txs.filter(tx=>tx.tgl===habitDay).length,[s.txs,habitDay]);
   const perfectDayStreak=useMemo(()=>{
     if(!activeHabits.length) return 0;
@@ -7135,6 +7174,89 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{fontSize:10,color:T.muted}}>{x.sub}</div>
               </div>)}
             </div>
+
+            {habitTotalToday>0&&<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.45fr .85fr",gap:14,marginBottom:18}}>
+              <Card ch={<>
+                <Sec t={`Habit Graphic ${habitAnalytics.monthName}`} sub="Visual bulanan seperti tracker: baris habit, kolom tanggal, dan grafik konsistensi harian."/>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:8,marginBottom:12}}>
+                  {[
+                    ["Habit aktif",habitTotalToday,T.accent,T.accentBg],
+                    ["Completed",habitAnalytics.monthDone,T.ok,T.okBg],
+                    ["Progress",`${Math.round(habitAnalytics.monthPct)}%`,T.info,T.infoBg],
+                  ].map(([label,value,color,bg])=><div key={label} style={{background:bg,border:`1px solid ${T.border}`,borderRadius:12,padding:"10px 12px"}}>
+                    <div style={{fontSize:9,color:T.muted,fontWeight:900,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>{label}</div>
+                    <div style={{fontSize:17,fontWeight:950,color}}>{value}</div>
+                  </div>)}
+                </div>
+                <div style={{overflowX:"auto",border:`1px solid ${T.border}`,borderRadius:14,background:T.cardAlt,padding:10,marginBottom:12}}>
+                  <div style={{minWidth:Math.max(620,150+habitAnalytics.monthDays.length*30),display:"grid",gridTemplateColumns:`150px repeat(${habitAnalytics.monthDays.length}, 30px)`,gap:5,alignItems:"center"}}>
+                    <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1,textTransform:"uppercase"}}>My Habits</div>
+                    {habitAnalytics.monthDays.map(day=><div key={day} style={{fontSize:9,color:day===habitDay?T.accent:T.muted,fontWeight:900,textAlign:"center",padding:"5px 0",borderRadius:8,background:day===habitDay?T.accentBg:"transparent"}}>{Number(day.slice(-2))}</div>)}
+                    {habitAnalytics.habitRows.map(h=><React.Fragment key={h.id}>
+                      <div style={{display:"flex",alignItems:"center",gap:7,minWidth:0,fontSize:11,fontWeight:900,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"6px 8px",borderRadius:10,background:T.card,border:`1px solid ${T.border}`}}>
+                        <span>{h.icon||"🐾"}</span><span style={{overflow:"hidden",textOverflow:"ellipsis"}}>{h.nama}</span>
+                      </div>
+                      {habitAnalytics.monthDays.map(day=>{
+                        const checked=(h.doneDates||[]).includes(day);
+                        return <button key={`${h.id}-${day}`} onClick={()=>day===habitDay&&toggleHabit(h.id)} disabled={day!==habitDay} title={`${h.nama} · ${day}`} style={{width:26,height:26,borderRadius:8,border:`1.5px solid ${checked?T.okBorder:T.border}`,background:checked?T.okBg:T.card,color:checked?T.ok:T.muted,cursor:day===habitDay?"pointer":"default",fontWeight:950,fontSize:12,fontFamily:"inherit",padding:0}}>
+                          {checked?"✓":"·"}
+                        </button>;
+                      })}
+                    </React.Fragment>)}
+                  </div>
+                </div>
+                <div style={{height:120,borderRadius:14,background:T.cardAlt,border:`1px solid ${T.border}`,padding:10,overflow:"hidden"}}>
+                  {(()=>{
+                    const len=Math.max(habitAnalytics.daily.length-1,1);
+                    const pts=habitAnalytics.daily.map((d,i)=>`${(i/len*100).toFixed(2)},${(100-d.pct).toFixed(2)}`).join(" ");
+                    return <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{width:"100%",height:"100%",display:"block"}}>
+                      <polygon points={`0,100 ${pts} 100,100`} fill={T.accent} opacity=".16"/>
+                      <polyline points={pts} fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>;
+                  })()}
+                </div>
+              </>}/>
+              <div style={{display:"grid",gap:14,alignContent:"start"}}>
+                <Card ch={<>
+                  <Sec t="Analysis" sub="Habit mana yang paling kuat bulan ini."/>
+                  <div style={{display:"grid",gap:9}}>
+                    {habitAnalytics.habitRows.slice(0,7).map(h=><div key={h.id} style={{display:"grid",gridTemplateColumns:"1fr auto",gap:10,alignItems:"center"}}>
+                      <div style={{minWidth:0}}>
+                        <div style={{fontSize:12,fontWeight:900,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.icon||"🐾"} {h.nama}</div>
+                        <div style={{height:8,borderRadius:99,background:T.cardAlt,border:`1px solid ${T.border}`,overflow:"hidden",marginTop:5}}>
+                          <div style={{width:`${Math.min(h.monthPct,100)}%`,height:"100%",background:h.monthPct>=80?T.ok:h.monthPct>=50?T.accent:T.warn,borderRadius:99}}/>
+                        </div>
+                      </div>
+                      <div style={{fontSize:12,fontWeight:950,color:h.monthPct>=80?T.ok:h.monthPct>=50?T.accent:T.warn}}>{Math.round(h.monthPct)}%</div>
+                    </div>)}
+                  </div>
+                </>}/>
+                <Card ch={<>
+                  <Sec t="Yearly Habit Dashboard" sub={`Ringkasan habit ${habitAnalytics.year}`}/>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+                    {[
+                      ["Year progress",`${Math.round(habitAnalytics.yearPct)}%`,T.accent,T.accentBg],
+                      ["Best month",habitAnalytics.bestMonth?.label||"-",T.ok,T.okBg],
+                    ].map(([label,value,color,bg])=><div key={label} style={{background:bg,border:`1px solid ${T.border}`,borderRadius:12,padding:"10px 11px"}}>
+                      <div style={{fontSize:9,color:T.muted,fontWeight:900,letterSpacing:.8,textTransform:"uppercase",marginBottom:4}}>{label}</div>
+                      <div style={{fontSize:16,fontWeight:950,color}}>{value}</div>
+                    </div>)}
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(12,1fr)",gap:5,alignItems:"end",height:96,marginBottom:10}}>
+                    {habitAnalytics.yearMonths.map(m=><div key={m.label} title={`${m.full}: ${Math.round(m.pct)}%`} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,height:"100%",justifyContent:"flex-end"}}>
+                      <div style={{width:"100%",minHeight:4,height:`${Math.max(4,m.pct*.82)}%`,borderRadius:"7px 7px 3px 3px",background:m.pct>=80?T.ok:m.pct>=50?T.accent:m.pct>0?T.warn:T.border,transition:"height .4s ease"}}/>
+                      <span style={{fontSize:8,color:T.muted,fontWeight:800}}>{m.label}</span>
+                    </div>)}
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5}}>
+                    {habitAnalytics.weekday.map(d=><div key={d.label} style={{textAlign:"center",padding:"7px 4px",borderRadius:10,background:d.pct>=80?T.okBg:d.pct>=50?T.accentBg:T.cardAlt,border:`1px solid ${T.border}`}}>
+                      <div style={{fontSize:9,color:T.muted,fontWeight:900}}>{d.label}</div>
+                      <div style={{fontSize:11,color:d.pct>=80?T.ok:d.pct>=50?T.accent:T.warn,fontWeight:950}}>{Math.round(d.pct)}%</div>
+                    </div>)}
+                  </div>
+                </>}/>
+              </div>
+            </div>}
 
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.25fr .75fr",gap:14,marginBottom:18}}>
               <div className="premium-panel" style={{background:T.card,border:`1.5px solid ${T.border}`,borderRadius:16,padding:"16px 18px",boxShadow:T.shadow}}>
