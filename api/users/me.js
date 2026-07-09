@@ -20,7 +20,12 @@ async function reserveTelegramApprovalNotification(db, ref, now) {
   return db.runTransaction(async (tx) => {
     const freshSnap = await tx.get(ref);
     const fresh = freshSnap.exists ? freshSnap.data() : {};
-    if (fresh?.telegramApprovalNotifiedAt || ["sending", "sent"].includes(fresh?.telegramApprovalNotifyState)) {
+    const notifyState = fresh?.telegramApprovalNotifyState;
+    const startedAtMs = Date.parse(fresh?.telegramApprovalNotifyStartedAt || "");
+    const hasFreshSendingLock = notifyState === "sending" &&
+      Number.isFinite(startedAtMs) &&
+      Date.now() - startedAtMs < 45000;
+    if (fresh?.telegramApprovalNotifiedAt || notifyState === "sent" || hasFreshSendingLock) {
       return false;
     }
     if ((fresh?.approvalStatus || "pending_review") !== "pending_review") {
@@ -85,30 +90,30 @@ export default async function handler(req, res) {
     if (finalApprovalStatus === "pending_review") {
       const shouldNotifyTelegram = await reserveTelegramApprovalNotification(db, ref, now);
       if (shouldNotifyTelegram) {
-        sendNewUserApprovalMessage({ uid: decoded.uid, ...patch })
-          .then((result) => {
-            if (!result?.ok) {
-              return ref.set({
-                telegramApprovalNotifyState: "skipped",
-                telegramApprovalNotifyError: result?.reason || "telegram_not_sent",
-                telegramApprovalNotifyErrorAt: new Date().toISOString(),
-              }, { merge: true });
-            }
-            return ref.set({
+        try {
+          const result = await sendNewUserApprovalMessage({ uid: decoded.uid, ...patch });
+          if (!result?.ok) {
+            await ref.set({
+              telegramApprovalNotifyState: "skipped",
+              telegramApprovalNotifyError: result?.reason || "telegram_not_sent",
+              telegramApprovalNotifyErrorAt: new Date().toISOString(),
+            }, { merge: true });
+          } else {
+            await ref.set({
               telegramApprovalNotifiedAt: now,
               telegramApprovalMessageId: result.result?.message_id || null,
               telegramApprovalNotifyState: "sent",
               telegramApprovalNotifyError: "",
             }, { merge: true });
-          })
-          .catch((error) => {
-            console.error("Telegram approval notification failed", error?.message || error);
-            return ref.set({
-              telegramApprovalNotifyState: "failed",
-              telegramApprovalNotifyError: error?.message || "telegram_failed",
-              telegramApprovalNotifyErrorAt: new Date().toISOString(),
-            }, { merge: true }).catch(() => {});
-          });
+          }
+        } catch (error) {
+          console.error("Telegram approval notification failed", error?.message || error);
+          await ref.set({
+            telegramApprovalNotifyState: "failed",
+            telegramApprovalNotifyError: error?.message || "telegram_failed",
+            telegramApprovalNotifyErrorAt: new Date().toISOString(),
+          }, { merge: true }).catch(() => {});
+        }
       }
     }
 
