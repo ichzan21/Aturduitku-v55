@@ -42,7 +42,7 @@ export function isTelegramEnabled() {
 
 export function verifyTelegramWebhook(req) {
   const { webhookSecret } = getTelegramConfig();
-  if (!webhookSecret) return true;
+  if (!webhookSecret) return false;
   const header = req.headers["x-telegram-bot-api-secret-token"];
   return header === webhookSecret;
 }
