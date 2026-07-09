@@ -16,6 +16,24 @@ function buildApproval(existing, isAdminEmail) {
   return { approvalStatus, role, hasLegacyData };
 }
 
+async function reserveTelegramApprovalNotification(db, ref, now) {
+  return db.runTransaction(async (tx) => {
+    const freshSnap = await tx.get(ref);
+    const fresh = freshSnap.exists ? freshSnap.data() : {};
+    if (fresh?.telegramApprovalNotifiedAt || ["sending", "sent"].includes(fresh?.telegramApprovalNotifyState)) {
+      return false;
+    }
+    if ((fresh?.approvalStatus || "pending_review") !== "pending_review") {
+      return false;
+    }
+    tx.set(ref, {
+      telegramApprovalNotifyState: "sending",
+      telegramApprovalNotifyStartedAt: now,
+    }, { merge: true });
+    return true;
+  });
+}
+
 export default async function handler(req, res) {
   setCors(res);
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -64,18 +82,34 @@ export default async function handler(req, res) {
 
     await ref.set(patch, { merge: true });
 
-    if (finalApprovalStatus === "pending_review" && !existing?.telegramApprovalNotifiedAt) {
-      sendNewUserApprovalMessage({ uid: decoded.uid, ...patch })
-        .then((result) => {
-          if (!result?.ok) return;
-          return ref.set({
-            telegramApprovalNotifiedAt: now,
-            telegramApprovalMessageId: result.result?.message_id || null,
-          }, { merge: true });
-        })
-        .catch((error) => {
-          console.error("Telegram approval notification failed", error?.message || error);
-        });
+    if (finalApprovalStatus === "pending_review") {
+      const shouldNotifyTelegram = await reserveTelegramApprovalNotification(db, ref, now);
+      if (shouldNotifyTelegram) {
+        sendNewUserApprovalMessage({ uid: decoded.uid, ...patch })
+          .then((result) => {
+            if (!result?.ok) {
+              return ref.set({
+                telegramApprovalNotifyState: "skipped",
+                telegramApprovalNotifyError: result?.reason || "telegram_not_sent",
+                telegramApprovalNotifyErrorAt: new Date().toISOString(),
+              }, { merge: true });
+            }
+            return ref.set({
+              telegramApprovalNotifiedAt: now,
+              telegramApprovalMessageId: result.result?.message_id || null,
+              telegramApprovalNotifyState: "sent",
+              telegramApprovalNotifyError: "",
+            }, { merge: true });
+          })
+          .catch((error) => {
+            console.error("Telegram approval notification failed", error?.message || error);
+            return ref.set({
+              telegramApprovalNotifyState: "failed",
+              telegramApprovalNotifyError: error?.message || "telegram_failed",
+              telegramApprovalNotifyErrorAt: new Date().toISOString(),
+            }, { merge: true }).catch(() => {});
+          });
+      }
     }
 
     return res.status(200).json({
