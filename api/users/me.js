@@ -1,5 +1,6 @@
 import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { getAdminEmails, requireUser } from "../_lib/auth.js";
+import { sendNewUserApprovalMessage } from "../_lib/telegram.js";
 
 function setCors(res) {
   res.setHeader("Access-Control-Allow-Origin", process.env.ALLOWED_ORIGIN || "*");
@@ -62,6 +63,12 @@ export default async function handler(req, res) {
     }
 
     await ref.set(patch, { merge: true });
+
+    if (!snap.exists && finalApprovalStatus === "pending_review") {
+      sendNewUserApprovalMessage({ uid: decoded.uid, ...patch }).catch((error) => {
+        console.error("Telegram approval notification failed", error?.message || error);
+      });
+    }
 
     return res.status(200).json({
       ok: true,

@@ -2732,6 +2732,25 @@ export default function App(){
     return ()=>{disposed=true;unsub();};
   },[]);
 
+  useEffect(()=>{
+    if(!fireUser || !accessProfile || accessProfile.approvalStatus==="approved") return;
+    let disposed=false;
+    const timer=setInterval(async()=>{
+      try{
+        const profile=await loadAccessProfile();
+        if(disposed) return;
+        if(profile?.approvalStatus==="approved"){
+          showToast("✅ Akun sudah aktif. Selamat datang!");
+          const cloudData=await loadCloudData(fireUser.uid).catch(()=>null);
+          if(!disposed) applyLoadedUserData(fireUser, cloudData);
+        }
+      }catch(e){
+        console.warn("Approval status polling failed:", e);
+      }
+    },8000);
+    return ()=>{disposed=true;clearInterval(timer);};
+  },[fireUser?.uid, accessProfile?.approvalStatus]);
+
   // Handle sign in with Google - auto setup Sheets
   const handleGoogleSignIn = async() => {
     try{
