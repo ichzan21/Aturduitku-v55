@@ -3768,10 +3768,33 @@ export default function App(){
       const sisa = Number(a.alokasi||0)-Number(a.terpakai||0);
       return `${a.nama}: sisa Rp ${sisa.toLocaleString("id-ID")} dari Rp ${Number(a.alokasi||0).toLocaleString("id-ID")}`;
     }).join(", ") : "Belum ada amplop";
-    const habitInfo = s.habits.length>0 ? s.habits.map(h=>{
-      const selesai = new Set(h.doneDates||[]).has(today()) ? "selesai hari ini" : "belum selesai hari ini";
-      return `${h.nama}: ${h.target||"1x per hari"} (${selesai})`;
-    }).join(", ") : "Belum ada habit";
+    const habitRowsForAi = activeHabits.map(h=>{
+      const doneSet = new Set(h.doneDates||[]);
+      const doneToday = doneSet.has(today());
+      const monthRow = habitAnalytics.habitRows.find(x=>x.id===h.id);
+      return {
+        nama:h.nama,
+        target:h.target||"1x per hari",
+        icon:h.icon||"🐾",
+        doneToday,
+        streak:habitStreak(h),
+        best:habitBestStreak(h),
+        total:(h.doneDates||[]).length,
+        monthPct:Math.round(monthRow?.monthPct||0),
+        monthDone:monthRow?.monthDone||0,
+      };
+    }).sort((a,b)=>b.monthPct-a.monthPct);
+    const habitStrong = habitRowsForAi[0];
+    const habitWeak = [...habitRowsForAi].reverse().find(h=>h.monthPct<100) || null;
+    const habitOpenNames = habitRowsForAi.filter(h=>!h.doneToday).map(h=>h.nama);
+    const habitDoneNames = habitRowsForAi.filter(h=>h.doneToday).map(h=>h.nama);
+    const habitWeekInfo = Array.from({length:7},(_,i)=>dateAdd(today(),i-6)).map(day=>{
+      const done=activeHabits.filter(h=>new Set(h.doneDates||[]).has(day)).length;
+      return `${day.slice(5)}:${activeHabits.length?Math.round(done/activeHabits.length*100):0}%`;
+    }).join(", ");
+    const habitInfo = activeHabits.length>0 ? habitRowsForAi.slice(0,12).map(h=>
+      `${h.icon} ${h.nama}: target ${h.target}, ${h.doneToday?"selesai hari ini":"belum selesai hari ini"}, streak ${h.streak} hari, best ${h.best}, bulan ini ${h.monthDone}x (${h.monthPct}%), total ${h.total}x`
+    ).join("\n  ") : "Belum ada habit";
     const recurringInfo = s.recurring.length>0 ? s.recurring.map(r=>
       `${r.nama}: ${r.tipe} Rp ${Number(r.jml||0).toLocaleString("id-ID")} tiap tgl ${r.hari}`
     ).join(", ") : "Belum ada transaksi rutin";
@@ -3809,10 +3832,12 @@ MODE SUPERPOWER:
 - Mode Coach: buat rencana harian/mingguan yang mudah dilakukan user awam.
 - Mode Dokter: diagnosis kondisi uang dengan bahasa sederhana: gejala, penyebab, obat, dan kontrol berikutnya.
 - Mode Growth: bantu user membangun habit, streak, amplop, budget, goal, dan kebiasaan finansial yang terasa ringan.
+- Mode Habit Coach: pahami habit user dari data aktual, sebut nama habit, streak, progress bulan/tahun, quest yang belum selesai, lalu beri langkah kecil yang realistis.
 
 PRINSIP JAWABAN:
 - Jangan beri nasihat generik seperti "hemat pengeluaran" tanpa angka, kategori, atau langkah nyata.
 - Selalu gunakan data user bila tersedia: saldo, transaksi, budget, goals, utang, amplop, habit, aset, dan runway.
+- Jika user bertanya soal habit/rutinitas/streak, gunakan data habit aktual di bawah. Jangan jawab generik dan jangan mengarang habit yang tidak ada.
 - Untuk saran, usahakan ada angka rupiah, batas harian/mingguan, prioritas, dan tindakan berikutnya.
 - Untuk user panik atau kecewa, validasi perasaannya dulu satu kalimat, lalu bantu pecah jadi langkah kecil.
 - Jangan menjanjikan keuntungan investasi. Beri edukasi risiko dan arah konservatif untuk pemula.
@@ -3846,6 +3871,23 @@ PRINSIP JAWABAN:
 - Net Worth: Rp ${netWorth.toLocaleString("id-ID")}
 
 ✉️ AMPLOP: ${amplopInfo}
+
+🐾 HABIT & ROUTINE DASHBOARD
+- Habit aktif: ${habitTotalToday}
+- Selesai hari ini: ${habitDoneToday}/${habitTotalToday} (${Math.round(habitTodayPct)}%)
+- Quest belum selesai hari ini: ${habitOpenNames.join(", ")||"tidak ada"}
+- Quest selesai hari ini: ${habitDoneNames.join(", ")||"belum ada"}
+- Perfect streak semua habit: ${perfectDayStreak} hari
+- Best streak individual: ${habitBestAll} hari
+- XP/Level: ${habitXP} XP, level ${habitLevel}
+- Progress bulan ${habitAnalytics.monthName}: ${Math.round(habitAnalytics.monthPct)}% (${habitAnalytics.monthDone}/${habitAnalytics.monthSlots||0} check)
+- Progress tahunan ${habitAnalytics.year}: ${Math.round(habitAnalytics.yearPct)}% (${habitAnalytics.yearDone}/${habitAnalytics.yearSlots||0} check)
+- Bulan terbaik habit: ${habitAnalytics.bestMonth?.full||"-"} (${Math.round(habitAnalytics.bestMonth?.pct||0)}%)
+- Habit terkuat bulan ini: ${habitStrong?`${habitStrong.nama} (${habitStrong.monthPct}%, streak ${habitStrong.streak})`:"belum ada"}
+- Habit yang perlu dibantu: ${habitWeak?`${habitWeak.nama} (${habitWeak.monthPct}%, streak ${habitWeak.streak})`:"belum ada"}
+- Tren 7 hari terakhir: ${habitWeekInfo||"belum ada data"}
+- Detail habit:
+  ${habitInfo}
 
 📜 5 TRANSAKSI TERAKHIR
   ${recentTx}
@@ -3919,13 +3961,15 @@ Untuk chat/analisis/saran → jawab langsung tanpa JSON.
 - Kategorikan dari: ${s.budgets.map(b=>b.kat).join(", ")}
 - Dompet tersedia: ${s.dompet.map(d=>d.nama).join(", ")}
 - Amplop: ${amplopInfo}
-- Habit: ${habitInfo}
+- Habit aktif: ${activeHabits.map(h=>h.nama).join(", ")||"belum ada"}
 - Transaksi rutin: ${recurringInfo}
 - Goal tersedia: ${s.goals.map(g=>g.nama).join(", ")||"belum ada"}
 
 ATURAN EKSEKUSI:
 - Jika user jelas meminta catat/tambah/buat/isi/pakai/ceklis/bayar/transfer/update, prioritaskan JSON action.
 - Jika user meminta "analisis", "review", "gimana kondisi", "saran", atau "rencana", jangan JSON; berikan konsultasi.
+- Jika user meminta coach/review/analisis habit, jangan JSON. Beri diagnosis habit: yang sudah bagus, yang macet, dan 1-3 quest paling penting hari ini.
+- Jika user meminta "ceklis", "selesaikan", "sudah melakukan", atau "habit selesai", gunakan JSON selesai_habit bila nama habit jelas.
 - Jika nominal atau objek penting tidak jelas, jangan memaksa. Tanya singkat: "Mau pakai dompet mana?" atau "Nominalnya berapa?"
 - Setelah action berhasil, aplikasi akan membuat konfirmasi sendiri; jadi JSON tidak boleh ditambah teks lain.
 - Untuk konfirmasi setelah data berhasil dicatat oleh aplikasi: singkat, hangat, maksimal 2-4 baris, sebut nominal/objek utama, lalu beri satu langkah berikutnya.
@@ -4126,9 +4170,12 @@ CONTOH GAYA:
           const habit=aiHabit(parsed.nama);
           if(!habit) aiDone(`⚠️ Habit "${parsed.nama}" tidak ditemukan. Habit yang ada: ${s.habits.map(h=>h.nama).join(", ")||"belum ada habit"}`);
           else {
+            const nextDates=[...new Set([...(habit.doneDates||[]),today()])].sort();
+            const tempHabit={...habit,doneDates:nextDates};
+            const nextStreak=habitStreak(tempHabit);
             setS(p=>({...p,habits:(p.habits||[]).map(h=>h.id===habit.id?{...h,doneDates:[...new Set([...(h.doneDates||[]),today()])].sort()}:h)}));
             setHabitCelebrate(true);setTimeout(()=>setHabitCelebrate(false),900);
-            aiDone(`✅ **Habit selesai hari ini!**\n\n${habit.nama}\nStreak kamu aman.`);
+            aiDone(`✅ **Habit selesai hari ini!**\n\n${habit.nama}\nStreak sekarang: ${nextStreak} hari. Nice, satu quest kecil sudah beres.`);
             showToast("Habit selesai via AI");
           }
         } else if(parsed.action==="tambah_budget") {
