@@ -7228,7 +7228,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               </div>)}
             </div>
 
-            {habitTotalToday>0&&<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.35fr .85fr",gap:14,marginBottom:18}}>
+            {habitTotalToday>0&&<div style={{display:"grid",gridTemplateColumns:"1fr",gap:14,marginBottom:18}}>
               <Card ch={<>
                 <Sec t={`Habit Tracker ${habitAnalytics.monthName}`} sub="Progress dihitung sampai hari ini, jadi awal bulan tetap terasa adil dan mudah dibaca."/>
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:12}}>
@@ -7287,14 +7287,20 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   })()}
                 </div>
               </>}/>
-              <div style={{display:"grid",gap:14,alignContent:"start"}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(0,1fr) minmax(0,1fr)",gap:14,alignContent:"start"}}>
                 <Card ch={<>
-                  <Sec t="Analysis" sub="Habit mana yang paling kuat bulan ini."/>
-                  <div style={{display:"grid",gap:9}}>
+                  <Sec t="Analisis habit" sub="Habit mana yang paling kuat dan mana yang perlu dibantu bulan ini."/>
+                  <div style={{display:"grid",gap:10}}>
                     {habitAnalytics.habitRows.slice(0,7).map(h=><div key={h.id} style={{display:"grid",gridTemplateColumns:"1fr auto",gap:10,alignItems:"center"}}>
                       <div style={{minWidth:0}}>
-                        <div style={{fontSize:12,fontWeight:900,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.icon||"🐾"} {h.nama}</div>
-                        <div style={{height:8,borderRadius:99,background:T.cardAlt,border:`1px solid ${T.border}`,overflow:"hidden",marginTop:5}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+                          <span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:T.cardAlt,border:`1px solid ${T.border}`,flex:"0 0 auto"}}>{h.icon||"🐾"}</span>
+                          <div style={{minWidth:0}}>
+                            <div style={{fontSize:12,fontWeight:950,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.nama}</div>
+                            <div style={{fontSize:10,color:T.muted,fontWeight:800}}>Streak {h.now||0} hari · Best {h.best||0}</div>
+                          </div>
+                        </div>
+                        <div style={{height:9,borderRadius:99,background:T.cardAlt,border:`1px solid ${T.border}`,overflow:"hidden",marginTop:7}}>
                           <div style={{width:`${Math.min(h.monthPct,100)}%`,height:"100%",background:h.monthPct>=80?T.ok:h.monthPct>=50?T.accent:T.warn,borderRadius:99}}/>
                         </div>
                       </div>
@@ -7303,7 +7309,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   </div>
                 </>}/>
                 <Card ch={<>
-                  <Sec t="Yearly Habit Dashboard" sub={`Ringkasan habit ${habitAnalytics.year}`}/>
+                  <Sec t="Yearly habit" sub={`Ringkasan habit ${habitAnalytics.year} yang enak dibaca di laptop, iPad, dan HP.`}/>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
                     {[
                       ["Year progress",`${Math.round(habitAnalytics.yearPct)}%`,T.accent,T.accentBg],
@@ -7313,13 +7319,13 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       <div style={{fontSize:16,fontWeight:950,color}}>{value}</div>
                     </div>)}
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(12,1fr)",gap:5,alignItems:"end",height:96,marginBottom:10}}>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(12,1fr)",gap:6,alignItems:"end",height:112,marginBottom:12,padding:"8px 4px 0",borderRadius:14,background:T.cardAlt,border:`1px solid ${T.border}`}}>
                     {habitAnalytics.yearMonths.map(m=><div key={m.label} title={`${m.full}: ${Math.round(m.pct)}%`} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,height:"100%",justifyContent:"flex-end"}}>
                       <div style={{width:"100%",minHeight:4,height:`${Math.max(4,m.pct*.82)}%`,borderRadius:"7px 7px 3px 3px",background:m.pct>=80?T.ok:m.pct>=50?T.accent:m.pct>0?T.warn:T.border,transition:"height .4s ease"}}/>
                       <span style={{fontSize:8,color:T.muted,fontWeight:800}}>{m.label}</span>
                     </div>)}
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5}}>
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(4,1fr)":"repeat(7,1fr)",gap:6}}>
                     {habitAnalytics.weekday.map(d=><div key={d.label} style={{textAlign:"center",padding:"7px 4px",borderRadius:10,background:d.pct>=80?T.okBg:d.pct>=50?T.accentBg:T.cardAlt,border:`1px solid ${T.border}`}}>
                       <div style={{fontSize:9,color:T.muted,fontWeight:900}}>{d.label}</div>
                       <div style={{fontSize:11,color:d.pct>=80?T.ok:d.pct>=50?T.accent:T.warn,fontWeight:950}}>{Math.round(d.pct)}%</div>
