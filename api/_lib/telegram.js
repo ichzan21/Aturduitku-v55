@@ -40,6 +40,16 @@ export function isTelegramEnabled() {
   return Boolean(token && chatId);
 }
 
+export function getTelegramRuntimeStatus() {
+  const { token, chatId, webhookSecret } = getTelegramConfig();
+  return {
+    botToken: Boolean(token),
+    adminChatId: Boolean(chatId),
+    webhookSecret: Boolean(webhookSecret),
+    enabled: Boolean(token && chatId && webhookSecret),
+  };
+}
+
 export function verifyTelegramWebhook(req) {
   const { webhookSecret } = getTelegramConfig();
   if (!webhookSecret) return false;

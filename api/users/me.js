@@ -64,10 +64,18 @@ export default async function handler(req, res) {
 
     await ref.set(patch, { merge: true });
 
-    if (!snap.exists && finalApprovalStatus === "pending_review") {
-      sendNewUserApprovalMessage({ uid: decoded.uid, ...patch }).catch((error) => {
-        console.error("Telegram approval notification failed", error?.message || error);
-      });
+    if (finalApprovalStatus === "pending_review" && !existing?.telegramApprovalNotifiedAt) {
+      sendNewUserApprovalMessage({ uid: decoded.uid, ...patch })
+        .then((result) => {
+          if (!result?.ok) return;
+          return ref.set({
+            telegramApprovalNotifiedAt: now,
+            telegramApprovalMessageId: result.result?.message_id || null,
+          }, { merge: true });
+        })
+        .catch((error) => {
+          console.error("Telegram approval notification failed", error?.message || error);
+        });
     }
 
     return res.status(200).json({
