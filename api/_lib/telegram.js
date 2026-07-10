@@ -126,13 +126,11 @@ export function buildApprovalResultMessage(user, status, actor = "Telegram") {
   }[status] || status;
   const name = user.displayName || "Tanpa nama";
   const email = user.email || "-";
-  const paymentStatus = user.paymentStatus || "pending_info";
   return [
     `🐱 <b>${statusLabel}</b>`,
     "",
     `<b>Nama:</b> ${escapeHtml(name)}`,
     `<b>Email:</b> ${escapeHtml(email)}`,
-    `<b>Status bayar:</b> ${escapeHtml(paymentStatus)}`,
     `<b>Diproses:</b> ${escapeHtml(actor)}`,
   ].join("\n");
 }

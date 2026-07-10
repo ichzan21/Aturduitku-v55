@@ -40,6 +40,8 @@ async function handleApprovalCallback(callbackQuery) {
   const actor = actorFromCallback(callbackQuery);
   const patch = {
     approvalStatus: status,
+    paymentStatus: status === "approved" ? "paid" : "pending_info",
+    paymentUpdatedAt: now,
     reviewedAt: now,
     reviewedBy: actor,
     telegramReviewedAt: now,
@@ -48,8 +50,6 @@ async function handleApprovalCallback(callbackQuery) {
 
   if (status === "approved") {
     patch.role = "user";
-    patch.paymentStatus = "paid";
-    patch.paymentUpdatedAt = now;
     patch.approvedAt = now;
     patch.approvedBy = actor;
     patch.adminNotes = "Approved lewat Telegram.";

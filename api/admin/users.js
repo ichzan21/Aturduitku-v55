@@ -3,7 +3,6 @@ import { requireAdmin } from "../_lib/auth.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 
 const ALLOWED_STATUSES = ["pending_review", "approved", "rejected"];
-const ALLOWED_PAYMENT_STATUSES = ["pending_info", "checking", "paid", "problem"];
 
 function sortUsers(users) {
   return users.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
@@ -11,8 +10,8 @@ function sortUsers(users) {
 
 const ADMIN_FIELDS = [
   "email", "displayName", "photoURL", "role", "approvalStatus", "authProvider",
-  "buyerEmail", "orderId", "paymentStatus", "createdAt", "lastLoginAt", "lastSeenAt",
-  "reviewedAt", "reviewedBy", "approvedAt", "approvedBy", "paymentUpdatedAt", "adminNotes",
+  "buyerEmail", "orderId", "createdAt", "lastLoginAt", "lastSeenAt",
+  "reviewedAt", "reviewedBy", "approvedAt", "approvedBy", "adminNotes",
 ];
 
 function toAdminUser(doc) {
@@ -40,11 +39,9 @@ export default async function handler(req, res) {
         (acc, user) => {
           acc.total += 1;
           acc[user.approvalStatus || "pending_review"] = (acc[user.approvalStatus || "pending_review"] || 0) + 1;
-          const paymentStatus = user.paymentStatus || "pending_info";
-          acc.payment[paymentStatus] = (acc.payment[paymentStatus] || 0) + 1;
           return acc;
         },
-        { total: 0, pending_review: 0, approved: 0, rejected: 0, payment: { pending_info: 0, checking: 0, paid: 0, problem: 0 } }
+        { total: 0, pending_review: 0, approved: 0, rejected: 0 }
       );
 
       return res.status(200).json({ ok: true, users, stats });
@@ -52,14 +49,10 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       assertJsonSize(req.body, 24_000);
-      const { uid, approvalStatus, adminNotes = "", paymentStatus, buyerEmail, orderId } = req.body || {};
+      const { uid, approvalStatus, adminNotes = "", buyerEmail, orderId } = req.body || {};
       if (!uid || !ALLOWED_STATUSES.includes(approvalStatus)) {
         return res.status(400).json({ error: "Invalid uid or approvalStatus" });
       }
-      if (paymentStatus && !ALLOWED_PAYMENT_STATUSES.includes(paymentStatus)) {
-        return res.status(400).json({ error: "Invalid paymentStatus" });
-      }
-
       const now = new Date().toISOString();
       const patch = {
         approvalStatus,
@@ -70,17 +63,13 @@ export default async function handler(req, res) {
         reviewedBy: admin.email || admin.uid,
       };
 
-      if (paymentStatus) {
-        patch.paymentStatus = paymentStatus;
-        patch.paymentUpdatedAt = now;
-      }
+      patch.paymentStatus = approvalStatus === "approved" ? "paid" : "pending_info";
+      patch.paymentUpdatedAt = now;
 
       if (approvalStatus === "approved") {
         patch.approvedAt = now;
         patch.approvedBy = admin.email || admin.uid;
         patch.role = "user";
-        patch.paymentStatus = paymentStatus || "paid";
-        patch.paymentUpdatedAt = now;
       }
 
       await db.collection("users").doc(uid).set(patch, { merge: true });

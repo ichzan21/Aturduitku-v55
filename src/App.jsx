@@ -2468,17 +2468,11 @@ export default function App(){
   const [authForm,setAuthForm]=useState({name:"",email:"",password:""});
   const [showPassword,setShowPassword]=useState(false);
   const [adminUsers,setAdminUsers]=useState([]);
-  const [adminStats,setAdminStats]=useState({total:0,pending_review:0,approved:0,rejected:0,payment:{pending_info:0,checking:0,paid:0,problem:0}});
+  const [adminStats,setAdminStats]=useState({total:0,pending_review:0,approved:0,rejected:0});
   const [adminLoading,setAdminLoading]=useState(false);
   const [adminFilter,setAdminFilter]=useState("all");
-  const [adminPaymentFilter,setAdminPaymentFilter]=useState("all");
-  const [adminReviewFilter,setAdminReviewFilter]=useState("all");
   const [adminQuery,setAdminQuery]=useState("");
   const [adminPage,setAdminPage]=useState(1);
-  const [adminNotes,setAdminNotes]=useState({});
-  const [adminBuyerEmail,setAdminBuyerEmail]=useState({});
-  const [adminOrderId,setAdminOrderId]=useState({});
-  const [adminPaymentStatus,setAdminPaymentStatus]=useState({});
   const [syncStatus,setSyncStatus]=useState("idle"); // idle | saving | saved | error
   const [lang,setLang]=useState(()=>{try{return localStorage.getItem("aturduitku_lang")||"id";}catch(e){return "id";}});
   const t = (key) => TR[lang]?.[key] ?? TR["id"]?.[key] ?? key;
@@ -2605,11 +2599,7 @@ export default function App(){
     try{
       const data = await authedJson("/api/admin/users", { method:"GET" });
       setAdminUsers(data.users || []);
-      setAdminStats(data.stats || {total:0,pending_review:0,approved:0,rejected:0,payment:{pending_info:0,checking:0,paid:0,problem:0}});
-      setAdminNotes(Object.fromEntries((data.users||[]).map(u=>[u.uid, u.adminNotes || ""])));
-      setAdminBuyerEmail(Object.fromEntries((data.users||[]).map(u=>[u.uid, u.buyerEmail || u.email || ""])));
-      setAdminOrderId(Object.fromEntries((data.users||[]).map(u=>[u.uid, u.orderId || ""])));
-      setAdminPaymentStatus(Object.fromEntries((data.users||[]).map(u=>[u.uid, u.paymentStatus || "pending_info"])));
+      setAdminStats(data.stats || {total:0,pending_review:0,approved:0,rejected:0});
     }catch(e){
       showToast(`⚠️ ${e.message || "Gagal memuat user admin"}`);
     }finally{
@@ -2620,15 +2610,15 @@ export default function App(){
   const updateAdminApproval = async (uid, approvalStatus) => {
     setAdminLoading(true);
     try{
+      const currentUser = adminUsers.find(user=>user.uid===uid) || {};
       const data = await authedJson("/api/admin/users", {
         method:"POST",
         body:JSON.stringify({
           uid,
           approvalStatus,
-          adminNotes: adminNotes[uid] || "",
-          buyerEmail: adminBuyerEmail[uid] || "",
-          orderId: adminOrderId[uid] || "",
-          paymentStatus: adminPaymentStatus[uid] || "pending_info",
+          adminNotes: currentUser.adminNotes || "",
+          buyerEmail: currentUser.buyerEmail || currentUser.email || "",
+          orderId: currentUser.orderId || "",
         }),
       });
       setAdminUsers(prev=>prev.map(user=>user.uid===uid?{...user,...data.user}:user));
@@ -2846,33 +2836,17 @@ export default function App(){
   const adminFilteredUsers = useMemo(()=>{
     const filtered = adminUsers.filter((user)=>{
       const matchFilter = adminFilter==="all" || (user.approvalStatus || "pending_review")===adminFilter;
-      const matchPaymentFilter = adminPaymentFilter==="all" || (user.paymentStatus || "pending_info")===adminPaymentFilter;
-      const todayKey = today();
-      const reviewedKey = String(user.reviewedAt || "").slice(0,10);
-      const matchReviewFilter = adminReviewFilter==="all"
-        || (adminReviewFilter==="today" && reviewedKey===todayKey)
-        || (adminReviewFilter==="unreviewed" && !user.reviewedAt);
       const q = adminQuery.trim().toLowerCase();
       const hay = `${user.displayName||""} ${user.email||""} ${user.buyerEmail||""} ${user.orderId||""}`.toLowerCase();
-      return matchFilter && matchPaymentFilter && matchReviewFilter && (!q || hay.includes(q));
+      return matchFilter && (!q || hay.includes(q));
     });
     const approvalRank = { pending_review:0, approved:1, rejected:2 };
-    const paymentRank = { checking:0, pending_info:1, problem:2, paid:3 };
     return filtered.sort((a,b)=>{
       const approvalDelta = (approvalRank[a.approvalStatus || "pending_review"] ?? 9) - (approvalRank[b.approvalStatus || "pending_review"] ?? 9);
       if(approvalDelta!==0) return approvalDelta;
-      const paymentDelta = (paymentRank[a.paymentStatus || "pending_info"] ?? 9) - (paymentRank[b.paymentStatus || "pending_info"] ?? 9);
-      if(paymentDelta!==0) return paymentDelta;
       return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
     });
-  },[adminUsers, adminFilter, adminPaymentFilter, adminReviewFilter, adminQuery]);
-
-  const paymentStatusLabel = (status) => ({
-    pending_info:"Belum kirim referensi",
-    checking:"Perlu dicek",
-    paid:"Sudah cocok",
-    problem:"Bermasalah",
-  }[status || "pending_info"] || status || "Belum kirim referensi");
+  },[adminUsers, adminFilter, adminQuery]);
 
   const ADMIN_PAGE_SIZE = 8;
   const adminPageCount = Math.max(1, Math.ceil(adminFilteredUsers.length / ADMIN_PAGE_SIZE));
@@ -2880,40 +2854,13 @@ export default function App(){
     const start = (adminPage - 1) * ADMIN_PAGE_SIZE;
     return adminFilteredUsers.slice(start, start + ADMIN_PAGE_SIZE);
   },[adminFilteredUsers, adminPage]);
-  const adminReadyToApprove=useMemo(()=>adminUsers.filter(u=>(u.approvalStatus||"pending_review")==="pending_review"&&(u.paymentStatus||"pending_info")==="paid"),[adminUsers]);
-  const adminNeedPaymentCheck=useMemo(()=>adminUsers.filter(u=>(u.approvalStatus||"pending_review")==="pending_review"&&["checking","pending_info"].includes(u.paymentStatus||"pending_info")),[adminUsers]);
-
   useEffect(()=>{
     setAdminPage(1);
-  },[adminFilter, adminPaymentFilter, adminReviewFilter, adminQuery]);
+  },[adminFilter, adminQuery]);
 
   useEffect(()=>{
     if(adminPage > adminPageCount) setAdminPage(adminPageCount);
   },[adminPage, adminPageCount]);
-
-  const copyAdminField = async (label, value) => {
-    if(!value){
-      showToast(`⚠️ ${label} kosong`);
-      return;
-    }
-    try{
-      await navigator.clipboard.writeText(String(value));
-      showToast(`✅ ${label} disalin`);
-    }catch(e){
-      showToast(`⚠️ Gagal copy ${label.toLowerCase()}`);
-    }
-  };
-
-  const copyAdminWhatsappMessage = async (user, mode="approved") => {
-    const name=user.displayName || "Kak";
-    const email=user.email || "";
-    const orderId=adminOrderId[user.uid] || user.orderId || "";
-    const message = mode==="approved"
-      ? `Halo ${name}, akun AturDuitku kamu sudah aktif.\n\nEmail akun: ${email}\n${orderId?`Order ID: ${orderId}\n`:""}Silakan login kembali dan tekan "Cek status lagi" kalau masih muncul halaman approval.\n\nJika ada kendala, hubungi admin AturDuitku.`
-      : `Halo ${name}, admin AturDuitku sedang cek pembayaran kamu.\n\nEmail akun: ${email}\n${orderId?`Order ID: ${orderId}\n`:""}Mohon pastikan email pembeli dan Order ID Scalev sudah benar supaya approval lebih cepat.`;
-    await copyAdminField(mode==="approved"?"Pesan WhatsApp aktif":"Pesan WhatsApp follow up", message);
-  };
-
 
   useEffect(()=>{try{localStorage.setItem("aturduitku_dark",dark?"1":"0");}catch(e){}},[ dark]);
 
@@ -8216,45 +8163,22 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
         {page==="admin"&&isAdmin&&(
           <div style={{padding:isMobile?`12px max(12px,env(safe-area-inset-right)) calc(80px + max(env(safe-area-inset-bottom),0px)) max(12px,env(safe-area-inset-left))`:"14px 14px 40px",maxWidth:1340,margin:"0 auto"}}>
-            <Card ch={<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.35fr .9fr .9fr",gap:14,alignItems:"stretch"}}>
+            <Card ch={<div>
               <div style={{display:"flex",gap:12,alignItems:"flex-start",minWidth:0}}>
                 <img className="cat-mascot" src="/icon-192.png" alt="" style={{width:54,height:54,borderRadius:16,objectFit:"cover",boxShadow:`0 10px 24px ${T.accentPop}`,flexShrink:0}}/>
                 <div style={{minWidth:0}}>
-                  <div style={{fontSize:10,fontWeight:900,color:T.accent,letterSpacing:1.2,textTransform:"uppercase",marginBottom:4}}>Scalev manual flow</div>
-                  <div style={{fontSize:18,fontWeight:900,color:T.text,letterSpacing:-.2,marginBottom:5}}>Approval user dibuat seperti kasir kecil</div>
-                  <div style={{fontSize:12,color:T.muted,lineHeight:1.65}}>Cocokkan buyer email dan order ID dari Scalev, ubah pembayaran menjadi <b>Sudah cocok</b>, lalu approve akun. User tidak perlu isi data pembelian sendiri.</div>
+                  <div style={{fontSize:10,fontWeight:900,color:T.accent,letterSpacing:1.2,textTransform:"uppercase",marginBottom:4}}>Dashboard Admin</div>
+                  <div style={{fontSize:18,fontWeight:900,color:T.text,letterSpacing:-.2,marginBottom:5}}>Kelola akses user dengan mudah</div>
+                  <div style={{fontSize:12,color:T.muted,lineHeight:1.65}}>Cek pembayaran di Scalev, lalu pilih <b>Aktifkan</b> atau <b>Tolak</b>. Hanya akun yang menunggu yang perlu kamu tangani.</div>
                 </div>
               </div>
-              <button onClick={()=>{setAdminFilter("pending_review");setAdminPaymentFilter("paid");setAdminReviewFilter("all");}} style={{textAlign:"left",border:`1px solid ${T.okBorder}`,background:T.okBg,borderRadius:14,padding:"13px 14px",cursor:"pointer",fontFamily:"inherit"}}>
-                <div style={{fontSize:10,fontWeight:900,color:T.ok,letterSpacing:1,textTransform:"uppercase",marginBottom:5}}>Siap approve</div>
-                <div style={{fontSize:24,fontWeight:900,color:T.ok,marginBottom:2}}>{adminReadyToApprove.length}</div>
-                <div style={{fontSize:11,color:T.sub,lineHeight:1.45}}>Pembayaran sudah cocok, tinggal buka akses.</div>
-              </button>
-              <button onClick={()=>{setAdminFilter("pending_review");setAdminPaymentFilter("checking");setAdminReviewFilter("all");}} style={{textAlign:"left",border:`1px solid ${T.warnBorder}`,background:T.warnBg,borderRadius:14,padding:"13px 14px",cursor:"pointer",fontFamily:"inherit"}}>
-                <div style={{fontSize:10,fontWeight:900,color:T.warn,letterSpacing:1,textTransform:"uppercase",marginBottom:5}}>Perlu dicek</div>
-                <div style={{fontSize:24,fontWeight:900,color:T.warn,marginBottom:2}}>{adminNeedPaymentCheck.length}</div>
-                <div style={{fontSize:11,color:T.sub,lineHeight:1.45}}>Butuh validasi email/order ID Scalev.</div>
-              </button>
             </div>} style={{marginBottom:18,padding:isMobile?14:"16px 18px"}}/>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:18}}>
               {[
-                {label:"Total User",value:adminStats.total,color:T.accent,bg:T.accentBg},
-                {label:"Pending",value:adminStats.pending_review,color:T.warn,bg:T.warnBg},
-                {label:"Approved",value:adminStats.approved,color:T.ok,bg:T.okBg},
-                {label:"Rejected",value:adminStats.rejected,color:T.err,bg:T.errBg},
-              ].map((item)=>(
-                <div key={item.label} style={{background:item.bg,borderRadius:14,padding:"14px 16px",border:`1px solid ${T.border}`}}>
-                  <div style={{fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{item.label}</div>
-                  <div style={{fontSize:22,fontWeight:900,color:item.color}}>{item.value}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:18}}>
-              {[
-                {label:"Belum kirim",value:adminStats.payment?.pending_info || 0,color:T.muted,bg:T.cardAlt},
-                {label:"Perlu dicek",value:adminStats.payment?.checking || 0,color:T.warn,bg:T.warnBg},
-                {label:"Sudah cocok",value:adminStats.payment?.paid || 0,color:T.ok,bg:T.okBg},
-                {label:"Bermasalah",value:adminStats.payment?.problem || 0,color:T.err,bg:T.errBg},
+                {label:"Total",value:adminStats.total,color:T.accent,bg:T.accentBg},
+                {label:"Menunggu",value:adminStats.pending_review,color:T.warn,bg:T.warnBg},
+                {label:"Aktif",value:adminStats.approved,color:T.ok,bg:T.okBg},
+                {label:"Ditolak",value:adminStats.rejected,color:T.err,bg:T.errBg},
               ].map((item)=>(
                 <div key={item.label} style={{background:item.bg,borderRadius:14,padding:"14px 16px",border:`1px solid ${T.border}`}}>
                   <div style={{fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{item.label}</div>
@@ -8263,48 +8187,26 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               ))}
             </div>
             <Card ch={<>
-              <Sec t="Dashboard Admin" sub="Review akun baru, cek status pembayaran, lalu approve manual setelah pembayaran cocok." right={<Btn onClick={loadAdminUsers} ch={adminLoading?"Memuat...":"Refresh data"} c={T.info} outline style={{padding:"6px 12px",fontSize:11}}/>}/>
+              <Sec t="Kelola User" sub="Aktifkan akun setelah pembayaran terkonfirmasi di Scalev." right={<Btn onClick={loadAdminUsers} ch={adminLoading?"Memuat...":"Refresh"} c={T.info} outline style={{padding:"6px 12px",fontSize:11}}/>}/>
               <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
                 {[
-                  {label:"Fokus Pending",onClick:()=>{setAdminFilter("pending_review");setAdminPaymentFilter("all");}},
-                  {label:"Perlu Dicek",onClick:()=>{setAdminFilter("all");setAdminPaymentFilter("checking");}},
-                  {label:"Review Hari Ini",onClick:()=>{setAdminReviewFilter("today");}},
-                  {label:"Belum Direview",onClick:()=>{setAdminReviewFilter("unreviewed");}},
-                  {label:"Sudah Cocok",onClick:()=>{setAdminFilter("all");setAdminPaymentFilter("paid");}},
-                  {label:"Reset Filter",onClick:()=>{setAdminFilter("all");setAdminPaymentFilter("all");setAdminReviewFilter("all");setAdminQuery("");}},
+                  {id:"all",label:"Semua"},
+                  {id:"pending_review",label:"Menunggu"},
+                  {id:"approved",label:"Aktif"},
+                  {id:"rejected",label:"Ditolak"},
                 ].map((item)=>(
-                  <button key={item.label} onClick={item.onClick} style={{padding:"8px 12px",borderRadius:999,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.text,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                  <button key={item.id} onClick={()=>setAdminFilter(item.id)} style={{padding:"8px 13px",borderRadius:999,border:`1px solid ${adminFilter===item.id?T.accent:T.border}`,background:adminFilter===item.id?T.accentBg:T.cardAlt,color:adminFilter===item.id?T.accent:T.text,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>
                     {item.label}
                   </button>
                 ))}
               </div>
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"180px 180px 180px 1fr",gap:10,marginBottom:14}}>
-                <select value={adminFilter} onChange={e=>setAdminFilter(e.target.value)} style={IS}>
-                  <option value="all">Semua status</option>
-                  <option value="pending_review">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-                <select value={adminPaymentFilter} onChange={e=>setAdminPaymentFilter(e.target.value)} style={IS}>
-                  <option value="all">Semua pembayaran</option>
-                  <option value="pending_info">Belum kirim referensi</option>
-                  <option value="checking">Perlu dicek</option>
-                  <option value="paid">Sudah cocok</option>
-                  <option value="problem">Bermasalah</option>
-                </select>
-                <select value={adminReviewFilter} onChange={e=>setAdminReviewFilter(e.target.value)} style={IS}>
-                  <option value="all">Semua review</option>
-                  <option value="today">Direview hari ini</option>
-                  <option value="unreviewed">Belum direview</option>
-                </select>
-                <input value={adminQuery} onChange={e=>setAdminQuery(e.target.value)} placeholder="Cari nama, email akun, buyer email, atau order ID" style={IS}/>
-              </div>
+              <input value={adminQuery} onChange={e=>setAdminQuery(e.target.value)} placeholder="Cari nama atau email user" style={{...IS,marginBottom:14}}/>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr auto",gap:12,marginBottom:14,padding:"12px 14px",borderRadius:12,background:T.cardAlt,border:`1px solid ${T.border}`}}>
                 <div style={{fontSize:12,color:T.text,fontWeight:700}}>
-                  {adminFilteredUsers.length} user tampil, halaman {adminPage} / {adminPageCount}
+                  {adminFilteredUsers.length} user ditemukan
                 </div>
                 <div style={{fontSize:11,color:T.muted}}>
-                  Urutan otomatis memprioritaskan user pending dan pembayaran yang masih perlu dicek.
+                  Akun menunggu selalu tampil lebih dulu.
                 </div>
               </div>
               <div style={{display:"grid",gap:12}}>
@@ -8331,77 +8233,37 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       <div>
                         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                           <div style={{fontSize:14,fontWeight:800,color:T.text}}>{user.displayName || "Tanpa nama"}</div>
-                          {(user.approvalStatus || "pending_review")==="pending_review"&&<span style={{fontSize:10,fontWeight:800,padding:"4px 8px",borderRadius:99,background:T.warnBg,color:T.warn}}>Perlu aksi</span>}
-                          {!user.reviewedAt&&<span style={{fontSize:10,fontWeight:800,padding:"4px 8px",borderRadius:99,background:T.errBg,color:T.err}}>Belum direview</span>}
                         </div>
                         <div style={{fontSize:12,color:T.muted,marginTop:2}}>{user.email || "-"}</div>
-                        <div style={{fontSize:10,color:T.muted,marginTop:6}}>UID: {user.uid}</div>
-                        <div style={{display:"grid",gap:6,marginTop:10}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:11,color:T.sub}}>
-                            <strong>Email akun:</strong> <span>{user.email || "-"}</span>
-                            <button onClick={()=>copyAdminField("Email akun", user.email)} style={{padding:"4px 8px",borderRadius:999,border:`1px solid ${T.border}`,background:T.bg,color:T.text,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
-                          </div>
-                          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:11,color:T.sub}}>
-                            <strong>Buyer email:</strong> <span>{user.buyerEmail || "-"}</span>
-                            <button onClick={()=>copyAdminField("Buyer email", user.buyerEmail)} style={{padding:"4px 8px",borderRadius:999,border:`1px solid ${T.border}`,background:T.bg,color:T.text,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
-                          </div>
-                          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:11,color:T.sub}}>
-                            <strong>Order ID:</strong> <span>{user.orderId || "-"}</span>
-                            <button onClick={()=>copyAdminField("Order ID", user.orderId)} style={{padding:"4px 8px",borderRadius:999,border:`1px solid ${T.border}`,background:T.bg,color:T.text,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
-                          </div>
-                        </div>
                       </div>
                       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                         <span style={{fontSize:11,fontWeight:800,padding:"6px 10px",borderRadius:99,background:user.approvalStatus==="approved"?T.okBg:user.approvalStatus==="rejected"?T.errBg:T.warnBg,color:user.approvalStatus==="approved"?T.ok:user.approvalStatus==="rejected"?T.err:T.warn}}>
-                          {user.approvalStatus || "pending_review"}
-                        </span>
-                        <span style={{fontSize:11,fontWeight:800,padding:"6px 10px",borderRadius:99,background:(user.paymentStatus || "pending_info")==="paid"?T.okBg:(user.paymentStatus || "pending_info")==="problem"?T.errBg:(user.paymentStatus || "pending_info")==="checking"?T.warnBg:T.cardAlt,color:(user.paymentStatus || "pending_info")==="paid"?T.ok:(user.paymentStatus || "pending_info")==="problem"?T.err:(user.paymentStatus || "pending_info")==="checking"?T.warn:T.muted}}>
-                          {paymentStatusLabel(user.paymentStatus)}
+                          {user.approvalStatus==="approved"?"Aktif":user.approvalStatus==="rejected"?"Ditolak":"Menunggu"}
                         </span>
                         {user.role==="admin"&&<span style={{fontSize:11,fontWeight:800,padding:"6px 10px",borderRadius:99,background:T.infoBg,color:T.info}}>admin</span>}
                       </div>
                     </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr",gap:10}}>
-                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
-                        <input value={adminBuyerEmail[user.uid] || ""} onChange={e=>setAdminBuyerEmail(prev=>({...prev,[user.uid]:e.target.value}))} placeholder="Buyer email Scalev" style={IS}/>
-                        <input value={adminOrderId[user.uid] || ""} onChange={e=>setAdminOrderId(prev=>({...prev,[user.uid]:e.target.value}))} placeholder="Order ID Scalev" style={IS}/>
-                      </div>
-                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"220px 1fr auto",gap:10,alignItems:"center"}}>
-                        <select value={adminPaymentStatus[user.uid] || "pending_info"} onChange={e=>setAdminPaymentStatus(prev=>({...prev,[user.uid]:e.target.value}))} style={IS}>
-                          <option value="pending_info">Belum kirim referensi</option>
-                          <option value="checking">Perlu dicek</option>
-                          <option value="paid">Sudah cocok</option>
-                          <option value="problem">Bermasalah</option>
-                        </select>
-                        <textarea value={adminNotes[user.uid] || ""} onChange={e=>setAdminNotes(prev=>({...prev,[user.uid]:e.target.value}))} placeholder="Catatan admin, mismatch, atau detail validasi pembayaran" style={{minHeight:72,resize:"vertical",...IS}}/>
-                        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr",gap:8}}>
-                          <Btn onClick={()=>updateAdminApproval(user.uid,"approved")} ch="Approve" c="#16A34A" style={{padding:"9px 12px",fontSize:12}}/>
-                          <Btn onClick={()=>copyAdminWhatsappMessage(user,"approved")} ch="Copy WA Aktif" c={T.ok} outline style={{padding:"9px 12px",fontSize:12}}/>
-                          <Btn onClick={()=>copyAdminWhatsappMessage(user,"followup")} ch="Copy WA Cek" c={T.info} outline style={{padding:"9px 12px",fontSize:12}}/>
-                          <Btn onClick={()=>updateAdminApproval(user.uid,"pending_review")} ch="Pending" c="#D97706" outline style={{padding:"9px 12px",fontSize:12}}/>
-                          <Btn onClick={()=>updateAdminApproval(user.uid,"rejected")} ch="Reject" c="#DC2626" outline style={{padding:"9px 12px",fontSize:12}}/>
-                        </div>
-                      </div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:12}}>
+                      {user.approvalStatus!=="approved"&&<Btn onClick={()=>updateAdminApproval(user.uid,"approved")} ch="Aktifkan" c={T.ok} style={{padding:"9px 16px",fontSize:12}}/>}
+                      {user.approvalStatus!=="rejected"&&<Btn onClick={()=>updateAdminApproval(user.uid,"rejected")} ch="Tolak" c={T.err} outline style={{padding:"9px 16px",fontSize:12}}/>}
+                      {user.approvalStatus!=="pending_review"&&<Btn onClick={()=>updateAdminApproval(user.uid,"pending_review")} ch="Jadikan menunggu" c={T.warn} outline style={{padding:"9px 16px",fontSize:12}}/>}
                     </div>
-                    <div style={{display:"flex",gap:12,flexWrap:"wrap",fontSize:10,color:T.muted,marginTop:10}}>
-                      <span>Dibuat: {user.createdAt ? new Date(user.createdAt).toLocaleString("id-ID") : "-"}</span>
-                      <span>Login terakhir: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString("id-ID") : "-"}</span>
-                      <span>Provider: {user.authProvider || "-"}</span>
-                      <span>Update payment: {user.paymentUpdatedAt ? new Date(user.paymentUpdatedAt).toLocaleString("id-ID") : "-"}</span>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginTop:10,paddingTop:10,borderTop:`1px dashed ${T.border}`}}>
-                      <div style={{fontSize:11,color:T.sub,lineHeight:1.6}}>
-                        <div><strong>Review terakhir:</strong> {user.reviewedAt ? new Date(user.reviewedAt).toLocaleString("id-ID") : "-"}</div>
-                        <div><strong>Direview oleh:</strong> {user.reviewedBy || "-"}</div>
+                    <details style={{marginTop:12,paddingTop:10,borderTop:`1px solid ${T.border}`}}>
+                      <summary style={{fontSize:11,fontWeight:800,color:T.muted,cursor:"pointer",userSelect:"none"}}>Detail akun</summary>
+                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(2,minmax(0,1fr))",gap:"5px 16px",fontSize:11,color:T.sub,lineHeight:1.6,marginTop:9,overflowWrap:"anywhere"}}>
+                        <span>Daftar: {user.createdAt ? new Date(user.createdAt).toLocaleString("id-ID") : "-"}</span>
+                        <span>Login terakhir: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString("id-ID") : "-"}</span>
+                        <span>Metode login: {user.authProvider || "-"}</span>
+                        <span>UID: {user.uid}</span>
+                        {user.buyerEmail&&<span>Email pembeli: {user.buyerEmail}</span>}
+                        {user.orderId&&<span>Order ID: {user.orderId}</span>}
+                        {user.reviewedAt&&<span>Diproses: {new Date(user.reviewedAt).toLocaleString("id-ID")}</span>}
+                        {user.reviewedBy&&<span>Oleh: {user.reviewedBy}</span>}
                       </div>
-                      <div style={{fontSize:11,color:T.sub,lineHeight:1.6}}>
-                        <div><strong>Approved at:</strong> {user.approvedAt ? new Date(user.approvedAt).toLocaleString("id-ID") : "-"}</div>
-                        <div><strong>Approved by:</strong> {user.approvedBy || "-"}</div>
-                      </div>
-                    </div>
+                    </details>
                   </div>
                 ))}
-                {!adminFilteredUsers.length&&<LaunchEmpty icon="🛡️" title="Tidak ada user yang cocok" desc="Filter yang aktif sedang tidak menemukan akun. Coba reset filter atau cari dengan email akun, buyer email, atau order ID lain." actionLabel="Reset filter" onAction={()=>{setAdminFilter("all");setAdminPaymentFilter("all");setAdminReviewFilter("all");setAdminQuery("");}} secondaryLabel="Refresh data" onSecondary={loadAdminUsers} style={{padding:"34px 18px"}}/>}
+                {!adminFilteredUsers.length&&<LaunchEmpty icon="🛡️" title="Tidak ada user yang cocok" desc="Belum ada akun pada status ini atau pencarian tidak cocok." actionLabel="Tampilkan semua" onAction={()=>{setAdminFilter("all");setAdminQuery("");}} secondaryLabel="Refresh data" onSecondary={loadAdminUsers} style={{padding:"34px 18px"}}/>}
               </div>
               {adminFilteredUsers.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginTop:14}}>
                 <div style={{fontSize:11,color:T.muted}}>
@@ -8622,7 +8484,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
       `}</style>
 
       {/* Float Button */}
-      {!aiOpen&&!moreOpen&&!quickOpen&&!modal&&!sidebarOpen&&!notifOpen&&!commandOpen&&!(isMobile&&(page==="home"||page==="trans"||page==="budget"||page==="habit"||page==="laporan"))&&<button
+      {page!=="admin"&&!aiOpen&&!moreOpen&&!quickOpen&&!modal&&!sidebarOpen&&!notifOpen&&!commandOpen&&!(isMobile&&(page==="home"||page==="trans"||page==="budget"||page==="habit"||page==="laporan"))&&<button
         className="ai-float-btn"
         onClick={()=>setAiOpen(true)}
         style={{
