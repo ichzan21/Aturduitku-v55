@@ -3,6 +3,9 @@ import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 import { consumeRateLimit } from "../_lib/rateLimit.js";
 
+// Account IDs identify a Cloudflare account but do not authorize requests.
+// The API token remains server-only and is always required from Vercel env.
+const DEFAULT_ACCOUNT_ID = "cf3f23d2bbdc60c7f8069d60a734608d";
 const DEFAULT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
 export default async function handler(req, res) {
@@ -20,9 +23,9 @@ export default async function handler(req, res) {
     });
 
     const apiToken = process.env.CLOUDFLARE_API_TOKEN;
-    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID || DEFAULT_ACCOUNT_ID;
     const model = process.env.CLOUDFLARE_AI_MODEL || DEFAULT_MODEL;
-    if (!apiToken || !accountId) {
+    if (!apiToken) {
       return res.status(503).json({
         error: "AI sedang belum tersedia. Admin perlu memeriksa konfigurasi server.",
         code: "missing_cloudflare_api_token",
