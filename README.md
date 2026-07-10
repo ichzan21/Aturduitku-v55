@@ -42,7 +42,28 @@ ADMIN_EMAILS=ichzan24@gmail.com
 CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_API_TOKEN=
 CLOUDFLARE_AI_MODEL=@cf/meta/llama-3.3-70b-instruct-fp8-fast
+
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_ADMIN_CHAT_ID=
+TELEGRAM_WEBHOOK_SECRET=
 ```
+
+## Keamanan
+
+- Secret server hanya disimpan di Vercel Environment Variables, bukan di source code.
+- Semua endpoint data, AI, export, dan admin memverifikasi Firebase ID token.
+- Endpoint AI dibatasi per akun untuk melindungi kuota.
+- Dashboard admin hanya menerima metadata approval, bukan isi data finansial user.
+- `npm run check:secrets` memblokir build jika pola token sensitif ditemukan.
+- Firestore client dikunci oleh `firestore.rules`; data customer dibaca melalui API server.
+
+Setelah mengubah rules, deploy dengan akun Firebase yang berwenang:
+
+```bash
+firebase deploy --only firestore:rules --project aturduitku
+```
+
+Firebase Web API key di `src/firebase.js` adalah identifier aplikasi web, bukan server secret. Keamanan data tetap ditentukan oleh Authentication, Firestore Rules, dan API server.
 
 ## Deploy
 

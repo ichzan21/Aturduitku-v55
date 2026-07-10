@@ -1,22 +1,12 @@
 // /api/sheets/create.js
 // Create spreadsheet with full template - server-side with auto token
 
-import { initializeApp, cert, getApps } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
-
-function getAdmin() {
-  if (getApps().length) return getApps()[0];
-  return initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    }),
-  });
-}
+import { requireApprovedUser } from "../_lib/auth.js";
+import { getAdminDb } from "../_lib/firebaseAdmin.js";
+import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 
 async function getAccessToken(uid) {
-  const db = getFirestore();
+  const db = getAdminDb();
   const doc = await db.collection("user_tokens").doc(uid).get();
   if (!doc.exists) throw new Error("No token found for user");
   const { refresh_token } = doc.data();
@@ -57,17 +47,15 @@ const cellFmt = (bgHex, fgHex, bold=false) => ({
 });
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.ALLOWED_ORIGIN || "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
+  const security = secureApi(req, res, { methods: ["POST"] });
+  if (security.handled) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { uid, userName } = req.body;
-  if (!uid) return res.status(400).json({ error: "Missing uid" });
-
   try {
-    getAdmin();
+    const decoded = await requireApprovedUser(req);
+    assertJsonSize(req.body, 16_000);
+    const uid = decoded.uid;
+    const userName = String(req.body?.userName || decoded.name || "User").slice(0, 80);
     const token = await getAccessToken(uid);
     const now = new Date();
     const bulan = now.toLocaleString("id-ID", { month: "long" });
@@ -136,12 +124,12 @@ export default async function handler(req, res) {
     ]});
 
     // Save spreadsheetId to Firestore
-    const db = getFirestore();
+    const db = getAdminDb();
     await db.collection("users").doc(uid).set({ spreadsheetId: sid }, { merge: true });
 
     return res.status(200).json({ ok: true, spreadsheetId: sid });
   } catch (e) {
     console.error("Create spreadsheet error:", e.message);
-    return res.status(500).json({ error: e.message });
+    return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal membuat spreadsheet" });
   }
 }

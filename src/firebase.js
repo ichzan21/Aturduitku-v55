@@ -10,7 +10,6 @@ import {
   signOut,
   updateProfile,
 } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, enableIndexedDbPersistence } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC5C2wt3LyCHLY6SeH5HZ9FmdgzzkWL-LM",
@@ -23,13 +22,10 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
 
 // Google Auth
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
-
-enableIndexedDbPersistence(db).catch(() => {});
 
 // Auth helpers
 export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
@@ -46,32 +42,4 @@ export const onAuthChange = (cb) => onAuthStateChanged(auth, cb);
 export const getCurrentIdToken = async () => {
   const user = auth.currentUser;
   return user ? user.getIdToken() : "";
-};
-
-// Firestore helpers
-export const getUserDocRef = (uid) => doc(db, "users", uid);
-
-export const saveUserData = async (uid, data) => {
-  try {
-    await setDoc(
-      getUserDocRef(uid),
-      {
-        ...data,
-        updatedAt: new Date().toISOString(),
-      },
-      { merge: true }
-    );
-  } catch (e) {
-    console.warn("Firestore save error:", e);
-  }
-};
-
-export const getUserData = async (uid) => {
-  try {
-    const snap = await getDoc(getUserDocRef(uid));
-    return snap.exists() ? snap.data() : null;
-  } catch (e) {
-    console.warn("Firestore get error:", e);
-    return null;
-  }
 };

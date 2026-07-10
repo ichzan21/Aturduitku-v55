@@ -2,33 +2,22 @@
 // Exchange authorization code for access_token + refresh_token
 // Stores refresh_token in Firestore (server-side only, never sent to client)
 
-import { initializeApp, cert, getApps } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
-
-// Init Firebase Admin (server-side)
-function getAdmin() {
-  if (getApps().length) return getApps()[0];
-  return initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    }),
-  });
-}
+import { requireApprovedUser } from "../_lib/auth.js";
+import { getAdminDb } from "../_lib/firebaseAdmin.js";
+import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 
 export default async function handler(req, res) {
-  // CORS
-  res.setHeader("Access-Control-Allow-Origin", process.env.ALLOWED_ORIGIN || "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
+  const security = secureApi(req, res, { methods: ["POST"] });
+  if (security.handled) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { code, uid } = req.body;
-  if (!code || !uid) return res.status(400).json({ error: "Missing code or uid" });
-
   try {
+    const decoded = await requireApprovedUser(req);
+    assertJsonSize(req.body, 16_000);
+    const code = String(req.body?.code || "");
+    const uid = decoded.uid;
+    if (!code) return res.status(400).json({ error: "Missing authorization code" });
+
     // Exchange code for tokens
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -48,8 +37,7 @@ export default async function handler(req, res) {
     const { access_token, refresh_token, expires_in } = tokens;
 
     // Store refresh_token in Firestore (server-side only)
-    getAdmin();
-    const db = getFirestore();
+    const db = getAdminDb();
     await db.collection("user_tokens").doc(uid).set({
       refresh_token,
       updated_at: new Date().toISOString(),
@@ -63,6 +51,6 @@ export default async function handler(req, res) {
     });
   } catch (e) {
     console.error("Token exchange error:", e.message);
-    return res.status(500).json({ error: e.message });
+    return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal menghubungkan Google Sheets" });
   }
 }

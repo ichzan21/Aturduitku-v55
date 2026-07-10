@@ -1,19 +1,12 @@
 import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { getAdminEmails, requireUser } from "../_lib/auth.js";
 import { sendNewUserApprovalMessage } from "../_lib/telegram.js";
-
-function setCors(res) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.ALLOWED_ORIGIN || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Cache-Control", "no-store");
-}
+import { secureApi } from "../_lib/httpSecurity.js";
 
 function buildApproval(existing, isAdminEmail) {
-  const hasLegacyData = Boolean(existing?.data || existing?.onboarded);
-  const approvalStatus = existing?.approvalStatus || (isAdminEmail || hasLegacyData ? "approved" : "pending_review");
-  const role = isAdminEmail ? "admin" : existing?.role || "user";
-  return { approvalStatus, role, hasLegacyData };
+  const approvalStatus = existing?.approvalStatus || (isAdminEmail ? "approved" : "pending_review");
+  const role = isAdminEmail ? "admin" : "user";
+  return { approvalStatus, role };
 }
 
 async function reserveTelegramApprovalNotification(db, ref, now) {
@@ -40,8 +33,8 @@ async function reserveTelegramApprovalNotification(db, ref, now) {
 }
 
 export default async function handler(req, res) {
-  setCors(res);
-  if (req.method === "OPTIONS") return res.status(200).end();
+  const security = secureApi(req, res, { methods: ["GET"] });
+  if (security.handled) return;
 
   try {
     const decoded = await requireUser(req);
@@ -55,11 +48,8 @@ export default async function handler(req, res) {
     const email = String(decoded.email || "").toLowerCase();
     const adminEmails = getAdminEmails();
     const isAdminEmail = adminEmails.includes(email);
-    const { approvalStatus, role, hasLegacyData } = buildApproval(existing, isAdminEmail);
-    const hasConfiguredAdmins = adminEmails.length > 0;
-    const adminSnap = await db.collection("users").where("role", "==", "admin").limit(1).get();
-    const shouldPromoteLegacyOwner = !isAdminEmail && !hasConfiguredAdmins && adminSnap.empty && hasLegacyData;
-    const finalRole = (isAdminEmail || shouldPromoteLegacyOwner) ? "admin" : role;
+    const { approvalStatus, role } = buildApproval(existing, isAdminEmail);
+    const finalRole = isAdminEmail ? "admin" : role;
     const finalApprovalStatus = finalRole === "admin" ? "approved" : approvalStatus;
     const now = new Date().toISOString();
 
@@ -81,7 +71,7 @@ export default async function handler(req, res) {
     if (finalApprovalStatus === "approved" && !existing?.approvedAt) {
       patch.approvedAt = now;
       patch.approvedBy = finalRole === "admin"
-        ? (isAdminEmail ? "system:admin-email" : "system:bootstrap-admin")
+          ? "system:admin-email"
         : existing?.approvedBy || "system:legacy-user";
     }
 

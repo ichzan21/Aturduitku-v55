@@ -35,17 +35,27 @@ export async function requireAdmin(req) {
   const email = String(decoded.email || "").toLowerCase();
   const adminEmails = getAdminEmails();
 
-  let userRole = "";
-  if (decoded.uid) {
-    const doc = await getAdminDb().collection("users").doc(decoded.uid).get();
-    userRole = String(doc.data()?.role || "");
-  }
-
-  if (userRole === "admin" || adminEmails.includes(email)) {
+  if (decoded.admin === true || adminEmails.includes(email)) {
     return decoded;
   }
 
   const error = new Error("Forbidden");
+  error.status = 403;
+  throw error;
+}
+
+export async function requireApprovedUser(req) {
+  const decoded = await requireUser(req);
+  const email = String(decoded.email || "").toLowerCase();
+  const isAdmin = decoded.admin === true || getAdminEmails().includes(email);
+  if (isAdmin) return decoded;
+
+  const doc = await getAdminDb().collection("users").doc(decoded.uid).get();
+  if (doc.exists && doc.data()?.approvalStatus === "approved") {
+    return decoded;
+  }
+
+  const error = new Error("Akun belum aktif atau belum di-approve");
   error.status = 403;
   throw error;
 }

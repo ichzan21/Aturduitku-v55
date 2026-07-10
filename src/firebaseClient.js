@@ -38,13 +38,3 @@ export const getCurrentIdToken = async () => {
   const firebase = await loadFirebase();
   return firebase.getCurrentIdToken();
 };
-
-export const saveUserData = async (uid, data) => {
-  const firebase = await loadFirebase();
-  return firebase.saveUserData(uid, data);
-};
-
-export const getUserData = async (uid) => {
-  const firebase = await loadFirebase();
-  return firebase.getUserData(uid);
-};

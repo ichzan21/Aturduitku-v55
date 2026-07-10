@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aturduitku-v18-pwa-report-polish';
+const CACHE_NAME = 'aturduitku-v19-security-premium';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

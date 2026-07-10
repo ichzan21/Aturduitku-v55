@@ -3,18 +3,11 @@ import {
   answerTelegramCallback,
   buildApprovalResultMessage,
   editTelegramMessage,
-  getTelegramRuntimeStatus,
   verifyTelegramWebhook,
 } from "../_lib/telegram.js";
+import { secureApi } from "../_lib/httpSecurity.js";
 
 const ALLOWED_STATUSES = ["pending_review", "approved", "rejected"];
-
-function setCors(res) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.ALLOWED_ORIGIN || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Telegram-Bot-Api-Secret-Token");
-  res.setHeader("Cache-Control", "no-store");
-}
 
 function actorFromCallback(callbackQuery) {
   const from = callbackQuery?.from || {};
@@ -37,6 +30,12 @@ async function handleApprovalCallback(callbackQuery) {
     return { ok: false, reason: "user_not_found" };
   }
 
+  const existing = snap.data() || {};
+  if (existing.telegramFinalizedAt || (existing.telegramReviewedAt && existing.approvalStatus === status)) {
+    await answerTelegramCallback(callbackQuery?.id, "User ini sudah diproses. Buka dashboard admin untuk perubahan lanjutan.");
+    return { ok: true, ignored: true, reason: "already_processed" };
+  }
+
   const now = new Date().toISOString();
   const actor = actorFromCallback(callbackQuery);
   const patch = {
@@ -54,8 +53,10 @@ async function handleApprovalCallback(callbackQuery) {
     patch.approvedAt = now;
     patch.approvedBy = actor;
     patch.adminNotes = "Approved lewat Telegram.";
+    patch.telegramFinalizedAt = now;
   } else if (status === "rejected") {
     patch.adminNotes = "Ditolak lewat Telegram. Cek ulang payment/order ID jika user menghubungi admin.";
+    patch.telegramFinalizedAt = now;
   }
 
   await ref.set(patch, { merge: true });
@@ -78,12 +79,14 @@ async function handleApprovalCallback(callbackQuery) {
 }
 
 export default async function handler(req, res) {
-  setCors(res);
-  if (req.method === "OPTIONS") return res.status(200).end();
+  const security = secureApi(req, res, {
+    methods: ["GET", "POST"],
+    allowHeaders: ["Content-Type", "X-Telegram-Bot-Api-Secret-Token"],
+  });
+  if (security.handled) return;
   if (req.method === "GET") return res.status(200).json({
     ok: true,
     endpoint: "telegram-webhook",
-    telegram: getTelegramRuntimeStatus(),
   });
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 

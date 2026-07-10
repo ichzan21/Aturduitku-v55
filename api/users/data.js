@@ -1,19 +1,13 @@
 import { getAdminDb } from "../_lib/firebaseAdmin.js";
-import { requireUser } from "../_lib/auth.js";
-
-function setCors(res) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.ALLOWED_ORIGIN || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Cache-Control", "no-store");
-}
+import { requireApprovedUser } from "../_lib/auth.js";
+import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 
 export default async function handler(req, res) {
-  setCors(res);
-  if (req.method === "OPTIONS") return res.status(200).end();
+  const security = secureApi(req, res, { methods: ["GET", "POST"] });
+  if (security.handled) return;
 
   try {
-    const decoded = await requireUser(req);
+    const decoded = await requireApprovedUser(req);
     const db = getAdminDb();
     const ref = db.collection("users").doc(decoded.uid);
 
@@ -30,6 +24,10 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       const body = req.body || {};
+      assertJsonSize(body, 850_000);
+      if (!body.data || typeof body.data !== "object" || Array.isArray(body.data)) {
+        return res.status(400).json({ error: "Format data akun tidak valid" });
+      }
       const now = new Date().toISOString();
       await ref.set(
         {

@@ -1,7 +1,6 @@
 import React, { Suspense, useState, useEffect, useMemo, useRef, createContext, useContext } from "react";
 import {
   getCurrentIdToken, signInWithEmail, signInWithGoogle, signOutUser, onAuthChange, signUpWithEmail,
-  saveUserData, getUserData,
 } from "./firebaseClient.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
@@ -1908,7 +1907,7 @@ function Onboarding({ onDone, lang="id", changeLang }) {
   const inputSt = {width:"100%",padding:"12px 14px",borderRadius:12,border:"2px solid #E9D5FF",fontSize:15,fontWeight:700,textAlign:"center",outline:"none",background:"#FDFBFF",color:"#1F2937"};
   return (
     <div style={{minHeight:"var(--app-height, 100dvh)",background:"linear-gradient(135deg,#EDE9FE 0%,#F5F3FF 60%,#FDFBFF 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:"max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))",fontFamily:"'Nunito',system-ui,sans-serif"}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}`}</style>
+      <style>{`@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}`}</style>
       <div style={{background:"white",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:400,boxShadow:"0 20px 60px rgba(91,33,182,.15)"}}>
         {step>0&&<div style={{marginBottom:20}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:11,color:"#94A3B8"}}>
@@ -2565,6 +2564,7 @@ export default function App(){
     if(!resp.ok){
       const error = new Error(data.error || `Request failed: ${resp.status}`);
       error.status = resp.status;
+      error.code = data.code;
       throw error;
     }
     return data;
@@ -2577,21 +2577,13 @@ export default function App(){
   };
 
   const loadCloudData = async (uid) => {
-    try{
-      return await authedJson("/api/users/data", { method:"GET" });
-    }catch(e){
-      console.warn("Server data sync load failed, falling back to client Firestore:", e);
-      return uid ? await getUserData(uid) : null;
-    }
+    if(!uid) return null;
+    return authedJson("/api/users/data", { method:"GET" });
   };
 
   const saveCloudData = async (uid, payload) => {
-    try{
-      return await authedJson("/api/users/data", { method:"POST", body:JSON.stringify(payload) });
-    }catch(e){
-      console.warn("Server data sync save failed, falling back to client Firestore:", e);
-      return uid ? await saveUserData(uid, payload) : null;
-    }
+    if(!uid) return null;
+    return authedJson("/api/users/data", { method:"POST", body:JSON.stringify(payload) });
   };
 
   const loadAdminUsers = async () => {
@@ -2705,7 +2697,7 @@ export default function App(){
                 displayName:user.displayName||"",
                 photoURL:user.photoURL||"",
                 role:"user",
-                approvalStatus:"approved",
+                approvalStatus:"verification_unavailable",
                 backendReady:false,
               });
               try{
@@ -3690,48 +3682,21 @@ export default function App(){
   ));
 
   const callAi = async (messages, systemPrompt) => {
-    const resp = await fetch("/api/ai/cloudflare", {
+    const data = await authedJson("/api/ai/cloudflare", {
       method:"POST",
-      headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
         messages,
         systemPrompt,
-      })
+      }),
+      timeoutMs:45000,
     });
-    if(!resp.ok){
-      const err = await resp.json().catch(()=>({}));
-      const error = new Error(err.error || "AI error: "+resp.status);
-      error.code = err.code;
-      error.status = resp.status;
-      throw error;
-    }
-    const data = await resp.json();
     if(typeof data.reply === "string") return data.reply;
     if(data.reply == null) return "";
     try{return JSON.stringify(data.reply);}catch(e){return String(data.reply);}
   };
 
   // ─── Google Sheets OAuth ────────────────────────────────────────
-  const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_HERE";
-  const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
-
-  const getGoogleToken = () => {
-    return new Promise((resolve, reject) => {
-      if(!window.google?.accounts?.oauth2) return reject(new Error("GIS not loaded"));
-      const client = window.google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CLIENT_ID,
-        scope: SHEETS_SCOPE,
-        callback: (resp) => {
-          if(resp.error) return reject(new Error(resp.error));
-          resolve(resp.access_token);
-        },
-      });
-      client.requestAccessToken({prompt:""});
-    });
-  };
-
-
-    // Sheets sync removed - use Export XLSX/PDF instead
+  // Sheets export runs locally; no external Google SDK is loaded in the browser.
 
   const [aiOpen,setAiOpen]=useState(false);
   const shortcutHandledRef=useRef(false);
@@ -4486,7 +4451,7 @@ Saldo amplop bertambah.`}]);
     showToast("✅ Backup JSON berhasil diunduh!");
   };
 
-  const loadExternalScript=(src,globalCheck)=>{
+  const loadExternalScript=(src,globalCheck,integrity)=>{
     if(globalCheck?.()) return Promise.resolve();
     if(!window.__aturduitkuScriptLoads) window.__aturduitkuScriptLoads={};
     if(window.__aturduitkuScriptLoads[src]) return window.__aturduitkuScriptLoads[src];
@@ -4501,6 +4466,8 @@ Saldo amplop bertambah.`}]);
       script.src=src;
       script.async=true;
       script.crossOrigin="anonymous";
+      script.referrerPolicy="no-referrer";
+      if(integrity) script.integrity=integrity;
       script.onload=()=>resolve();
       script.onerror=()=>reject(new Error(`Gagal memuat ${src}`));
       document.head.appendChild(script);
@@ -4510,13 +4477,13 @@ Saldo amplop bertambah.`}]);
   const loadPdfLibraries=async()=>{
     if(window.jspdf?.jsPDF && window.jspdf?.jsPDF?.API?.autoTable) return;
     showToast("Memuat export PDF...");
-    await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",()=>window.jspdf?.jsPDF);
-    await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js",()=>window.jspdf?.jsPDF?.API?.autoTable);
+    await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",()=>window.jspdf?.jsPDF,"sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk");
+    await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js",()=>window.jspdf?.jsPDF?.API?.autoTable,"sha384-fCAW/rDWORTbQXSiB7mOg0QtQ5c+r0f544y6XoKjuVva0nMBlCpNUjiFeG5iMdS3");
   };
   const loadSheetLibrary=async()=>{
     if(window.XLSX) return;
     showToast("Memuat export Sheets...");
-    await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",()=>window.XLSX);
+    await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",()=>window.XLSX,"sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw");
   };
 
   // ── EXPORT PDF (Bank Style) ─────────────────────────────────────────────────
@@ -5741,7 +5708,7 @@ Saldo amplop bertambah.`}]);
     setOnboarded(true);
     // Save to Firebase immediately on onboard
     if(fireUser && isApproved){
-      saveCloudData(fireUser.uid, {data:newData, onboarded:true});
+      saveCloudData(fireUser.uid, {data:newData, onboarded:true}).catch(()=>setSyncStatus("error"));
     }
     showToast(`Selamat datang, ${name}! 🎉`);
   };
@@ -5856,15 +5823,17 @@ Saldo amplop bertambah.`}]);
             <div style={{color:"#C4B5FD",fontSize:12}}>{accessProfile?.email || fireUser?.email || ""}</div>
           </div>
         </div>
-        <div style={{display:"inline-flex",alignItems:"center",gap:8,background:accessProfile?.approvalStatus==="rejected"?"rgba(239,68,68,.16)":"rgba(250,204,21,.14)",color:accessProfile?.approvalStatus==="rejected"?"#FCA5A5":"#FDE68A",borderRadius:99,padding:"8px 14px",fontSize:12,fontWeight:800,marginBottom:14}}>
-          {accessProfile?.approvalStatus==="rejected"?"Ditolak":"Menunggu approval admin"}
+        <div style={{display:"inline-flex",alignItems:"center",gap:8,background:accessProfile?.approvalStatus==="rejected"?"rgba(239,68,68,.16)":accessProfile?.approvalStatus==="verification_unavailable"?"rgba(96,165,250,.16)":"rgba(250,204,21,.14)",color:accessProfile?.approvalStatus==="rejected"?"#FCA5A5":accessProfile?.approvalStatus==="verification_unavailable"?"#BFDBFE":"#FDE68A",borderRadius:99,padding:"8px 14px",fontSize:12,fontWeight:800,marginBottom:14}}>
+          {accessProfile?.approvalStatus==="rejected"?"Ditolak":accessProfile?.approvalStatus==="verification_unavailable"?"Status belum terverifikasi":"Menunggu approval admin"}
         </div>
         <div style={{color:"white",fontSize:14,lineHeight:1.7,marginBottom:14}}>
           {accessProfile?.approvalStatus==="rejected"
             ?"Akun ini sudah direview tetapi belum bisa diaktifkan. Kamu masih bisa hubungi admin untuk minta pengecekan ulang."
-            :"Akun berhasil dibuat. Sekarang admin akan cek pembayaran dan mengaktifkan akses penuh setelah semuanya sesuai."}
+            :accessProfile?.approvalStatus==="verification_unavailable"
+              ?"AturDuitku belum berhasil memverifikasi status akun dari server. Data lokal tidak dihapus. Periksa koneksi lalu tekan Cek status lagi."
+              :"Akun berhasil dibuat. Sekarang admin akan cek pembayaran dan mengaktifkan akses penuh setelah semuanya sesuai."}
         </div>
-        {accessProfile?.approvalStatus!=="rejected"&&<div style={{display:"grid",gridTemplateColumns:"1fr",gap:8,marginBottom:14}}>
+        {accessProfile?.approvalStatus!=="rejected"&&accessProfile?.approvalStatus!=="verification_unavailable"&&<div style={{display:"grid",gridTemplateColumns:"1fr",gap:8,marginBottom:14}}>
           {["Akun berhasil dibuat","Admin cek kecocokan pembayaran","Akses penuh dibuka setelah valid"].map((item,i)=><div key={item} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:12,padding:"10px 12px",color:i===2?"#C4B5FD":"white",fontSize:12,fontWeight:700}}><span style={{width:22,height:22,borderRadius:999,display:"inline-flex",alignItems:"center",justifyContent:"center",background:i===0?"rgba(134,239,172,.18)":i===1?"rgba(250,204,21,.18)":"rgba(196,181,253,.18)",color:i===0?"#86EFAC":i===1?"#FDE68A":"#C4B5FD",fontSize:11}}>{i+1}</span>{item}</div>)}
         </div>}
         {accessProfile?.adminNotes&&<div style={{background:"rgba(255,255,255,.06)",borderRadius:14,padding:14,color:"#E9D5FF",fontSize:12,lineHeight:1.6,marginBottom:14}}>
@@ -5918,17 +5887,17 @@ Saldo amplop bertambah.`}]);
   return(
     <ThemeCtx.Provider value={T}>
     {/* LAYOUT 100vh FULL (FIX SIDEBAR BOLONG) */}
-    <div style={{display:"flex",height:"var(--app-height, 100dvh)",overflow:"hidden",maxWidth:"100vw",width:"100%",background:T.bg,fontFamily:"'Nunito',system-ui,sans-serif",color:T.text,fontSize:14,position:"relative",transition:"background .3s,color .3s"}}>
+    <div className={`app-shell ${dark?"is-dark":"is-light"}`} style={{display:"flex",height:"var(--app-height, 100dvh)",overflow:"hidden",maxWidth:"100vw",width:"100%",background:T.bg,fontFamily:"ui-rounded,'SF Pro Rounded','Segoe UI',system-ui,sans-serif",color:T.text,fontSize:14,position:"relative",transition:"background .3s,color .3s"}}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
-        body,#root,button,input,select,textarea{font-family:'Nunito',system-ui,sans-serif;}
+        body,#root,button,input,select,textarea{font-family:ui-rounded,'SF Pro Rounded','Segoe UI',system-ui,sans-serif;}
         ::-webkit-scrollbar{width:5px;}
         ::-webkit-scrollbar-thumb{background:${T.scroll};border-radius:99px;}
         ::-webkit-scrollbar-track{background:transparent;}
         input,select,textarea{transition:border-color .15s,box-shadow .15s;}
         input:focus,select:focus,textarea:focus{outline:none!important;border-color:${T.accent}!important;box-shadow:0 0 0 3px ${T.accentPop}!important;}
         button:focus{outline:none;}
+        button:focus-visible,a:focus-visible,[role="button"]:focus-visible{outline:3px solid ${T.accentPop};outline-offset:2px;}
         button,[role="button"],.nav-item,.icon-action,.btn-go,.quick-action-item,.bottom-nav-item{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
         .topbar-safe{box-shadow:0 8px 28px rgba(31,20,70,.06);}
         .icon-action{transition:all .15s cubic-bezier(.4,0,.2,1);-webkit-tap-highlight-color:transparent;}
@@ -6004,6 +5973,9 @@ Saldo amplop bertambah.`}]);
           .cat-mascot{animation:none;}
           .premium-panel:after,.fab:after{display:none;}
           .page-in,.modal-pop,.quick-action-sheet{animation:none;}
+        }
+        @media(prefers-reduced-motion:reduce){
+          *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important;}
         }
         @media(max-width:767px){
   .mobile-hide{display:none!important;}
@@ -8026,6 +7998,21 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               </>}/>
               <div style={{display:"grid",gap:14,alignContent:"start"}}>
                 <Card ch={<>
+                  <Sec t="Privasi & Keamanan" sub="Proteksi akun aktif tanpa menyimpan secret AI di browser."/>
+                  <div className="security-grid" style={{display:"grid",gap:9}}>
+                    {[
+                      {icon:"✓",label:"API akun",value:"Login wajib",detail:"Setiap sinkronisasi membawa token Firebase milik akun ini.",color:T.ok,bg:T.okBg,border:T.okBorder},
+                      {icon:"✦",label:"Dokter Keuangan",value:"Server-only",detail:"Kunci AI tersimpan di environment server, bukan di perangkat user.",color:T.info,bg:T.infoBg,border:T.infoBorder},
+                      {icon:"◇",label:"Data finansial",value:"Terisolasi",detail:"User hanya bisa membaca dan menyimpan data milik UID sendiri.",color:T.accent,bg:T.accentBg,border:T.border},
+                    ].map(item=><div key={item.label} style={{display:"grid",gridTemplateColumns:"38px 1fr auto",gap:10,alignItems:"center",padding:"11px 12px",borderRadius:12,background:item.bg,border:`1px solid ${item.border}`}}>
+                      <span style={{width:38,height:38,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",background:T.card,color:item.color,fontSize:17,fontWeight:950,boxShadow:T.shadow}}>{item.icon}</span>
+                      <span style={{minWidth:0}}><strong style={{display:"block",fontSize:12,color:T.text}}>{item.label}</strong><span style={{display:"block",fontSize:10,color:T.muted,lineHeight:1.45,marginTop:2}}>{item.detail}</span></span>
+                      <span style={{fontSize:10,fontWeight:950,color:item.color,background:T.card,border:`1px solid ${item.border}`,borderRadius:999,padding:"5px 8px",whiteSpace:"nowrap"}}>{item.value}</span>
+                    </div>)}
+                  </div>
+                </>}/>
+
+                <Card ch={<>
                   <Sec t="Export Data" sub="Akses export cepat tanpa perlu cari dari halaman lain."/>
                   <div style={{fontSize:12,color:T.muted,lineHeight:1.7}}>
                     Download data keuanganmu kapanpun:<br/>
@@ -8042,7 +8029,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </>}/>
 
                 <Card ch={<>
-                  <Sec t="Bantuan & Rilis" sub="Kontak admin dan cek kesiapan app sebelum dipakai harian."/>
+                  <Sec t="Pusat Bantuan" sub="Cek kesiapan app dan hubungi admin dari satu tempat."/>
                   <div style={{display:"grid",gap:8,marginBottom:12}}>
                     {[
                       ["Akun",isApproved?"Lifetime aktif":"Perlu approval",isApproved?T.ok:T.warn],
