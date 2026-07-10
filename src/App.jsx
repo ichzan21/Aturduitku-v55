@@ -1,7 +1,6 @@
 import React, { Suspense, useState, useEffect, useMemo, useRef, createContext, useContext } from "react";
 import {
-  completeGoogleSignInRedirect, getCurrentIdToken, onAuthChange, signInWithEmail,
-  signInWithGoogle, signInWithGoogleRedirect, signOutUser, signUpWithEmail,
+  getCurrentIdToken, onAuthChange, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail,
 } from "./firebase.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
@@ -837,8 +836,8 @@ const googleAuthErrorMessage=(error)=>{
   if(code.includes("account-exists-with-different-credential")) return "Email ini sudah terdaftar dengan metode login lain. Masuk memakai email dan password dulu.";
   if(code.includes("network-request-failed")) return "Koneksi ke Google terputus. Periksa internet lalu coba lagi.";
   if(code.includes("too-many-requests")) return "Terlalu banyak percobaan login. Tunggu sebentar lalu coba lagi.";
-  const safeCode=code.replace(/^auth\//,"").replace(/[^a-z0-9-]/gi,"").slice(0,48)||"unknown";
-  return `Login Google belum berhasil (kode: ${safeCode}). Coba mode alternatif atau gunakan email dan password.`;
+  if(code.includes("internal-error")) return "Komponen login Google belum bisa dimuat. Muat ulang halaman lalu coba lagi.";
+  return "Login Google belum berhasil. Muat ulang halaman atau gunakan email dan password.";
 };
 const INIT={
   name:"Iksanarsana",bulan:MONTHS[nowM()],tahun:String(nowY()),
@@ -2672,12 +2671,6 @@ export default function App(){
       try{
         await afterFirstPaint();
         if(disposed) return;
-        try{
-          await completeGoogleSignInRedirect();
-        }catch(error){
-          if(!disposed) setGoogleAuthError(googleAuthErrorMessage(error));
-        }
-        if(disposed) return;
         unsub = onAuthChange(async(user)=>{
           if(disposed) return;
           setFireLoading(true);
@@ -2780,20 +2773,6 @@ export default function App(){
         showToast(`⚠️ ${msg}`);
       }
     }finally{
-      setAuthBusy(false);
-    }
-  };
-  const handleGoogleRedirect = async() => {
-    if(authBusy) return;
-    setAuthBusy(true);
-    setGoogleAuthError("");
-    try{
-      await signInWithGoogleRedirect();
-    }catch(error){
-      console.warn("Google redirect sign in failed:", error);
-      const msg=googleAuthErrorMessage(error);
-      setGoogleAuthError(msg);
-      showToast(`⚠️ ${msg}`);
       setAuthBusy(false);
     }
   };
@@ -5833,10 +5812,7 @@ Saldo amplop bertambah.`}]);
           </svg>
           {authBusy?"Membuka Google...":"Masuk dengan Google"}
         </button>
-        {googleAuthError&&<div role="alert" style={{width:"100%",fontSize:11,color:"#FECACA",lineHeight:1.5,background:"rgba(127,29,29,.28)",border:"1px solid rgba(252,165,165,.3)",borderRadius:11,padding:"10px 12px",marginTop:10,textAlign:"left"}}>
-          <div>{googleAuthError}</div>
-          <button type="button" onClick={handleGoogleRedirect} disabled={authBusy} style={{width:"100%",marginTop:9,padding:"9px 12px",borderRadius:9,border:"1px solid rgba(255,255,255,.24)",background:"rgba(255,255,255,.1)",color:"white",fontSize:11,fontWeight:900,cursor:authBusy?"wait":"pointer",fontFamily:"inherit"}}>Coba lewat halaman Google</button>
-        </div>}
+        {googleAuthError&&<div role="alert" style={{width:"100%",fontSize:11,color:"#FECACA",lineHeight:1.5,background:"rgba(127,29,29,.28)",border:"1px solid rgba(252,165,165,.3)",borderRadius:11,padding:"10px 12px",marginTop:10,textAlign:"left"}}>{googleAuthError}</div>}
 
         <div style={{width:"100%",display:"flex",alignItems:"center",gap:10,margin:"18px 0 14px"}}>
           <div style={{height:1,flex:1,background:"rgba(255,255,255,.12)"}}/>

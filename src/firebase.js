@@ -2,13 +2,11 @@
 import { initializeApp } from "firebase/app";
 import {
   createUserWithEmailAndPassword,
-  getRedirectResult,
   getAuth,
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
-  signInWithRedirect,
   signOut,
   updateProfile,
 } from "firebase/auth";
@@ -31,8 +29,6 @@ googleProvider.setCustomParameters({ prompt: "select_account" });
 
 // Auth helpers
 export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
-export const signInWithGoogleRedirect = () => signInWithRedirect(auth, googleProvider);
-export const completeGoogleSignInRedirect = () => getRedirectResult(auth);
 export const signInWithEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
 export const signUpWithEmail = async (name, email, password) => {
   const cred = await createUserWithEmailAndPassword(auth, email, password);
