@@ -263,6 +263,38 @@ a:focus-visible,
   }
 }
 
+.habit-data-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 58, 237, 0.62) rgba(124, 58, 237, 0.12);
+}
+
+.habit-data-scroll::-webkit-scrollbar {
+  height: 7px;
+}
+
+.habit-data-scroll::-webkit-scrollbar-track {
+  background: rgba(124, 58, 237, 0.1);
+  border-radius: 999px;
+}
+
+.habit-data-scroll::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.58);
+  border-radius: 999px;
+}
+
+.habit-scroll-cue {
+  width: fit-content;
+  max-width: 100%;
+  margin: -2px 0 8px auto;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.1);
+  color: #6D28D9;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

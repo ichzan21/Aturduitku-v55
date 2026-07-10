@@ -869,7 +869,7 @@ const uiIcon=(icon)=>ICON_CODE_MAP[String(icon||"").trim()]||icon||"";
 
 const Card=({ch,style={},lift})=>{
   const T=useT();
-  return <div className={lift?"card-lift":""} style={{background:T.card,borderRadius:16,padding:"18px 20px",boxShadow:T.shadow,border:`1.5px solid ${T.border}`,transition:"background .3s,border-color .3s,box-shadow .3s",...style}}>{ch}</div>;
+  return <div className={lift?"card-lift":""} style={{width:"100%",minWidth:0,maxWidth:"100%",background:T.card,borderRadius:16,padding:"18px 20px",boxShadow:T.shadow,border:`1.5px solid ${T.border}`,transition:"background .3s,border-color .3s,box-shadow .3s",...style}}>{ch}</div>;
 };
 const ChartFallback=({height=160})=>{
   const T=useT();
@@ -885,9 +885,9 @@ const ChartFallback=({height=160})=>{
 const Sec=({t,sub,right})=>{
   const T=useT();
   return(
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,paddingBottom:10,borderBottom:`1px solid ${T.borderLight}`}}>
-      <div><div style={{fontSize:10,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:T.accent}}>{t}</div>{sub&&<div style={{fontSize:11,color:T.muted,marginTop:2}}>{sub}</div>}</div>
-      {right&&<div>{right}</div>}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,minWidth:0,marginBottom:14,paddingBottom:10,borderBottom:`1px solid ${T.borderLight}`}}>
+      <div style={{minWidth:0,overflowWrap:"anywhere"}}><div style={{fontSize:10,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:T.accent}}>{t}</div>{sub&&<div style={{fontSize:11,color:T.muted,marginTop:2,lineHeight:1.5}}>{sub}</div>}</div>
+      {right&&<div style={{flexShrink:0}}>{right}</div>}
     </div>
   );
 };
@@ -3015,6 +3015,8 @@ export default function App(){
   const [newSub,setNewSub]=useState({katId:null,nama:"",emoji:"📌",alokasi:"",tempo:""});
   const [habitForm,setHabitForm]=useState({nama:"Catat pengeluaran",icon:"🧾",target:"1x per hari"});
   const [habitCelebrate,setHabitCelebrate]=useState(false);
+  const habitMonthScrollRef=useRef(null);
+  const habitWeekScrollRef=useRef(null);
 
 
   // ── Computed ────────────────────────────────────────────────────────────────
@@ -3248,6 +3250,19 @@ export default function App(){
     });
     return {year,monthName:MONTHS[month],monthDays,elapsedDays,daily,dailyElapsed,habitRows,monthDone,monthSlots,monthPct:monthSlots?monthDone/monthSlots*100:0,monthDoneToDate,monthSlotsToDate,monthPctToDate:monthSlotsToDate?monthDoneToDate/monthSlotsToDate*100:0,yearMonths,yearDone,yearSlots,yearPct:yearSlots?yearDone/yearSlots*100:0,bestMonth,weekday};
   },[activeHabits,habitDay]);
+  useEffect(()=>{
+    if(page!=="habit"||!isMobile) return;
+    const frame=requestAnimationFrame(()=>{
+      const monthEl=habitMonthScrollRef.current;
+      if(monthEl){
+        const dayIndex=Math.max(0,Number(habitDay.slice(-2))-1);
+        monthEl.scrollLeft=Math.max(0,150+(dayIndex*36)-Math.max(monthEl.clientWidth-72,0));
+      }
+      const weekEl=habitWeekScrollRef.current;
+      if(weekEl) weekEl.scrollLeft=Math.max(0,weekEl.scrollWidth-weekEl.clientWidth);
+    });
+    return ()=>cancelAnimationFrame(frame);
+  },[page,isMobile,habitDay,habitAnalytics.monthDays.length]);
   const todayTxCount=useMemo(()=>s.txs.filter(tx=>tx.tgl===habitDay).length,[s.txs,habitDay]);
   const perfectDayStreak=useMemo(()=>{
     if(!activeHabits.length) return 0;
@@ -7239,8 +7254,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               </div>)}
             </div>
 
-            {habitTotalToday>0&&<div style={{display:"grid",gridTemplateColumns:"1fr",gap:14,marginBottom:18}}>
-              <Card ch={<>
+            {habitTotalToday>0&&<div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:14,marginBottom:18,minWidth:0,maxWidth:"100%"}}>
+              <Card style={{minWidth:0,overflow:"hidden"}} ch={<>
                 <Sec t={`Habit Tracker ${habitAnalytics.monthName}`} sub="Progress dihitung sampai hari ini, jadi awal bulan tetap terasa adil dan mudah dibaca."/>
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:12}}>
                   {[
@@ -7253,29 +7268,30 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     <div style={{fontSize:17,fontWeight:950,color}}>{value}</div>
                   </div>)}
                 </div>
-                <div style={{overflowX:"auto",border:`1px solid ${T.border}`,borderRadius:16,background:T.cardAlt,padding:10,marginBottom:12,boxShadow:"inset 0 1px 0 rgba(255,255,255,.55)"}}>
-                  <div style={{minWidth:Math.max(isMobile?560:720,180+habitAnalytics.monthDays.length*32),display:"grid",gridTemplateColumns:`180px repeat(${habitAnalytics.monthDays.length}, 28px)`,gap:6,alignItems:"center"}}>
-                    <div style={{position:"sticky",left:0,zIndex:3,background:T.cardAlt,fontSize:10,color:T.accent,fontWeight:950,letterSpacing:1,textTransform:"uppercase",padding:"7px 8px",borderRadius:10}}>Quest</div>
+                {isMobile&&<div className="habit-scroll-cue">Geser tanggal untuk melihat bulan penuh</div>}
+                <div ref={habitMonthScrollRef} className="habit-data-scroll" style={{width:"100%",maxWidth:"100%",minWidth:0,overflowX:"auto",overscrollBehaviorX:"contain",WebkitOverflowScrolling:"touch",touchAction:"pan-x pan-y",border:`1px solid ${T.border}`,borderRadius:16,background:T.cardAlt,padding:10,marginBottom:12,boxShadow:"inset 0 1px 0 rgba(255,255,255,.55)"}}>
+                  <div style={{minWidth:(isMobile?150:180)+habitAnalytics.monthDays.length*(isMobile?30:28)+habitAnalytics.monthDays.length*6,display:"grid",gridTemplateColumns:`${isMobile?150:180}px repeat(${habitAnalytics.monthDays.length}, ${isMobile?30:28}px)`,gap:6,alignItems:"center"}}>
+                    <div style={{position:"sticky",left:0,zIndex:3,background:T.cardAlt,fontSize:10,color:T.accent,fontWeight:950,letterSpacing:1,textTransform:"uppercase",padding:"7px 8px",borderRadius:10,boxShadow:`8px 0 12px ${T.cardAlt}`}}>Quest</div>
                     {habitAnalytics.monthDays.map(day=>{
                       const isToday=day===habitDay;
                       const isPast=day<=habitDay;
                       return <div key={day} style={{fontSize:9,color:isToday?T.accent:isPast?T.text:T.muted,fontWeight:950,textAlign:"center",padding:"6px 0",borderRadius:9,background:isToday?T.accentBg:"transparent",border:isToday?`1px solid ${T.accent}33`:"1px solid transparent"}}>{Number(day.slice(-2))}</div>;
                     })}
                     {habitAnalytics.habitRows.map(h=><React.Fragment key={h.id}>
-                      <div style={{position:"sticky",left:0,zIndex:2,display:"flex",alignItems:"center",gap:8,minWidth:0,fontSize:11,fontWeight:950,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"7px 9px",borderRadius:11,background:T.card,border:`1px solid ${T.border}`,boxShadow:"0 8px 18px rgba(76,29,149,.05)"}}>
+                      <div style={{position:"sticky",left:0,zIndex:2,display:"flex",alignItems:"center",gap:8,minWidth:0,fontSize:11,fontWeight:950,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"7px 9px",borderRadius:11,background:T.card,border:`1px solid ${T.border}`,boxShadow:`8px 0 14px ${T.cardAlt}`}}>
                         <span>{h.icon||"🐾"}</span><span style={{overflow:"hidden",textOverflow:"ellipsis"}}>{h.nama}</span>
                       </div>
                       {habitAnalytics.monthDays.map(day=>{
                         const checked=(h.doneDates||[]).includes(day);
                         const isToday=day===habitDay;
-                        return <button key={`${h.id}-${day}`} onClick={()=>isToday&&toggleHabit(h.id)} disabled={!isToday} title={`${h.nama} · ${day}`} style={{width:28,height:28,borderRadius:10,border:`1.5px solid ${checked?T.okBorder:isToday?T.accent+"66":T.border}`,background:checked?`linear-gradient(135deg, ${T.okBg}, rgba(34,197,94,.18))`:isToday?T.accentBg:T.card,color:checked?T.ok:isToday?T.accent:T.muted,cursor:isToday?"pointer":"default",fontWeight:950,fontSize:checked?13:11,fontFamily:"inherit",padding:0,boxShadow:checked?"0 8px 14px rgba(34,197,94,.12)":"none",opacity:day>habitDay ? .55 : 1}}>
+                        return <button key={`${h.id}-${day}`} onClick={()=>isToday&&toggleHabit(h.id)} disabled={!isToday} title={`${h.nama} · ${day}`} style={{width:isMobile?30:28,height:isMobile?30:28,borderRadius:10,border:`1.5px solid ${checked?T.okBorder:isToday?T.accent+"66":T.border}`,background:checked?`linear-gradient(135deg, ${T.okBg}, rgba(34,197,94,.18))`:isToday?T.accentBg:T.card,color:checked?T.ok:isToday?T.accent:T.muted,cursor:isToday?"pointer":"default",fontWeight:950,fontSize:checked?13:11,fontFamily:"inherit",padding:0,boxShadow:checked?"0 8px 14px rgba(34,197,94,.12)":"none",opacity:day>habitDay ? .55 : 1}}>
                           {checked?"✓":"·"}
                         </button>;
                       })}
                     </React.Fragment>)}
                   </div>
                 </div>
-                <div style={{borderRadius:16,background:T.cardAlt,border:`1px solid ${T.border}`,padding:"12px 14px",overflow:"hidden"}}>
+                <div style={{width:"100%",maxWidth:"100%",minWidth:0,borderRadius:16,background:T.cardAlt,border:`1px solid ${T.border}`,padding:"12px 14px",overflow:"hidden"}}>
                   <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",marginBottom:10}}>
                     <div>
                       <div style={{fontSize:10,color:T.accent,fontWeight:950,letterSpacing:1,textTransform:"uppercase"}}>Konsistensi harian</div>
@@ -7285,12 +7301,13 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   </div>
                   {(()=>{
                     const bars=habitAnalytics.dailyElapsed;
-                    return <div style={{display:"grid",gridTemplateColumns:`repeat(${bars.length}, minmax(14px, 1fr))`,gap:5,alignItems:"end",height:112}}>
+                    return <div style={{display:"grid",gridTemplateColumns:`repeat(${bars.length}, minmax(0, 1fr))`,gap:isMobile?3:5,alignItems:"end",height:112,minWidth:0,maxWidth:"100%"}}>
                       {bars.map(d=>{
                         const isToday=d.day===habitDay;
-                        const h=Math.max(6,d.pct);
                         return <div key={d.day} title={`${d.day}: ${d.done}/${d.total} selesai`} style={{height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:5,minWidth:0}}>
-                          <div style={{width:"100%",height:`${h}%`,borderRadius:"9px 9px 4px 4px",background:d.pct>=100?`linear-gradient(180deg, ${T.ok}, ${T.ok}99)`:d.pct>=50?`linear-gradient(180deg, ${T.accent}, ${T.accent}99)`:d.pct>0?`linear-gradient(180deg, ${T.warn}, ${T.warn}99)`:T.border,boxShadow:isToday?`0 0 0 3px ${T.accent}22`:"none",transition:"height .35s ease, background .25s ease"}}/>
+                          <div style={{width:"100%",height:82,minWidth:0,display:"flex",alignItems:"flex-end",borderRadius:7,background:T.card,border:`1px solid ${isToday?T.accent+"44":T.borderLight}`,overflow:"hidden"}}>
+                            <div style={{width:"100%",height:`${Math.max(d.pct,d.pct>0?8:3)}%`,background:d.pct>=100?`linear-gradient(180deg, ${T.ok}, ${T.ok}99)`:d.pct>=50?`linear-gradient(180deg, ${T.accent}, ${T.accent}99)`:d.pct>0?`linear-gradient(180deg, ${T.warn}, ${T.warn}99)`:T.border,transition:"height .35s ease, background .25s ease"}}/>
+                          </div>
                           {(isToday||d.date===1||d.date%5===0)&&<span style={{fontSize:8,color:isToday?T.accent:T.muted,fontWeight:900}}>{d.date}</span>}
                         </div>;
                       })}
@@ -7298,11 +7315,11 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   })()}
                 </div>
               </>}/>
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(0,1fr) minmax(0,1fr)",gap:14,alignContent:"start"}}>
-                <Card ch={<>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"minmax(0,1fr)":"minmax(0,1fr) minmax(0,1fr)",gap:14,alignContent:"start",minWidth:0,maxWidth:"100%"}}>
+                <Card style={{minWidth:0,overflow:"hidden"}} ch={<>
                   <Sec t="Analisis habit" sub="Habit mana yang paling kuat dan mana yang perlu dibantu bulan ini."/>
                   <div style={{display:"grid",gap:10}}>
-                    {habitAnalytics.habitRows.slice(0,7).map(h=><div key={h.id} style={{display:"grid",gridTemplateColumns:"1fr auto",gap:10,alignItems:"center"}}>
+                    {habitAnalytics.habitRows.slice(0,7).map(h=><div key={h.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"center",minWidth:0}}>
                       <div style={{minWidth:0}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
                           <span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:T.cardAlt,border:`1px solid ${T.border}`,flex:"0 0 auto"}}>{h.icon||"🐾"}</span>
@@ -7319,7 +7336,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     </div>)}
                   </div>
                 </>}/>
-                <Card ch={<>
+                <Card style={{minWidth:0,overflow:"hidden"}} ch={<>
                   <Sec t="Yearly habit" sub={`Ringkasan habit ${habitAnalytics.year} yang enak dibaca di laptop, iPad, dan HP.`}/>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
                     {[
@@ -7330,13 +7347,13 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       <div style={{fontSize:16,fontWeight:950,color}}>{value}</div>
                     </div>)}
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(12,1fr)",gap:6,alignItems:"end",height:112,marginBottom:12,padding:"8px 4px 0",borderRadius:14,background:T.cardAlt,border:`1px solid ${T.border}`}}>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(12,minmax(0,1fr))",gap:isMobile?3:6,alignItems:"end",height:112,minWidth:0,maxWidth:"100%",marginBottom:12,padding:"8px 4px 0",borderRadius:14,background:T.cardAlt,border:`1px solid ${T.border}`,overflow:"hidden"}}>
                     {habitAnalytics.yearMonths.map(m=><div key={m.label} title={`${m.full}: ${Math.round(m.pct)}%`} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,height:"100%",justifyContent:"flex-end"}}>
-                      <div style={{width:"100%",minHeight:4,height:`${Math.max(4,m.pct*.82)}%`,borderRadius:"7px 7px 3px 3px",background:m.pct>=80?T.ok:m.pct>=50?T.accent:m.pct>0?T.warn:T.border,transition:"height .4s ease"}}/>
+                      <div style={{width:"100%",height:78,display:"flex",alignItems:"flex-end",borderRadius:6,background:T.card,border:`1px solid ${T.borderLight}`,overflow:"hidden"}}><div style={{width:"100%",height:`${Math.max(m.pct,m.pct>0?8:3)}%`,background:m.pct>=80?T.ok:m.pct>=50?T.accent:m.pct>0?T.warn:T.border,transition:"height .4s ease"}}/></div>
                       <span style={{fontSize:8,color:T.muted,fontWeight:800}}>{m.label}</span>
                     </div>)}
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(4,1fr)":"repeat(7,1fr)",gap:6}}>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(58px,1fr))",gap:6,minWidth:0}}>
                     {habitAnalytics.weekday.map(d=><div key={d.label} style={{textAlign:"center",padding:"7px 4px",borderRadius:10,background:d.pct>=80?T.okBg:d.pct>=50?T.accentBg:T.cardAlt,border:`1px solid ${T.border}`}}>
                       <div style={{fontSize:9,color:T.muted,fontWeight:900}}>{d.label}</div>
                       <div style={{fontSize:11,color:d.pct>=80?T.ok:d.pct>=50?T.accent:T.warn,fontWeight:950}}>{Math.round(d.pct)}%</div>
@@ -7409,10 +7426,11 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
             {habitTotalToday>0&&<Card ch={<>
               <Sec t="Kalender quest" sub="Cek progres 7 hari terakhir. Kotak hijau berarti quest selesai di hari itu."/>
-              <div style={{overflowX:"auto",paddingBottom:2}}>
-                <div style={{minWidth:isMobile?520:"auto"}}>
-                  <div style={{display:"grid",gridTemplateColumns:"minmax(150px,1.3fr) repeat(7, minmax(46px,1fr))",gap:7,alignItems:"center",marginBottom:8}}>
-                    <div/>
+              {isMobile&&<div className="habit-scroll-cue">Geser kalender, nama quest tetap terlihat</div>}
+              <div ref={habitWeekScrollRef} className="habit-data-scroll" style={{width:"100%",maxWidth:"100%",minWidth:0,overflowX:"auto",overscrollBehaviorX:"contain",WebkitOverflowScrolling:"touch",touchAction:"pan-x pan-y",paddingBottom:2}}>
+                <div style={{minWidth:isMobile?464:"auto"}}>
+                  <div style={{display:"grid",gridTemplateColumns:`${isMobile?128:150}px repeat(7, minmax(${isMobile?42:46}px,1fr))`,gap:7,alignItems:"center",marginBottom:8}}>
+                    <div style={{position:"sticky",left:0,zIndex:3,alignSelf:"stretch",display:"flex",alignItems:"center",padding:"0 10px",background:T.card,color:T.accent,fontSize:9,fontWeight:950,letterSpacing:1,textTransform:"uppercase",boxShadow:`8px 0 12px ${T.card}`}}>Quest</div>
                     {Array.from({length:7},(_,i)=>dateAdd(habitDay,i-6)).map(day=>{
                       const d=new Date(`${day}T00:00:00`);
                       return <div key={day} style={{textAlign:"center",fontSize:10,fontWeight:900,color:day===habitDay?T.accent:T.muted,background:day===habitDay?T.accentBg:"transparent",borderRadius:10,padding:"7px 4px"}}>
@@ -7422,8 +7440,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     })}
                   </div>
                   {activeHabits.map(h=>(
-                    <div key={h.id} style={{display:"grid",gridTemplateColumns:"minmax(150px,1.3fr) repeat(7, minmax(46px,1fr))",gap:7,alignItems:"center",marginBottom:7}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,padding:"8px 10px",borderRadius:11,background:T.cardAlt,border:`1px solid ${T.border}`}}>
+                    <div key={h.id} style={{display:"grid",gridTemplateColumns:`${isMobile?128:150}px repeat(7, minmax(${isMobile?42:46}px,1fr))`,gap:7,alignItems:"center",marginBottom:7}}>
+                      <div style={{position:"sticky",left:0,zIndex:2,display:"flex",alignItems:"center",gap:8,minWidth:0,padding:"8px 10px",borderRadius:11,background:T.cardAlt,border:`1px solid ${T.border}`,boxShadow:`8px 0 12px ${T.card}`}}>
                         <span style={{fontSize:18}}>{h.icon||"🐾"}</span>
                         <span style={{fontSize:12,fontWeight:900,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.nama}</span>
                       </div>
