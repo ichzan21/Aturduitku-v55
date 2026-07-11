@@ -3827,6 +3827,7 @@ MODE SUPERPOWER:
 
 PRINSIP JAWABAN:
 - Jangan beri nasihat generik seperti "hemat pengeluaran" tanpa angka, kategori, atau langkah nyata.
+- Jangan berkata percakapan sebelumnya tidak ditemukan hanya karena user menyebut istilah umum. Untuk pertanyaan lanjutan seperti "sinking fund tadi gimana", jelaskan singkat bahwa itu dana khusus untuk kebutuhan terencana, lalu arahkan user membuat amplop atau goal sesuai kebutuhan.
 - Selalu gunakan data user bila tersedia: saldo, transaksi, budget, goals, utang, amplop, habit, aset, dan runway.
 - Jika user bertanya soal habit/rutinitas/streak, gunakan data habit aktual di bawah. Jangan jawab generik dan jangan mengarang habit yang tidak ada.
 - Untuk saran, usahakan ada angka rupiah, batas harian/mingguan, prioritas, dan tindakan berikutnya.
@@ -3898,7 +3899,10 @@ Balas HANYA JSON (tanpa teks lain) untuk action:
 3. Setor dana ke goal:
 {"action":"setor_goal","nama":"nama goal","jumlah":500000,"dompet":"nama dompet"}
 
-4. Tambah aset:
+4. Catat investasi / tambah nilai aset:
+{"action":"catat_investasi","nama":"Emas Digital BRI","jumlah":200000,"dompet":"BRI","ket":"tabungan emas"}
+
+5. Tambah aset tanpa memotong saldo dompet:
 {"action":"tambah_aset","nama":"nama aset","nilai":8000000,"ket":"keterangan"}
 
 5. Catat utang/piutang:
@@ -3961,6 +3965,8 @@ ATURAN EKSEKUSI:
 - Jika user meminta "analisis", "review", "gimana kondisi", "saran", atau "rencana", jangan JSON; berikan konsultasi.
 - Jika user meminta coach/review/analisis habit, jangan JSON. Beri diagnosis habit: yang sudah bagus, yang macet, dan 1-3 quest paling penting hari ini.
 - Jika user meminta "ceklis", "selesaikan", "sudah melakukan", atau "habit selesai", gunakan JSON selesai_habit bila nama habit jelas.
+- Jika user membeli, menabung, atau top up investasi seperti emas, saham, reksadana, obligasi, deposito, atau aset digital, gunakan catat_investasi. Jangan gunakan action catat/tabungan biasa karena nilai investasi harus masuk ke Aset dan net worth tetap seimbang.
+- Untuk catat_investasi, nama aset, nominal, dan dompet sumber wajib jelas. Jika salah satunya belum ada, tanyakan singkat sebelum mencatat.
 - Jika nominal atau objek penting tidak jelas, jangan memaksa. Tanya singkat: "Mau pakai dompet mana?" atau "Nominalnya berapa?"
 - Setelah action berhasil, aplikasi akan membuat konfirmasi sendiri; jadi JSON tidak boleh ditambah teks lain.
 - Untuk konfirmasi setelah data berhasil dicatat oleh aplikasi: singkat, hangat, maksimal 2-4 baris, sebut nominal/objek utama, lalu beri satu langkah berikutnya.
@@ -4008,6 +4014,7 @@ CONTOH GAYA:
       const aiDompet = name => findAiItem(s.dompet, name, ["nama"]) || s.dompet[0];
       const aiBudget = name => findAiItem(s.budgets, name, ["kat"]) || s.budgets[0];
       const aiGoal = name => findAiItem(s.goals, name, ["nama"]);
+      const aiAset = name => findAiItem(s.asetTetap, name, ["nama"]);
       const aiAmplop = name => findAiItem(s.amplop, name, ["nama"]);
       const aiHabit = name => findAiItem(s.habits, name, ["nama"]);
       const aiUtang = name => findAiItem(s.utang.filter(u=>!u.lunas), name, ["nama"]);
@@ -4028,6 +4035,10 @@ CONTOH GAYA:
         return Math.round(numeric);
       };
       const aiAmount = (...vals) => parseAiMoney(vals.find(v=>v!==undefined&&v!==null&&String(v)!=="")||0);
+      const isInvestmentIntent = source => /(investasi|emas(?:\s+digital)?|reksadana|saham|obligasi|deposito|sukuk|crypto|kripto|aset\s+digital)/i.test(String(source||""));
+      if(parsed?.action==="catat" && isInvestmentIntent(msg)) {
+        parsed={...parsed,action:"catat_investasi",nama:parsed.nama||parsed.aset||parsed.ket||"Investasi"};
+      }
       const aiAmountAfter = (source, keys=[]) => {
         const text = String(source||"");
         for (const key of keys) {
@@ -4065,7 +4076,28 @@ CONTOH GAYA:
       const legacyAiActions = ["catat","tambah_goal","tambah_aset","tambah_utang"];
       const extendedAiAction = parsed?.action && !legacyAiActions.includes(parsed.action);
       if(extendedAiAction) {
-        if(parsed.action==="setor_goal") {
+        if(parsed.action==="catat_investasi") {
+          const nama=String(parsed.nama||parsed.aset||parsed.ket||"Investasi").trim();
+          const dompet=cleanAiText(parsed.dompet)?aiDompetStrict(parsed.dompet):null;
+          const jumlah=aiAmount(parsed.jumlah, parsed.jml, parsed.nominal, parsed.nilai);
+          const aset=aiAset(nama);
+          const investasiBudget=findAiItem(s.budgets,"Investasi",["kat"]);
+          if(!dompet) aiDone("⚠️ Dompet sumber investasi belum jelas. Contoh: `nabung emas digital 200rb dari BRI`.");
+          else if(!jumlah) aiDone("⚠️ Nominal investasi belum jelas.");
+          else if(!aiBalanceOk(dompet,jumlah)) aiDone(`⚠️ Saldo ${dompet.nama} tidak cukup. Saldo tersedia Rp ${aiMoney(N(dompet.saldo))}.`);
+          else {
+            const assetName=aset?.nama||nama;
+            setS(p=>({...p,
+              asetTetap:aset
+                ?p.asetTetap.map(item=>item.id===aset.id?{...item,nilai:String(N(item.nilai)+jumlah),ket:parsed.ket||item.ket||""}:item)
+                :[...p.asetTetap,{id:Date.now(),nama:assetName,nilai:String(jumlah),ket:parsed.ket||"Dicatat via Dokter Keuangan"}],
+              dompet:p.dompet.map(d=>d.id===dompet.id?{...d,saldo:String(N(d.saldo)-jumlah)}:d),
+              txs:[{id:Date.now()+1,tipe:"pengeluaran",tgl:today(),ket:`Investasi: ${assetName}`,jml:String(jumlah),katId:investasiBudget?.id||"",dompetId:dompet.id,subKat:"",bulan:s.bulan,tahun:s.tahun},...p.txs]
+            }));
+            aiConfirm({icon:"📈",title:aset?"Nilai investasi diperbarui":"Investasi dicatat",lines:[`${assetName}: + Rp ${aiMoney(jumlah)}`,`Sumber: ${dompet.nama}`,"Nilainya sudah masuk ke Aset dan net worth."],next:"Kamu bisa ubah nilainya kapan saja di menu Aset."});
+            showToast("Investasi dicatat via AI");
+          }
+        } else if(parsed.action==="setor_goal") {
           const goal=aiGoal(parsed.nama);
           const dompet=aiDompet(parsed.dompet);
           const jumlah=aiAmount(parsed.jumlah, parsed.jml, parsed.nominal);
@@ -5576,6 +5608,12 @@ Saldo amplop bertambah.`}]);
 
   const addAset = () => {
     if(!asetForm.nama){showToast("⚠️ Isi nama aset!");return;}
+    if(N(asetForm.nilai)<=0){showToast("⚠️ Isi nilai aset yang valid!");return;}
+    if(asetForm.id){
+      setS(p=>({...p,asetTetap:p.asetTetap.map(a=>a.id===asetForm.id?{...a,nama:asetForm.nama.trim(),nilai:pN(asetForm.nilai),ket:asetForm.ket.trim()}:a)}));
+      setAsetForm({nama:"",nilai:"",ket:"",beliDariDompet:false,dompetId:s.dompet[0]?.id||1});
+      showToast("✅ Nilai aset diperbarui!");setModal(null);return;
+    }
     if(asetForm.beliDariDompet) {
        const targetDompet = s.dompet.find(d=>d.id===asetForm.dompetId);
        if(targetDompet && N(targetDompet.saldo) < N(asetForm.nilai)) {
@@ -6269,12 +6307,12 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
             {/* Aset Modal */}
             {modal.type==="aset"&&<>
-              <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{t("addAsetTitle")}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>Catat aset agar nilai kekayaan bersih kamu ikut terpantau.</div>
+              <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{asetForm.id?"Ubah aset":"Tambah aset tetap"}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>{asetForm.id?"Perbarui nama, nilai, atau keterangan aset. Saldo dompet tidak akan berubah.":"Catat aset agar nilai kekayaan bersih kamu ikut terpantau."}</div>
               <label style={LS}>{t("asetName2")}</label><input placeholder={t("assetPlaceholder")} value={asetForm.nama} onChange={e=>setAsetForm(f=>({...f,nama:e.target.value}))} style={{...IS,marginBottom:10}}/>
               <label style={LS}>{t("asetVal")}</label><CurIn value={asetForm.nilai} onChange={v=>setAsetForm(f=>({...f,nilai:v}))} placeholder="0" style={{...IS,marginBottom:10}}/>
               <label style={LS}>Keterangan</label><input placeholder={t("ketOpsional")} value={asetForm.ket} onChange={e=>setAsetForm(f=>({...f,ket:e.target.value}))} style={{...IS,marginBottom:14}}/>
               
-              <div style={{background:T.cardAlt, padding:14, borderRadius:10, border:`1.5px dashed ${T.border}`, marginBottom:16}}>
+               {!asetForm.id&&<div style={{background:T.cardAlt, padding:14, borderRadius:10, border:`1.5px dashed ${T.border}`, marginBottom:16}}>
                  <label style={{...LS, color:T.text}}>{t("useWalletBal")}</label>
                  <div style={{display:"flex", gap:10, marginBottom:asetForm.beliDariDompet?10:0, alignItems:"flex-start"}}>
                     <input type="checkbox" checked={asetForm.beliDariDompet} onChange={e=>setAsetForm(f=>({...f,beliDariDompet:e.target.checked}))} style={{width:18, height:18}}/>
@@ -6285,9 +6323,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                        {s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}
                     </select>
                  )}
-              </div>
+               </div>}
 
-              <Btn onClick={addAset} ch={t("addAset")} style={{width:"100%",padding:"12px"}}/>
+              <Btn onClick={addAset} ch={asetForm.id?"Simpan perubahan":t("addAset")} style={{width:"100%",padding:"12px"}}/>
             </>}
           </div>
         </div>
@@ -7504,9 +7542,10 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 {s.asetTetap.map(a=>(
                   <div key={a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
                     <div><div style={{fontSize:13,fontWeight:600,color:T.text}}>{a.nama}</div>{a.ket&&<div style={{fontSize:11,color:T.muted}}>{a.ket}</div>}</div>
-                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                      <span style={{fontWeight:700,color:T.text}}>{IDR(N(a.nilai))}</span>
-                      <Del onClick={()=>confirmDelete({title:"Hapus aset?",msg:`Aset "${a.nama}" akan dihapus dari ringkasan kekayaanmu.`,toastMsg:"Aset dihapus",onConfirm:()=>setS(p=>({...p,asetTetap:p.asetTetap.filter(x=>x.id!==a.id)}))})}/>
+                     <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                       <span style={{fontWeight:700,color:T.text}}>{IDR(N(a.nilai))}</span>
+                       <button onClick={()=>{setAsetForm({id:a.id,nama:a.nama||"",nilai:String(a.nilai||""),ket:a.ket||"",beliDariDompet:false,dompetId:s.dompet[0]?.id||1});setModal({type:"aset"});}} aria-label={`Edit aset ${a.nama}`} title={`Edit ${a.nama}`} style={{width:30,height:30,borderRadius:8,border:`1px solid ${T.border}`,background:T.bg,color:T.accent,fontSize:17,fontWeight:800,cursor:"pointer",fontFamily:"inherit",lineHeight:1}}>✎</button>
+                       <Del onClick={()=>confirmDelete({title:"Hapus aset?",msg:`Aset "${a.nama}" akan dihapus dari ringkasan kekayaanmu.`,toastMsg:"Aset dihapus",onConfirm:()=>setS(p=>({...p,asetTetap:p.asetTetap.filter(x=>x.id!==a.id)}))})}/>
                     </div>
                   </div>
                 ))}
@@ -7515,10 +7554,10 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   title="Belum ada aset tetap"
                   desc="Catat aset seperti rumah, kendaraan, emas, atau laptop kerja supaya net worth kamu terlihat lebih utuh."
                   actionLabel="Tambah aset pertama"
-                  onAction={()=>setModal({type:"aset"})}
+                  onAction={()=>{setAsetForm({nama:"",nilai:"",ket:"",beliDariDompet:false,dompetId:s.dompet[0]?.id||1});setModal({type:"aset"});}}
                   style={{padding:"24px 16px",marginTop:6}}
                 />}
-                <div style={{marginTop:10}}><Btn onClick={()=>setModal({type:"aset"})} ch={"+ "+t("aset")} c={T.accent} outline style={{padding:"8px 14px",fontSize:12}}/></div>
+                <div style={{marginTop:10}}><Btn onClick={()=>{setAsetForm({nama:"",nilai:"",ket:"",beliDariDompet:false,dompetId:s.dompet[0]?.id||1});setModal({type:"aset"});}} ch={"+ "+t("aset")} c={T.accent} outline style={{padding:"8px 14px",fontSize:12}}/></div>
               </>}/>
             </div>
           </>}
