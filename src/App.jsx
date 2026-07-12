@@ -2522,7 +2522,6 @@ export default function App(){
   const [installDismissed,setInstallDismissed]=useState(()=>{try{return localStorage.getItem("aturduitku_install_dismissed")==="1";}catch(e){return false;}});
   const [now,setNow]=useState(new Date());
   const [tz,setTz]=useState({city:"",offset:""});
-  const [editSaldo,setEditSaldo]=useState({});
   const [inAppAlerts,setInAppAlerts]=useState([]);
   const [isOnline,setIsOnline]=useState(()=>typeof navigator==="undefined"?true:navigator.onLine);
 
@@ -3060,7 +3059,17 @@ export default function App(){
     return months;
   },[s.txs,yr,bulanIdx]);
 
-  const tagihan=useMemo(()=>{const list=[];s.budgets.forEach(b=>b.sub.forEach(sb=>{if(sb.tempo){list.push({...sb,kat:b.kat});}}));return list.sort((a,b)=>Number(a.tempo)-Number(b.tempo));},[s.budgets]);
+  const tagihan=useMemo(()=>{
+    const list=[];
+    const period=`${yr}-${String(bulanIdx+1).padStart(2,"0")}`;
+    s.budgets.forEach(b=>b.sub.forEach((sb,subIndex)=>{
+      if(!sb.tempo) return;
+      const billRef=`${b.id}:${subIndex}`;
+      const paidTx=s.txs.find(tx=>tx.billRef===billRef&&String(tx.tgl||"").startsWith(period));
+      list.push({...sb,kat:b.kat,katId:b.id,subIndex,billRef,paid:!!paidTx,paidTxId:paidTx?.id||null});
+    }));
+    return list.sort((a,b)=>Number(a.tempo)-Number(b.tempo));
+  },[s.budgets,s.txs,yr,bulanIdx]);
   const billCalendar=useMemo(()=>{
     const base=today();
     const toKey=dt=>dateKey(dt);
@@ -3080,6 +3089,7 @@ export default function App(){
       items.push({id:`debt-${u.id}`,date:u.tempo,title:u.nama,type:provider||"Utang",amount:sisa,icon:provider?"🧾":"📌",tone:"debt",days:diffDays(u.tempo)});
     });
     tagihan.forEach((sb,i)=>{
+      if(sb.paid) return;
       const key=currentDueKey(sb.tempo);
       if(key) items.push({id:`budget-${i}-${sb.nama}`,date:key,title:sb.nama,type:sb.kat||"Tagihan",amount:N(sb.alokasi),icon:sb.emoji||"🔔",tone:"bill",days:diffDays(key)});
     });
@@ -3396,8 +3406,9 @@ export default function App(){
     const list=[];
     const now_date=new Date();
     // Tagihan jatuh tempo
-    s.budgets.forEach(b=>b.sub.forEach(sb=>{
+    s.budgets.forEach(b=>b.sub.forEach((sb,subIndex)=>{
       if(sb.tempo){
+        if(txBulan.some(tx=>tx.billRef===`${b.id}:${subIndex}`)) return;
         const tDate=new Date(now_date.getFullYear(),now_date.getMonth(),Number(sb.tempo));
         const diff=Math.ceil((tDate-now_date)/(1000*60*60*24));
         if(diff>=0&&diff<=7){list.push({icon:sb.emoji||b.icon,title:`Tagihan: ${sb.nama}`,msg:diff===0?"Jatuh tempo HARI INI!":diff+" hari lagi jatuh tempo",tag:"Tagihan",color:diff<=1?"danger":"warning",amount:N(sb.alokasi)});}
@@ -3433,7 +3444,7 @@ export default function App(){
     if(recurringPending.length) list.push({icon:"REPEAT",title:"Transaksi rutin belum diproses",msg:`${recurringPending.length} transaksi rutin menunggu pengecekan.`,tag:"Rutin",color:"warning"});
     const priority={danger:0,warning:1,info:2,success:3};
     return list.sort((a,b)=>(priority[a.color]??9)-(priority[b.color]??9));
-  },[s.budgets,s.goals,s.utang,s.amplop,s.recurring,s.processedRecurring,s.bulan,s.tahun,spendByKat,todayTxCount,habitTotalToday,habitDoneToday]);
+  },[s.budgets,s.goals,s.utang,s.amplop,s.recurring,s.processedRecurring,s.bulan,s.tahun,spendByKat,txBulan,todayTxCount,habitTotalToday,habitDoneToday]);
 
   useEffect(()=>{
     if(typeof window==="undefined"||!("Notification" in window)||Notification.permission!=="granted") return;
@@ -4877,14 +4888,14 @@ Saldo amplop bertambah.`}]);
       y=secTitle(isEN?"Transaction History":"Riwayat Transaksi",
                  `${bulanLabel} ${s.tahun}  |  ${txM.length} ${isEN?"transactions":"transaksi"}  |  Max 60 ${isEN?"shown":"ditampilkan"}`, y);
 
-      const TIPE_LBL  = {pemasukan:"[+]", pengeluaran:"[-]", tabungan:"[S]", investasi:"[I]", alokasi_amplop:"[A]", transfer:"[T]"};
+      const TIPE_LBL  = {pemasukan:"[+]", pengeluaran:"[-]", tabungan:"[S]", investasi:"[I]", alokasi_amplop:"[A]", penyesuaian:"[K]", transfer:"[T]"};
       const txRows = txM.slice(0,60).map(tx=>{
         const dompet   = clean(s.dompet.find(d=>d.id===tx.dompetId)?.nama||"-");
         const katB     = s.budgets.find(b=>b.id===Number(tx.katId));
         const katLabel = clean(katB?.kat||(tx.tipe==="pemasukan"?(isEN?"Income":"Pemasukan"):(isEN?"Other":"Lainnya")));
         const tlbl     = TIPE_LBL[tx.tipe]||"[?]";
-        const debit    = ["pengeluaran","tabungan","investasi","alokasi_amplop"].includes(tx.tipe)?idr(Num(tx.jml)):"";
-        const kredit   = tx.tipe==="pemasukan"?idr(Num(tx.jml)):"";
+        const debit    = ["pengeluaran","tabungan","investasi","alokasi_amplop"].includes(tx.tipe)||(tx.tipe==="penyesuaian"&&Num(tx.adjustmentDelta)<0)?idr(Num(tx.jml)):"";
+        const kredit   = tx.tipe==="pemasukan"||(tx.tipe==="penyesuaian"&&Num(tx.adjustmentDelta)>0)?idr(Num(tx.jml)):"";
         return [tx.tgl||"-", tlbl, clean(tx.ket||"-").slice(0,34), katLabel.slice(0,18), dompet.slice(0,14), debit, kredit];
       });
       // Total row
@@ -5765,6 +5776,34 @@ Saldo amplop bertambah.`}]);
     showToast(t("toast_walletAdded"));setModal(null);
   };
 
+  const reconcileWallet=()=>{
+    const wallet=s.dompet.find(d=>d.id===modal?.walletId);
+    if(!wallet) return;
+    const actual=N(modal?.actual);
+    const diff=actual-N(wallet.saldo);
+    if(!Number.isFinite(actual)||actual<0){showToast("Isi saldo sebenarnya yang valid");return;}
+    if(diff===0){showToast("Saldo sudah cocok");setModal(null);return;}
+    setS(p=>({...p,
+      dompet:p.dompet.map(d=>d.id===wallet.id?{...d,saldo:String(actual)}:d),
+      txs:[{id:Date.now(),tipe:"penyesuaian",tgl:today(),ket:`Cocokkan saldo: ${wallet.nama}`,jml:String(Math.abs(diff)),adjustmentDelta:diff,dompetId:wallet.id,bulan:p.bulan,tahun:p.tahun},...p.txs]
+    }));
+    showToast(`Saldo ${wallet.nama} berhasil dicocokkan`);setModal(null);
+  };
+
+  const payScheduledBill=()=>{
+    const bill=modal?.bill;
+    const walletId=Number(modal?.walletId);
+    const amount=N(modal?.amount);
+    const wallet=s.dompet.find(d=>d.id===walletId);
+    if(!bill||!wallet||amount<=0){showToast("Lengkapi dompet dan nominal tagihan");return;}
+    if(N(wallet.saldo)<amount){showToast(`Saldo ${wallet.nama} tidak cukup`);return;}
+    setS(p=>({...p,
+      dompet:p.dompet.map(d=>d.id===walletId?{...d,saldo:String(N(d.saldo)-amount)}:d),
+      txs:[{id:Date.now(),tipe:"pengeluaran",tgl:today(),ket:`Bayar tagihan: ${bill.nama}`,jml:String(amount),katId:bill.katId,subKat:bill.nama,dompetId:walletId,billRef:bill.billRef,bulan:p.bulan,tahun:p.tahun},...p.txs]
+    }));
+    showToast(`${bill.nama} ditandai sudah dibayar`);setModal(null);
+  };
+
   const addAset = () => {
     if(!asetForm.nama){showToast("⚠️ Isi nama aset!");return;}
     if(N(asetForm.nilai)<=0){showToast("⚠️ Isi nilai aset yang valid!");return;}
@@ -5841,6 +5880,8 @@ Saldo amplop bertambah.`}]);
       let newAmplop=p.amplop;
       if(tx.tipe==="pemasukan"&&tx.dompetId){
         newDompet=p.dompet.map(d=>d.id===tx.dompetId?{...d,saldo:String(N(d.saldo)-jmlNum)}:d);
+      }else if(tx.tipe==="penyesuaian"&&tx.dompetId){
+        newDompet=p.dompet.map(d=>d.id===tx.dompetId?{...d,saldo:String(N(d.saldo)-N(tx.adjustmentDelta))}:d);
       }else if(tx.tipe==="pengeluaran"&&tx.amplopId){
         newAmplop=p.amplop.map(a=>a.id===tx.amplopId?{...a,terpakai:String(Math.max(N(a.terpakai)-jmlNum,0))}:a);
       }else if(["pengeluaran","tabungan","investasi","alokasi_amplop"].includes(tx.tipe)&&tx.dompetId){
@@ -5888,9 +5929,9 @@ Saldo amplop bertambah.`}]);
     const txKatLabel=isIn
       ? (KAT_IN.includes(t.katId) ? t.katId : (typeof t.katId==="string" ? t.katId : "Lainnya"))
       : kat?.kat;
-    const txColor=t.tipe==="pemasukan"?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="investasi"?T.ok:t.tipe==="alokasi_amplop"?T.accent:t.tipe==="transfer"?T.accent:T.err;
-    const txBg=t.tipe==="pemasukan"?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer")?T.accentBg:T.errBg;
-    const txIcon=isIn?"📈":t.tipe==="tabungan"?"🏦":t.tipe==="investasi"?"💎":t.tipe==="alokasi_amplop"?"✉️":t.tipe==="transfer"?"↔️":kat?uiIcon(kat.icon):"📉";
+    const txColor=t.tipe==="pemasukan"?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="investasi"?T.ok:t.tipe==="penyesuaian"?T.warn:t.tipe==="alokasi_amplop"?T.accent:t.tipe==="transfer"?T.accent:T.err;
+    const txBg=t.tipe==="pemasukan"?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer")?T.accentBg:T.errBg;
+    const txIcon=isIn?"📈":t.tipe==="tabungan"?"🏦":t.tipe==="investasi"?"💎":t.tipe==="penyesuaian"?"BAL":t.tipe==="alokasi_amplop"?"✉️":t.tipe==="transfer"?"↔️":kat?uiIcon(kat.icon):"📉";
     return(
       <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
@@ -5904,7 +5945,7 @@ Saldo amplop bertambah.`}]);
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
           <span style={{fontWeight:700,fontSize:13,color:txColor}}>
-            {isIn?"+":t.tipe==="alokasi_amplop"?"→":t.tipe==="transfer"?"→":"-"}{IDRs(N(t.jml))}
+            {isIn?"+":t.tipe==="penyesuaian"?(N(t.adjustmentDelta)>=0?"+":"-"):t.tipe==="alokasi_amplop"?"→":t.tipe==="transfer"?"→":"-"}{IDRs(N(t.jml))}
           </span>
           <Del onClick={()=>deleteTx(t)}/>
         </div>
@@ -6497,6 +6538,34 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               </>;
             })()}
 
+            {modal.type==="reconcileWallet"&&(()=>{
+              const wallet=s.dompet.find(d=>d.id===modal.walletId);
+              const actual=N(modal.actual),current=N(wallet?.saldo),diff=actual-current;
+              return <>
+                <div style={{fontSize:17,fontWeight:900,color:T.text,marginBottom:4}}>Cocokkan saldo {wallet?.nama}</div>
+                <div style={{fontSize:12,color:T.muted,lineHeight:1.55,marginBottom:16}}>Masukkan saldo yang terlihat di rekening atau e-wallet. Selisih dicatat sebagai koreksi saldo dan tidak dianggap pemasukan atau pengeluaran.</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginBottom:14}}>
+                  <div style={{padding:"11px 12px",borderRadius:11,background:T.cardAlt,border:`1px solid ${T.border}`}}><div style={{fontSize:9,color:T.muted,fontWeight:900,textTransform:"uppercase",marginBottom:4}}>Saldo aplikasi</div><div style={{fontSize:15,fontWeight:900,color:T.text}}>{IDRs(current)}</div></div>
+                  <div style={{padding:"11px 12px",borderRadius:11,background:diff===0?T.okBg:T.warnBg,border:`1px solid ${diff===0?T.okBorder:T.warnBorder}`}}><div style={{fontSize:9,color:T.muted,fontWeight:900,textTransform:"uppercase",marginBottom:4}}>Selisih</div><div style={{fontSize:15,fontWeight:900,color:diff===0?T.ok:T.warn}}>{diff>0?"+":""}{IDRs(diff)}</div></div>
+                </div>
+                <label style={LS}>Saldo sebenarnya</label><CurIn value={modal.actual} onChange={v=>setModal(m=>({...m,actual:v}))} placeholder="0" style={{...IS,marginBottom:14}}/>
+                <Btn onClick={reconcileWallet} ch={diff===0?"Saldo sudah cocok":"Simpan koreksi saldo"} c={diff===0?T.ok:T.accent} style={{width:"100%",padding:"12px"}}/>
+              </>;
+            })()}
+
+            {modal.type==="payBill"&&(()=>{
+              const bill=modal.bill;
+              const wallet=s.dompet.find(d=>d.id===Number(modal.walletId));
+              return <>
+                <div style={{fontSize:17,fontWeight:900,color:T.text,marginBottom:4}}>Bayar tagihan {bill?.nama}</div>
+                <div style={{fontSize:12,color:T.muted,lineHeight:1.55,marginBottom:16}}>Setelah disimpan, saldo dompet berkurang dan transaksi otomatis masuk ke kategori {bill?.kat}.</div>
+                <label style={LS}>Bayar dari</label><select value={modal.walletId||""} onChange={e=>setModal(m=>({...m,walletId:Number(e.target.value)}))} style={{...IS,marginBottom:10}}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama} ({IDRs(N(d.saldo))})</option>)}</select>
+                <label style={LS}>Nominal pembayaran</label><CurIn value={modal.amount} onChange={v=>setModal(m=>({...m,amount:v}))} placeholder="0" style={{...IS,marginBottom:10}}/>
+                {wallet&&N(wallet.saldo)<N(modal.amount)&&<div style={{fontSize:11,color:T.err,background:T.errBg,border:`1px solid ${T.errBorder}`,borderRadius:9,padding:"8px 10px",marginBottom:10}}>Saldo {wallet.nama} tidak cukup.</div>}
+                <Btn onClick={payScheduledBill} ch="Simpan sebagai sudah dibayar" c={T.ok} style={{width:"100%",padding:"12px"}}/>
+              </>;
+            })()}
+
             {/* Goal Modal */}
             {modal.type==="goal"&&<>
               <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{t("addGoalTitle")}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>Buat target yang jelas supaya tabungan terasa punya arah.</div>
@@ -7040,15 +7109,15 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   const diff=Math.ceil((tDate-now)/(1000*60*60*24));
                   const isUrgent=diff>=0&&diff<=3; const isOverdue=diff<0;
                   return(
-                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",borderRadius:8,background:(isUrgent||isOverdue)?T.errBg:"transparent",borderBottom:`1px solid ${T.borderLight}`}}>
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:8,background:t.paid?T.okBg:(isUrgent||isOverdue)?T.errBg:"transparent",borderBottom:`1px solid ${T.borderLight}`}}>
                     <div style={{display:"flex",gap:8,alignItems:"center"}}>
                       <span style={{fontSize:18}}>{t.emoji}</span>
                       <div><div style={{fontSize:12,fontWeight:600,color:(isUrgent||isOverdue)?T.err:T.text}}>{t.nama}</div><div style={{fontSize:10,color:T.muted}}>{t.kat}</div></div>
                     </div>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:12,fontWeight:700,color:T.err}}>{IDRs(N(t.alokasi))}</div>
-                      <div style={{fontSize:10,color:(isUrgent||isOverdue)?T.err:T.muted, fontWeight:(isUrgent||isOverdue)?700:400}}>
-                         {isOverdue?`Lewat ${Math.abs(diff)} hari`:isUrgent?`${diff} hari lagi`:`tgl ${t.tempo}`}
+                    <div style={{textAlign:"right",flexShrink:0}}>
+                      <div style={{fontSize:12,fontWeight:700,color:t.paid?T.ok:T.err}}>{IDRs(N(t.alokasi))}</div>
+                      <div style={{fontSize:10,color:t.paid?T.ok:(isUrgent||isOverdue)?T.err:T.muted, fontWeight:(t.paid||isUrgent||isOverdue)?700:400}}>
+                         {t.paid?"Dibayar bulan ini":isOverdue?`Lewat ${Math.abs(diff)} hari`:isUrgent?`${diff} hari lagi`:`tgl ${t.tempo}`}
                       </div>
                     </div>
                   </div>
@@ -7118,23 +7187,10 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <div style={{height:4,background:T.border,borderRadius:4,marginBottom:12,overflow:"hidden"}}>
                     <div style={{width:totalSaldo>0?Math.min(N(d.saldo)/totalSaldo*100,100)+"%" :"0%",height:"100%",background:T.accent,borderRadius:4}}/>
                   </div>
-                  <label style={{...LS, color:T.muted}}>{t("adjustBalance")}</label>
-                  <div style={{display:"flex", gap:6}}>
-                    <CurIn value={editSaldo[d.id] !== undefined ? editSaldo[d.id] : d.saldo} onChange={v=>setEditSaldo(p=>({...p, [d.id]:v}))}/>
-                    {editSaldo[d.id] !== undefined && editSaldo[d.id] !== String(N(d.saldo)) && (
-                        <Btn onClick={()=>{
-                            const diff = N(editSaldo[d.id]) - N(d.saldo);
-                            const txTipe = diff > 0 ? "pemasukan" : "pengeluaran";
-                            setS(p=>({...p,
-                                dompet: p.dompet.map(x=>x.id===d.id ? {...x, saldo: String(N(editSaldo[d.id]))} : x),
-                                txs: [{id:Date.now(), tipe:txTipe, tgl:today(), ket:`${t("balAdjustLabel")}: ${d.nama}`, jml:String(Math.abs(diff)), dompetId:d.id}, ...p.txs]
-                            }));
-                            setEditSaldo(p=>{const np={...p}; delete np[d.id]; return np;});
-                            showToast(t("toast_balanceOk"));
-                        }} ch="Simpan" c="#16A34A" />
-                    )}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+                    <button onClick={()=>setModal({type:"walletHistory",walletId:d.id})} style={{padding:"9px 10px",borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>Riwayat saldo</button>
+                    <button onClick={()=>setModal({type:"reconcileWallet",walletId:d.id,actual:String(N(d.saldo))})} style={{padding:"9px 10px",borderRadius:9,border:`1px solid ${T.accent}55`,background:T.accentBg,color:T.accent,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>Cocokkan saldo</button>
                   </div>
-                  <button onClick={()=>setModal({type:"walletHistory",walletId:d.id})} style={{width:"100%",marginTop:10,padding:"9px 12px",borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>Lihat riwayat saldo</button>
                 </div>
               ))}
               <div onClick={()=>setModal({type:"dompet"})} style={{background:T.cardAlt,borderRadius:14,padding:18,border:`1.5px dashed ${T.border}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",minHeight:140,gap:8,color:T.muted,transition:"border-color .15s"}} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
@@ -7157,7 +7213,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <option value="">{t("allWallets")}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}
                 </select>
                 <select value={txFilt.tipe} onChange={e=>{setTxFilt(f=>({...f,tipe:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
-                  <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="investasi">Investasi</option><option value="alokasi_amplop">Alokasi Amplop</option><option value="transfer">Transfer</option>
+                  <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="investasi">Investasi</option><option value="alokasi_amplop">Alokasi Amplop</option><option value="penyesuaian">Koreksi saldo</option><option value="transfer">Transfer</option>
                 </select>
                 {(txSearch||txFilt.dompet||txFilt.tipe)&&<Btn onClick={()=>{setTxSearch("");setTxFilt({dompet:"",tipe:"",sub:""});setTxPage(1);}} ch="Reset" c={T.err} outline style={{padding:"7px 12px",fontSize:12}}/>}
                 <Btn onClick={exportCSV} ch="Export" c="#16A34A" outline style={{padding:"7px 12px",fontSize:12}}/>
@@ -7294,18 +7350,22 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                           <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.muted,marginTop:3,marginBottom:b.sub.length?10:0}}>
                             <span>{unallocated?"Belum ada alokasi":`${pct.toFixed(0)}% terpakai`}</span><span>Sisa: {IDR(Math.max(alloc-spend,0))}</span>
                           </div>
-                          {b.sub.map((sb,si)=>(
-                            <div key={si} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:T.cardAlt,borderRadius:8,marginBottom:4,border:`1px solid ${T.borderLight}`}}>
+                          {b.sub.map((sb,si)=>{
+                            const billRef=`${b.id}:${si}`;
+                            const paid=txBulan.some(tx=>tx.billRef===billRef);
+                            const bill={...sb,kat:b.kat,katId:b.id,subIndex:si,billRef,paid};
+                            return <div key={si} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:paid?T.okBg:T.cardAlt,borderRadius:8,marginBottom:4,border:`1px solid ${paid?T.okBorder:T.borderLight}`}}>
                               <div style={{display:"flex",gap:7,alignItems:"center"}}>
                                 <span style={{fontSize:14}}>{sb.emoji}</span>
                                 <div><div style={{fontSize:12,fontWeight:600,color:T.text}}>{sb.nama}</div>{sb.tempo&&<div style={{fontSize:10,color:T.muted}}>Tagihan tgl {sb.tempo}</div>}</div>
                               </div>
                               <div style={{display:"flex",gap:8,alignItems:"center"}}>
                                 <span style={{fontSize:12,fontWeight:700,color:T.text}}>{IDRs(N(sb.alokasi))}</span>
+                                {sb.tempo&&(paid?<span style={{fontSize:9,color:T.ok,fontWeight:900}}>LUNAS</span>:<button onClick={()=>setModal({type:"payBill",bill,walletId:s.dompet[0]?.id||"",amount:String(N(sb.alokasi))})} style={{background:T.okBg,border:`1px solid ${T.okBorder}`,color:T.ok,borderRadius:7,padding:"4px 6px",fontSize:9,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>Bayar</button>)}
                                 <button onClick={()=>confirmDelete({title:"Hapus subkategori?",msg:`Subkategori "${sb.nama}" akan dihapus dari budget ${b.kat}.`,toastMsg:"Subkategori dihapus",onConfirm:()=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:x.sub.filter((_,j)=>j!==si)})}))})} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:12,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>X</button>
                               </div>
                             </div>
-                          ))}
+                          })}
                           {newSub.katId===b.id
                             ?<div style={{background:T.infoBg,borderRadius:8,padding:10,marginTop:8,border:`1px solid ${T.infoBorder}`}}>
                               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
@@ -8297,7 +8357,10 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       <span style={{fontSize:12,color:T.accent,fontWeight:900}}>{supportInstagram}</span>
                     </div>
                   </div>
-                  <a href={supportWhatsappHref} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"11px 14px",borderRadius:14,background:T.ok,color:"white",fontSize:13,fontWeight:900,textDecoration:"none",boxShadow:`0 12px 28px ${T.ok}22`}}>Hubungi Admin</a>
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8}}>
+                    <a href={supportWhatsappHref} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"11px 14px",borderRadius:14,background:T.ok,color:"white",fontSize:13,fontWeight:900,textDecoration:"none",boxShadow:`0 12px 28px ${T.ok}22`}}>Hubungi Admin</a>
+                    <a href={supportBugWhatsappHref} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"11px 14px",borderRadius:14,background:T.accentBg,color:T.accent,border:`1px solid ${T.accent}44`,fontSize:13,fontWeight:900,textDecoration:"none"}}>Kirim masukan / bug</a>
+                  </div>
                 </>}/>
 
                 <Card ch={<>
@@ -8474,6 +8537,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                         <div className="smooth-skeleton" style={{width:"42%",height:14,marginBottom:8}}/>
                         <div className="smooth-skeleton" style={{width:"64%",height:10}}/>
                       </div>
+                      {t.paid?<span style={{display:"inline-block",marginTop:4,fontSize:9,fontWeight:900,color:T.ok,background:T.card,border:`1px solid ${T.okBorder}`,borderRadius:999,padding:"3px 7px"}}>SUDAH DIBAYAR</span>:<button onClick={()=>setModal({type:"payBill",bill:t,walletId:s.dompet[0]?.id||"",amount:String(N(t.alokasi))})} style={{marginTop:4,border:`1px solid ${T.okBorder}`,background:T.okBg,color:T.ok,borderRadius:8,padding:"4px 7px",fontSize:9,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>Tandai bayar</button>}
                     </div>
                     <div className="smooth-skeleton" style={{height:42,marginBottom:10}}/>
                     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 120px",gap:10}}>
