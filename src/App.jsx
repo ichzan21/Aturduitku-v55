@@ -3280,7 +3280,7 @@ export default function App(){
     const weekTx=s.txs.filter(tx=>tx.tgl&&tx.tgl>=start&&tx.tgl<=end);
     const income=weekTx.filter(tx=>tx.tipe==="pemasukan").reduce((a,tx)=>a+N(tx.jml),0);
     const expense=weekTx.filter(tx=>tx.tipe==="pengeluaran").reduce((a,tx)=>a+N(tx.jml),0);
-    const saving=weekTx.filter(tx=>tx.tipe==="tabungan").reduce((a,tx)=>a+N(tx.jml),0);
+    const saving=weekTx.filter(tx=>tx.tipe==="tabungan"||tx.tipe==="investasi").reduce((a,tx)=>a+N(tx.jml),0);
     const byCat={};
     weekTx.filter(tx=>tx.tipe==="pengeluaran").forEach(tx=>{
       const b=s.budgets.find(x=>x.id===Number(tx.katId));
@@ -3419,8 +3419,26 @@ export default function App(){
     });
     if(todayTxCount===0) list.push({icon:"🧾",title:"Belum catat transaksi hari ini",msg:"Catat satu pemasukan atau pengeluaran agar laporan tetap hidup.",tag:"Transaksi",color:"info"});
     if(habitTotalToday>0&&habitDoneToday<habitTotalToday) list.push({icon:"🐾",title:"Habit harian belum selesai",msg:`Masih ada ${habitTotalToday-habitDoneToday} quest yang belum diceklis.`,tag:"Habit",color:"info"});
+    s.amplop.forEach(a=>{
+      const allocated=N(a.alokasi),remaining=Math.max(allocated-N(a.terpakai),0);
+      if(allocated>0&&remaining<=allocated*.2) list.push({icon:a.icon||"ENV",title:`Amplop ${a.nama} Menipis`,msg:`Sisa ${IDRs(remaining)} dari ${IDRs(allocated)}.`,tag:"Amplop",color:remaining<=0?"danger":"warning"});
+    });
+    const recurringPending=(s.recurring||[]).filter(r=>r.aktif&&!Object.keys(s.processedRecurring||{}).some(k=>k.startsWith(`${r.id}_${s.bulan}_${s.tahun}`)));
+    if(recurringPending.length) list.push({icon:"REPEAT",title:"Transaksi rutin belum diproses",msg:`${recurringPending.length} transaksi rutin menunggu pengecekan.`,tag:"Rutin",color:"warning"});
     return list.sort((a,b)=>a.color==="danger"?-1:1);
-  },[s.budgets,s.goals,s.utang,spendByKat,todayTxCount,habitTotalToday,habitDoneToday]);
+  },[s.budgets,s.goals,s.utang,s.amplop,s.recurring,s.processedRecurring,s.bulan,s.tahun,spendByKat,todayTxCount,habitTotalToday,habitDoneToday]);
+
+  useEffect(()=>{
+    if(typeof window==="undefined"||!("Notification" in window)||Notification.permission!=="granted") return;
+    if(!weeklyReport.weekTx.length) return;
+    const key=`aturduitku_weekly_${weeklyReport.start}_${weeklyReport.end}`;
+    try{
+      if(localStorage.getItem(key)) return;
+      const body=`Masuk ${IDRs(weeklyReport.income)} · Keluar ${IDRs(weeklyReport.expense)} · Tabungan & investasi ${IDRs(weeklyReport.saving)}.`;
+      new Notification("Ringkasan mingguan AturDuitku",{body,icon:"/icon-192.png",tag:"aturduitku-weekly"});
+      localStorage.setItem(key,"1");
+    }catch(e){}
+  },[weeklyReport]);
 
   const saranList=useMemo(()=>{
     const list=[];
@@ -3547,6 +3565,8 @@ export default function App(){
     else if(tag.includes("goal")) setPage("goals");
     else if(tag.includes("habit")) setPage("habit");
     else if(tag.includes("transaksi")) setPage("trans");
+    else if(tag.includes("amplop")) setPage("amplop");
+    else if(tag.includes("rutin")) setPage("setting");
     else if(tag.includes("utang")||tag.includes("piutang")) setPage("utang");
     else setPage("home");
   };
@@ -3611,6 +3631,38 @@ export default function App(){
     {title:"Tanya Dokter Keuangan",desc:"Buka AI advisor",icon:"🐱",run:()=>setAiOpen(true)},
     {title:"Tutup buku bulan ini",desc:"Simpan pembanding dan pindah periode",icon:"📚",run:()=>setModal({type:"confirm",title:"Tutup buku bulan ini?",msg:"Pemasukan dan pengeluaran bulan ini akan disimpan sebagai pembanding, lalu periode aktif pindah ke bulan berikutnya. Data transaksi tetap aman.",onConfirm:closeMonth})},
   ];
+  const commandResults=useMemo(()=>{
+    const q=commandQuery.trim().toLowerCase();
+    const actions=commandActions
+      .filter(cmd=>!q||`${cmd.title} ${cmd.desc}`.toLowerCase().includes(q))
+      .map((cmd,i)=>({...cmd,key:`action-${i}-${cmd.title}`}));
+    if(q.length<2) return actions;
+    const results=[];
+    s.txs.filter(tx=>`${tx.ket||""} ${tx.tipe||""} ${tx.tgl||""}`.toLowerCase().includes(q)).slice(0,6).forEach(tx=>results.push({
+      key:`tx-${tx.id}`,title:tx.ket||"Transaksi",desc:`${tx.tgl||""} · ${IDRs(N(tx.jml))}`,icon:"🧾",
+      run:()=>{setTxSearch(tx.ket||"");setTxPage(1);setPage("trans");}
+    }));
+    s.dompet.filter(d=>`${d.nama} ${d.tipe} ${d.norek||""}`.toLowerCase().includes(q)).slice(0,4).forEach(d=>results.push({
+      key:`wallet-${d.id}`,title:d.nama,desc:`Dompet · ${IDRs(N(d.saldo))}`,icon:d.icon||"💳",
+      run:()=>{setPage("dompet");setModal({type:"walletHistory",walletId:d.id});}
+    }));
+    s.budgets.filter(b=>`${b.kat} ${b.kelas}`.toLowerCase().includes(q)).slice(0,4).forEach(b=>results.push({
+      key:`budget-${b.id}`,title:b.kat,desc:`Budget ${b.kelas} · ${IDRs(N(b.alokasi))}`,icon:b.icon||"📊",run:()=>setPage("budget")
+    }));
+    s.goals.filter(g=>`${g.nama} ${g.deadline||""}`.toLowerCase().includes(q)).slice(0,4).forEach(g=>results.push({
+      key:`goal-${g.id}`,title:g.nama,desc:`Goal · ${IDRs(N(g.kumpul))} dari ${IDRs(N(g.target))}`,icon:g.icon||"🎯",run:()=>setPage("goals")
+    }));
+    s.amplop.filter(a=>String(a.nama||"").toLowerCase().includes(q)).slice(0,4).forEach(a=>results.push({
+      key:`envelope-${a.id}`,title:a.nama,desc:`Amplop · sisa ${IDRs(Math.max(N(a.alokasi)-N(a.terpakai),0))}`,icon:a.icon||"✉️",run:()=>setPage("amplop")
+    }));
+    s.asetTetap.filter(a=>String(a.nama||"").toLowerCase().includes(q)).slice(0,4).forEach(a=>results.push({
+      key:`asset-${a.id}`,title:a.nama,desc:`Aset · ${IDRs(N(a.nilai))}`,icon:"💎",run:()=>setPage("aset")
+    }));
+    s.utang.filter(u=>`${u.nama} ${u.tipe||""}`.toLowerCase().includes(q)).slice(0,4).forEach(u=>results.push({
+      key:`debt-${u.id}`,title:u.nama,desc:`${u.tipe==="utang"?"Utang":"Piutang"} · ${IDRs(remainingDebt(u))}`,icon:"💸",run:()=>setPage("utang")
+    }));
+    return [...results,...actions].slice(0,18);
+  },[commandQuery,s.txs,s.dompet,s.budgets,s.goals,s.amplop,s.asetTetap,s.utang]);
   const runCommand=(cmd)=>{setCommandOpen(false);setCommandQuery("");cmd.run();};
   const openCalc=(field,cur,setter)=>{setCalcFor({field,cur,setter});setShowCalc(true);};
   const addHabit=()=>{
@@ -6181,15 +6233,15 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
             <img src="/icon-192.png" alt="" style={{width:42,height:42,borderRadius:14,objectFit:"cover",boxShadow:`0 10px 24px ${T.accentPop}`}}/>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:16,fontWeight:950,color:T.text,letterSpacing:-.3}}>Cari aksi cepat</div>
-              <div style={{fontSize:11,color:T.muted,marginTop:2}}>Buka menu penting tanpa pindah-pindah halaman.</div>
+              <div style={{fontSize:16,fontWeight:950,color:T.text,letterSpacing:-.3}}>Pencarian AturDuitku</div>
+              <div style={{fontSize:11,color:T.muted,marginTop:2}}>Cari transaksi, dompet, budget, goal, amplop, aset, utang, atau aksi.</div>
             </div>
             {!isMobile&&<span style={{fontSize:10,fontWeight:900,color:T.muted,background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:999,padding:"5px 9px"}}>Ctrl K</span>}
           </div>
-          <input autoFocus value={commandQuery} onChange={e=>setCommandQuery(e.target.value)} placeholder="Cari: transaksi, budget, habit, laporan..." style={{...IS,marginBottom:12,background:T.cardAlt}}/>
+          <input autoFocus value={commandQuery} onChange={e=>setCommandQuery(e.target.value)} placeholder="Ketik minimal 2 huruf untuk mencari data..." style={{...IS,marginBottom:12,background:T.cardAlt}}/>
           <div style={{display:"grid",gap:8,maxHeight:isMobile?"62svh":420,overflowY:"auto",paddingRight:2}}>
-            {commandActions.filter(cmd=>`${cmd.title} ${cmd.desc}`.toLowerCase().includes(commandQuery.trim().toLowerCase())).map(cmd=>(
-              <button key={cmd.title} onClick={()=>runCommand(cmd)} style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:11,alignItems:"center",textAlign:"left",border:`1px solid ${T.border}`,background:T.cardAlt,borderRadius:14,padding:"11px 12px",cursor:"pointer",fontFamily:"inherit"}}>
+            {commandResults.map(cmd=>(
+              <button key={cmd.key} onClick={()=>runCommand(cmd)} style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:11,alignItems:"center",textAlign:"left",border:`1px solid ${T.border}`,background:T.cardAlt,borderRadius:14,padding:"11px 12px",cursor:"pointer",fontFamily:"inherit"}}>
                 <span style={{width:38,height:38,borderRadius:13,background:T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{cmd.icon}</span>
                 <span style={{minWidth:0}}>
                   <span style={{display:"block",fontSize:13,fontWeight:900,color:T.text,marginBottom:3}}>{cmd.title}</span>
@@ -6197,7 +6249,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </span>
               </button>
             ))}
-            {!commandActions.some(cmd=>`${cmd.title} ${cmd.desc}`.toLowerCase().includes(commandQuery.trim().toLowerCase()))&&<div style={{padding:22,textAlign:"center",fontSize:12,color:T.muted,background:T.cardAlt,borderRadius:14,border:`1px dashed ${T.border}`}}>Aksi tidak ditemukan.</div>}
+            {!commandResults.length&&<div style={{padding:22,textAlign:"center",fontSize:12,color:T.muted,background:T.cardAlt,borderRadius:14,border:`1px dashed ${T.border}`}}>Data atau aksi tidak ditemukan.</div>}
           </div>
         </div>
       </div>}
@@ -6423,6 +6475,21 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <Btn onClick={addDompet} ch={t("addWallet")} style={{width:"100%",padding:"12px"}}/>
             </>}
 
+            {modal.type==="walletHistory"&&(()=>{
+              const wallet=s.dompet.find(d=>d.id===modal.walletId);
+              const rows=s.txs.filter(tx=>tx.dompetId===modal.walletId||tx.dompetTo===modal.walletId).sort((a,b)=>`${b.tgl||""}-${b.id}`.localeCompare(`${a.tgl||""}-${a.id}`));
+              return <>
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+                  <span style={{width:44,height:44,borderRadius:14,background:T.accentBg,display:"grid",placeItems:"center",fontSize:22}}>{uiIcon(wallet?.icon||"WALLET")}</span>
+                  <div style={{minWidth:0}}><div style={{fontSize:17,fontWeight:900,color:T.text}}>{wallet?.nama||"Riwayat dompet"}</div><div style={{fontSize:11,color:T.muted}}>Saldo sekarang {IDRs(N(wallet?.saldo))} · {rows.length} perubahan</div></div>
+                </div>
+                <div style={{maxHeight:isMobile?"58svh":440,overflowY:"auto",borderTop:`1px solid ${T.border}`}}>
+                  {rows.length?rows.map(renderTxItem):<LaunchEmpty icon="🧾" title="Belum ada perubahan saldo" desc="Transaksi yang memakai dompet ini akan muncul di sini." style={{padding:"30px 12px"}}/>}
+                </div>
+                <Btn onClick={()=>setModal(null)} ch="Tutup" c={T.muted} outline style={{width:"100%",marginTop:14,padding:"10px"}}/>
+              </>;
+            })()}
+
             {/* Goal Modal */}
             {modal.type==="goal"&&<>
               <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{t("addGoalTitle")}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>Buat target yang jelas supaya tabungan terasa punya arah.</div>
@@ -6525,6 +6592,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
             {!isMobile&&<button className="icon-action" onClick={()=>setCommandOpen(true)} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,minWidth:44,height:36,cursor:"pointer",fontSize:14,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",gap:7,fontFamily:"inherit",transition:"all .2s",padding:"0 12px",color:T.text}} title="Cari aksi cepat" aria-label="Cari aksi cepat"><span>⌘</span><span style={{fontSize:12}}>Aksi</span></button>}
             {!isMobile&&<button className="icon-action" onClick={()=>setModal({type:"kalkulator"})} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,minWidth:44,height:36,cursor:"pointer",fontSize:17,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .2s",padding:"0 8px"}} title="Kalkulator" aria-label="Kalkulator">🧮</button>}
+
+            {isMobile&&<button className="icon-action" onClick={()=>setCommandOpen(true)} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:17,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",color:T.text}} title="Cari semua data" aria-label="Cari semua data">⌕</button>}
 
             {/* Notification Bell */}
             <button onClick={()=>setNotifOpen(true)} className={`icon-action ${notifications.length?"notif-bounce":""}`} title="Notifikasi" aria-label="Notifikasi" style={{position:"relative",background:notifications.length?T.errBg:T.cardAlt,border:`1px solid ${notifications.length?T.errBorder:T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,color:notifications.length?T.err:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .15s"}}>
@@ -7058,6 +7127,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                         }} ch="Simpan" c="#16A34A" />
                     )}
                   </div>
+                  <button onClick={()=>setModal({type:"walletHistory",walletId:d.id})} style={{width:"100%",marginTop:10,padding:"9px 12px",borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>Lihat riwayat saldo</button>
                 </div>
               ))}
               <div onClick={()=>setModal({type:"dompet"})} style={{background:T.cardAlt,borderRadius:14,padding:18,border:`1.5px dashed ${T.border}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",minHeight:140,gap:8,color:T.muted,transition:"border-color .15s"}} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
