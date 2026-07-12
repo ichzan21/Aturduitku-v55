@@ -2923,7 +2923,13 @@ export default function App(){
         const urgent=alerts.filter(a=>a.type==="danger"||a.type==="warn");
         if(urgent.length>0){
           const a=urgent[0];
-          try{new Notification(a.title,{body:a.body,icon:"/icon-192.png"});}catch(e){}
+          try{
+            const notifKey=`aturduitku_alert_${todayStr}_${a.type}_${a.title}`;
+            if(!localStorage.getItem(notifKey)){
+              new Notification(a.title,{body:a.body,icon:"/icon-192.png",tag:"aturduitku-alert"});
+              localStorage.setItem(notifKey,"1");
+            }
+          }catch(e){}
         }
       }
     };
@@ -3425,18 +3431,19 @@ export default function App(){
     });
     const recurringPending=(s.recurring||[]).filter(r=>r.aktif&&!Object.keys(s.processedRecurring||{}).some(k=>k.startsWith(`${r.id}_${s.bulan}_${s.tahun}`)));
     if(recurringPending.length) list.push({icon:"REPEAT",title:"Transaksi rutin belum diproses",msg:`${recurringPending.length} transaksi rutin menunggu pengecekan.`,tag:"Rutin",color:"warning"});
-    return list.sort((a,b)=>a.color==="danger"?-1:1);
+    const priority={danger:0,warning:1,info:2,success:3};
+    return list.sort((a,b)=>(priority[a.color]??9)-(priority[b.color]??9));
   },[s.budgets,s.goals,s.utang,s.amplop,s.recurring,s.processedRecurring,s.bulan,s.tahun,spendByKat,todayTxCount,habitTotalToday,habitDoneToday]);
 
   useEffect(()=>{
     if(typeof window==="undefined"||!("Notification" in window)||Notification.permission!=="granted") return;
     if(!weeklyReport.weekTx.length) return;
-    const key=`aturduitku_weekly_${weeklyReport.start}_${weeklyReport.end}`;
     try{
-      if(localStorage.getItem(key)) return;
+      const last=Number(localStorage.getItem("aturduitku_weekly_notified_at")||0);
+      if(last&&Date.now()-last<7*24*60*60*1000) return;
       const body=`Masuk ${IDRs(weeklyReport.income)} · Keluar ${IDRs(weeklyReport.expense)} · Tabungan & investasi ${IDRs(weeklyReport.saving)}.`;
       new Notification("Ringkasan mingguan AturDuitku",{body,icon:"/icon-192.png",tag:"aturduitku-weekly"});
-      localStorage.setItem(key,"1");
+      localStorage.setItem("aturduitku_weekly_notified_at",String(Date.now()));
     }catch(e){}
   },[weeklyReport]);
 
