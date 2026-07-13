@@ -2115,7 +2115,7 @@ function YearInReview({ s, T, lang, onClose }) {
   const catSpend = {};
   txYear.filter(t=>t.tipe==="pengeluaran"&&t.katId).forEach(t=>{
     const b = s.budgets.find(b=>b.id===t.katId);
-    const nm = b?.kat||"Lainnya";
+    const nm = String(t.customKat||"").trim()||b?.kat||"Lainnya";
     const ico = b?.icon||"📦";
     catSpend[nm] = {jml:(catSpend[nm]?.jml||0)+N(t.jml), icon:ico};
   });
@@ -2992,7 +2992,7 @@ export default function App(){
   };
 
   // Forms
-  const [txForm,setTxForm]=useState({tipe:"pengeluaran",tgl:today(),ket:"",jml:"",katId:1,subKat:"",dompetId:1,dompetTo:2,biaya:"",goalId:""});
+  const [txForm,setTxForm]=useState({tipe:"pengeluaran",tgl:today(),ket:"",jml:"",katId:1,customKat:"",subKat:"",dompetId:1,dompetTo:2,biaya:"",goalId:""});
   const [bulkRows,setBulkRows]=useState([{tgl:today(),jml:"",tipe:"pengeluaran",dompetId:1,katId:"",ket:""}]);
   const [utForm,setUtForm]=useState({tipe:"utang",tgl:today(),provider:"",nama:"",jml:"",tempo:"",ket:""});
   const [goalForm,setGoalForm]=useState({nama:"",target:"",kumpul:"",deadline:"",icon:"⭐"});
@@ -3115,7 +3115,7 @@ export default function App(){
     const label=score>=80?"Sehat":score>=60?"Terkendali":score>=40?"Perlu dijaga":"Berisiko";
     return {list,total,dueSoon,overdue,nearest,ratio,score,label};
   },[s.utang,totalIn]);
-  const topKat=useMemo(()=>{const m={};txBulan.filter(t=>t.tipe==="pengeluaran").forEach(t=>{const b=s.budgets.find(b=>b.id===Number(t.katId));const nm=b?.kat||(lang==="en"?"Other":"Lainnya");m[nm]=(m[nm]||0)+N(t.jml);});return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,5);},[txBulan,s.budgets,lang]);
+  const topKat=useMemo(()=>{const m={};txBulan.filter(t=>t.tipe==="pengeluaran").forEach(t=>{const b=s.budgets.find(b=>b.id===Number(t.katId));const nm=String(t.customKat||"").trim()||b?.kat||(lang==="en"?"Other":"Lainnya");m[nm]=(m[nm]||0)+N(t.jml);});return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,5);},[txBulan,s.budgets,lang]);
 
   const skorTabungan=Math.min(savRate/20*100,100);
   const skorDisiplin=totalBudget>0?Math.max(0,100-Math.max(0,(totalBudgetUsed-totalBudget)/totalBudget*100)):totalBudgetUsed===0?100:80;
@@ -3830,7 +3830,7 @@ export default function App(){
     // Top spending categories
     const spendByKat = {};
     txBulan.filter(t=>t.tipe==="pengeluaran").forEach(t=>{
-      const kat = s.budgets.find(b=>b.id===t.katId)?.kat||"Lainnya";
+      const kat = String(t.customKat||"").trim()||s.budgets.find(b=>b.id===t.katId)?.kat||"Lainnya";
       spendByKat[kat] = (spendByKat[kat]||0)+Number(t.jml);
     });
     const topSpend = Object.entries(spendByKat).sort((a,b)=>b[1]-a[1]).slice(0,3)
@@ -3899,7 +3899,7 @@ export default function App(){
 
     // Recent 5 transactions
     const recentTx = s.txs.slice(0,5).map(t=>{
-      const kat = s.budgets.find(b=>b.id===t.katId)?.kat||"-";
+      const kat = String(t.customKat||"").trim()||(t.tipe==="pemasukan"&&typeof t.katId==="string"?t.katId:"")||s.budgets.find(b=>b.id===t.katId)?.kat||"-";
       const dompet = s.dompet.find(d=>d.id===t.dompetId)?.nama||"-";
       return `${t.tgl} | ${t.tipe==="pemasukan"?"➕":"➖"} ${t.ket} | Rp ${Number(t.jml).toLocaleString("id-ID")} | ${kat} | ${dompet}`;
     }).join("\n  ") || "Belum ada transaksi";
@@ -4551,7 +4551,7 @@ Saldo amplop bertambah.`}]);
     const rows = s.txs.map(t => {
       const d = s.dompet.find(x => x.id === t.dompetId)?.nama || "";
       const isIncome = t.tipe==="pemasukan" || t.tipe==="pemasukan_transfer";
-      const k = isIncome ? (typeof t.katId==="string" ? t.katId : "") : (s.budgets.find(x => x.id === t.katId)?.kat || "");
+      const k = String(t.customKat||"").trim()||(isIncome ? (typeof t.katId==="string" ? t.katId : "") : (s.budgets.find(x => x.id === t.katId)?.kat || ""));
       return [t.id, t.tgl, t.tipe, `"${t.ket||""}"`, N(t.jml), `"${d}"`, `"${k}"`, `"${t.subKat||""}"`].join(",");
     });
     const BOM = "\uFEFF"; // agar Excel baca UTF-8 dengan benar
@@ -4892,7 +4892,7 @@ Saldo amplop bertambah.`}]);
       const txRows = txM.slice(0,60).map(tx=>{
         const dompet   = clean(s.dompet.find(d=>d.id===tx.dompetId)?.nama||"-");
         const katB     = s.budgets.find(b=>b.id===Number(tx.katId));
-        const katLabel = clean(katB?.kat||(tx.tipe==="pemasukan"?(isEN?"Income":"Pemasukan"):(isEN?"Other":"Lainnya")));
+        const katLabel = clean(String(tx.customKat||"").trim()||(tx.tipe==="pemasukan"&&typeof tx.katId==="string"?tx.katId:"")||katB?.kat||(tx.tipe==="pemasukan"?(isEN?"Income":"Pemasukan"):(isEN?"Other":"Lainnya")));
         const tlbl     = TIPE_LBL[tx.tipe]||"[?]";
         const debit    = ["pengeluaran","tabungan","investasi","alokasi_amplop"].includes(tx.tipe)||(tx.tipe==="penyesuaian"&&Num(tx.adjustmentDelta)<0)?idr(Num(tx.jml)):"";
         const kredit   = tx.tipe==="pemasukan"||(tx.tipe==="penyesuaian"&&Num(tx.adjustmentDelta)>0)?idr(Num(tx.jml)):"";
@@ -5306,7 +5306,7 @@ Saldo amplop bertambah.`}]);
       const katSpend = {};
       txM.filter(tx=>["pengeluaran","tabungan","investasi"].includes(tx.tipe)&&tx.katId).forEach(tx=>{
         const b=s.budgets.find(b=>b.id===Number(tx.katId));
-        const nm=b?.kat||(isEN?"Other":"Lainnya");
+        const nm=String(tx.customKat||"").trim()||b?.kat||(isEN?"Other":"Lainnya");
         katSpend[nm]=(katSpend[nm]||0)+Num(tx.jml);
       });
 
@@ -5446,7 +5446,7 @@ Saldo amplop bertambah.`}]);
           {v:tx.tgl||"-", s:cell(bg,gray,false,"center")},
           {v:tx.ket||"-", s:cell(bg,dark)},
           {v:tx.tipe, s:cell(isTipe.bg,isTipe.fg,true,"center")},
-          {v:kat?.kat||(isEN?"Other":"Lainnya"), s:cell(bg,gray,false,"center")},
+          {v:String(tx.customKat||"").trim()||(tx.tipe==="pemasukan"&&typeof tx.katId==="string"?tx.katId:"")||kat?.kat||(isEN?"Other":"Lainnya"), s:cell(bg,gray,false,"center")},
           {v:dom?.nama||"-", s:cell(bg,gray,false,"center")},
           {v:idr(Num(tx.jml)), s:cell(bg,tx.tipe==="pemasukan"?green:(tx.tipe==="tabungan"||tx.tipe==="investasi")?amber:tx.tipe==="alokasi_amplop"?purple:red,true,"right")},
         ]);
@@ -5664,8 +5664,12 @@ Saldo amplop bertambah.`}]);
   };
 
   const addTx=()=>{
-    const {tipe,tgl,ket,jml,katId,subKat,dompetId,dompetTo,biaya,goalId}=txForm;
+    const {tipe,tgl,ket,jml,katId,customKat,subKat,dompetId,dompetTo,biaya,goalId}=txForm;
     if(!tgl||!jml){showToast("⚠️ Isi tanggal & jumlah!");return;}
+    const selectedExpenseCategory=s.budgets.find(b=>b.id===Number(katId));
+    const usesCustomCategory=(tipe==="pemasukan"&&katId==="Lainnya")||(tipe==="pengeluaran"&&selectedExpenseCategory?.kat==="Lainnya");
+    const cleanCustomCategory=String(customKat||"").trim().replace(/\s+/g," ").slice(0,40);
+    if(usesCustomCategory&&!cleanCustomCategory){showToast("Isi nama kategori lainnya terlebih dahulu.");return;}
     const id=Date.now();
     const jmlNum=N(jml);
 
@@ -5694,9 +5698,9 @@ Saldo amplop bertambah.`}]);
       }
       setS(p=>({...p,
         dompet:p.dompet.map(d=>d.id===dompetId?{...d,saldo:String(N(d.saldo)-jmlNum)}:d),
-        txs:[{...txForm,id,jml:pN(jml)},...p.txs]
+        txs:[{...txForm,id,jml:pN(jml),customKat:usesCustomCategory?cleanCustomCategory:""},...p.txs]
       }));
-      setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",subKat:"",goalId:""}));
+      setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",goalId:""}));
       showToast(t("toast_expenseOk"));setModal(null);return;
     }
 
@@ -5704,9 +5708,9 @@ Saldo amplop bertambah.`}]);
       const incomeKat = KAT_IN.includes(katId) ? katId : "Lainnya";
       setS(p=>({...p,
         dompet:p.dompet.map(d=>d.id===dompetId?{...d,saldo:String(N(d.saldo)+jmlNum)}:d),
-        txs:[{...txForm,id,jml:pN(jml),katId:incomeKat,subKat:""},...p.txs]
+        txs:[{...txForm,id,jml:pN(jml),katId:incomeKat,customKat:usesCustomCategory?cleanCustomCategory:"",subKat:""},...p.txs]
       }));
-      setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",katId:incomeKat,subKat:"",goalId:""}));
+      setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",katId:incomeKat,customKat:"",subKat:"",goalId:""}));
       showToast(t("toast_incomeOk"));setModal(null);return;
     }
 
@@ -5722,13 +5726,13 @@ Saldo amplop bertambah.`}]);
         goals:goalId?p.goals.map(g=>g.id===Number(goalId)?{...g,kumpul:String(N(g.kumpul)+jmlNum),history:[...(g.history||[]),{tgl:today(),jml:pN(jml)}]}:g):p.goals,
         txs:[{...txForm,id,jml:pN(jml)},...p.txs]
       }));
-      setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",subKat:"",goalId:""}));
+      setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",goalId:""}));
       showToast(goalId?t("toast_savingOk"):t("toast_savingOk2"));setModal(null);return;
     }
 
     const savedTx={...txForm,id,jml:pN(jml)};
     setS(p=>({...p,txs:[savedTx,...p.txs]}));
-    setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",subKat:"",goalId:""}));
+    setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",goalId:""}));
     showToast(t("toast_txOk"));setModal(null);
   };
 
@@ -5926,9 +5930,9 @@ Saldo amplop bertambah.`}]);
     const dompet=s.dompet.find(d=>d.id===t.dompetId);
     const kat=s.budgets.find(b=>b.id===t.katId);
     const isIn=t.tipe==="pemasukan"||t.tipe==="pemasukan_transfer";
-    const txKatLabel=isIn
+    const txKatLabel=String(t.customKat||"").trim()||(isIn
       ? (KAT_IN.includes(t.katId) ? t.katId : (typeof t.katId==="string" ? t.katId : "Lainnya"))
-      : kat?.kat;
+      : kat?.kat);
     const txColor=t.tipe==="pemasukan"?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="investasi"?T.ok:t.tipe==="penyesuaian"?T.warn:t.tipe==="alokasi_amplop"?T.accent:t.tipe==="transfer"?T.accent:T.err;
     const txBg=t.tipe==="pemasukan"?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer")?T.accentBg:T.errBg;
     const txIcon=isIn?"📈":t.tipe==="tabungan"?"🏦":t.tipe==="investasi"?"💎":t.tipe==="penyesuaian"?"BAL":t.tipe==="alokasi_amplop"?"✉️":t.tipe==="transfer"?"↔️":kat?uiIcon(kat.icon):"📉";
@@ -6456,7 +6460,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{t("newTx")}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>Catat transaksi baru dengan detail yang cukup supaya laporan tetap akurat.</div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
                 {[{v:"pengeluaran",l:t("outflow2")},{v:"pemasukan",l:t("inflow2")},{v:"tabungan",l:t("savingShort")},{v:"transfer",l:"Transfer"}].map(({v,l})=>(
-                  <button key={v} onClick={()=>setTxForm(f=>({...f,tipe:v,katId:v==="pemasukan"?(KAT_IN[0]||"Lainnya"):v==="pengeluaran"?(s.budgets[0]?.id||""):v==="tabungan"?investasiBudgetId:f.katId,subKat:"",goalId:""}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${txForm.tipe===v?T.accent:T.inputBorder}`,background:txForm.tipe===v?T.accentBg:T.input,color:txForm.tipe===v?T.accent:T.sub}}>{l}</button>
+                  <button key={v} onClick={()=>setTxForm(f=>({...f,tipe:v,katId:v==="pemasukan"?(KAT_IN[0]||"Lainnya"):v==="pengeluaran"?(s.budgets[0]?.id||""):v==="tabungan"?investasiBudgetId:f.katId,customKat:"",subKat:"",goalId:""}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${txForm.tipe===v?T.accent:T.inputBorder}`,background:txForm.tipe===v?T.accentBg:T.input,color:txForm.tipe===v?T.accent:T.sub}}>{l}</button>
                 ))}
               </div>
               <label style={LS}>{t("date")}</label><input type="date" value={txForm.tgl} onChange={e=>setTxForm(f=>({...f,tgl:e.target.value}))} style={{...IS,marginBottom:10}}/>
@@ -6469,11 +6473,18 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
                 <div><label style={LS}>{txForm.tipe==="transfer"?t("fromWallet"):t("dompet")}</label>
                 <select value={txForm.dompetId} onChange={e=>setTxForm(f=>({...f,dompetId:Number(e.target.value)}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>
-                {txForm.tipe==="pengeluaran"&&<div><label style={LS}>{t("category")}</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:Number(e.target.value),subKat:""}))} style={IS}><option value="">-- Pilih --</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{uiIcon(b.icon)} {b.kat}</option>)}</select></div>}
+                {txForm.tipe==="pengeluaran"&&<div><label style={LS}>{t("category")}</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:Number(e.target.value),customKat:"",subKat:""}))} style={IS}><option value="">-- Pilih --</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{uiIcon(b.icon)} {b.kat}</option>)}</select></div>}
                 {txForm.tipe==="transfer"&&<div><label style={LS}>{t("toWallet")}</label><select value={txForm.dompetTo} onChange={e=>setTxForm(f=>({...f,dompetTo:Number(e.target.value)}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>}
-                {txForm.tipe==="pemasukan"&&<div><label style={LS}>Kategori</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:e.target.value}))} style={IS}>{KAT_IN.map(k=><option key={k}>{k}</option>)}</select></div>}
+                {txForm.tipe==="pemasukan"&&<div><label style={LS}>Kategori</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:e.target.value,customKat:""}))} style={IS}>{KAT_IN.map(k=><option key={k}>{k}</option>)}</select></div>}
                 {txForm.tipe==="tabungan"&&<div><label style={LS}>Goal</label><select value={txForm.goalId} onChange={e=>setTxForm(f=>({...f,goalId:e.target.value}))} style={IS}><option value="">-- Pilih Goal --</option>{s.goals.filter(g=>!g.selesai).map(g=><option key={g.id} value={g.id}>{uiIcon(g.icon)} {g.nama}</option>)}</select></div>}
               </div>
+              {((txForm.tipe==="pemasukan"&&txForm.katId==="Lainnya")||(txForm.tipe==="pengeluaran"&&s.budgets.find(b=>b.id===Number(txForm.katId))?.kat==="Lainnya"))&&(
+                <div style={{marginBottom:10}}>
+                  <label style={LS}>Nama kategori lainnya</label>
+                  <input autoFocus maxLength={40} placeholder={txForm.tipe==="pemasukan"?"Contoh: Komisi, cashback, hadiah":"Contoh: Peliharaan, donasi, renovasi"} value={txForm.customKat||""} onChange={e=>setTxForm(f=>({...f,customKat:e.target.value}))} style={IS}/>
+                  <div style={{fontSize:10,color:T.muted,marginTop:5}}>Nama ini akan tampil di riwayat dan laporan transaksi.</div>
+                </div>
+              )}
               {txForm.tipe==="pengeluaran"&&txForm.katId&&s.budgets.find(b=>b.id===txForm.katId)?.sub?.length>0&&(
                 <div style={{marginBottom:10}}><label style={LS}>Subkategori</label>
                 <select value={txForm.subKat} onChange={e=>setTxForm(f=>({...f,subKat:e.target.value}))} style={IS}>
