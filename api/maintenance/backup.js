@@ -1,16 +1,17 @@
 import { getAdminDb } from "../_lib/firebaseAdmin.js";
 
-function isAuthorizedCron(req) {
-  const secret = process.env.CRON_SECRET;
+function isAuthorizedCron(req, secret) {
   const authorization = String(req.headers.authorization || "");
-  return Boolean(secret && authorization === `Bearer ${secret}`);
+  return authorization === `Bearer ${secret}`;
 }
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
-  if (!isAuthorizedCron(req)) return res.status(401).json({ error: "Unauthorized" });
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return res.status(503).json({ error: "Backup schedule is not configured" });
+  if (!isAuthorizedCron(req, secret)) return res.status(401).json({ error: "Unauthorized" });
 
   try {
     const db = getAdminDb();
