@@ -1,6 +1,6 @@
 import React, { Suspense, useState, useEffect, useMemo, useRef, createContext, useContext } from "react";
 import {
-  getCurrentIdToken, onAuthChange, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail,
+  getCurrentIdToken, onAuthChange, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
 } from "./firebase.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
@@ -2781,6 +2781,7 @@ export default function App(){
     }catch(e){
       console.warn("Google sign in failed:", e);
       const code=String(e?.code||"");
+      if(code.includes("popup-closed-by-user") && await waitForAuthUser()) return;
       if(!code.includes("cancelled-popup-request")){
         const msg=googleAuthErrorMessage(e);
         setGoogleAuthError(msg);

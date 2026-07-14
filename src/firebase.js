@@ -29,6 +29,14 @@ googleProvider.setCustomParameters({ prompt: "select_account" });
 
 // Auth helpers
 export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
+export const waitForAuthUser = async (timeoutMs = 1800) => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (auth.currentUser) return auth.currentUser;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  return auth.currentUser;
+};
 export const signInWithEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
 export const signUpWithEmail = async (name, email, password) => {
   const cred = await createUserWithEmailAndPassword(auth, email, password);
