@@ -7,6 +7,7 @@
     "dev": "vite",
     "check:secrets": "node scripts/check-secrets.mjs",
     "build": "npm run check:secrets && vite build",
+    "qa:release": "npm run build && node scripts/prelaunch-check.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

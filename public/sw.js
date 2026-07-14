@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aturduitku-v20-google-auth';
+const CACHE_NAME = 'aturduitku-v21-release-safety';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

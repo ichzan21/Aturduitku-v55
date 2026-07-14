@@ -5,6 +5,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   onAuthStateChanged,
+  sendEmailVerification,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -46,6 +48,11 @@ export const signUpWithEmail = async (name, email, password) => {
   return cred;
 };
 export const signOutUser = () => signOut(auth);
+export const sendResetPassword = (email) => sendPasswordResetEmail(auth, email);
+export const sendVerificationEmail = () => {
+  if (!auth.currentUser) throw new Error("User belum login");
+  return sendEmailVerification(auth.currentUser);
+};
 export const onAuthChange = (cb) => onAuthStateChanged(auth, cb);
 export const getCurrentIdToken = async () => {
   const user = auth.currentUser;

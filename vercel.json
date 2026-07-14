@@ -1,4 +1,7 @@
 {
+  "crons": [
+    { "path": "/api/maintenance/backup", "schedule": "15 18 * * *" }
+  ],
   "headers": [
     {
       "source": "/((?!__/auth/).*)",

@@ -1,7 +1,8 @@
 import React, { Suspense, useState, useEffect, useMemo, useRef, createContext, useContext } from "react";
 import {
-  getCurrentIdToken, onAuthChange, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
+  getCurrentIdToken, onAuthChange, sendResetPassword, sendVerificationEmail, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
 } from "./firebase.js";
+import { reportClientError } from "./monitoring.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -12,7 +13,10 @@ const DonutChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => (
 export class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null }; }
   static getDerivedStateFromError(error) { return { hasError: true, error }; }
-  componentDidCatch(err, info) { console.error("AturDuitku Error:", err, info); }
+  componentDidCatch(err, info) {
+    console.error("AturDuitku Error:", err, info);
+    reportClientError(err, { type:"react_boundary", component:info?.componentStack }).catch(()=>{});
+  }
   render() {
     if (this.state.hasError) {
       return (
@@ -2499,6 +2503,7 @@ export default function App(){
   const [adminQuery,setAdminQuery]=useState("");
   const [adminPage,setAdminPage]=useState(1);
   const [syncStatus,setSyncStatus]=useState("idle"); // idle | saving | saved | error
+  const [syncMeta,setSyncMeta]=useState({updatedAt:null,lastBackupAt:null});
   const [lang,setLang]=useState(()=>{try{return localStorage.getItem("aturduitku_lang")||"id";}catch(e){return "id";}});
   const t = (key) => TR[lang]?.[key] ?? TR["id"]?.[key] ?? key;
   const changeLang = (l) => { setLang(l); try{localStorage.setItem("aturduitku_lang",l);}catch(e){} };
@@ -2609,12 +2614,16 @@ export default function App(){
 
   const loadCloudData = async (uid) => {
     if(!uid) return null;
-    return authedJson("/api/users/data", { method:"GET" });
+    const result=await authedJson("/api/users/data", { method:"GET" });
+    setSyncMeta({updatedAt:result.updatedAt||null,lastBackupAt:result.lastBackupAt||null});
+    return result;
   };
 
   const saveCloudData = async (uid, payload) => {
     if(!uid) return null;
-    return authedJson("/api/users/data", { method:"POST", body:JSON.stringify(payload) });
+    const result=await authedJson("/api/users/data", { method:"POST", body:JSON.stringify(payload) });
+    setSyncMeta(meta=>({...meta,updatedAt:result.updatedAt||meta.updatedAt}));
+    return result;
   };
 
   const loadAdminUsers = async () => {
@@ -6014,6 +6023,28 @@ Saldo amplop bertambah.`}]);
   const supportHref=`mailto:${supportEmail}?subject=${supportSubject}&body=${supportBody}`;
   const supportBugBody=encodeURIComponent(`Halo admin AturDuitku,\n\nSaya mau lapor kendala/bug.\n\nEmail akun: ${fireUser?.email||accessProfile?.email||"-"}\nNama: ${accessProfile?.displayName||fireUser?.displayName||s.name||"-"}\nHalaman: ${page}\nStatus akun: ${accessProfile?.approvalStatus||"belum login"}\nStatus sync: ${!isOnline?"offline":syncStatus}\nMode PWA: ${isStandalone?"terpasang":"browser"}\nPerangkat: ${typeof navigator!=="undefined"?(navigator.userAgent||"").slice(0,160):"-"}\n\nKendala yang saya alami:\n`);
   const supportBugWhatsappHref="https://wa.me/6287785472696?text="+supportBugBody;
+  const hasPasswordLogin=Boolean(fireUser?.providerData?.some(provider=>provider.providerId==="password"));
+  const formatCloudTime=(value)=>value?new Date(value).toLocaleString("id-ID",{dateStyle:"medium",timeStyle:"short"}):"Belum tersedia";
+  const handleResetPassword=async()=>{
+    const email=fireUser?.email||accessProfile?.email;
+    if(!email){showToast("Email akun belum tersedia");return;}
+    try{
+      await sendResetPassword(email);
+      showToast("Link reset password sudah dikirim ke email");
+    }catch(error){
+      reportClientError(error,{type:"account_recovery",component:"settings"});
+      showToast("Link reset belum dapat dikirim. Coba lagi sebentar.");
+    }
+  };
+  const handleVerifyEmail=async()=>{
+    try{
+      await sendVerificationEmail();
+      showToast("Email verifikasi sudah dikirim. Cek inbox atau spam.");
+    }catch(error){
+      reportClientError(error,{type:"email_verification",component:"settings"});
+      showToast("Email verifikasi belum dapat dikirim. Coba lagi sebentar.");
+    }
+  };
 
   // Show loading screen while checking auth
   if(fireLoading || accessLoading) return (
@@ -8357,6 +8388,29 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       <span style={{fontSize:10,fontWeight:950,color:item.color,background:T.card,border:`1px solid ${item.border}`,borderRadius:999,padding:"5px 8px",whiteSpace:"nowrap"}}>{item.value}</span>
                     </div>)}
                   </div>
+                </>}/>
+
+                <Card ch={<>
+                  <Sec t="Akun & Cloud" sub="Pulihkan akses dan periksa kapan data terakhir diamankan."/>
+                  <div style={{display:"grid",gap:9,marginBottom:12}}>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",padding:"10px 12px",borderRadius:12,background:T.cardAlt,border:`1px solid ${T.border}`}}>
+                      <span style={{minWidth:0}}><strong style={{display:"block",fontSize:12,color:T.text}}>Sinkronisasi terakhir</strong><span style={{fontSize:10,color:T.muted,lineHeight:1.45}}>Perubahan tersimpan ke akun Firebase.</span></span>
+                      <span style={{fontSize:10,fontWeight:900,color:syncStatus==="error"?T.err:T.ok,textAlign:"right"}}>{syncStatus==="saving"?"Sedang menyimpan":formatCloudTime(syncMeta.updatedAt)}</span>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",padding:"10px 12px",borderRadius:12,background:T.cardAlt,border:`1px solid ${T.border}`}}>
+                      <span style={{minWidth:0}}><strong style={{display:"block",fontSize:12,color:T.text}}>Backup otomatis</strong><span style={{fontSize:10,color:T.muted,lineHeight:1.45}}>Snapshot server dibuat setiap hari.</span></span>
+                      <span style={{fontSize:10,fontWeight:900,color:syncMeta.lastBackupAt?T.ok:T.muted,textAlign:"right"}}>{formatCloudTime(syncMeta.lastBackupAt)}</span>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",padding:"10px 12px",borderRadius:12,background:T.cardAlt,border:`1px solid ${T.border}`}}>
+                      <span style={{minWidth:0}}><strong style={{display:"block",fontSize:12,color:T.text}}>Verifikasi email</strong><span style={{fontSize:10,color:T.muted,lineHeight:1.45}}>{fireUser?.emailVerified?"Email akun sudah terverifikasi.":"Verifikasi membantu mengamankan pemulihan akun."}</span></span>
+                      <span style={{fontSize:10,fontWeight:900,color:fireUser?.emailVerified?T.ok:T.warn}}>{fireUser?.emailVerified?"Terverifikasi":"Belum"}</span>
+                    </div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8}}>
+                    {!fireUser?.emailVerified&&<Btn onClick={handleVerifyEmail} ch="Kirim verifikasi" c={T.accent} outline style={{padding:"10px 12px",fontSize:12}}/>}
+                    {hasPasswordLogin&&<Btn onClick={handleResetPassword} ch="Reset password" c={T.info} outline style={{padding:"10px 12px",fontSize:12}}/>}
+                  </div>
+                  {!hasPasswordLogin&&<div style={{fontSize:10,color:T.muted,lineHeight:1.55,marginTop:9}}>Akun ini masuk lewat Google, jadi password dikelola langsung oleh Google.</div>}
                 </>}/>
 
                 <Card ch={<>
