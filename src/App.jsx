@@ -897,9 +897,13 @@ const ICON_CODE_MAP={
   FOOD:"🍽️",MOVE:"🚗",BILL:"🧾",HEAL:"🏥",SHOP:"🛍️",FUN:"🎮",EDU:"🎓",INV:"📈",ETC:"📦",
   ENV:"✉️",FOD:"🍽️",MOV:"🚗",SHP:"🛍️",IDEA:"💡",HLT:"🏥",TRP:"✈️",HOME:"🏠",STYL:"👕",
   WORK:"💼",MUS:"🎵",CAFE:"☕",GIFT:"🎁",FIT:"🏋️",PLNT:"🌱",STDY:"📚",PHN:"📱",CARE:"🧴",PIN:"📌",
+  AIRPLANE:"✈️",PLANE:"✈️",TRAVEL:"✈️",TRANSPORT:"🚗",SHOPPING:"🛍️",HEALTH:"🏥",EDUCATION:"🎓",ENVELOPE:"✉️",
   GOAL:"🎯",ASSET:"💎",DEBT:"💸",ADM:"🛡️",HM:"🏠",WL:"👛",TX:"🧾",BG:"📊",GL:"🎯",AS:"💎",UT:"💸",RP:"📈",ST:"⚙️",
 };
-const uiIcon=(icon)=>ICON_CODE_MAP[String(icon||"").trim()]||icon||"";
+const uiIcon=(icon)=>{
+  const raw=String(icon||"").trim();
+  return ICON_CODE_MAP[raw]||(/^[A-Z][A-Z0-9_-]{1,20}$/.test(raw)?"✨":raw);
+};
 
 const Card=({ch,style={},lift})=>{
   const T=useT();
@@ -1242,10 +1246,9 @@ const DailyChart=({txBulan,bulan,tahun})=>{
 };
 
 // ─── AMPLOP CARD ──────────────────────────────────────────────────────────────
-const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset})=>{
+const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset,isMobile=false})=>{
   const T=useT();
   const [showPakai,setShowPakai]=useState(false);
-  const isMobile = typeof window !== "undefined" ? window.innerWidth < 900 : false;
   const [pakaiJml,setPakaiJml]=useState("");
   const [pakaiKet,setPakaiKet]=useState("");
   const [showIsi,setShowIsi]=useState(false);
@@ -1257,9 +1260,9 @@ const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset})=>{
   return(
     <div style={{background:T.card,borderRadius:14,padding:18,border:`1.5px solid ${isOver?T.errBorder:pct>80?T.warnBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
-          <div style={{width:44,height:44,borderRadius:12,background:amp.warna||T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{amp.icon||"✉️"}</div>
-          <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{amp.nama}</div><div style={{fontSize:11,color:T.muted}}>Sisa: <strong style={{color:sisa>=0?T.ok:T.err}}>{IDR(Math.max(sisa,0))}</strong></div></div>
+        <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0,flex:1}}>
+          <div style={{width:44,height:44,borderRadius:12,background:amp.warna||T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0,overflow:"hidden"}}>{uiIcon(amp.icon||"ENV")}</div>
+          <div style={{minWidth:0,flex:1}}><div style={{fontWeight:800,fontSize:14,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{amp.nama}</div><div style={{fontSize:11,color:T.muted}}>Sisa: <strong style={{color:sisa>=0?T.ok:T.err}}>{IDR(Math.max(sisa,0))}</strong></div></div>
         </div>
         <Del onClick={onDelete}/>
       </div>
@@ -1363,7 +1366,7 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai})=>{
     <div style={{background:T.card,borderRadius:14,padding:18,border:`1.5px solid ${pct>=100?T.okBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s,border-color .3s"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
-          <span style={{fontSize:28}}>{g.icon||"⭐"}</span>
+          <span style={{fontSize:28}}>{uiIcon(g.icon||"⭐")}</span>
           <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{g.nama}</div><div style={{fontSize:11,color:T.muted}}>{g.deadline&&`🗓 ${g.deadline}`}</div></div>
         </div>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
@@ -1399,19 +1402,19 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai})=>{
 };
 
 // ─── MORE MENU (mobile) ───────────────────────────────────────────────────────
-const MoreMenu=({page,setPage,onClose,navItems=NAV})=>{
+const MoreMenu=({page,onNavigate,onClose,navItems=NAV})=>{
   const T=useT();
   return(
-    <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",zIndex:650}} onClick={onClose}>
-      <div style={{cursor:"pointer",position:"fixed",bottom:0,left:0,right:0,background:T.card,border:`1px solid ${T.border}`,borderBottom:"none",borderRadius:"22px 22px 0 0",padding:"20px max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(16px, env(safe-area-inset-left))",boxShadow:T.shadowMd,maxHeight:"min(74svh, calc(var(--app-height, 100dvh) - 16px))",overflowY:"auto",WebkitOverflowScrolling:"touch"}} onClick={e=>e.stopPropagation()}>
+    <div role="presentation" style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",zIndex:650,isolation:"isolate"}} onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label="Menu lainnya" style={{cursor:"default",position:"fixed",bottom:0,left:0,right:0,background:T.card,border:`1px solid ${T.border}`,borderBottom:"none",borderRadius:"22px 22px 0 0",padding:"20px max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(16px, env(safe-area-inset-left))",boxShadow:T.shadowMd,maxHeight:"min(74svh, calc(var(--app-height, 100dvh) - 16px))",overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain"}} onClick={e=>e.stopPropagation()}>
         <div style={{width:40,height:4,background:T.border,borderRadius:4,margin:"0 auto 16px"}}/>
         <div style={{fontSize:10,color:T.muted,fontWeight:700,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>Menu Lainnya</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
           {navItems.slice(4).map(n=>{
             const a=page===n.id;
-            const go=()=>{setPage(n.id);onClose();};
+            const go=e=>{e.preventDefault();e.stopPropagation();onNavigate(n.id);onClose();};
             return(
-              <button key={n.id} onPointerUp={e=>{e.preventDefault();go();}} onClick={go} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:"12px 8px",borderRadius:12,border:`1.5px solid ${a?T.navBorder:T.border}`,background:a?T.navActive:T.cardAlt,cursor:"pointer",fontFamily:"inherit",touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
+              <button key={n.id} type="button" onClick={go} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:"12px 8px",borderRadius:12,border:`1.5px solid ${a?T.navBorder:T.border}`,background:a?T.navActive:T.cardAlt,cursor:"pointer",fontFamily:"inherit",touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
                 <span style={{fontSize:22}}>{uiIcon(n.icon)}</span>
                 <span style={{fontSize:10,fontWeight:700,color:a?T.accent:T.sub}}>{n.label}</span>
               </button>
@@ -3891,7 +3894,7 @@ export default function App(){
       return `${day.slice(5)}:${activeHabits.length?Math.round(done/activeHabits.length*100):0}%`;
     }).join(", ");
     const habitInfo = activeHabits.length>0 ? habitRowsForAi.slice(0,12).map(h=>
-      `${h.icon} ${h.nama}: target ${h.target}, ${h.doneToday?"selesai hari ini":"belum selesai hari ini"}, streak ${h.streak} hari, best ${h.best}, bulan ini ${h.monthDone}x (${h.monthPct}%), total ${h.total}x`
+      `${uiIcon(h.icon)} ${h.nama}: target ${h.target}, ${h.doneToday?"selesai hari ini":"belum selesai hari ini"}, streak ${h.streak} hari, best ${h.best}, bulan ini ${h.monthDone}x (${h.monthPct}%), total ${h.total}x`
     ).join("\n  ") : "Belum ada habit";
     const recurringInfo = s.recurring.length>0 ? s.recurring.map(r=>
       `${r.nama}: ${r.tipe} Rp ${Number(r.jml||0).toLocaleString("id-ID")} tiap tgl ${r.hari}`
@@ -4888,7 +4891,7 @@ Saldo amplop bertambah.`}]);
       y=secTitle(isEN?"Transaction History":"Riwayat Transaksi",
                  `${bulanLabel} ${s.tahun}  |  ${txM.length} ${isEN?"transactions":"transaksi"}  |  Max 60 ${isEN?"shown":"ditampilkan"}`, y);
 
-      const TIPE_LBL  = {pemasukan:"[+]", pengeluaran:"[-]", tabungan:"[S]", investasi:"[I]", alokasi_amplop:"[A]", penyesuaian:"[K]", transfer:"[T]"};
+      const TIPE_LBL  = {pemasukan:"[+]", pengeluaran:"[-]", tabungan:"[S]", investasi:"[I]", alokasi_amplop:"[A]", pengembalian_amplop:"[R]", penyesuaian:"[K]", transfer:"[T]"};
       const txRows = txM.slice(0,60).map(tx=>{
         const dompet   = clean(s.dompet.find(d=>d.id===tx.dompetId)?.nama||"-");
         const katB     = s.budgets.find(b=>b.id===Number(tx.katId));
@@ -5439,7 +5442,7 @@ Saldo amplop bertambah.`}]);
       const sorted = [...txM].sort((a,b)=>new Date(b.tgl)-new Date(a.tgl));
       sorted.forEach((tx,idx) => {
         const bg = idx%2===0?white:grayLt;
-        const isTipe = tx.tipe==="pemasukan"?{bg:greenLt,fg:green}:(tx.tipe==="tabungan"||tx.tipe==="investasi")?{bg:amberLt,fg:amber}:tx.tipe==="alokasi_amplop"?{bg:purpleLt,fg:purple}:{bg:redLt,fg:red};
+        const isTipe = tx.tipe==="pemasukan"||tx.tipe==="pengembalian_amplop"?{bg:greenLt,fg:green}:(tx.tipe==="tabungan"||tx.tipe==="investasi")?{bg:amberLt,fg:amber}:tx.tipe==="alokasi_amplop"?{bg:purpleLt,fg:purple}:{bg:redLt,fg:red};
         const kat = s.budgets.find(b=>b.id===Number(tx.katId));
         const dom = s.dompet.find(d=>d.id===Number(tx.dompetId));
         rows2.push([
@@ -5448,7 +5451,7 @@ Saldo amplop bertambah.`}]);
           {v:tx.tipe, s:cell(isTipe.bg,isTipe.fg,true,"center")},
           {v:String(tx.customKat||"").trim()||(tx.tipe==="pemasukan"&&typeof tx.katId==="string"?tx.katId:"")||kat?.kat||(isEN?"Other":"Lainnya"), s:cell(bg,gray,false,"center")},
           {v:dom?.nama||"-", s:cell(bg,gray,false,"center")},
-          {v:idr(Num(tx.jml)), s:cell(bg,tx.tipe==="pemasukan"?green:(tx.tipe==="tabungan"||tx.tipe==="investasi")?amber:tx.tipe==="alokasi_amplop"?purple:red,true,"right")},
+          {v:idr(Num(tx.jml)), s:cell(bg,(tx.tipe==="pemasukan"||tx.tipe==="pengembalian_amplop")?green:(tx.tipe==="tabungan"||tx.tipe==="investasi")?amber:tx.tipe==="alokasi_amplop"?purple:red,true,"right")},
         ]);
       });
       // Total row
@@ -5661,6 +5664,30 @@ Saldo amplop bertambah.`}]);
   const resetAmplop=(id)=>{
     setS(p=>({...p,amplop:p.amplop.map(a=>a.id!==id?a:{...a,alokasi:String(Math.max(N(a.alokasi)-N(a.terpakai),0)),terpakai:"0"})}));
     showToast(t("toast_resetEnvOk"));
+  };
+
+  const deleteAmplop=id=>{
+    const currentAmp=s.amplop.find(a=>a.id===id);
+    if(!currentAmp)return;
+    const refunded=Math.max(N(currentAmp.alokasi)-N(currentAmp.terpakai||0),0);
+    setS(p=>{
+      const amp=p.amplop.find(a=>a.id===id);
+      if(!amp)return p;
+      const refundWalletId=amp.dompetId||p.dompet[0]?.id||1;
+      const refundTx=refunded>0?{
+        id:Date.now(),tipe:"pengembalian_amplop",tgl:today(),ket:`Pengembalian Amplop: ${amp.nama}`,
+        jml:String(refunded),dompetId:refundWalletId,amplopId:amp.id,katId:"",
+        bulan:p.bulan,tahun:p.tahun,locked:true
+      }:null;
+      return{
+        ...p,
+        amplop:p.amplop.filter(a=>a.id!==id),
+        dompet:p.dompet.map(d=>d.id===refundWalletId?{...d,saldo:String(N(d.saldo)+refunded)}:d),
+        txs:refundTx?[refundTx,...p.txs]:p.txs
+      };
+    });
+    setModal(null);
+    showToast(refunded>0?`Amplop dihapus. ${IDRs(refunded)} dikembalikan ke dompet.`:"Amplop dihapus.");
   };
 
   const addTx=()=>{
@@ -5933,9 +5960,10 @@ Saldo amplop bertambah.`}]);
     const txKatLabel=String(t.customKat||"").trim()||(isIn
       ? (KAT_IN.includes(t.katId) ? t.katId : (typeof t.katId==="string" ? t.katId : "Lainnya"))
       : kat?.kat);
-    const txColor=t.tipe==="pemasukan"?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="investasi"?T.ok:t.tipe==="penyesuaian"?T.warn:t.tipe==="alokasi_amplop"?T.accent:t.tipe==="transfer"?T.accent:T.err;
-    const txBg=t.tipe==="pemasukan"?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer")?T.accentBg:T.errBg;
-    const txIcon=isIn?"📈":t.tipe==="tabungan"?"🏦":t.tipe==="investasi"?"💎":t.tipe==="penyesuaian"?"BAL":t.tipe==="alokasi_amplop"?"✉️":t.tipe==="transfer"?"↔️":kat?uiIcon(kat.icon):"📉";
+    const isEnvelopeRefund=t.tipe==="pengembalian_amplop";
+    const txColor=t.tipe==="pemasukan"||isEnvelopeRefund?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="investasi"?T.ok:t.tipe==="penyesuaian"?T.warn:t.tipe==="alokasi_amplop"?T.accent:t.tipe==="transfer"?T.accent:T.err;
+    const txBg=t.tipe==="pemasukan"||isEnvelopeRefund?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer")?T.accentBg:T.errBg;
+    const txIcon=isIn?"📈":isEnvelopeRefund?"↩️":t.tipe==="tabungan"?"🏦":t.tipe==="investasi"?"💎":t.tipe==="penyesuaian"?"BAL":t.tipe==="alokasi_amplop"?"✉️":t.tipe==="transfer"?"↔️":kat?uiIcon(kat.icon):"📉";
     return(
       <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
@@ -5949,9 +5977,9 @@ Saldo amplop bertambah.`}]);
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
           <span style={{fontWeight:700,fontSize:13,color:txColor}}>
-            {isIn?"+":t.tipe==="penyesuaian"?(N(t.adjustmentDelta)>=0?"+":"-"):t.tipe==="alokasi_amplop"?"→":t.tipe==="transfer"?"→":"-"}{IDRs(N(t.jml))}
+            {isIn||isEnvelopeRefund?"+":t.tipe==="penyesuaian"?(N(t.adjustmentDelta)>=0?"+":"-"):t.tipe==="alokasi_amplop"?"→":t.tipe==="transfer"?"→":"-"}{IDRs(N(t.jml))}
           </span>
-          <Del onClick={()=>deleteTx(t)}/>
+          {t.locked?<span title="Catatan otomatis" style={{fontSize:11,color:T.muted,fontWeight:800}}>AUTO</span>:<Del onClick={()=>deleteTx(t)}/>}
         </div>
       </div>
     );
@@ -6277,7 +6305,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
       {notifOpen&&<NotificationPanel notifs={notifications} onClose={()=>setNotifOpen(false)} onAction={openNotificationAction}/>}
 
       {/* More Menu (mobile) */}
-      {moreOpen&&<MoreMenu page={page} setPage={setPage} navItems={navItems} onClose={()=>setMoreOpen(false)}/>}
+      {moreOpen&&<MoreMenu page={page} onNavigate={navTo} navItems={navItems} onClose={()=>setMoreOpen(false)}/>}
 
       {/* Command Palette */}
       {commandOpen&&<div style={{position:"fixed",inset:0,background:"rgba(15,6,38,.52)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:980,display:"flex",alignItems:isMobile?"flex-start":"center",justifyContent:"center",padding:isMobile?"max(18px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 14px max(14px, env(safe-area-inset-left))":"22px"}} onClick={()=>setCommandOpen(false)}>
@@ -6721,7 +6749,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
         {fireUser&&(!isOnline||syncStatus==="error")&&<div style={{padding:isMobile?`10px max(14px,env(safe-area-inset-right)) 0 max(14px,env(safe-area-inset-left))`:"12px 28px 0",maxWidth:1340,margin:"0 auto"}}>
           <div style={{display:"flex",alignItems:"flex-start",gap:11,background:!isOnline?T.warnBg:T.errBg,border:`1px solid ${!isOnline?T.warnBorder:T.errBorder}`,borderRadius:14,padding:"11px 13px",boxShadow:T.shadow,color:T.text}}>
-            <span style={{width:34,height:34,borderRadius:12,background:T.card,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{!isOnline?"â›…":"âš ï¸"}</span>
+            <span style={{width:34,height:34,borderRadius:12,background:T.card,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{!isOnline?"☁️":"⚠️"}</span>
             <div style={{minWidth:0,flex:1}}>
               <div style={{fontSize:13,fontWeight:900,color:!isOnline?T.warn:T.err,marginBottom:2}}>{!isOnline?"Kamu sedang offline":"Sinkronisasi perlu dicek"}</div>
               <div style={{fontSize:11,color:T.sub,lineHeight:1.55}}>Data tetap aman tersimpan di perangkat ini. AturDuitku akan mencoba sync otomatis lagi saat koneksi stabil.</div>
@@ -7224,7 +7252,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <option value="">{t("allWallets")}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}
                 </select>
                 <select value={txFilt.tipe} onChange={e=>{setTxFilt(f=>({...f,tipe:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
-                  <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="investasi">Investasi</option><option value="alokasi_amplop">Alokasi Amplop</option><option value="penyesuaian">Koreksi saldo</option><option value="transfer">Transfer</option>
+                  <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="investasi">Investasi</option><option value="alokasi_amplop">Alokasi Amplop</option><option value="pengembalian_amplop">Pengembalian Amplop</option><option value="penyesuaian">Koreksi saldo</option><option value="transfer">Transfer</option>
                 </select>
                 {(txSearch||txFilt.dompet||txFilt.tipe)&&<Btn onClick={()=>{setTxSearch("");setTxFilt({dompet:"",tipe:"",sub:""});setTxPage(1);}} ch="Reset" c={T.err} outline style={{padding:"7px 12px",fontSize:12}}/>}
                 <Btn onClick={exportCSV} ch="Export" c="#16A34A" outline style={{padding:"7px 12px",fontSize:12}}/>
@@ -7478,7 +7506,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   key={amp.id}
                   amp={amp}
                   dompetList={s.dompet}
-                  onDelete={()=>setModal({type:"confirm",title:t("deleteEnvelope"),msg:`${t("deleteEnvelopeMsg")} "${amp.nama}"${t("deleteEnvelopeSuffix")} — Dana dikembalikan ke dompet.`,danger:true,onConfirm:()=>{setS(p=>({...p,amplop:p.amplop.filter(a=>a.id!==amp.id)}));setModal(null);showToast("✅ Amplop dihapus!")}})}
+                  isMobile={isMobile}
+                  onDelete={()=>setModal({type:"confirm",title:t("deleteEnvelope"),msg:`${t("deleteEnvelopeMsg")} "${amp.nama}"${t("deleteEnvelopeSuffix")} — Sisa dana akan dikembalikan ke dompet asal.`,danger:true,onConfirm:()=>deleteAmplop(amp.id)})}
                   onIsi={(jml,dompetId)=>isiAmplop(amp.id,jml,dompetId)}
                   onPakai={(jml,ket)=>pakaiAmplop(amp.id,jml,ket)}
                   onReset={()=>resetAmplop(amp.id)}
@@ -7575,7 +7604,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     })}
                     {habitAnalytics.habitRows.map(h=><React.Fragment key={h.id}>
                       <div style={{position:"sticky",left:0,zIndex:2,display:"flex",alignItems:"center",gap:8,minWidth:0,fontSize:11,fontWeight:950,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"7px 9px",borderRadius:11,background:T.card,border:`1px solid ${T.border}`,boxShadow:`8px 0 14px ${T.cardAlt}`}}>
-                        <span>{h.icon||"🐾"}</span><span style={{overflow:"hidden",textOverflow:"ellipsis"}}>{h.nama}</span>
+                        <span>{uiIcon(h.icon||"🐾")}</span><span style={{overflow:"hidden",textOverflow:"ellipsis"}}>{h.nama}</span>
                       </div>
                       {habitAnalytics.monthDays.map(day=>{
                         const checked=(h.doneDates||[]).includes(day);
@@ -7618,7 +7647,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     {habitAnalytics.habitRows.slice(0,7).map(h=><div key={h.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"center",minWidth:0}}>
                       <div style={{minWidth:0}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
-                          <span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:T.cardAlt,border:`1px solid ${T.border}`,flex:"0 0 auto"}}>{h.icon||"🐾"}</span>
+                          <span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:T.cardAlt,border:`1px solid ${T.border}`,flex:"0 0 auto"}}>{uiIcon(h.icon||"🐾")}</span>
                           <div style={{minWidth:0}}>
                             <div style={{fontSize:12,fontWeight:950,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.nama}</div>
                             <div style={{fontSize:10,color:T.muted,fontWeight:800}}>Streak {h.now||0} hari · Best {h.best||0}</div>
@@ -7738,7 +7767,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   {activeHabits.map(h=>(
                     <div key={h.id} style={{display:"grid",gridTemplateColumns:`${isMobile?128:150}px repeat(7, minmax(${isMobile?42:46}px,1fr))`,gap:7,alignItems:"center",marginBottom:7}}>
                       <div style={{position:"sticky",left:0,zIndex:2,display:"flex",alignItems:"center",gap:8,minWidth:0,padding:"8px 10px",borderRadius:11,background:T.cardAlt,border:`1px solid ${T.border}`,boxShadow:`8px 0 12px ${T.card}`}}>
-                        <span style={{fontSize:18}}>{h.icon||"🐾"}</span>
+                        <span style={{fontSize:18}}>{uiIcon(h.icon||"🐾")}</span>
                         <span style={{fontSize:12,fontWeight:900,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.nama}</span>
                       </div>
                       {Array.from({length:7},(_,i)=>dateAdd(habitDay,i-6)).map(day=>{
