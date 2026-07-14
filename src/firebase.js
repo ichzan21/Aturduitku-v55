@@ -13,7 +13,7 @@ import {
 
 const firebaseConfig = {
   apiKey: "AIzaSyC5C2wt3LyCHLY6SeH5HZ9FmdgzzkWL-LM",
-  authDomain: "www.aturduitku.com",
+  authDomain: "aturduitku.firebaseapp.com",
   projectId: "aturduitku",
   storageBucket: "aturduitku.firebasestorage.app",
   messagingSenderId: "965164237195",
