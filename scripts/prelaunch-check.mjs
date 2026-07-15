@@ -32,6 +32,20 @@ for (const marker of ["signInWithPopup", "sendPasswordResetEmail", "sendEmailVer
   if (!firebaseSource.includes(marker)) failures.push(`Kontrak autentikasi hilang: ${marker}`);
 }
 
+const userDataSource = readFileSync("api/users/data.js", "utf8");
+for (const marker of ["dataVersion", "baseVersion", "runTransaction"]) {
+  if (!userDataSource.includes(marker)) failures.push(`Proteksi konflik cloud hilang: ${marker}`);
+}
+const dataVersionSource = readFileSync("api/_lib/dataVersion.js", "utf8");
+for (const marker of ["DATA_CONFLICT", "currentVersion", "409"]) {
+  if (!dataVersionSource.includes(marker)) failures.push(`Kontrak versi data hilang: ${marker}`);
+}
+
+const appSource = readFileSync("src/App.jsx", "utf8");
+for (const marker of ["replaceTransactionInWallets", "resolveConflictWithCloud", "resolveConflictWithLocal"]) {
+  if (!appSource.includes(marker)) failures.push(`Alur integritas transaksi hilang: ${marker}`);
+}
+
 function jsFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
     const path = join(directory, entry.name);
@@ -54,4 +68,5 @@ console.log("\nQA rilis lulus:");
 console.log("- Build produksi dan secret scan aman");
 console.log("- Google/email auth dan custom auth handler tersedia");
 console.log("- AI, Telegram approval, sinkronisasi, monitoring, dan backup tersedia");
+console.log("- Edit transaksi reversibel dan konflik antarperangkat terlindungi");
 console.log("- Syntax seluruh route backend valid");

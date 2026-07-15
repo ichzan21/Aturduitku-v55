@@ -3,7 +3,7 @@ import {
   getCurrentIdToken, onAuthChange, sendResetPassword, sendVerificationEmail, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
 } from "./firebase.js";
 import { reportClientError } from "./monitoring.js";
-import { applyTransactionToWallets, findWallet, hasWallet, sameId, transactionValidationError, uniqueNewTransactions, walletDeltasForTransaction } from "./financeLedger.js";
+import { applyTransactionToWallets, findWallet, hasWallet, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, walletDeltasForTransaction } from "./financeLedger.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -2504,9 +2504,11 @@ export default function App(){
   const [adminFilter,setAdminFilter]=useState("all");
   const [adminQuery,setAdminQuery]=useState("");
   const [adminPage,setAdminPage]=useState(1);
-  const [syncStatus,setSyncStatus]=useState("idle"); // idle | saving | saved | error
+  const [syncStatus,setSyncStatus]=useState("idle"); // idle | saving | saved | error | conflict
   const [syncMeta,setSyncMeta]=useState({updatedAt:null,lastBackupAt:null});
+  const [syncConflict,setSyncConflict]=useState(null);
   const [cloudReady,setCloudReady]=useState(false);
+  const cloudVersionRef=useRef(0);
   const cloudSaveQueueRef=useRef(Promise.resolve());
   const cloudSaveSequenceRef=useRef(0);
   const syncIdleTimerRef=useRef(null);
@@ -2607,6 +2609,7 @@ export default function App(){
       const error = new Error(data.error || `Request failed: ${resp.status}`);
       error.status = resp.status;
       error.code = data.code;
+      error.details = data;
       throw error;
     }
     return data;
@@ -2621,13 +2624,18 @@ export default function App(){
   const loadCloudData = async (uid) => {
     if(!uid) return null;
     const result=await authedJson("/api/users/data", { method:"GET" });
+    cloudVersionRef.current=Number(result.version)||0;
     setSyncMeta({updatedAt:result.updatedAt||null,lastBackupAt:result.lastBackupAt||null});
     return result;
   };
 
   const saveCloudData = async (uid, payload) => {
     if(!uid) return null;
-    const result=await authedJson("/api/users/data", { method:"POST", body:JSON.stringify(payload) });
+    const result=await authedJson("/api/users/data", {
+      method:"POST",
+      body:JSON.stringify({...payload,baseVersion:cloudVersionRef.current}),
+    });
+    cloudVersionRef.current=Number(result.version)||cloudVersionRef.current;
     setSyncMeta(meta=>({...meta,updatedAt:result.updatedAt||meta.updatedAt}));
     return result;
   };
@@ -2674,7 +2682,7 @@ export default function App(){
   // Auto-save (hanya saat s berubah, bukan setiap render/clock tick)
   // Autosave: localStorage + Firestore
   useEffect(()=>{
-    if(fireUser && isApproved && cloudReady){
+    if(fireUser && isApproved && cloudReady && !syncConflict){
       try{
         localStorage.setItem("aturduitku_data",JSON.stringify(s));
         localStorage.setItem(LOCAL_OWNER_KEY,fireUser.uid);
@@ -2695,13 +2703,25 @@ export default function App(){
             syncIdleTimerRef.current=setTimeout(()=>setSyncStatus("idle"),2000);
           }
         }catch(e){
-          if(saveSequence===cloudSaveSequenceRef.current) setSyncStatus("error");
+          if(e.code==="DATA_CONFLICT"){
+            try{
+              const remote=await loadCloudData(fireUser.uid);
+              if(saveSequence===cloudSaveSequenceRef.current){
+                setSyncConflict({localData:s,localOnboarded:onboarded,remote});
+                setSyncStatus("conflict");
+              }
+            }catch(loadError){
+              if(saveSequence===cloudSaveSequenceRef.current) setSyncStatus("error");
+            }
+          }else if(saveSequence===cloudSaveSequenceRef.current){
+            setSyncStatus("error");
+          }
         }
       }, 1500); // debounce 1.5s
       return ()=>clearTimeout(timer);
     }
-    setSyncStatus("idle");
-  },[s, onboarded, fireUser, isApproved, cloudReady]);
+    setSyncStatus(syncConflict?"conflict":"idle");
+  },[s, onboarded, fireUser, isApproved, cloudReady, syncConflict]);
 
   useEffect(()=>()=>clearTimeout(syncIdleTimerRef.current),[]);
 
@@ -2716,6 +2736,8 @@ export default function App(){
         unsub = onAuthChange(async(user)=>{
           if(disposed) return;
           cloudSaveSequenceRef.current+=1;
+          cloudVersionRef.current=0;
+          setSyncConflict(null);
           setFireLoading(true);
           setFireUser(user);
           setCloudReady(false);
@@ -3275,6 +3297,33 @@ export default function App(){
       return true;
     }
     return false;
+  };
+
+  const resolveConflictWithCloud=()=>{
+    if(!syncConflict?.remote||!fireUser) return;
+    applyLoadedUserData(fireUser,syncConflict.remote);
+    setSyncConflict(null);
+    setSyncStatus("saved");
+    showToast("Data terbaru dari perangkat lain sudah dimuat.");
+  };
+
+  const resolveConflictWithLocal=async()=>{
+    if(!syncConflict||!fireUser) return;
+    setSyncStatus("saving");
+    try{
+      await saveCloudData(fireUser.uid,{
+        data:syncConflict.localData,
+        onboarded:syncConflict.localOnboarded,
+      });
+      setS(syncConflict.localData);
+      setOnboarded(syncConflict.localOnboarded);
+      setSyncConflict(null);
+      setSyncStatus("saved");
+      showToast("Data dari perangkat ini berhasil disimpan.");
+    }catch(error){
+      setSyncStatus(error.code==="DATA_CONFLICT"?"conflict":"error");
+      showToast("Data berubah lagi. Muat versi cloud sebelum melanjutkan.");
+    }
   };
   const habitBestStreak=(h)=>{
     const days=[...new Set(h.doneDates||[])].sort();
@@ -5772,6 +5821,68 @@ Saldo amplop bertambah.`}]);
     showToast(refunded>0?`Amplop dihapus. ${IDRs(refunded)} dikembalikan ke dompet.`:"Amplop dihapus.");
   };
 
+  const canEditTransaction=(tx)=>Boolean(
+    tx && !tx.locked && !tx.importRef && !tx.goalId && !tx.asetId && !tx.amplopId && !tx.billRef &&
+    !String(tx.ket||"").startsWith("[Rutin]") && ["pemasukan","pengeluaran","transfer"].includes(tx.tipe)
+  );
+
+  const openEditTransaction=(tx)=>{
+    if(!canEditTransaction(tx)){
+      showToast("Transaksi otomatis atau terhubung harus diubah dari fitur asalnya.");
+      return;
+    }
+    setTxForm({
+      tipe:tx.tipe,
+      tgl:tx.tgl||today(),
+      ket:tx.ket||"",
+      jml:String(tx.jml||""),
+      katId:tx.katId??(tx.tipe==="pemasukan"?(KAT_IN[0]||"Lainnya"):(s.budgets[0]?.id||"")),
+      customKat:tx.customKat||"",
+      subKat:tx.subKat||"",
+      dompetId:tx.dompetId??s.dompet[0]?.id??"",
+      dompetTo:tx.dompetTo??s.dompet.find(wallet=>!sameId(wallet.id,tx.dompetId))?.id??"",
+      biaya:String(tx.biaya||""),
+      goalId:"",
+    });
+    setModal({type:"tx",editTxId:tx.id});
+  };
+
+  const commitEditedTransaction=(nextTransaction)=>{
+    if(modal?.editTxId===undefined) return null;
+    const previous=s.txs.find(tx=>sameId(tx.id,modal.editTxId));
+    if(!previous||!canEditTransaction(previous)){
+      showToast("Transaksi tidak lagi tersedia untuk diedit.");
+      return false;
+    }
+    const updated={
+      ...previous,
+      ...nextTransaction,
+      id:previous.id,
+      updatedAt:new Date().toISOString(),
+      goalId:"",
+      dompetTo:nextTransaction.tipe==="transfer"?nextTransaction.dompetTo:"",
+      biaya:nextTransaction.tipe==="transfer"?(nextTransaction.biaya||""):"",
+    };
+    try{
+      const nextWallets=replaceTransactionInWallets(s.dompet,previous,updated);
+      setS(current=>({
+        ...current,
+        dompet:nextWallets,
+        txs:current.txs.map(tx=>sameId(tx.id,previous.id)?updated:tx),
+      }));
+      setTxForm(form=>({...form,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",biaya:"",goalId:""}));
+      setModal(null);
+      showToast("Transaksi dan saldo berhasil diperbarui.");
+      return true;
+    }catch(error){
+      if(error.code==="wallet_not_found") showToast(t("toast_walletNotFound"));
+      else if(error.code==="same_wallet") showToast(t("toast_sameDompet"));
+      else if(error.code==="insufficient_funds") showToast(t("toast_walletNotEnough"));
+      else showToast("Transaksi edit belum valid.");
+      return false;
+    }
+  };
+
   const addTx=()=>{
     const {tipe,tgl,ket,jml,katId,customKat,subKat,dompetId,dompetTo,biaya,goalId}=txForm;
     if(!tgl||N(jml)<=0){showToast("⚠️ Isi tanggal dan jumlah yang valid!");return;}
@@ -5782,19 +5893,23 @@ Saldo amplop bertambah.`}]);
     const id=Date.now();
     const jmlNum=N(jml);
     const draftTx={...txForm,jml:pN(jml)};
-    const validationError=transactionValidationError(s.dompet,draftTx);
-    if(validationError==="wallet_not_found"){showToast(t("toast_walletNotFound"));return;}
-    if(validationError==="same_wallet"){showToast(t("toast_sameDompet"));return;}
-    if(validationError==="insufficient_funds"){showToast(t("toast_walletNotEnough"));return;}
-    if(validationError==="invalid_amount"){showToast("⚠️ Jumlah transaksi harus lebih dari nol.");return;}
+    const isEditing=modal?.editTxId!==undefined;
+    if(!isEditing){
+      const validationError=transactionValidationError(s.dompet,draftTx);
+      if(validationError==="wallet_not_found"){showToast(t("toast_walletNotFound"));return;}
+      if(validationError==="same_wallet"){showToast(t("toast_sameDompet"));return;}
+      if(validationError==="insufficient_funds"){showToast(t("toast_walletNotEnough"));return;}
+      if(validationError==="invalid_amount"){showToast("⚠️ Jumlah transaksi harus lebih dari nol.");return;}
+    }
 
     if(tipe==="transfer"){
       const sumber=findWallet(s.dompet,dompetId);
       if(!sumber){showToast(t("toast_walletNotFound"));return;}
-      if(N(sumber.saldo)<jmlNum+N(biaya)){showToast(`⚠️ ${t("toast_notEnough")} (${sumber.nama}: ${IDR(N(sumber.saldo))})`  );return;}
+      if(!isEditing&&N(sumber.saldo)<jmlNum+N(biaya)){showToast(`⚠️ ${t("toast_notEnough")} (${sumber.nama}: ${IDR(N(sumber.saldo))})`  );return;}
       if(sameId(dompetId,dompetTo)){showToast(t("toast_sameDompet"));return;}
       if(!hasWallet(s.dompet,dompetTo)){showToast(t("toast_walletNotFound"));return;}
       const savedTx={...txForm,id,tipe:"transfer",jml:pN(jml)};
+      if(commitEditedTransaction(savedTx)!==null) return;
       setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",biaya:""}));
       showToast(t("toast_transferOk"));setModal(null);return;
@@ -5802,11 +5917,12 @@ Saldo amplop bertambah.`}]);
 
     if(tipe==="pengeluaran"){
       const dompetSumber=findWallet(s.dompet,dompetId);
-      if(dompetSumber&&N(dompetSumber.saldo)<jmlNum){
+      if(!isEditing&&dompetSumber&&N(dompetSumber.saldo)<jmlNum){
         showToast(`⚠️ ${t("toast_notEnough")} (${dompetSumber.nama}: ${IDR(N(dompetSumber.saldo))})`  );
         return;
       }
       const savedTx={...txForm,id,jml:pN(jml),customKat:usesCustomCategory?cleanCustomCategory:""};
+      if(commitEditedTransaction(savedTx)!==null) return;
       setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",goalId:""}));
       showToast(t("toast_expenseOk"));setModal(null);return;
@@ -5815,6 +5931,7 @@ Saldo amplop bertambah.`}]);
     if(tipe==="pemasukan"){
       const incomeKat = KAT_IN.includes(katId) ? katId : "Lainnya";
       const savedTx={...txForm,id,jml:pN(jml),katId:incomeKat,customKat:usesCustomCategory?cleanCustomCategory:"",subKat:""};
+      if(commitEditedTransaction(savedTx)!==null) return;
       setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",katId:incomeKat,customKat:"",subKat:"",goalId:""}));
       showToast(t("toast_incomeOk"));setModal(null);return;
@@ -6080,7 +6197,10 @@ Saldo amplop bertambah.`}]);
           <span style={{fontWeight:700,fontSize:13,color:txColor}}>
             {isIn||isEnvelopeRefund?"+":t.tipe==="penyesuaian"?(N(t.adjustmentDelta)>=0?"+":"-"):t.tipe==="alokasi_amplop"?"→":t.tipe==="transfer"?"→":"-"}{IDRs(N(t.jml))}
           </span>
-          {t.locked?<span title="Catatan otomatis" style={{fontSize:11,color:T.muted,fontWeight:800}}>AUTO</span>:<Del onClick={()=>deleteTx(t)}/>}
+          {t.locked?<span title="Catatan otomatis" style={{fontSize:11,color:T.muted,fontWeight:800}}>AUTO</span>:<>
+            {canEditTransaction(t)&&<button type="button" onClick={()=>openEditTransaction(t)} title="Edit transaksi" aria-label="Edit transaksi" style={{width:30,height:30,borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:15,fontWeight:900,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>✎</button>}
+            <Del onClick={()=>deleteTx(t)}/>
+          </>}
         </div>
       </div>
     );
@@ -6406,6 +6526,25 @@ button:active,.bottom-nav-item:active{opacity:.75;}
 button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-select:none;user-select:none;}
       `}</style>
 
+      {syncConflict&&<div style={{position:"fixed",inset:0,zIndex:10020,background:"rgba(15,6,32,.68)",backdropFilter:"blur(5px)",display:"flex",alignItems:"center",justifyContent:"center",padding:"max(18px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left))"}}>
+        <div role="alertdialog" aria-modal="true" aria-labelledby="sync-conflict-title" style={{width:"min(440px,100%)",background:T.card,border:`1px solid ${T.warnBorder}`,borderRadius:18,boxShadow:T.shadowMd,padding:20,color:T.text}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+            <img src="/icon-192.png" alt="" style={{width:42,height:42,borderRadius:12,objectFit:"cover"}}/>
+            <div>
+              <div id="sync-conflict-title" style={{fontSize:17,fontWeight:900}}>Data berubah di perangkat lain</div>
+              <div style={{fontSize:11,color:T.muted,marginTop:3}}>Pilih versi yang ingin dipakai agar saldo tidak tertimpa.</div>
+            </div>
+          </div>
+          <div style={{fontSize:12,lineHeight:1.65,color:T.sub,background:T.warnBg,border:`1px solid ${T.warnBorder}`,borderRadius:12,padding:12,marginBottom:14}}>
+            Versi cloud diperbarui {syncConflict.remote?.updatedAt?new Date(syncConflict.remote.updatedAt).toLocaleString("id-ID"):"dari perangkat lain"}. Data perangkat ini tetap aman sampai kamu memilih.
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:9}}>
+            <button type="button" onClick={resolveConflictWithCloud} style={{padding:"11px 12px",borderRadius:11,border:`1px solid ${T.accent}`,background:T.accentBg,color:T.accent,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>Pakai data cloud</button>
+            <button type="button" onClick={resolveConflictWithLocal} style={{padding:"11px 12px",borderRadius:11,border:"none",background:T.accent,color:"white",fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>Simpan perangkat ini</button>
+          </div>
+        </div>
+      </div>}
+
       {/* Toast */}
       {toast&&<div className="toast-in" style={{position:"fixed",top:"max(18px, calc(env(safe-area-inset-top) + 8px))",right:"max(14px, env(safe-area-inset-right))",left:isMobile?"max(14px, env(safe-area-inset-left))":"auto",maxWidth:isMobile?"none":"min(430px, calc(100vw - 28px))",background:T.card,color:T.text,padding:"12px 15px",borderRadius:14,fontSize:13,fontWeight:800,zIndex:9999,boxShadow:T.shadowMd,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:10,lineHeight:1.35}}><span style={{width:28,height:28,borderRadius:9,background:T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><img src="/icon-192.png" style={{width:22,height:22,borderRadius:6,verticalAlign:"middle"}}/></span><span style={{minWidth:0,overflowWrap:"anywhere"}}>{toast}</span></div>}
 
@@ -6596,9 +6735,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
             {/* TX Modal */}
             {modal.type==="tx"&&<>
-              <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{t("newTx")}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>Catat transaksi baru dengan detail yang cukup supaya laporan tetap akurat.</div>
+              <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{modal.editTxId!==undefined?"Edit Transaksi":t("newTx")}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>{modal.editTxId!==undefined?"Saldo lama akan dibalik, lalu data baru diterapkan secara otomatis.":"Catat transaksi baru dengan detail yang cukup supaya laporan tetap akurat."}</div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
-                {[{v:"pengeluaran",l:t("outflow2")},{v:"pemasukan",l:t("inflow2")},{v:"tabungan",l:t("savingShort")},{v:"transfer",l:"Transfer"}].map(({v,l})=>(
+                {[{v:"pengeluaran",l:t("outflow2")},{v:"pemasukan",l:t("inflow2")},{v:"tabungan",l:t("savingShort")},{v:"transfer",l:"Transfer"}].filter(({v})=>modal.editTxId===undefined||v!=="tabungan").map(({v,l})=>(
                   <button key={v} onClick={()=>setTxForm(f=>({...f,tipe:v,katId:v==="pemasukan"?(KAT_IN[0]||"Lainnya"):v==="pengeluaran"?(s.budgets[0]?.id||""):v==="tabungan"?investasiBudgetId:f.katId,customKat:"",subKat:"",goalId:""}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${txForm.tipe===v?T.accent:T.inputBorder}`,background:txForm.tipe===v?T.accentBg:T.input,color:txForm.tipe===v?T.accent:T.sub}}>{l}</button>
                 ))}
               </div>
@@ -6632,7 +6771,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </select></div>
               )}
               {txForm.tipe==="transfer"&&<><label style={LS}>{t("transferFee")}</label><CurIn value={txForm.biaya} onChange={v=>setTxForm(f=>({...f,biaya:v}))} placeholder="0" style={{...IS,marginBottom:10}}/></>}
-              <Btn onClick={addTx} ch={t("saveTx")} style={{width:"100%",padding:"12px",marginTop:4}}/>
+              <Btn onClick={addTx} ch={modal.editTxId!==undefined?"Simpan Perubahan":t("saveTx")} style={{width:"100%",padding:"12px",marginTop:4}}/>
             </>}
 
             {/* Bulk Modal */}

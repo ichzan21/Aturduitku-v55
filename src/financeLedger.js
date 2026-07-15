@@ -97,3 +97,14 @@ export const uniqueNewTransactions = (existing, incoming) => {
     return true;
   });
 };
+
+export const replaceTransactionInWallets = (wallets, previousTransaction, nextTransaction) => {
+  const restoredWallets = applyTransactionToWallets(wallets, previousTransaction, -1);
+  const validationError = transactionValidationError(restoredWallets, nextTransaction);
+  if (validationError) {
+    const error = new Error(validationError);
+    error.code = validationError;
+    throw error;
+  }
+  return applyTransactionToWallets(restoredWallets, nextTransaction);
+};
