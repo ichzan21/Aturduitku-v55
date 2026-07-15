@@ -3,6 +3,7 @@ import {
   getCurrentIdToken, onAuthChange, sendResetPassword, sendVerificationEmail, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
 } from "./firebase.js";
 import { reportClientError } from "./monitoring.js";
+import { applyTransactionToWallets, hasWallet } from "./financeLedger.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -3021,6 +3022,23 @@ export default function App(){
   const [showAddRecurring,setShowAddRecurring]=useState(false);
   const [showAddAmplop,setShowAddAmplop]=useState(false);
   const [amplopIsiForm,setAmplopIsiForm]=useState({id:null,jml:"",dompetId:1});
+
+  // Data lama dapat memakai ID dompet selain 1. Pastikan nilai internal form
+  // selalu sama dengan opsi yang benar-benar terlihat di dropdown.
+  useEffect(()=>{
+    if(!s.dompet.length)return;
+    const firstId=s.dompet[0].id;
+    const secondId=s.dompet[1]?.id??firstId;
+    setTxForm(form=>({
+      ...form,
+      dompetId:hasWallet(s.dompet,form.dompetId)?form.dompetId:firstId,
+      dompetTo:hasWallet(s.dompet,form.dompetTo)?form.dompetTo:secondId,
+    }));
+    setBulkRows(rows=>rows.map(row=>hasWallet(s.dompet,row.dompetId)?row:{...row,dompetId:firstId}));
+    setRecurringForm(form=>hasWallet(s.dompet,form.dompetId)?form:{...form,dompetId:firstId});
+    setAmplopForm(form=>hasWallet(s.dompet,form.dompetId)?form:{...form,dompetId:firstId});
+    setAmplopIsiForm(form=>hasWallet(s.dompet,form.dompetId)?form:{...form,dompetId:firstId});
+  },[s.dompet]);
   const [newKat,setNewKat]=useState({kat:"",icon:"📦",kelas:"Kebutuhan"});
   const [showAddKat,setShowAddKat]=useState(false);
   const [newSub,setNewSub]=useState({katId:null,nama:"",emoji:"📌",alokasi:"",tempo:""});
@@ -5554,15 +5572,11 @@ Saldo amplop bertambah.`}]);
     }
   };
 
-    const handleSaveScanTx = (tx) => {
+  const handleSaveScanTx = (tx) => {
+    if(!hasWallet(s.dompet,tx.dompetId)){showToast(t("toast_walletNotFound"));return;}
     setS(p => {
       const newTxs = [...p.txs, tx];
-      const newDompet = p.dompet.map(d => {
-        if (d.id !== tx.dompetId) return d;
-        const amt = parseFloat(String(tx.jml||0).replace(/[^\d.]/g,""))||0;
-        const delta = tx.tipe==="pemasukan" ? amt : -amt;
-        return {...d, saldo: String(parseFloat(String(d.saldo||0).replace(/[^\d.]/g,""))||0 + delta)};
-      });
+      const newDompet = applyTransactionToWallets(p.dompet, tx);
       return {...p, txs:newTxs, dompet:newDompet};
     });
     showToast(lang==="en"?"✅ Transaction saved!":"✅ Transaksi tersimpan!");
@@ -5709,20 +5723,16 @@ Saldo amplop bertambah.`}]);
     if(usesCustomCategory&&!cleanCustomCategory){showToast("Isi nama kategori lainnya terlebih dahulu.");return;}
     const id=Date.now();
     const jmlNum=N(jml);
+    if(!hasWallet(s.dompet,dompetId)){showToast(t("toast_walletNotFound"));return;}
 
     if(tipe==="transfer"){
       const sumber=s.dompet.find(d=>d.id===dompetId);
       if(!sumber){showToast(t("toast_walletNotFound"));return;}
       if(N(sumber.saldo)<jmlNum+N(biaya)){showToast(`⚠️ ${t("toast_notEnough")} (${sumber.nama}: ${IDR(N(sumber.saldo))})`  );return;}
       if(dompetId===dompetTo){showToast(t("toast_sameDompet"));return;}
-      setS(p=>({...p,
-        dompet:p.dompet.map(d=>{
-          if(d.id===dompetId)return{...d,saldo:String(N(d.saldo)-jmlNum-N(biaya))};
-          if(d.id===dompetTo)return{...d,saldo:String(N(d.saldo)+jmlNum)};
-          return d;
-        }),
-        txs:[{...txForm,id,tipe:"transfer",jml:pN(jml)},...p.txs]
-      }));
+      if(!hasWallet(s.dompet,dompetTo)){showToast(t("toast_walletNotFound"));return;}
+      const savedTx={...txForm,id,tipe:"transfer",jml:pN(jml)};
+      setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",biaya:""}));
       showToast(t("toast_transferOk"));setModal(null);return;
     }
@@ -5733,20 +5743,16 @@ Saldo amplop bertambah.`}]);
         showToast(`⚠️ ${t("toast_notEnough")} (${dompetSumber.nama}: ${IDR(N(dompetSumber.saldo))})`  );
         return;
       }
-      setS(p=>({...p,
-        dompet:p.dompet.map(d=>d.id===dompetId?{...d,saldo:String(N(d.saldo)-jmlNum)}:d),
-        txs:[{...txForm,id,jml:pN(jml),customKat:usesCustomCategory?cleanCustomCategory:""},...p.txs]
-      }));
+      const savedTx={...txForm,id,jml:pN(jml),customKat:usesCustomCategory?cleanCustomCategory:""};
+      setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",goalId:""}));
       showToast(t("toast_expenseOk"));setModal(null);return;
     }
 
     if(tipe==="pemasukan"){
       const incomeKat = KAT_IN.includes(katId) ? katId : "Lainnya";
-      setS(p=>({...p,
-        dompet:p.dompet.map(d=>d.id===dompetId?{...d,saldo:String(N(d.saldo)+jmlNum)}:d),
-        txs:[{...txForm,id,jml:pN(jml),katId:incomeKat,customKat:usesCustomCategory?cleanCustomCategory:"",subKat:""},...p.txs]
-      }));
+      const savedTx={...txForm,id,jml:pN(jml),katId:incomeKat,customKat:usesCustomCategory?cleanCustomCategory:"",subKat:""};
+      setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",katId:incomeKat,customKat:"",subKat:"",goalId:""}));
       showToast(t("toast_incomeOk"));setModal(null);return;
     }
@@ -5757,11 +5763,12 @@ Saldo amplop bertambah.`}]);
         showToast(`⚠️ Saldo ${dompetSumber.nama} tidak cukup! Saldo: ${IDR(N(dompetSumber.saldo))}`);
         return;
       }
+      const savedTx={...txForm,id,jml:pN(jml)};
       setS(p=>({
         ...p,
-        dompet:p.dompet.map(d=>d.id===dompetId?{...d,saldo:String(N(d.saldo)-jmlNum)}:d),
+        dompet:applyTransactionToWallets(p.dompet,savedTx),
         goals:goalId?p.goals.map(g=>g.id===Number(goalId)?{...g,kumpul:String(N(g.kumpul)+jmlNum),history:[...(g.history||[]),{tgl:today(),jml:pN(jml)}]}:g):p.goals,
-        txs:[{...txForm,id,jml:pN(jml)},...p.txs]
+        txs:[savedTx,...p.txs]
       }));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",goalId:""}));
       showToast(goalId?t("toast_savingOk"):t("toast_savingOk2"));setModal(null);return;
@@ -5776,20 +5783,12 @@ Saldo amplop bertambah.`}]);
   const addBulk=()=>{
     const valid=bulkRows.filter(r=>r.tgl&&r.jml);
     if(!valid.length){showToast("⚠️ Minimal satu baris terisi!");return;}
+    if(valid.some(r=>!hasWallet(s.dompet,r.dompetId))){showToast(t("toast_walletNotFound"));return;}
     const newTxs=valid.map((r,i)=>({...r,id:Date.now()+i,jml:pN(r.jml),ket:r.ket||""}));
-    // Hitung delta saldo per dompet
-    const dompetDelta={};
-    valid.forEach(r=>{
-      const d=Number(r.dompetId)||1;
-      const jmlNum=N(r.jml);
-      if(!dompetDelta[d])dompetDelta[d]=0;
-      if(r.tipe==="pemasukan")dompetDelta[d]+=jmlNum;
-      else if(r.tipe==="pengeluaran"||r.tipe==="tabungan")dompetDelta[d]-=jmlNum;
-    });
     setS(p=>({
       ...p,
       txs:[...newTxs,...p.txs],
-      dompet:p.dompet.map(d=>dompetDelta[d.id]!==undefined?{...d,saldo:String(N(d.saldo)+dompetDelta[d.id])}:d)
+      dompet:newTxs.reduce((wallets,tx)=>applyTransactionToWallets(wallets,tx),p.dompet)
     }));
     setBulkRows([{tgl:today(),jml:"",tipe:"pengeluaran",dompetId:1,katId:"",ket:""}]);
     showToast(`✅ ${valid.length} transaksi ditambahkan & saldo diperbarui!`);setModal(null);
@@ -5915,18 +5914,15 @@ Saldo amplop bertambah.`}]);
     toastMsg:"Transaksi dihapus",
     onConfirm:()=>setS(p=>{
       const jmlNum=N(tx.jml);
-      let newDompet=p.dompet;
+      let newDompet=applyTransactionToWallets(p.dompet,tx,-1);
       let newGoals=p.goals;
       let newAset=p.asetTetap;
       let newAmplop=p.amplop;
       if(tx.tipe==="pemasukan"&&tx.dompetId){
-        newDompet=p.dompet.map(d=>d.id===tx.dompetId?{...d,saldo:String(N(d.saldo)-jmlNum)}:d);
       }else if(tx.tipe==="penyesuaian"&&tx.dompetId){
-        newDompet=p.dompet.map(d=>d.id===tx.dompetId?{...d,saldo:String(N(d.saldo)-N(tx.adjustmentDelta))}:d);
       }else if(tx.tipe==="pengeluaran"&&tx.amplopId){
         newAmplop=p.amplop.map(a=>a.id===tx.amplopId?{...a,terpakai:String(Math.max(N(a.terpakai)-jmlNum,0))}:a);
       }else if(["pengeluaran","tabungan","investasi","alokasi_amplop"].includes(tx.tipe)&&tx.dompetId){
-        newDompet=p.dompet.map(d=>d.id===tx.dompetId?{...d,saldo:String(N(d.saldo)+jmlNum)}:d);
         if(tx.tipe==="tabungan"){
           const goalName=String(tx.ket||"").split(":").slice(1).join(":").trim().toLowerCase();
           newGoals=p.goals.map(g=>{
@@ -5952,12 +5948,6 @@ Saldo amplop bertambah.`}]);
             return {...a,alokasi:String(Math.max(N(a.alokasi)-jmlNum,N(a.terpakai)))};
           });
         }
-      }else if(tx.tipe==="transfer"){
-        newDompet=p.dompet.map(d=>{
-          if(d.id===tx.dompetId)return{...d,saldo:String(N(d.saldo)+jmlNum+N(tx.biaya||0))};
-          if(d.id===tx.dompetTo)return{...d,saldo:String(N(d.saldo)-jmlNum)};
-          return d;
-        });
       }
       return{...p,txs:p.txs.filter(x=>x.id!==tx.id),dompet:newDompet,goals:newGoals,asetTetap:newAset,amplop:newAmplop};
     })
@@ -6186,20 +6176,10 @@ Saldo amplop bertambah.`}]);
 
   // ── IMPORT MUTASI HANDLER ──────────────────────────────────────────────────
   const handleImportMutasi = (txRows, dompetId) => {
+    if(!hasWallet(s.dompet,dompetId)){showToast(t("toast_walletNotFound"));return;}
     setS(prev => {
       const newTxs = [...prev.txs, ...txRows];
-      // Hitung delta saldo per dompet dari baris yang diimport
-      const deltaSaldo = {};
-      txRows.forEach(r => {
-        const did = r.dompetId;
-        if (!deltaSaldo[did]) deltaSaldo[did] = 0;
-        if (r.tipe==="pemasukan") deltaSaldo[did] += Number(r.jml||0);
-        else if (r.tipe==="pengeluaran") deltaSaldo[did] -= Number(r.jml||0);
-      });
-      const newDompet = prev.dompet.map(d => ({
-        ...d,
-        saldo: String(Math.max(0, N(d.saldo) + (deltaSaldo[d.id]||0)))
-      }));
+      const newDompet = txRows.reduce((wallets,tx)=>applyTransactionToWallets(wallets,tx),prev.dompet);
       return {...prev, txs:newTxs, dompet:newDompet};
     });
     showToast(`✅ ${txRows.length} transaksi berhasil diimport!`);
