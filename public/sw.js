@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aturduitku-v22-wallet-ledger';
+const CACHE_NAME = 'aturduitku-v23-integrity-audit';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

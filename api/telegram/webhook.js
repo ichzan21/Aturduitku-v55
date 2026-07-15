@@ -3,6 +3,7 @@ import {
   answerTelegramCallback,
   buildApprovalResultMessage,
   editTelegramMessage,
+  verifyTelegramAdminChat,
   verifyTelegramWebhook,
 } from "../_lib/telegram.js";
 import { secureApi } from "../_lib/httpSecurity.js";
@@ -98,6 +99,10 @@ export default async function handler(req, res) {
     const update = req.body || {};
     const callbackQuery = update.callback_query;
     if (callbackQuery?.data?.startsWith("approval:")) {
+      if (!verifyTelegramAdminChat(callbackQuery)) {
+        await answerTelegramCallback(callbackQuery?.id, "Aksi hanya dapat diproses dari chat admin.");
+        return res.status(403).json({ error: "Admin chat required" });
+      }
       const result = await handleApprovalCallback(callbackQuery);
       return res.status(200).json(result);
     }
@@ -105,6 +110,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, ignored: true });
   } catch (error) {
     console.error("Telegram webhook failed", error?.message || error);
-    return res.status(error.status || 500).json({ error: error.message || "Telegram webhook failed" });
+    return res.status(error.status && error.status < 500 ? error.status : 500).json({ error: "Telegram webhook failed" });
   }
 }

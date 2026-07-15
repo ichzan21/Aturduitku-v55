@@ -57,6 +57,12 @@ export function verifyTelegramWebhook(req) {
   return header === webhookSecret;
 }
 
+export function verifyTelegramAdminChat(callbackQuery) {
+  const { chatId } = getTelegramConfig();
+  if (!chatId) return false;
+  return String(callbackQuery?.message?.chat?.id || "") === String(chatId);
+}
+
 export async function answerTelegramCallback(callbackQueryId, text) {
   if (!callbackQueryId) return;
   return telegram("answerCallbackQuery", {

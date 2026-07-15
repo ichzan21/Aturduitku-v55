@@ -61,6 +61,8 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: "Method not allowed" });
   } catch (error) {
-    return res.status(error.status || 500).json({ error: error.message || "Failed to sync user data" });
+    const status = error.status >= 400 && error.status < 500 ? error.status : 500;
+    if (status === 500) console.error("User data sync failed", error?.message || error);
+    return res.status(status).json({ error: status === 500 ? "Gagal menyinkronkan data akun" : error.message });
   }
 }

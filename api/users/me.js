@@ -126,6 +126,8 @@ export default async function handler(req, res) {
       },
     });
   } catch (error) {
-    return res.status(error.status || 500).json({ error: error.message || "Failed to load profile" });
+    const status = error.status >= 400 && error.status < 500 ? error.status : 500;
+    if (status === 500) console.error("User profile failed", error?.message || error);
+    return res.status(status).json({ error: status === 500 ? "Gagal memuat profil akun" : error.message });
   }
 }

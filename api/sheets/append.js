@@ -39,6 +39,11 @@ async function sheetsRequest(token, method, path, body) {
   return res.json();
 }
 
+const safeSheetCell = value => {
+  const clean = String(value ?? "").slice(0, 500);
+  return /^[=+\-@]/.test(clean) ? `'${clean}` : clean;
+};
+
 export default async function handler(req, res) {
   const security = secureApi(req, res, { methods: ["POST"] });
   if (security.handled) return;
@@ -68,7 +73,7 @@ export default async function handler(req, res) {
     const range = encodeURIComponent("Transaksi!A:H");
     const appendRes = await sheetsRequest(token, "POST",
       `/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
-      { values: [[tgl, ket||"", tipe, kategori||"", dompet||"", Number(jml)||0, id, now]] }
+      { values: [[safeSheetCell(tgl), safeSheetCell(ket), safeSheetCell(tipe), safeSheetCell(kategori), safeSheetCell(dompet), Number(jml)||0, safeSheetCell(id), now]] }
     );
 
     if (appendRes.error) throw new Error(appendRes.error.message);

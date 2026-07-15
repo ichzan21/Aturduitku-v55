@@ -38,8 +38,14 @@ export default async function handler(req, res) {
 
     // Store refresh_token in Firestore (server-side only)
     const db = getAdminDb();
-    await db.collection("user_tokens").doc(uid).set({
-      refresh_token,
+    const tokenRef = db.collection("user_tokens").doc(uid);
+    const existingToken = await tokenRef.get();
+    const storedRefreshToken = existingToken.data()?.refresh_token || "";
+    if (!refresh_token && !storedRefreshToken) {
+      return res.status(400).json({ error: "Google belum memberikan izin offline. Hubungkan ulang Google Sheets." });
+    }
+    await tokenRef.set({
+      ...(refresh_token ? { refresh_token } : {}),
       updated_at: new Date().toISOString(),
     }, { merge: true });
 

@@ -1,13 +1,18 @@
+import { timingSafeEqual } from "node:crypto";
 import { getAdminDb } from "../_lib/firebaseAdmin.js";
+import { secureApi } from "../_lib/httpSecurity.js";
 
 function isAuthorizedCron(req, secret) {
   const authorization = String(req.headers.authorization || "");
-  return authorization === `Bearer ${secret}`;
+  const expected = `Bearer ${secret}`;
+  const actualBuffer = Buffer.from(authorization);
+  const expectedBuffer = Buffer.from(expected);
+  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer);
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Cache-Control", "no-store");
-  res.setHeader("X-Content-Type-Options", "nosniff");
+  const security = secureApi(req, res, { methods: ["GET"] });
+  if (security.handled) return;
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
   const secret = process.env.CRON_SECRET;
   if (!secret) return res.status(503).json({ error: "Backup schedule is not configured" });

@@ -1,4 +1,10 @@
-export const moneyNumber = value => Number(String(value ?? 0).replace(/\./g, "")) || 0;
+export const moneyNumber = value => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const normalized = String(value ?? "").trim().replace(/[^\d-]/g, "");
+  if (!normalized || normalized === "-") return 0;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
 export const sameId = (left, right) => String(left ?? "") === String(right ?? "");
 
@@ -41,3 +47,53 @@ export const applyTransactionToWallets = (wallets, transaction, direction = 1) =
 
 export const hasWallet = (wallets, walletId) =>
   (wallets || []).some(wallet => sameId(wallet.id, walletId));
+
+export const findWallet = (wallets, walletId) =>
+  (wallets || []).find(wallet => sameId(wallet.id, walletId));
+
+export const transactionValidationError = (wallets, transaction, options = {}) => {
+  const tx = transaction || {};
+  const amount = moneyNumber(tx.jml);
+  const fee = moneyNumber(tx.biaya);
+  const source = findWallet(wallets, tx.dompetId);
+
+  if (tx.tipe !== "penyesuaian" && amount <= 0) return "invalid_amount";
+  if (fee < 0) return "invalid_amount";
+  if (!source && walletDeltasForTransaction(tx).size) return "wallet_not_found";
+
+  if (tx.tipe === "transfer") {
+    const destination = findWallet(wallets, tx.dompetTo);
+    if (!destination) return "wallet_not_found";
+    if (sameId(tx.dompetId, tx.dompetTo)) return "same_wallet";
+    if (options.requireFunds !== false && moneyNumber(source?.saldo) < amount + fee) return "insufficient_funds";
+  } else if (["pengeluaran", "tabungan", "investasi", "alokasi_amplop"].includes(tx.tipe)) {
+    if (!tx.amplopId && options.requireFunds !== false && moneyNumber(source?.saldo) < amount) {
+      return "insufficient_funds";
+    }
+  }
+
+  return "";
+};
+
+export const transactionFingerprint = transaction => {
+  const tx = transaction || {};
+  if (tx.importRef) return `import|${String(tx.importRef)}`;
+  return [
+    String(tx.tgl || ""),
+    String(tx.tipe || "").toLowerCase(),
+    moneyNumber(tx.jml),
+    String(tx.ket || "").trim().toLowerCase().replace(/\s+/g, " "),
+    String(tx.dompetId ?? ""),
+    String(tx.dompetTo ?? ""),
+  ].join("|");
+};
+
+export const uniqueNewTransactions = (existing, incoming) => {
+  const seen = new Set((existing || []).map(transactionFingerprint));
+  return (incoming || []).filter(transaction => {
+    const fingerprint = transactionFingerprint(transaction);
+    if (seen.has(fingerprint)) return false;
+    seen.add(fingerprint);
+    return true;
+  });
+};
