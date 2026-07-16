@@ -127,7 +127,7 @@ export async function sendNewUserApprovalMessage(user) {
 export async function sendSystemHealthAlert({ severity = "warning", title, lines = [], action = "Buka Dashboard Admin untuk melihat detail." }) {
   const { chatId } = getTelegramConfig();
   if (!isTelegramEnabled()) return { ok:false, skipped:true, reason:"telegram_disabled" };
-  const icon = severity === "critical" ? "ðŸš¨" : severity === "recovery" ? "âœ…" : "âš ï¸";
+  const icon = severity === "critical" ? "🚨" : severity === "recovery" ? "✅" : "⚠️";
   const text = [
     `${icon} <b>AturDuitku: ${escapeHtml(title || "Peringatan produksi")}</b>`,
     "",
@@ -142,7 +142,7 @@ export async function sendSystemHealthAlert({ severity = "warning", title, lines
     parse_mode: "HTML",
     disable_web_page_preview: true,
     reply_markup: {
-      inline_keyboard: [[{ text:"ðŸ©º Buka Kesehatan Aplikasi", url:"https://www.aturduitku.com" }]],
+      inline_keyboard: [[{ text:"🩺 Buka Kesehatan Aplikasi", url:"https://www.aturduitku.com" }]],
     },
   });
 }
