@@ -13,7 +13,6 @@ const requiredFiles = [
   "api/monitoring/client-error.js",
   "api/admin/monitoring.js",
   "api/maintenance/backup.js",
-  "api/maintenance/health.js",
 ];
 
 const failures = [];
