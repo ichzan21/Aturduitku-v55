@@ -13,6 +13,7 @@ const requiredFiles = [
   "api/monitoring/client-error.js",
   "api/admin/monitoring.js",
   "api/maintenance/backup.js",
+  "api/maintenance/health.js",
 ];
 
 const failures = [];
@@ -26,6 +27,9 @@ if (!vercel.rewrites?.some(rule => rule.source === "/__/auth/:path*")) {
 }
 if (!vercel.crons?.some(cron => cron.path === "/api/maintenance/backup")) {
   failures.push("Jadwal backup harian tidak ditemukan");
+}
+if (!vercel.crons?.some(cron => cron.path === "/api/maintenance/health")) {
+  failures.push("Jadwal health check produksi tidak ditemukan");
 }
 
 const firebaseSource = readFileSync("src/firebase.js", "utf8");

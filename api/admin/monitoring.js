@@ -1,6 +1,7 @@
 import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { requireAdmin } from "../_lib/auth.js";
-import { secureApi } from "../_lib/httpSecurity.js";
+import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
+import { sendMonitoringTestAlert } from "../_lib/monitoringAlerts.js";
 
 const safeText = (value, max = 180) => String(value || "")
   .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[email]")
@@ -10,12 +11,18 @@ const safeText = (value, max = 180) => String(value || "")
 const enabled = (name) => Boolean(String(process.env[name] || "").trim());
 
 export default async function handler(req, res) {
-  const security = secureApi(req, res, { methods: ["GET"] });
+  const security = secureApi(req, res, { methods: ["GET", "POST"] });
   if (security.handled) return;
 
   try {
     await requireAdmin(req);
     const db = getAdminDb();
+    if (req.method === "POST") {
+      assertJsonSize(req.body, 2_000);
+      if (req.body?.action !== "test_telegram") return res.status(400).json({ error:"Aksi monitoring tidak valid" });
+      const result = await sendMonitoringTestAlert(db);
+      return res.status(result?.sent ? 200 : 503).json({ ok:Boolean(result?.sent), reason:result?.reason || result?.result?.reason || null });
+    }
     const snapshot = await db.collection("_client_errors")
       .orderBy("createdAt", "desc")
       .limit(100)
@@ -31,6 +38,7 @@ export default async function handler(req, res) {
         route: safeText(data.route, 100),
         component: safeText(data.component, 80),
         appVersion: safeText(data.appVersion, 40),
+        durationMs: Math.max(0, Math.round(Number(data.durationMs) || 0)),
         createdAt: data.createdAt || null,
         resolved: data.resolved === true,
       };

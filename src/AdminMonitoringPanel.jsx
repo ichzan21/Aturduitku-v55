@@ -6,6 +6,8 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -21,6 +23,19 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
   };
 
   useEffect(() => { load(); }, []);
+
+  const testTelegram = async () => {
+    setTesting(true);
+    setTestResult("");
+    try {
+      await authedJson("/api/admin/monitoring", { method:"POST", body:JSON.stringify({ action:"test_telegram" }) });
+      setTestResult("Pesan tes berhasil dikirim ke Telegram admin.");
+    } catch (requestError) {
+      setTestResult(requestError.message || "Pesan tes belum dapat dikirim.");
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const services = data?.services || {};
   const serviceItems = [
@@ -38,10 +53,14 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
           <div style={{fontSize:16,fontWeight:900,color:T.text}}>Kesehatan aplikasi</div>
           <div style={{fontSize:11,color:T.muted,marginTop:3}}>Ringkasan privat untuk admin. Kunci API dan data sensitif tidak pernah ditampilkan.</div>
         </div>
-        <button type="button" onClick={load} disabled={loading} style={{padding:"8px 12px",borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontWeight:800,fontSize:11,cursor:loading?"wait":"pointer",fontFamily:"inherit"}}>{loading?"Memuat...":"Refresh"}</button>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <button type="button" onClick={testTelegram} disabled={testing} style={{padding:"8px 12px",borderRadius:9,border:`1px solid ${T.okBorder}`,background:T.okBg,color:T.ok,fontWeight:800,fontSize:11,cursor:testing?"wait":"pointer",fontFamily:"inherit"}}>{testing?"Mengirim...":"Tes Telegram"}</button>
+          <button type="button" onClick={load} disabled={loading} style={{padding:"8px 12px",borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontWeight:800,fontSize:11,cursor:loading?"wait":"pointer",fontFamily:"inherit"}}>{loading?"Memuat...":"Refresh"}</button>
+        </div>
       </div>
 
       {error && <div style={{padding:"10px 12px",borderRadius:10,background:T.errBg,border:`1px solid ${T.errBorder}`,color:T.err,fontSize:12,marginBottom:12}}>{error}</div>}
+      {testResult && <div style={{padding:"10px 12px",borderRadius:10,background:T.infoBg,border:`1px solid ${T.infoBorder}`,color:T.info,fontSize:11,fontWeight:700,marginBottom:12}}>{testResult}</div>}
 
       <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,minmax(0,1fr))":"repeat(3,minmax(0,1fr))",gap:10,marginBottom:14}}>
         {[

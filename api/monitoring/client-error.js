@@ -2,6 +2,7 @@ import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { requireUser } from "../_lib/auth.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 import { consumeRateLimit } from "../_lib/rateLimit.js";
+import { evaluateMonitoringAlerts } from "../_lib/monitoringAlerts.js";
 
 const text = (value, max) => String(value || "")
   .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[email]")
@@ -34,8 +35,12 @@ export default async function handler(req, res) {
       component: text(body.component, 100),
       appVersion: text(body.appVersion, 40),
       userAgent: text(body.userAgent, 320),
+      durationMs: Math.max(0, Math.min(120000, Math.round(Number(body.durationMs) || 0))),
       createdAt: new Date().toISOString(),
       resolved: false,
+    });
+    await evaluateMonitoringAlerts(db).catch((alertError) => {
+      console.error("Monitoring alert evaluation failed", alertError?.message || alertError);
     });
     return res.status(202).json({ ok: true });
   } catch (error) {

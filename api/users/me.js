@@ -1,6 +1,7 @@
 import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { getAdminEmails, requireUser } from "../_lib/auth.js";
 import { sendNewUserApprovalMessage } from "../_lib/telegram.js";
+import { evaluateUserGrowth } from "../_lib/monitoringAlerts.js";
 import { secureApi } from "../_lib/httpSecurity.js";
 
 function buildApproval(existing, isAdminEmail) {
@@ -76,6 +77,12 @@ export default async function handler(req, res) {
     }
 
     await ref.set(patch, { merge: true });
+
+    if (!snap.exists) {
+      await evaluateUserGrowth(db).catch((growthError) => {
+        console.error("User growth monitoring failed", growthError?.message || growthError);
+      });
+    }
 
     if (finalApprovalStatus === "pending_review") {
       const shouldNotifyTelegram = await reserveTelegramApprovalNotification(db, ref, now);

@@ -2513,6 +2513,7 @@ export default function App(){
   const cloudSaveQueueRef=useRef(Promise.resolve());
   const cloudSaveSequenceRef=useRef(0);
   const syncIdleTimerRef=useRef(null);
+  const performanceReportedRef=useRef(false);
   const [lang,setLang]=useState(()=>{try{return localStorage.getItem("aturduitku_lang")||"id";}catch(e){return "id";}});
   const t = (key) => TR[lang]?.[key] ?? TR["id"]?.[key] ?? key;
   const changeLang = (l) => { setLang(l); try{localStorage.setItem("aturduitku_lang",l);}catch(e){} };
@@ -2594,6 +2595,7 @@ export default function App(){
   },[isApproved,tourDismissed,modal]);
 
   const authedJson = async (url, options={}) => {
+    const requestStartedAt=performance.now();
     const token = await getCurrentIdToken();
     const { timeoutMs, ...fetchOptions } = options;
     const controller = new AbortController();
@@ -2608,11 +2610,20 @@ export default function App(){
       },
     }).finally(()=>clearTimeout(timeout));
     const data = await resp.json().catch(()=>({}));
+    const requestDuration=Math.round(performance.now()-requestStartedAt);
+    if(requestDuration>=3500){
+      reportClientError(new Error(`API lambat: ${requestDuration} ms`),{type:"api_slow",component:"authedJson",route:url,durationMs:requestDuration});
+    }
     if(!resp.ok){
       const error = new Error(data.error || `Request failed: ${resp.status}`);
       error.status = resp.status;
       error.code = data.code;
       error.details = data;
+      if(resp.status===429){
+        reportClientError(error,{type:"api_rate_limit",component:"authedJson",route:url,durationMs:requestDuration});
+      }else if(resp.status>=500){
+        reportClientError(error,{type:"api_server_error",component:"authedJson",route:url,durationMs:requestDuration});
+      }
       throw error;
     }
     return data;
@@ -2623,6 +2634,30 @@ export default function App(){
     setAccessProfile(data.profile || null);
     return data.profile || null;
   };
+
+  useEffect(()=>{
+    if(!fireUser||!cloudReady||performanceReportedRef.current)return;
+    performanceReportedRef.current=true;
+    const navigation=performance.getEntriesByType?.("navigation")?.[0];
+    const navigationDuration=Math.round(Number(navigation?.duration)||0);
+    if(navigationDuration>=4500){
+      reportClientError(new Error(`Startup lambat: ${navigationDuration} ms`),{type:"performance_slow",component:"app_startup",route:page,durationMs:navigationDuration});
+    }
+    if(typeof PerformanceObserver!=="function"||!PerformanceObserver.supportedEntryTypes?.includes("longtask"))return;
+    let totalLongTask=0;
+    let sent=false;
+    const observer=new PerformanceObserver((list)=>{
+      totalLongTask+=list.getEntries().reduce((sum,entry)=>sum+entry.duration,0);
+      if(!sent&&totalLongTask>=1200){
+        sent=true;
+        reportClientError(new Error(`UI long task: ${Math.round(totalLongTask)} ms`),{type:"performance_long_task",component:"browser_main_thread",route:page,durationMs:totalLongTask});
+        observer.disconnect();
+      }
+    });
+    observer.observe({entryTypes:["longtask"]});
+    const timer=setTimeout(()=>observer.disconnect(),30000);
+    return()=>{clearTimeout(timer);observer.disconnect();};
+  },[fireUser,cloudReady]);
 
   const loadCloudData = async (uid) => {
     if(!uid) return null;

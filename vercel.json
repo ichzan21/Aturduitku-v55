@@ -1,6 +1,7 @@
 {
   "crons": [
-    { "path": "/api/maintenance/backup", "schedule": "15 18 * * *" }
+    { "path": "/api/maintenance/backup", "schedule": "15 18 * * *" },
+    { "path": "/api/maintenance/health", "schedule": "45 18 * * *" }
   ],
   "headers": [
     {

@@ -124,6 +124,29 @@ export async function sendNewUserApprovalMessage(user) {
   });
 }
 
+export async function sendSystemHealthAlert({ severity = "warning", title, lines = [], action = "Buka Dashboard Admin untuk melihat detail." }) {
+  const { chatId } = getTelegramConfig();
+  if (!isTelegramEnabled()) return { ok:false, skipped:true, reason:"telegram_disabled" };
+  const icon = severity === "critical" ? "ðŸš¨" : severity === "recovery" ? "âœ…" : "âš ï¸";
+  const text = [
+    `${icon} <b>AturDuitku: ${escapeHtml(title || "Peringatan produksi")}</b>`,
+    "",
+    ...lines.filter(Boolean).slice(0, 8).map((line) => escapeHtml(line)),
+    "",
+    escapeHtml(action),
+  ].join("\n");
+
+  return telegram("sendMessage", {
+    chat_id: chatId,
+    text,
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+    reply_markup: {
+      inline_keyboard: [[{ text:"ðŸ©º Buka Kesehatan Aplikasi", url:"https://www.aturduitku.com" }]],
+    },
+  });
+}
+
 export function buildApprovalResultMessage(user, status, actor = "Telegram") {
   const statusLabel = {
     approved: "✅ APPROVED",

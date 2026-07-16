@@ -17,6 +17,7 @@ export async function reportClientError(error, context = {}) {
       component: cleanText(context.component, 100),
       appVersion: cleanText(import.meta.env.VITE_APP_VERSION || "web", 40),
       userAgent: cleanText(navigator.userAgent, 320),
+      durationMs: Math.max(0, Math.min(120000, Math.round(Number(context.durationMs) || 0))),
     };
 
     await fetch("/api/monitoring/client-error", {
