@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { secureApi } from "../_lib/httpSecurity.js";
+import { runProductionHealthCheck } from "../_lib/monitoringAlerts.js";
 
 function isAuthorizedCron(req, secret) {
   const authorization = String(req.headers.authorization || "");
@@ -52,7 +53,11 @@ export default async function handler(req, res) {
     }
     await commitBatch();
 
-    return res.status(200).json({ ok: true, backupKey, backedUp });
+    const health = await runProductionHealthCheck(db).catch((healthError) => {
+      console.error("Health check after backup failed", healthError?.message || healthError);
+      return { ok:false, error:"health_check_failed" };
+    });
+    return res.status(200).json({ ok: true, backupKey, backedUp, health });
   } catch (error) {
     console.error("Scheduled backup failed", error?.message || error);
     return res.status(500).json({ error: "Scheduled backup failed" });

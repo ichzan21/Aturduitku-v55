@@ -28,9 +28,8 @@ if (!vercel.rewrites?.some(rule => rule.source === "/__/auth/:path*")) {
 if (!vercel.crons?.some(cron => cron.path === "/api/maintenance/backup")) {
   failures.push("Jadwal backup harian tidak ditemukan");
 }
-if (!vercel.crons?.some(cron => cron.path === "/api/maintenance/health")) {
-  failures.push("Jadwal health check produksi tidak ditemukan");
-}
+const backupSource = readFileSync("api/maintenance/backup.js", "utf8");
+if (!backupSource.includes("runProductionHealthCheck")) failures.push("Health check belum terhubung ke cron backup");
 
 const firebaseSource = readFileSync("src/firebase.js", "utf8");
 for (const marker of ["signInWithPopup", "sendPasswordResetEmail", "sendEmailVerification"]) {
