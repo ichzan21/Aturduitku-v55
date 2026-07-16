@@ -9,6 +9,7 @@ const safeText = (value, max = 180) => String(value || "")
   .slice(0, max);
 
 const enabled = (name) => Boolean(String(process.env[name] || "").trim());
+const performanceTypes = new Set(["api_slow", "performance_slow", "performance_long_task"]);
 
 export default async function handler(req, res) {
   const security = secureApi(req, res, { methods: ["GET", "POST"] });
@@ -31,16 +32,20 @@ export default async function handler(req, res) {
     const now = Date.now();
     const events = snapshot.docs.map((doc) => {
       const data = doc.data() || {};
+      const type = safeText(data.type, 60);
+      const category = data.category === "performance" || performanceTypes.has(type) ? "performance" : "incident";
       return {
         id: doc.id,
-        type: safeText(data.type, 60),
+        type,
+        category,
+        severity: category === "performance" ? "warning" : safeText(data.severity, 20) || "error",
         message: safeText(data.message, 220),
         route: safeText(data.route, 100),
         component: safeText(data.component, 80),
         appVersion: safeText(data.appVersion, 40),
         durationMs: Math.max(0, Math.round(Number(data.durationMs) || 0)),
         createdAt: data.createdAt || null,
-        resolved: data.resolved === true,
+        resolved: category === "performance" || data.resolved === true,
       };
     });
 
@@ -48,7 +53,8 @@ export default async function handler(req, res) {
       const timestamp = Date.parse(event.createdAt || "");
       return Number.isFinite(timestamp) && now - timestamp <= hours * 60 * 60 * 1000;
     };
-    const unresolved = events.filter((event) => !event.resolved);
+    const unresolved = events.filter((event) => event.category === "incident" && !event.resolved);
+    const performance24Hours = events.filter((event) => event.category === "performance" && within(event, 24));
     const countsByType = unresolved.reduce((acc, event) => {
       const key = event.type || "client_error";
       acc[key] = (acc[key] || 0) + 1;
@@ -61,6 +67,7 @@ export default async function handler(req, res) {
         last24Hours: unresolved.filter((event) => within(event, 24)).length,
         last7Days: unresolved.filter((event) => within(event, 24 * 7)).length,
         unresolved: unresolved.length,
+        performance24Hours: performance24Hours.length,
       },
       countsByType,
       recent: events.slice(0, 20),

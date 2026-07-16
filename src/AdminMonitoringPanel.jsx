@@ -65,7 +65,7 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
       <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,minmax(0,1fr))":"repeat(3,minmax(0,1fr))",gap:10,marginBottom:14}}>
         {[
           ["Error 24 jam", data?.summary?.last24Hours ?? "-", T.err, T.errBg],
-          ["Error 7 hari", data?.summary?.last7Days ?? "-", T.warn, T.warnBg],
+          ["Peringatan lambat", data?.summary?.performance24Hours ?? "-", T.warn, T.warnBg],
           ["Belum selesai", data?.summary?.unresolved ?? "-", T.info, T.infoBg],
         ].map(([label,value,color,bg]) => <div key={label} style={{padding:"12px 13px",borderRadius:11,background:bg,border:`1px solid ${T.border}`}}><div style={{fontSize:9,fontWeight:800,color:T.muted,textTransform:"uppercase",letterSpacing:.8}}>{label}</div><div style={{fontSize:21,fontWeight:900,color,marginTop:3}}>{value}</div></div>)}
       </div>
@@ -78,10 +78,10 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
           </div>
         </div>
         <div style={{minWidth:0}}>
-          <div style={{fontSize:11,fontWeight:900,color:T.text,marginBottom:8}}>Error terbaru</div>
+          <div style={{fontSize:11,fontWeight:900,color:T.text,marginBottom:8}}>Aktivitas terbaru</div>
           <div style={{display:"grid",gap:7,maxHeight:230,overflowY:"auto"}}>
-            {(data?.recent || []).slice(0,8).map((event) => <div key={event.id} style={{padding:"9px 10px",borderRadius:9,background:T.cardAlt,border:`1px solid ${T.border}`,minWidth:0}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontSize:10,fontWeight:900,color:T.err,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{event.type || "client_error"}</span><span style={{fontSize:9,color:T.muted,flexShrink:0}}>{event.createdAt?new Date(event.createdAt).toLocaleString("id-ID",{dateStyle:"short",timeStyle:"short"}):"-"}</span></div><div style={{fontSize:10,color:T.sub,marginTop:3,overflowWrap:"anywhere"}}>{event.message || "Tanpa detail"}</div></div>)}
-            {!loading && !(data?.recent || []).length && <div style={{padding:"18px 12px",textAlign:"center",borderRadius:10,background:T.okBg,color:T.ok,fontSize:11,fontWeight:800}}>Tidak ada error tercatat.</div>}
+            {(data?.recent || []).slice(0,8).map((event) => <div key={event.id} style={{padding:"9px 10px",borderRadius:9,background:T.cardAlt,border:`1px solid ${T.border}`,minWidth:0}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontSize:10,fontWeight:900,color:event.category==="performance"?T.warn:T.err,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{event.type || "client_error"}</span><span style={{fontSize:9,color:T.muted,flexShrink:0}}>{event.createdAt?new Date(event.createdAt).toLocaleString("id-ID",{dateStyle:"short",timeStyle:"short"}):"-"}</span></div><div style={{fontSize:9,fontWeight:800,color:event.category==="performance"?T.warn:T.err,marginTop:3}}>{event.category==="performance"?"Peringatan performa":"Insiden"}</div><div style={{fontSize:10,color:T.sub,marginTop:3,overflowWrap:"anywhere"}}>{event.message || "Tanpa detail"}</div></div>)}
+            {!loading && !(data?.recent || []).length && <div style={{padding:"18px 12px",textAlign:"center",borderRadius:10,background:T.okBg,color:T.ok,fontSize:11,fontWeight:800}}>Belum ada aktivitas monitoring.</div>}
           </div>
         </div>
       </div>

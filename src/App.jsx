@@ -2611,9 +2611,6 @@ export default function App(){
     }).finally(()=>clearTimeout(timeout));
     const data = await resp.json().catch(()=>({}));
     const requestDuration=Math.round(performance.now()-requestStartedAt);
-    if(requestDuration>=3500){
-      reportClientError(new Error(`API lambat: ${requestDuration} ms`),{type:"api_slow",component:"authedJson",route:url,durationMs:requestDuration});
-    }
     if(!resp.ok){
       const error = new Error(data.error || `Request failed: ${resp.status}`);
       error.status = resp.status;
@@ -2625,6 +2622,10 @@ export default function App(){
         reportClientError(error,{type:"api_server_error",component:"authedJson",route:url,durationMs:requestDuration});
       }
       throw error;
+    }
+    const slowThreshold=url.startsWith("/api/ai/")?10000:5000;
+    if(requestDuration>=slowThreshold){
+      reportClientError(new Error(`API lambat: ${requestDuration} ms`),{type:"api_slow",component:"authedJson",route:url,durationMs:requestDuration});
     }
     return data;
   };
