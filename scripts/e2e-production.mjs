@@ -21,6 +21,8 @@ async function login(page) {
   await page.getByPlaceholder("Password").fill(password);
   await page.getByRole("button", { name:"Masuk dengan Email" }).click();
   await page.getByText("Home", { exact:true }).first().waitFor({ state:"visible", timeout:45_000 });
+  const dismissTour = page.getByRole("button", { name:"Nanti dulu", exact:true });
+  if (await dismissTour.isVisible().catch(() => false)) await dismissTour.click();
 }
 
 async function openTransactions(page, mobile) {
@@ -30,6 +32,18 @@ async function openTransactions(page, mobile) {
     await page.getByText("Transaksi", { exact:true }).first().click();
   }
   await page.getByPlaceholder(/Cari transaksi/i).waitFor({ state:"visible", timeout:15_000 });
+}
+
+async function cleanupE2ETransactions(page) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const transactionText = page.getByText(/^\[E2E\] \d+$/).first();
+    if (!(await transactionText.isVisible().catch(() => false))) return;
+    const row = transactionText.locator('xpath=ancestor::div[.//button[@aria-label="Hapus"]][1]');
+    await row.getByRole("button", { name:"Hapus" }).click();
+    await page.getByRole("button", { name:/Ya, Lanjutkan|Yes, Proceed/ }).click();
+    await transactionText.waitFor({ state:"detached", timeout:15_000 });
+  }
+  throw new Error("Lebih dari 10 transaksi E2E lama ditemukan; cleanup dihentikan.");
 }
 
 async function smoke(viewport, name, mutate = false) {
@@ -44,6 +58,7 @@ async function smoke(viewport, name, mutate = false) {
   await page.screenshot({ path:`${artifacts}/${name}-transactions.png`, fullPage:true });
 
   if (mutate) {
+    await cleanupE2ETransactions(page);
     const note = `[E2E] ${Date.now()}`;
     await page.getByRole("button", { name:/Tambah Transaksi|\+ Transaksi/i }).first().click();
     await page.getByText(/Transaksi Baru|Transaksi baru/i).first().waitFor();
@@ -62,12 +77,12 @@ async function smoke(viewport, name, mutate = false) {
     await page.getByTestId("transaction-undo-button").click();
 
     await row.getByRole("button", { name:"Hapus" }).click();
-    await page.getByRole("button", { name:"Konfirmasi", exact:true }).click();
+    await page.getByRole("button", { name:/Ya, Lanjutkan|Yes, Proceed/ }).click();
     await page.getByTestId("transaction-undo-button").click();
     await page.getByText(note, { exact:true }).waitFor();
 
     await row.getByRole("button", { name:"Hapus" }).click();
-    await page.getByRole("button", { name:"Konfirmasi", exact:true }).click();
+    await page.getByRole("button", { name:/Ya, Lanjutkan|Yes, Proceed/ }).click();
     await page.getByText(note, { exact:true }).waitFor({ state:"detached", timeout:15_000 });
   }
 
