@@ -11,6 +11,7 @@ const requiredFiles = [
   "api/ai/cloudflare.js",
   "api/telegram/webhook.js",
   "api/monitoring/client-error.js",
+  "api/admin/monitoring.js",
   "api/maintenance/backup.js",
 ];
 
@@ -42,7 +43,7 @@ for (const marker of ["DATA_CONFLICT", "currentVersion", "409"]) {
 }
 
 const appSource = readFileSync("src/App.jsx", "utf8");
-for (const marker of ["replaceTransactionInWallets", "resolveConflictWithCloud", "resolveConflictWithLocal"]) {
+for (const marker of ["replaceTransactionInWallets", "resolveConflictWithCloud", "resolveConflictWithLocal", "scheduleUndo", "AdminMonitoringPanelLazy"]) {
   if (!appSource.includes(marker)) failures.push(`Alur integritas transaksi hilang: ${marker}`);
 }
 
@@ -69,4 +70,5 @@ console.log("- Build produksi dan secret scan aman");
 console.log("- Google/email auth dan custom auth handler tersedia");
 console.log("- AI, Telegram approval, sinkronisasi, monitoring, dan backup tersedia");
 console.log("- Edit transaksi reversibel dan konflik antarperangkat terlindungi");
+console.log("- Undo transaksi dan monitoring privat admin tersedia");
 console.log("- Syntax seluruh route backend valid");

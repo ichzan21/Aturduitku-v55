@@ -8,6 +8,7 @@ import { applyTransactionToWallets, findWallet, hasWallet, replaceTransactionInW
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
 const DonutChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DonutChart })));
+const AdminMonitoringPanelLazy = React.lazy(() => import("./AdminMonitoringPanel.jsx"));
 
 
 // ─── ERROR BOUNDARY ───────────────────────────────────────────────────────────
@@ -970,7 +971,7 @@ const LaunchEmpty=({title,desc,actionLabel,onAction,secondaryLabel,onSecondary,i
 };
 const Del=({onClick})=>{
   const T=useT();
-  return <button onClick={onClick} className="del-x" style={{background:"none",border:"none",color:T.muted,padding:"2px 6px",fontSize:14,fontFamily:"inherit",borderRadius:4,cursor:"pointer"}}>X</button>;
+  return <button type="button" onClick={onClick} aria-label="Hapus" className="del-x" style={{background:"none",border:"none",color:T.muted,padding:"2px 6px",fontSize:14,fontFamily:"inherit",borderRadius:4,cursor:"pointer"}}>X</button>;
 };
 const CurIn=({value,onChange,placeholder="0",style={}})=>{
   const T=useT();
@@ -2525,6 +2526,8 @@ export default function App(){
 
   const [page,setPage]=useState("home");
   const [toast,setToast]=useState("");
+  const [undoAction,setUndoAction]=useState(null);
+  const undoTimerRef=useRef(null);
   const [modal,setModal]=useState(null);
   const [commandOpen,setCommandOpen]=useState(false);
   const [commandQuery,setCommandQuery]=useState("");
@@ -2704,6 +2707,7 @@ export default function App(){
           }
         }catch(e){
           if(e.code==="DATA_CONFLICT"){
+            reportClientError(e,{type:"sync_conflict",component:"cloud_autosave",route:page});
             try{
               const remote=await loadCloudData(fireUser.uid);
               if(saveSequence===cloudSaveSequenceRef.current){
@@ -5847,6 +5851,27 @@ Saldo amplop bertambah.`}]);
     setModal({type:"tx",editTxId:tx.id});
   };
 
+  const scheduleUndo=(beforeState,afterState,label)=>{
+    clearTimeout(undoTimerRef.current);
+    setUndoAction({beforeState,afterState,label});
+    undoTimerRef.current=setTimeout(()=>setUndoAction(null),15000);
+  };
+
+  const applyUndo=()=>{
+    if(!undoAction)return;
+    if(s!==undoAction.afterState){
+      setUndoAction(null);
+      showToast("Undo dibatalkan karena data sudah berubah lagi.");
+      return;
+    }
+    setS(undoAction.beforeState);
+    clearTimeout(undoTimerRef.current);
+    setUndoAction(null);
+    showToast("Perubahan berhasil dibatalkan.");
+  };
+
+  useEffect(()=>()=>clearTimeout(undoTimerRef.current),[]);
+
   const commitEditedTransaction=(nextTransaction)=>{
     if(modal?.editTxId===undefined) return null;
     const previous=s.txs.find(tx=>sameId(tx.id,modal.editTxId));
@@ -5865,11 +5890,13 @@ Saldo amplop bertambah.`}]);
     };
     try{
       const nextWallets=replaceTransactionInWallets(s.dompet,previous,updated);
-      setS(current=>({
-        ...current,
+      const nextState={
+        ...s,
         dompet:nextWallets,
-        txs:current.txs.map(tx=>sameId(tx.id,previous.id)?updated:tx),
-      }));
+        txs:s.txs.map(tx=>sameId(tx.id,previous.id)?updated:tx),
+      };
+      setS(nextState);
+      scheduleUndo(s,nextState,"Transaksi diperbarui");
       setTxForm(form=>({...form,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",biaya:"",goalId:""}));
       setModal(null);
       showToast("Transaksi dan saldo berhasil diperbarui.");
@@ -6130,7 +6157,8 @@ Saldo amplop bertambah.`}]);
     title:"Hapus transaksi?",
     msg:`Transaksi "${tx.ket||tx.tipe}" akan dihapus dan saldo dompet terkait akan disesuaikan ulang.`,
     toastMsg:"Transaksi dihapus",
-    onConfirm:()=>setS(p=>{
+    onConfirm:()=>{
+      const p=s;
       const jmlNum=N(tx.jml);
       let newDompet=applyTransactionToWallets(p.dompet,tx,-1);
       let newGoals=p.goals;
@@ -6167,8 +6195,10 @@ Saldo amplop bertambah.`}]);
           });
         }
       }
-      return{...p,txs:p.txs.filter(x=>x.id!==tx.id),dompet:newDompet,goals:newGoals,asetTetap:newAset,amplop:newAmplop};
-    })
+      const nextState={...p,txs:p.txs.filter(x=>x.id!==tx.id),dompet:newDompet,goals:newGoals,asetTetap:newAset,amplop:newAmplop};
+      setS(nextState);
+      scheduleUndo(s,nextState,"Transaksi dihapus");
+    }
   });
 
   const renderTxItem=t=>{
@@ -6547,6 +6577,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
       {/* Toast */}
       {toast&&<div className="toast-in" style={{position:"fixed",top:"max(18px, calc(env(safe-area-inset-top) + 8px))",right:"max(14px, env(safe-area-inset-right))",left:isMobile?"max(14px, env(safe-area-inset-left))":"auto",maxWidth:isMobile?"none":"min(430px, calc(100vw - 28px))",background:T.card,color:T.text,padding:"12px 15px",borderRadius:14,fontSize:13,fontWeight:800,zIndex:9999,boxShadow:T.shadowMd,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:10,lineHeight:1.35}}><span style={{width:28,height:28,borderRadius:9,background:T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><img src="/icon-192.png" style={{width:22,height:22,borderRadius:6,verticalAlign:"middle"}}/></span><span style={{minWidth:0,overflowWrap:"anywhere"}}>{toast}</span></div>}
+      {undoAction&&<div data-testid="transaction-undo" style={{position:"fixed",left:isMobile?"max(14px,env(safe-area-inset-left))":"50%",right:isMobile?"max(14px,env(safe-area-inset-right))":"auto",transform:isMobile?"none":"translateX(-50%)",bottom:isMobile?"calc(82px + env(safe-area-inset-bottom))":"24px",zIndex:10010,display:"flex",alignItems:"center",justifyContent:"space-between",gap:18,padding:"11px 12px 11px 15px",borderRadius:12,background:T.text,color:T.card,boxShadow:T.shadowMd,minWidth:isMobile?0:340,maxWidth:"calc(100vw - 28px)"}}><span style={{fontSize:12,fontWeight:800}}>{undoAction.label}. Bisa dibatalkan 15 detik.</span><button data-testid="transaction-undo-button" type="button" onClick={applyUndo} style={{border:"none",borderRadius:8,padding:"8px 11px",background:T.accent,color:"white",fontSize:11,fontWeight:900,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Batalkan</button></div>}
 
       {/* Global Calculator */}
       {showCalc&&calcFor&&<Calculator value={calcFor.cur} onChange={v=>{calcFor.setter(v);setShowCalc(false);setCalcFor(null);}} onClose={()=>{setShowCalc(false);setCalcFor(null);}}/>}
@@ -8817,6 +8848,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </div>
               ))}
             </div>
+            <Suspense fallback={<div className="smooth-skeleton" style={{height:220,borderRadius:14,marginBottom:18}}/>}>
+              <AdminMonitoringPanelLazy authedJson={authedJson} theme={T} isMobile={isMobile} reportError={reportClientError}/>
+            </Suspense>
             <Card ch={<>
               <Sec t="Kelola User" sub="Aktifkan akun setelah pembayaran terkonfirmasi di Scalev." right={<Btn onClick={loadAdminUsers} ch={adminLoading?"Memuat...":"Refresh"} c={T.info} outline style={{padding:"6px 12px",fontSize:11}}/>}/>
               <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>

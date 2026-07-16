@@ -8,21 +8,24 @@
     "check:secrets": "node scripts/check-secrets.mjs",
     "test:ledger": "node scripts/finance-ledger.test.mjs",
     "test:flows": "node scripts/financial-flow.test.mjs",
+    "test:e2e": "node scripts/e2e-production.mjs",
     "build": "npm run check:secrets && vite build",
     "qa:release": "npm run test:ledger && npm run test:flows && npm run build && node scripts/prelaunch-check.mjs",
+    "qa:full": "npm run qa:release && npm run test:e2e",
     "preview": "vite preview"
   },
   "dependencies": {
+    "firebase": "^10.12.0",
     "firebase-admin": "^13.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "recharts": "^2.12.7",
-    "firebase": "^10.12.0"
+    "recharts": "^2.12.7"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "playwright-core": "^1.61.1",
     "vite": "^5.4.2"
   }
 }
