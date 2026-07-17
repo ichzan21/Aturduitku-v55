@@ -2623,7 +2623,7 @@ export default function App(){
       }
       throw error;
     }
-    const slowThreshold=url.startsWith("/api/ai/")?10000:5000;
+    const slowThreshold=url.startsWith("/api/ai/")?10000:8000;
     if(requestDuration>=slowThreshold){
       reportClientError(new Error(`API lambat: ${requestDuration} ms`),{type:"api_slow",component:"authedJson",route:url,durationMs:requestDuration});
     }
@@ -2641,7 +2641,7 @@ export default function App(){
     performanceReportedRef.current=true;
     const navigation=performance.getEntriesByType?.("navigation")?.[0];
     const navigationDuration=Math.round(Number(navigation?.duration)||0);
-    if(navigationDuration>=4500){
+    if(navigationDuration>=8000){
       reportClientError(new Error(`Startup lambat: ${navigationDuration} ms`),{type:"performance_slow",component:"app_startup",route:page,durationMs:navigationDuration});
     }
     if(typeof PerformanceObserver!=="function"||!PerformanceObserver.supportedEntryTypes?.includes("longtask"))return;
@@ -2649,7 +2649,7 @@ export default function App(){
     let sent=false;
     const observer=new PerformanceObserver((list)=>{
       totalLongTask+=list.getEntries().reduce((sum,entry)=>sum+entry.duration,0);
-      if(!sent&&totalLongTask>=1200){
+      if(!sent&&totalLongTask>=2500){
         sent=true;
         reportClientError(new Error(`UI long task: ${Math.round(totalLongTask)} ms`),{type:"performance_long_task",component:"browser_main_thread",route:page,durationMs:totalLongTask});
         observer.disconnect();

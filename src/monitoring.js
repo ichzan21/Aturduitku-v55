@@ -4,14 +4,25 @@ const cleanText = (value, maxLength) => String(value || "")
   .replace(/\b\d{8,12}:[A-Za-z0-9_-]{20,}\b/g, "[redacted]")
   .slice(0, maxLength);
 
+const ignoredBrowserNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
+const performanceTypes = new Set(["api_slow", "performance_slow", "performance_long_task"]);
+
 export async function reportClientError(error, context = {}) {
   try {
+    const type = cleanText(context.type || "client_error", 60);
+    const message = cleanText(error?.message || error, 500);
+    if (ignoredBrowserNoise.test(message)) return;
+    if (performanceTypes.has(type)) {
+      const dedupeKey = `monitoring:${type}:${cleanText(context.route || window.location.pathname, 120)}`;
+      if (sessionStorage.getItem(dedupeKey)) return;
+      sessionStorage.setItem(dedupeKey, "1");
+    }
     const token = await getCurrentIdToken();
     if (!token) return;
 
     const payload = {
-      type: cleanText(context.type || "client_error", 60),
-      message: cleanText(error?.message || error, 500),
+      type,
+      message,
       stack: cleanText(error?.stack, 1600),
       route: cleanText(context.route || window.location.pathname, 120),
       component: cleanText(context.component, 100),

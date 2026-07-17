@@ -65,7 +65,7 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
       <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,minmax(0,1fr))":"repeat(3,minmax(0,1fr))",gap:10,marginBottom:14}}>
         {[
           ["Error 24 jam", data?.summary?.last24Hours ?? "-", T.err, T.errBg],
-          ["Peringatan lambat", data?.summary?.performance24Hours ?? "-", T.warn, T.warnBg],
+          ["Lambat 1 jam", data?.summary?.performance1Hour ?? "-", T.warn, T.warnBg],
           ["Belum selesai", data?.summary?.unresolved ?? "-", T.info, T.infoBg],
         ].map(([label,value,color,bg]) => <div key={label} style={{padding:"12px 13px",borderRadius:11,background:bg,border:`1px solid ${T.border}`}}><div style={{fontSize:9,fontWeight:800,color:T.muted,textTransform:"uppercase",letterSpacing:.8}}>{label}</div><div style={{fontSize:21,fontWeight:900,color,marginTop:3}}>{value}</div></div>)}
       </div>

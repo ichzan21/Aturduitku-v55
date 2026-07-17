@@ -10,6 +10,7 @@ const safeText = (value, max = 180) => String(value || "")
 
 const enabled = (name) => Boolean(String(process.env[name] || "").trim());
 const performanceTypes = new Set(["api_slow", "performance_slow", "performance_long_task"]);
+const ignoredBrowserNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
 
 export default async function handler(req, res) {
   const security = secureApi(req, res, { methods: ["GET", "POST"] });
@@ -33,19 +34,22 @@ export default async function handler(req, res) {
     const events = snapshot.docs.map((doc) => {
       const data = doc.data() || {};
       const type = safeText(data.type, 60);
-      const category = data.category === "performance" || performanceTypes.has(type) ? "performance" : "incident";
+      const message = safeText(data.message, 220);
+      const category = ignoredBrowserNoise.test(message)
+        ? "ignored"
+        : data.category === "performance" || performanceTypes.has(type) ? "performance" : "incident";
       return {
         id: doc.id,
         type,
         category,
         severity: category === "performance" ? "warning" : safeText(data.severity, 20) || "error",
-        message: safeText(data.message, 220),
+        message,
         route: safeText(data.route, 100),
         component: safeText(data.component, 80),
         appVersion: safeText(data.appVersion, 40),
         durationMs: Math.max(0, Math.round(Number(data.durationMs) || 0)),
         createdAt: data.createdAt || null,
-        resolved: category === "performance" || data.resolved === true,
+        resolved: category !== "incident" || data.resolved === true,
       };
     });
 
@@ -54,7 +58,8 @@ export default async function handler(req, res) {
       return Number.isFinite(timestamp) && now - timestamp <= hours * 60 * 60 * 1000;
     };
     const unresolved = events.filter((event) => event.category === "incident" && !event.resolved);
-    const performance24Hours = events.filter((event) => event.category === "performance" && within(event, 24));
+    const performance1Hour = events.filter((event) => event.category === "performance" && within(event, 1));
+    const visibleEvents = events.filter((event) => event.category !== "ignored");
     const countsByType = unresolved.reduce((acc, event) => {
       const key = event.type || "client_error";
       acc[key] = (acc[key] || 0) + 1;
@@ -67,10 +72,10 @@ export default async function handler(req, res) {
         last24Hours: unresolved.filter((event) => within(event, 24)).length,
         last7Days: unresolved.filter((event) => within(event, 24 * 7)).length,
         unresolved: unresolved.length,
-        performance24Hours: performance24Hours.length,
+        performance1Hour: performance1Hour.length,
       },
       countsByType,
-      recent: events.slice(0, 20),
+      recent: visibleEvents.slice(0, 20),
       services: {
         ai: enabled("CLOUDFLARE_API_TOKEN"),
         telegram: enabled("TELEGRAM_BOT_TOKEN") && enabled("TELEGRAM_ADMIN_CHAT_ID"),

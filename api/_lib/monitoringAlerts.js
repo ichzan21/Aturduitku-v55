@@ -60,8 +60,10 @@ export async function evaluateMonitoringAlerts(db) {
   const snapshot = await db.collection("_client_errors").orderBy("createdAt", "desc").limit(80).get();
   const cutoff = Date.now() - FIFTEEN_MINUTES;
   const recent = snapshot.docs.map((doc) => doc.data() || {}).filter((event) => toMs(event.createdAt) >= cutoff);
-  const severe = recent.filter((event) => ["react_boundary", "window_error", "unhandled_rejection", "api_server_error"].includes(event.type));
+  const browserNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
+  const severe = recent.filter((event) => ["react_boundary", "window_error", "unhandled_rejection", "api_server_error"].includes(event.type) && !browserNoise.test(String(event.message || "")));
   const slow = recent.filter((event) => ["performance_slow", "performance_long_task", "api_slow"].includes(event.type));
+  const slowSessions = new Set(slow.map((event) => `${event.uid || "server"}:${Math.floor(toMs(event.createdAt) / (5 * 60 * 1000))}`));
   const limited = recent.filter((event) => ["api_rate_limit", "ai_rate_limit"].includes(event.type));
   const alerts = [];
 
@@ -70,12 +72,12 @@ export async function evaluateMonitoringAlerts(db) {
     lines:[`${severe.length} error serius dalam 15 menit.`, `Halaman terbanyak: ${severe[0]?.route || "tidak diketahui"}.`, "Kemungkinan ada regresi kode atau layanan eksternal bermasalah."],
     action:"Periksa Monitoring Produksi di Dashboard Admin dan deployment Vercel terbaru.",
   }]);
-  if (slow.length >= 3) {
+  if (slowSessions.size >= 3) {
     const durations = slow.map((event) => Number(event.durationMs) || 0).filter(Boolean);
     const average = durations.length ? Math.round(durations.reduce((a,b) => a + b, 0) / durations.length) : null;
     alerts.push(["slow_app", {
       severity:"warning", title:"Aplikasi terasa lambat",
-      lines:[`${slow.length} laporan lambat dalam 15 menit.`, average ? `Rata-rata terukur: ${average} ms.` : "Beberapa perangkat melaporkan respons lambat.", "Periksa status Vercel, Firebase, dan koneksi Cloudflare AI."],
+      lines:[`${slowSessions.size} sesi mengalami perlambatan dalam 15 menit.`, average ? `Rata-rata terukur: ${average} ms.` : "Beberapa perangkat melaporkan respons lambat.", "Periksa status Vercel, Firebase, dan koneksi Cloudflare AI."],
       action:"Jika terus naik, kurangi proses berat atau pertimbangkan upgrade kapasitas layanan.",
     }]);
   }
