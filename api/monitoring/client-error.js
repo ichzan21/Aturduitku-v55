@@ -28,11 +28,12 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const eventType = text(body.type, 60);
     const isPerformance = ["api_slow", "performance_slow", "performance_long_task"].includes(eventType);
+    const isOperational = eventType === "sync_conflict";
     await db.collection("_client_errors").add({
       uid: decoded.uid,
       type: eventType,
-      category: isPerformance ? "performance" : "incident",
-      severity: isPerformance ? "warning" : "error",
+      category: isPerformance ? "performance" : isOperational ? "operational" : "incident",
+      severity: isPerformance || isOperational ? "warning" : "error",
       message: text(body.message, 500),
       stack: text(body.stack, 1600),
       route: text(body.route, 120),
@@ -41,7 +42,7 @@ export default async function handler(req, res) {
       userAgent: text(body.userAgent, 320),
       durationMs: Math.max(0, Math.min(120000, Math.round(Number(body.durationMs) || 0))),
       createdAt: new Date().toISOString(),
-      resolved: isPerformance,
+      resolved: isPerformance || isOperational,
     });
     await evaluateMonitoringAlerts(db).catch((alertError) => {
       console.error("Monitoring alert evaluation failed", alertError?.message || alertError);

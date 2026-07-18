@@ -2597,18 +2597,34 @@ export default function App(){
   const authedJson = async (url, options={}) => {
     const requestStartedAt=performance.now();
     const token = await getCurrentIdToken();
+    let requestWasHidden=document.hidden;
+    const trackHidden=()=>{if(document.hidden)requestWasHidden=true;};
+    document.addEventListener("visibilitychange",trackHidden);
     const { timeoutMs, ...fetchOptions } = options;
     const controller = new AbortController();
-    const timeout = setTimeout(()=>controller.abort(), timeoutMs || 12000);
-    const resp = await fetch(url, {
-      ...fetchOptions,
-      signal:controller.signal,
-      headers: {
-        "Content-Type":"application/json",
-        Authorization:`Bearer ${token}`,
-        ...(fetchOptions.headers||{}),
-      },
-    }).finally(()=>clearTimeout(timeout));
+    const requestTimeout=timeoutMs||12000;
+    const timeout = setTimeout(()=>controller.abort(), requestTimeout);
+    let resp;
+    try{
+      resp=await fetch(url, {
+        ...fetchOptions,
+        signal:controller.signal,
+        headers: {
+          "Content-Type":"application/json",
+          Authorization:`Bearer ${token}`,
+          ...(fetchOptions.headers||{}),
+        },
+      });
+    }catch(error){
+      if(!requestWasHidden){
+        const requestDuration=Math.min(requestTimeout,Math.round(performance.now()-requestStartedAt));
+        reportClientError(error,{type:controller.signal.aborted?"api_timeout":"api_network_error",component:"authedJson",route:url,durationMs:requestDuration});
+      }
+      throw error;
+    }finally{
+      clearTimeout(timeout);
+      document.removeEventListener("visibilitychange",trackHidden);
+    }
     const data = await resp.json().catch(()=>({}));
     const requestDuration=Math.round(performance.now()-requestStartedAt);
     if(!resp.ok){
@@ -2624,7 +2640,7 @@ export default function App(){
       throw error;
     }
     const slowThreshold=url.startsWith("/api/ai/")?10000:8000;
-    if(requestDuration>=slowThreshold){
+    if(!requestWasHidden&&requestDuration>=slowThreshold){
       reportClientError(new Error(`API lambat: ${requestDuration} ms`),{type:"api_slow",component:"authedJson",route:url,durationMs:requestDuration});
     }
     return data;

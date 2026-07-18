@@ -61,7 +61,7 @@ export async function evaluateMonitoringAlerts(db) {
   const cutoff = Date.now() - FIFTEEN_MINUTES;
   const recent = snapshot.docs.map((doc) => doc.data() || {}).filter((event) => toMs(event.createdAt) >= cutoff);
   const browserNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
-  const severe = recent.filter((event) => ["react_boundary", "window_error", "unhandled_rejection", "api_server_error"].includes(event.type) && !browserNoise.test(String(event.message || "")));
+  const severe = recent.filter((event) => ["react_boundary", "window_error", "unhandled_rejection", "api_server_error", "api_timeout", "api_network_error"].includes(event.type) && !browserNoise.test(String(event.message || "")));
   const slow = recent.filter((event) => ["performance_slow", "performance_long_task", "api_slow"].includes(event.type));
   const slowSessions = new Set(slow.map((event) => `${event.uid || "server"}:${Math.floor(toMs(event.createdAt) / (5 * 60 * 1000))}`));
   const limited = recent.filter((event) => ["api_rate_limit", "ai_rate_limit"].includes(event.type));

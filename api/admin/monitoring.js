@@ -10,6 +10,7 @@ const safeText = (value, max = 180) => String(value || "")
 
 const enabled = (name) => Boolean(String(process.env[name] || "").trim());
 const performanceTypes = new Set(["api_slow", "performance_slow", "performance_long_task"]);
+const operationalTypes = new Set(["sync_conflict"]);
 const ignoredBrowserNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
 
 export default async function handler(req, res) {
@@ -37,12 +38,14 @@ export default async function handler(req, res) {
       const message = safeText(data.message, 220);
       const category = ignoredBrowserNoise.test(message)
         ? "ignored"
-        : data.category === "performance" || performanceTypes.has(type) ? "performance" : "incident";
+        : data.category === "performance" || performanceTypes.has(type)
+          ? "performance"
+          : data.category === "operational" || operationalTypes.has(type) ? "operational" : "incident";
       return {
         id: doc.id,
         type,
         category,
-        severity: category === "performance" ? "warning" : safeText(data.severity, 20) || "error",
+        severity: category === "incident" ? safeText(data.severity, 20) || "error" : "warning",
         message,
         route: safeText(data.route, 100),
         component: safeText(data.component, 80),
