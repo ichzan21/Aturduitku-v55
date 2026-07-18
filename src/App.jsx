@@ -2600,7 +2600,7 @@ export default function App(){
     let requestWasHidden=document.hidden;
     const trackHidden=()=>{if(document.hidden)requestWasHidden=true;};
     document.addEventListener("visibilitychange",trackHidden);
-    const { timeoutMs, ...fetchOptions } = options;
+    const { timeoutMs, suppressNetworkMonitoring=false, ...fetchOptions } = options;
     const controller = new AbortController();
     const requestTimeout=timeoutMs||12000;
     const timeout = setTimeout(()=>controller.abort(), requestTimeout);
@@ -2616,11 +2616,14 @@ export default function App(){
         },
       });
     }catch(error){
-      if(!requestWasHidden){
+      const requestError=new Error(error?.message||"Koneksi ke server terputus");
+      requestError.code=controller.signal.aborted?"API_TIMEOUT":"API_NETWORK_ERROR";
+      requestError.monitorable=!requestWasHidden;
+      if(requestError.monitorable&&!suppressNetworkMonitoring){
         const requestDuration=Math.min(requestTimeout,Math.round(performance.now()-requestStartedAt));
-        reportClientError(error,{type:controller.signal.aborted?"api_timeout":"api_network_error",component:"authedJson",route:url,durationMs:requestDuration});
+        reportClientError(requestError,{type:controller.signal.aborted?"api_timeout":"api_network_error",component:"authedJson",route:url,durationMs:requestDuration});
       }
-      throw error;
+      throw requestError;
     }finally{
       clearTimeout(timeout);
       document.removeEventListener("visibilitychange",trackHidden);
@@ -2686,10 +2689,31 @@ export default function App(){
 
   const saveCloudData = async (uid, payload) => {
     if(!uid) return null;
-    const result=await authedJson("/api/users/data", {
-      method:"POST",
-      body:JSON.stringify({...payload,baseVersion:cloudVersionRef.current}),
-    });
+    const mutationId=globalThis.crypto?.randomUUID?.()||`save-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const requestBody=JSON.stringify({...payload,baseVersion:cloudVersionRef.current,mutationId});
+    let result;
+    let lastError;
+    for(let attempt=0;attempt<2;attempt+=1){
+      try{
+        result=await authedJson("/api/users/data", {
+          method:"POST",
+          body:requestBody,
+          timeoutMs:20000,
+          suppressNetworkMonitoring:true,
+        });
+        break;
+      }catch(error){
+        lastError=error;
+        if(!["API_NETWORK_ERROR","API_TIMEOUT"].includes(error.code)||attempt===1)break;
+        await new Promise(resolve=>setTimeout(resolve,600));
+      }
+    }
+    if(!result){
+      if(lastError?.monitorable){
+        reportClientError(lastError,{type:lastError.code==="API_TIMEOUT"?"api_timeout":"api_network_error",component:"cloud_autosave",route:"/api/users/data"});
+      }
+      throw lastError||new Error("Data belum dapat disimpan");
+    }
     cloudVersionRef.current=Number(result.version)||cloudVersionRef.current;
     setSyncMeta(meta=>({...meta,updatedAt:result.updatedAt||meta.updatedAt}));
     return result;

@@ -3,7 +3,7 @@ import {
   applyTransactionToWallets,
   replaceTransactionInWallets,
 } from "../src/financeLedger.js";
-import { assertDataVersion } from "../api/_lib/dataVersion.js";
+import { assertDataVersion, isMutationReplay } from "../api/_lib/dataVersion.js";
 
 const balances = wallets => Object.fromEntries(wallets.map(wallet => [String(wallet.id), Number(wallet.saldo)]));
 const base = [{ id:"utama", saldo:"1000000" }, { id:2, saldo:"500000" }];
@@ -42,5 +42,8 @@ assert.throws(
   "Versi perangkat lama harus ditolak sebagai konflik",
 );
 assert.equal(assertDataVersion(5, 4, true), 5, "Resolusi konflik eksplisit boleh menimpa versi cloud");
+assert.equal(isMutationReplay("save-123", "save-123"), true, "Retry mutasi yang sama harus idempotent");
+assert.equal(isMutationReplay("save-123", "save-456"), false, "Mutasi baru tidak boleh dianggap replay");
+assert.equal(isMutationReplay("", ""), false, "Mutation ID kosong tidak boleh melewati pemeriksaan versi");
 
 console.log("Financial user flow tests passed");

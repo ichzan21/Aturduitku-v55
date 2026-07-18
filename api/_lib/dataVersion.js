@@ -11,3 +11,9 @@ export function assertDataVersion(currentVersion, baseVersion, force = false) {
   }
   return current;
 }
+
+export function isMutationReplay(lastMutationId, mutationId) {
+  const previous = String(lastMutationId || "").trim();
+  const incoming = String(mutationId || "").trim();
+  return Boolean(incoming && previous === incoming);
+}

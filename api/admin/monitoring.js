@@ -10,7 +10,7 @@ const safeText = (value, max = 180) => String(value || "")
 
 const enabled = (name) => Boolean(String(process.env[name] || "").trim());
 const performanceTypes = new Set(["api_slow", "performance_slow", "performance_long_task"]);
-const operationalTypes = new Set(["sync_conflict"]);
+const operationalTypes = new Set(["sync_conflict", "api_network_error"]);
 const ignoredBrowserNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
 
 export default async function handler(req, res) {

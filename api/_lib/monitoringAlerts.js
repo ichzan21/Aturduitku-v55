@@ -61,10 +61,11 @@ export async function evaluateMonitoringAlerts(db) {
   const cutoff = Date.now() - FIFTEEN_MINUTES;
   const recent = snapshot.docs.map((doc) => doc.data() || {}).filter((event) => toMs(event.createdAt) >= cutoff);
   const browserNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
-  const severe = recent.filter((event) => ["react_boundary", "window_error", "unhandled_rejection", "api_server_error", "api_timeout", "api_network_error"].includes(event.type) && !browserNoise.test(String(event.message || "")));
+  const severe = recent.filter((event) => ["react_boundary", "window_error", "unhandled_rejection", "api_server_error", "api_timeout"].includes(event.type) && !browserNoise.test(String(event.message || "")));
   const slow = recent.filter((event) => ["performance_slow", "performance_long_task", "api_slow"].includes(event.type));
   const slowSessions = new Set(slow.map((event) => `${event.uid || "server"}:${Math.floor(toMs(event.createdAt) / (5 * 60 * 1000))}`));
   const limited = recent.filter((event) => ["api_rate_limit", "ai_rate_limit"].includes(event.type));
+  const networkFailures = recent.filter((event) => event.type === "api_network_error");
   const alerts = [];
 
   if (severe.length >= 5) alerts.push(["error_spike", {
@@ -85,6 +86,11 @@ export async function evaluateMonitoringAlerts(db) {
     severity:"warning", title:"Batas layanan mulai tercapai",
     lines:[`${limited.length} kejadian rate-limit dalam 15 menit.`, "Permintaan user sedang tinggi atau kuota layanan mendekati batas."],
     action:"Periksa usage Vercel, Firebase, dan Cloudflare lalu naikkan paket hanya bila tren berlanjut.",
+  }]);
+  if (networkFailures.length >= 10) alerts.push(["network_spike", {
+    severity:"warning", title:"Banyak perangkat kehilangan koneksi",
+    lines:[`${networkFailures.length} kegagalan jaringan dalam 15 menit.`, "Jika berasal dari banyak user, kemungkinan ada gangguan konektivitas luas."],
+    action:"Periksa status Vercel dan Firebase. Jika keduanya normal, pantau jaringan pengguna.",
   }]);
 
   const results = [];

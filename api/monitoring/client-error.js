@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const eventType = text(body.type, 60);
     const isPerformance = ["api_slow", "performance_slow", "performance_long_task"].includes(eventType);
-    const isOperational = eventType === "sync_conflict";
+    const isOperational = ["sync_conflict", "api_network_error"].includes(eventType);
     await db.collection("_client_errors").add({
       uid: decoded.uid,
       type: eventType,
