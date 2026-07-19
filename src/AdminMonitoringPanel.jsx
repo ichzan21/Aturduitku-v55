@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 const statusLabel = (value) => value ? "Aktif" : "Belum dikonfigurasi";
 
@@ -8,6 +8,7 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
   const [error, setError] = useState("");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState("");
+  const recentListRef = useRef(null);
 
   const load = async () => {
     setLoading(true);
@@ -23,6 +24,9 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
   };
 
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (recentListRef.current) recentListRef.current.scrollTop = 0;
+  }, [data?.generatedAt]);
 
   const testTelegram = async () => {
     setTesting(true);
@@ -78,9 +82,38 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
           </div>
         </div>
         <div style={{minWidth:0}}>
-          <div style={{fontSize:11,fontWeight:900,color:T.text,marginBottom:8}}>Aktivitas terbaru</div>
-          <div style={{display:"grid",gap:7,maxHeight:230,overflowY:"auto"}}>
-            {(data?.recent || []).slice(0,8).map((event) => {const incident=event.category==="incident";const label=event.category==="performance"?"Peringatan performa":event.type==="api_network_error"?"Koneksi perangkat terputus":event.category==="operational"?"Perlindungan sinkronisasi":"Insiden";return <div key={event.id} style={{padding:"9px 10px",borderRadius:9,background:T.cardAlt,border:`1px solid ${T.border}`,minWidth:0}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontSize:10,fontWeight:900,color:incident?T.err:T.warn,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{event.type || "client_error"}</span><span style={{fontSize:9,color:T.muted,flexShrink:0}}>{event.createdAt?new Date(event.createdAt).toLocaleString("id-ID",{dateStyle:"short",timeStyle:"short"}):"-"}</span></div><div style={{fontSize:9,fontWeight:800,color:incident?T.err:T.warn,marginTop:3}}>{label}</div><div style={{fontSize:10,color:T.sub,marginTop:3,overflowWrap:"anywhere"}}>{event.message || "Tanpa detail"}</div></div>;})}
+          <div style={{fontSize:11,fontWeight:900,color:T.text,marginBottom:8}}>Riwayat kesehatan</div>
+          {!loading && data?.summary?.unresolved === 0 && (
+            <div style={{padding:"9px 10px",borderRadius:9,background:T.okBg,border:`1px solid ${T.okBorder}`,color:T.ok,fontSize:10,fontWeight:800,marginBottom:7}}>
+              Aplikasi sehat. Tidak ada insiden aktif.
+            </div>
+          )}
+          <div ref={recentListRef} style={{display:"grid",gap:7,maxHeight:230,overflowY:"auto",scrollbarGutter:"stable"}}>
+            {(data?.recent || []).slice(0,8).map((event) => {
+              const unresolvedIncident = event.category === "incident" && !event.resolved;
+              const resolvedIncident = event.category === "incident" && event.resolved;
+              const color = unresolvedIncident ? T.err : resolvedIncident ? T.ok : T.warn;
+              const label = unresolvedIncident
+                ? "Insiden aktif"
+                : resolvedIncident
+                  ? "Insiden selesai"
+                  : event.category === "performance"
+                    ? "Peringatan performa"
+                    : event.type === "api_network_error"
+                      ? "Koneksi perangkat terputus"
+                      : "Perlindungan sinkronisasi";
+              return (
+                <div key={event.id} style={{padding:"9px 10px",borderRadius:9,background:T.cardAlt,border:`1px solid ${T.border}`,minWidth:0}}>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
+                    <span style={{fontSize:10,fontWeight:900,color,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{event.type || "client_error"}</span>
+                    <span style={{fontSize:9,color:T.muted,flexShrink:0}}>{event.createdAt ? new Date(event.createdAt).toLocaleString("id-ID", { dateStyle:"short", timeStyle:"short" }) : "-"}</span>
+                  </div>
+                  <div style={{fontSize:9,fontWeight:800,color,marginTop:3}}>{label}</div>
+                  <div style={{fontSize:10,color:T.sub,marginTop:3,overflowWrap:"anywhere"}}>{event.message || "Tanpa detail"}</div>
+                  {resolvedIncident && <div style={{fontSize:9,color:T.ok,fontWeight:700,marginTop:4}}>Sudah ditangani dan tidak dihitung sebagai error aktif.</div>}
+                </div>
+              );
+            })}
             {!loading && !(data?.recent || []).length && <div style={{padding:"18px 12px",textAlign:"center",borderRadius:10,background:T.okBg,color:T.ok,fontSize:11,fontWeight:800}}>Belum ada aktivitas monitoring.</div>}
           </div>
         </div>

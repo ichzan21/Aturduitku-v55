@@ -53,6 +53,8 @@ export default async function handler(req, res) {
         durationMs: Math.max(0, Math.round(Number(data.durationMs) || 0)),
         createdAt: data.createdAt || null,
         resolved: category !== "incident" || data.resolved === true,
+        resolvedAt: data.resolvedAt || null,
+        resolution: safeText(data.resolution, 160),
       };
     });
 
