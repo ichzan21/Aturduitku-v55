@@ -2,6 +2,7 @@ import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { requireApprovedUser } from "../_lib/auth.js";
 import { assertDataVersion, isMutationReplay } from "../_lib/dataVersion.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
+import { buildCloudDataPayload } from "../_lib/userCloudData.js";
 
 export default async function handler(req, res) {
   const security = secureApi(req, res, { methods: ["GET", "POST"] });
@@ -15,29 +16,10 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       const snap = await ref.get();
       const data = snap.exists ? snap.data() : {};
-      const now = new Date().toISOString();
-      const backupKey = now.slice(0, 10);
-      const lastBackupKey = String(data.lastBackupAt || "").slice(0, 10);
-      let lastBackupAt = data.lastBackupAt || null;
-      if (data.data && typeof data.data === "object" && lastBackupKey !== backupKey) {
-        await Promise.all([
-          ref.collection("backups").doc(backupKey).set({
-            data: data.data,
-            onboarded: Boolean(data.onboarded),
-            sourceUpdatedAt: data.updatedAt || null,
-            backupAt: now,
-          }),
-          ref.set({ lastBackupAt: now }, { merge: true }),
-        ]);
-        lastBackupAt = now;
-      }
+      const cloud = await buildCloudDataPayload(ref, data);
       return res.status(200).json({
         ok: true,
-        data: data.data || null,
-        onboarded: Boolean(data.onboarded),
-        version: Number(data.dataVersion) || 0,
-        updatedAt: data.updatedAt || null,
-        lastBackupAt,
+        ...cloud,
       });
     }
 

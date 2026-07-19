@@ -2655,6 +2655,18 @@ export default function App(){
     return data.profile || null;
   };
 
+  const loadAccountBootstrap = async () => {
+    const data = await authedJson("/api/users/me?includeData=1", { method:"GET", timeoutMs:20000 });
+    const profile = data.profile || null;
+    const cloudData = data.cloud || null;
+    setAccessProfile(profile);
+    if(cloudData){
+      cloudVersionRef.current=Number(cloudData.version)||0;
+      setSyncMeta({updatedAt:cloudData.updatedAt||null,lastBackupAt:cloudData.lastBackupAt||null});
+    }
+    return {profile,cloudData};
+  };
+
   useEffect(()=>{
     if(!fireUser||!cloudReady||performanceReportedRef.current)return;
     performanceReportedRef.current=true;
@@ -2825,10 +2837,7 @@ export default function App(){
           setAccessLoading(Boolean(user));
           if(user){
             try{
-              const [profile, cloudData] = await Promise.all([
-                loadAccessProfile(),
-                loadCloudData(user.uid).catch(e=>{console.warn("Cloud data preload failed:",e);return null;}),
-              ]);
+              const {profile,cloudData}=await loadAccountBootstrap();
               if(disposed) return;
               const approved = profile?.approvalStatus==="approved";
               if(approved){
