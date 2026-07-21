@@ -101,6 +101,8 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
                     ? "Peringatan performa"
                     : event.type === "api_network_error"
                       ? "Koneksi perangkat terputus"
+                      : event.type === "storage_connection_lost"
+                        ? "Penyimpanan perangkat dipulihkan"
                       : "Perlindungan sinkronisasi";
               return (
                 <div key={event.id} style={{padding:"9px 10px",borderRadius:9,background:T.cardAlt,border:`1px solid ${T.border}`,minWidth:0}}>

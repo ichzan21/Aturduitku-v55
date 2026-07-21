@@ -5,18 +5,28 @@ const cleanText = (value, maxLength) => String(value || "")
   .slice(0, maxLength);
 
 const ignoredBrowserNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
-const performanceTypes = new Set(["api_slow", "performance_slow", "performance_long_task"]);
+
+const fingerprint = (value) => {
+  let hash = 2166136261;
+  for (const char of String(value || "")) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+};
 
 export async function reportClientError(error, context = {}) {
   try {
     const type = cleanText(context.type || "client_error", 60);
     const message = cleanText(error?.message || error, 500);
     if (ignoredBrowserNoise.test(message)) return;
-    if (performanceTypes.has(type)) {
-      const dedupeKey = `monitoring:${type}:${cleanText(context.route || window.location.pathname, 120)}`;
-      if (sessionStorage.getItem(dedupeKey)) return;
-      sessionStorage.setItem(dedupeKey, "1");
-    }
+    const route = cleanText(context.route || window.location.pathname, 120);
+    const dedupeKey = `monitoring:${fingerprint(`${type}:${route}:${message}`)}`;
+    try {
+      const lastReportedAt = Number(sessionStorage.getItem(dedupeKey) || 0);
+      if (Date.now() - lastReportedAt < 10 * 60 * 1000) return;
+      sessionStorage.setItem(dedupeKey, String(Date.now()));
+    } catch {}
     const token = await getCurrentIdToken();
     if (!token) return;
 
@@ -24,7 +34,7 @@ export async function reportClientError(error, context = {}) {
       type,
       message,
       stack: cleanText(error?.stack, 1600),
-      route: cleanText(context.route || window.location.pathname, 120),
+      route,
       component: cleanText(context.component, 100),
       appVersion: cleanText(import.meta.env.VITE_APP_VERSION || "web", 40),
       userAgent: cleanText(navigator.userAgent, 320),

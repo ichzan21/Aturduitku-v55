@@ -168,12 +168,14 @@
     </style>
     <script>
       window.onerror = function(msg, src, line) {
-        if (!document.body) return false;
-        document.body.style.cssText = "background:#1a0a2e;color:#fff;padding:24px;font-family:monospace;";
-        document.body.innerHTML = '<h2 style="color:#f87171">AturDuitku Error</h2>'
+        var root = document.getElementById("root");
+        var stillBooting = root && root.querySelector(".boot-splash");
+        if (!stillBooting || document.documentElement.dataset.appReady === "1") return false;
+        root.innerHTML = '<div style="min-height:100vh;background:#1a0a2e;color:#fff;padding:24px;font-family:monospace">'
+          + '<h2 style="color:#f87171">AturDuitku belum dapat dibuka</h2>'
           + '<p style="color:#fca5a5;margin:8px 0">' + msg + "</p>"
           + '<p style="color:#888;font-size:12px">' + src + " line:" + line + "</p>"
-          + '<button onclick="location.reload()" style="margin-top:16px;padding:10px 20px;background:#6d28d9;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">Muat Ulang</button>';
+          + '<button onclick="location.reload()" style="margin-top:16px;padding:10px 20px;background:#6d28d9;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">Muat Ulang</button></div>';
         return false;
       };
       window.addEventListener("unhandledrejection", function(e) {

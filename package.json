@@ -8,9 +8,10 @@
     "check:secrets": "node scripts/check-secrets.mjs",
     "test:ledger": "node scripts/finance-ledger.test.mjs",
     "test:flows": "node scripts/financial-flow.test.mjs",
+    "test:runtime": "node scripts/runtime-recovery.test.mjs",
     "test:e2e": "node scripts/e2e-production.mjs",
     "build": "npm run check:secrets && vite build",
-    "qa:release": "npm run test:ledger && npm run test:flows && npm run build && node scripts/prelaunch-check.mjs",
+    "qa:release": "npm run test:ledger && npm run test:flows && npm run test:runtime && npm run build && node scripts/prelaunch-check.mjs",
     "qa:full": "npm run qa:release && npm run test:e2e",
     "preview": "vite preview"
   },
