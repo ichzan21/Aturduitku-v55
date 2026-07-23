@@ -4,6 +4,7 @@ import {
 } from "./firebase.js";
 import { reportClientError } from "./monitoring.js";
 import { applyTransactionToWallets, findWallet, hasWallet, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, walletDeltasForTransaction } from "./financeLedger.js";
+import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -3990,7 +3991,7 @@ export default function App(){
   const [aiOpen,setAiOpen]=useState(false);
   const shortcutHandledRef=useRef(false);
   const aiMsgsRef = useRef(null);
-  const [aiMsgs,setAiMsgs]=useState([{role:"assistant",content:"Halo! Saya **Dokter Keuangan**. Saya bukan cuma chatbot catatan uang, saya bisa jadi partner finansial kamu: membaca pola uang, bantu catat banyak fitur, mengingatkan risiko, dan menyusun langkah kecil yang realistis.\n\nKamu bisa minta saya:\n- Catat transaksi, amplop, habit, goal, aset, utang, budget, dompet, dan transaksi rutin\n- Analisis cashflow, saving rate, runway, budget bocor, dan prioritas bulan ini\n- Bikin rencana hemat, target nabung, atau strategi keluar dari utang\n- Menenangkan saat uang lagi berantakan, lalu bantu susun langkah pertama\n\nCoba tulis: `catat makan 25rb`, `buat amplop makan 500rb`, `ceklis habit minum air`, atau `cek kondisi uangku hari ini`."}]);
+  const [aiMsgs,setAiMsgs]=useState([{role:"assistant",content:"Halo! Saya **Dokter Keuangan**. Saya bukan cuma chatbot catatan uang, saya bisa jadi partner finansial kamu: membaca pola uang, bantu catat banyak fitur, mengingatkan risiko, dan menyusun langkah kecil yang realistis.\n\nKamu bisa minta saya:\n- Jelaskan cara memakai AturDuitku atau pandu setup dari awal\n- Catat transaksi, amplop, habit, goal, aset, utang, budget, dompet, dan transaksi rutin\n- Analisis cashflow, saving rate, runway, budget bocor, dan prioritas bulan ini\n- Bikin rencana hemat, target nabung, atau strategi keluar dari utang\n\nCoba tulis: `cara pakai AturDuitku`, `catat makan 25rb`, `buat amplop makan 500rb`, atau `cek kondisi uangku hari ini`."}]);
   const [aiInput,setAiInput]=useState("");
   const [aiLoading,setAiLoading]=useState(false);
 
@@ -4142,6 +4143,9 @@ PRINSIP JAWABAN:
 - Jangan menjanjikan keuntungan investasi. Beri edukasi risiko dan arah konservatif untuk pemula.
 - Jawaban harus ringkas, manusiawi, dan enak dibaca di layar HP.
 
+=== PENGETAHUAN PRODUK ATURDUITKU ===
+${ATURDUITKU_PRODUCT_KNOWLEDGE}
+
 ═══ DATA KEUANGAN ${s.name} — ${s.bulan} ${s.tahun} ═══
 
 💼 SALDO & ARUS KAS
@@ -4268,6 +4272,7 @@ Untuk chat/analisis/saran → jawab langsung tanpa JSON.
 - Goal tersedia: ${s.goals.map(g=>g.nama).join(", ")||"belum ada"}
 
 ATURAN EKSEKUSI:
+- Pertanyaan seperti "cara pakai", "apa fungsi", "fiturnya apa", "bedanya apa", atau "gimana setup" adalah permintaan penjelasan, bukan perintah eksekusi. Jawab dengan panduan dan jangan keluarkan JSON action.
 - Jika user jelas meminta catat/tambah/buat/isi/pakai/ceklis/bayar/transfer/update, prioritaskan JSON action.
 - Jika user meminta "analisis", "review", "gimana kondisi", "saran", atau "rencana", jangan JSON; berikan konsultasi.
 - Jika user meminta coach/review/analisis habit, jangan JSON. Beri diagnosis habit: yang sudah bagus, yang macet, dan 1-3 quest paling penting hari ini.
@@ -9308,7 +9313,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
           {/* Quick actions */}
           <div style={{padding:"6px 12px 4px",display:"flex",gap:8,overflowX:"auto",flexShrink:0,WebkitOverflowScrolling:"touch"}}>
-            {[{q:"Diagnosis kondisi uangku seperti dokter keuangan dan beri langkah hari ini",tag:"DIAGNOSIS"},{q:"Buat rencana hemat yang realistis dan tetap manusiawi dari dataku",tag:"HEMAT"},{q:"Review budget, cari kebocoran, dan kasih batas harian yang aman",tag:"BUDGET"},{q:"Bantu buat target nabung yang realistis dari saldo dan cashflowku",tag:"NABUNG"},{q:"Jadi coach habit uangku hari ini, apa yang harus aku selesaikan?",tag:"COACH"}].map(({q,tag})=>(
+            {[{q:"Jelaskan cara memakai AturDuitku dan pandu saya mulai dari data yang belum lengkap",tag:"PANDUAN"},{q:"Diagnosis kondisi uangku seperti dokter keuangan dan beri langkah hari ini",tag:"DIAGNOSIS"},{q:"Buat rencana hemat yang realistis dan tetap manusiawi dari dataku",tag:"HEMAT"},{q:"Review budget, cari kebocoran, dan kasih batas harian yang aman",tag:"BUDGET"},{q:"Bantu buat target nabung yang realistis dari saldo dan cashflowku",tag:"NABUNG"},{q:"Jadi coach habit uangku hari ini, apa yang harus aku selesaikan?",tag:"COACH"}].map(({q,tag})=>(
               <button key={q} className="ai-quick-btn"
                 onClick={()=>handleAiSend(q)}
                 style={{

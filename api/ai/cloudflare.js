@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Format pesan AI tidak valid" });
     }
 
-    const safeSystemPrompt = systemPrompt.trim().slice(0, 18_000);
+    const safeSystemPrompt = systemPrompt.trim().slice(0, 26_000);
     if (!safeSystemPrompt) {
       return res.status(400).json({ error: "Konteks AI tidak tersedia" });
     }
