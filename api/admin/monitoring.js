@@ -27,17 +27,19 @@ export default async function handler(req, res) {
       const result = await sendMonitoringTestAlert(db);
       return res.status(result?.sent ? 200 : 503).json({ ok:Boolean(result?.sent), reason:result?.reason || result?.result?.reason || null });
     }
-    const snapshot = await db.collection("_client_errors")
-      .orderBy("createdAt", "desc")
-      .limit(100)
-      .get();
+    const [snapshot, latestBackupSnapshot] = await Promise.all([
+      db.collection("_client_errors").orderBy("createdAt", "desc").limit(100).get(),
+      db.collection("users").orderBy("lastBackupAt", "desc").limit(1).get(),
+    ]);
+    const latestBackupAt = latestBackupSnapshot.docs[0]?.data()?.lastBackupAt || null;
 
     const now = Date.now();
     const events = snapshot.docs.map((doc) => {
       const data = doc.data() || {};
       const type = safeText(data.type, 60);
       const message = safeText(data.message, 220);
-      const category = ignoredBrowserNoise.test(message)
+      const isOpaqueScriptError = type === "window_error" && /^script error\.?$/i.test(message);
+      const category = ignoredBrowserNoise.test(message) || isOpaqueScriptError
         ? "ignored"
         : data.category === "performance" || performanceTypes.has(type)
           ? "performance"
@@ -87,6 +89,9 @@ export default async function handler(req, res) {
         telegram: enabled("TELEGRAM_BOT_TOKEN") && enabled("TELEGRAM_ADMIN_CHAT_ID"),
         backup: enabled("CRON_SECRET"),
         firebase: enabled("FIREBASE_SERVICE_ACCOUNT_JSON") || enabled("FIREBASE_PRIVATE_KEY"),
+      },
+      serviceDetails: {
+        latestBackupAt,
       },
       generatedAt: new Date().toISOString(),
     });

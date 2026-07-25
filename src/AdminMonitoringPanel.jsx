@@ -42,11 +42,12 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
   };
 
   const services = data?.services || {};
+  const latestBackupAt = data?.serviceDetails?.latestBackupAt || null;
   const serviceItems = [
-    ["AI", services.ai],
-    ["Telegram", services.telegram],
-    ["Backup", services.backup],
-    ["Firebase", services.firebase],
+    ["AI", services.ai, services.ai ? "Siap digunakan" : "Belum dikonfigurasi"],
+    ["Telegram", services.telegram, services.telegram ? "Siap, tes tersedia" : "Belum dikonfigurasi"],
+    ["Backup", services.backup, latestBackupAt ? `Terakhir ${new Date(latestBackupAt).toLocaleString("id-ID", { dateStyle:"short", timeStyle:"short" })}` : statusLabel(services.backup)],
+    ["Firebase", services.firebase, services.firebase ? "Terhubung" : "Belum dikonfigurasi"],
   ];
 
   return (
@@ -78,7 +79,7 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
         <div>
           <div style={{fontSize:11,fontWeight:900,color:T.text,marginBottom:8}}>Layanan produksi</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:8}}>
-            {serviceItems.map(([label,active]) => <div key={label} style={{padding:"10px",borderRadius:10,background:T.cardAlt,border:`1px solid ${active?T.okBorder:T.warnBorder}`}}><div style={{fontSize:11,fontWeight:800,color:T.text}}>{label}</div><div style={{fontSize:9,color:active?T.ok:T.warn,fontWeight:800,marginTop:3}}>{statusLabel(active)}</div></div>)}
+            {serviceItems.map(([label,active,detail]) => <div key={label} style={{padding:"10px",borderRadius:10,background:T.cardAlt,border:`1px solid ${active?T.okBorder:T.warnBorder}`}}><div style={{fontSize:11,fontWeight:800,color:T.text}}>{label}</div><div style={{fontSize:9,color:active?T.ok:T.warn,fontWeight:800,marginTop:3,lineHeight:1.35}}>{detail}</div></div>)}
           </div>
         </div>
         <div style={{minWidth:0}}>

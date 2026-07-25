@@ -5,6 +5,7 @@ const cleanText = (value, maxLength) => String(value || "")
   .slice(0, maxLength);
 
 const ignoredBrowserNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
+const opaqueScriptError = /^script error\.?$/i;
 
 const fingerprint = (value) => {
   let hash = 2166136261;
@@ -19,7 +20,7 @@ export async function reportClientError(error, context = {}) {
   try {
     const type = cleanText(context.type || "client_error", 60);
     const message = cleanText(error?.message || error, 500);
-    if (ignoredBrowserNoise.test(message)) return;
+    if (ignoredBrowserNoise.test(message) || (type === "window_error" && opaqueScriptError.test(message))) return;
     const route = cleanText(context.route || window.location.pathname, 120);
     const dedupeKey = `monitoring:${fingerprint(`${type}:${route}:${message}`)}`;
     try {

@@ -57,9 +57,20 @@ export default async function handler(req, res) {
       console.error("Health check after backup failed", healthError?.message || healthError);
       return { ok:false, error:"health_check_failed" };
     });
+    await db.collection("_system").doc("backup_status").set({
+      ok:true,
+      backupKey,
+      backedUp,
+      completedAt:new Date().toISOString(),
+    }, { merge:true });
     return res.status(200).json({ ok: true, backupKey, backedUp, health });
   } catch (error) {
     console.error("Scheduled backup failed", error?.message || error);
+    await getAdminDb().collection("_system").doc("backup_status").set({
+      ok:false,
+      failedAt:new Date().toISOString(),
+      error:"scheduled_backup_failed",
+    }, { merge:true }).catch(() => {});
     return res.status(500).json({ error: "Scheduled backup failed" });
   }
 }

@@ -29,6 +29,8 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const eventType = text(body.type, 60);
     const message = text(body.message, 500);
+    const isOpaqueScriptError = eventType === "window_error" && /^script error\.?$/i.test(message);
+    if (isOpaqueScriptError) return res.status(202).json({ ok: true, ignored: true });
     const isPerformance = ["api_slow", "performance_slow", "performance_long_task"].includes(eventType);
     const isStorageDisconnect = /connection to indexed database server lost|indexeddb.*(?:connection|database).*(?:lost|closed|closing)|database connection is closing/i.test(message);
     const isOperational = ["sync_conflict", "api_network_error", "storage_connection_lost"].includes(eventType) || isStorageDisconnect;

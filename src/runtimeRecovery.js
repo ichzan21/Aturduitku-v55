@@ -1,4 +1,5 @@
 const browserExtensionNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
+const opaqueScriptError = /^script error\.?$/i;
 const storageDisconnect = /connection to indexed database server lost|indexeddb.*(?:connection|database).*(?:lost|closed|closing)|database connection is closing/i;
 
 export const getRuntimeErrorMessage = (reason) => {
@@ -9,10 +10,9 @@ export const getRuntimeErrorMessage = (reason) => {
 
 export const classifyRuntimeFailure = (reason) => {
   const message = getRuntimeErrorMessage(reason);
-  if (browserExtensionNoise.test(message)) return { kind:"ignored", message };
+  if (browserExtensionNoise.test(message) || opaqueScriptError.test(message)) return { kind:"ignored", message };
   if (storageDisconnect.test(message)) return { kind:"storage_disconnect", message };
   return { kind:"incident", message };
 };
 
 export const isRecoverableStorageFailure = (value) => storageDisconnect.test(getRuntimeErrorMessage(value));
-

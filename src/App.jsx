@@ -2678,12 +2678,25 @@ export default function App(){
     }
     if(typeof PerformanceObserver!=="function"||!PerformanceObserver.supportedEntryTypes?.includes("longtask"))return;
     let totalLongTask=0;
+    let maxLongTask=0;
+    let longTaskCount=0;
     let sent=false;
     const observer=new PerformanceObserver((list)=>{
-      totalLongTask+=list.getEntries().reduce((sum,entry)=>sum+entry.duration,0);
-      if(!sent&&totalLongTask>=2500){
+      if(document.hidden)return;
+      list.getEntries().forEach((entry)=>{
+        const duration=Math.round(Number(entry.duration)||0);
+        totalLongTask+=duration;
+        maxLongTask=Math.max(maxLongTask,duration);
+        longTaskCount+=1;
+      });
+      const hasSevereBlock=maxLongTask>=1200;
+      const hasSustainedPressure=longTaskCount>=8&&totalLongTask>=3500;
+      if(!sent&&(hasSevereBlock||hasSustainedPressure)){
         sent=true;
-        reportClientError(new Error(`UI long task: ${Math.round(totalLongTask)} ms`),{type:"performance_long_task",component:"browser_main_thread",route:page,durationMs:totalLongTask});
+        reportClientError(
+          new Error(`UI sibuk: ${longTaskCount} tugas, total ${Math.round(totalLongTask)} ms, terlama ${Math.round(maxLongTask)} ms`),
+          {type:"performance_long_task",component:"browser_main_thread",route:page,durationMs:totalLongTask}
+        );
         observer.disconnect();
       }
     });
