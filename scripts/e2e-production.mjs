@@ -54,7 +54,7 @@ async function smoke(viewport, name, mutate = false) {
   page.on("pageerror", (error) => consoleErrors.push(error.message));
 
   await login(page);
-  await openTransactions(page, viewport.width < 700);
+  await openTransactions(page, viewport.width < 900);
   await page.screenshot({ path:`${artifacts}/${name}-transactions.png`, fullPage:true });
 
   if (mutate) {
@@ -93,7 +93,10 @@ async function smoke(viewport, name, mutate = false) {
 }
 
 try {
+  await smoke({ width:360, height:800 }, "mobile-small");
   await smoke({ width:390, height:844 }, "mobile");
+  await smoke({ width:820, height:1180 }, "tablet-compact");
+  await smoke({ width:1024, height:1366 }, "tablet");
   await smoke({ width:1440, height:900 }, "desktop", true);
 } finally {
   await browser.close();
