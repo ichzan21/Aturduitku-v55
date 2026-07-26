@@ -946,7 +946,7 @@ const PBar=({pct,c="#8B5CF6",h=6})=>{
   const T=useT();
   return(
     <div style={{background:T.borderLight,borderRadius:99,overflow:"hidden",height:h}}>
-      <div style={{width:Math.min(Math.max(N(pct),0),100)+"%",height:"100%",background:c,borderRadius:99,transition:"width .6s cubic-bezier(.4,0,.2,1)"}}/>
+      <div className="pbar-fill" style={{width:Math.min(Math.max(N(pct),0),100)+"%",height:"100%",background:c,borderRadius:99,transition:"width .6s cubic-bezier(.4,0,.2,1)"}}/>
     </div>
   );
 };
@@ -6351,7 +6351,7 @@ Saldo amplop bertambah.`}]);
     const txBg=t.tipe==="pemasukan"||isEnvelopeRefund?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer")?T.accentBg:T.errBg;
     const txIcon=isIn?"📈":isEnvelopeRefund?"↩️":t.tipe==="tabungan"?"🏦":t.tipe==="investasi"?"💎":t.tipe==="penyesuaian"?"BAL":t.tipe==="alokasi_amplop"?"✉️":t.tipe==="transfer"?"↔️":kat?uiIcon(kat.icon):"📉";
     return(
-      <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
+      <div key={t.id} className="tx-row-in" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
           <div style={{width:36,height:36,borderRadius:10,background:txBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>
             {txIcon}
@@ -8087,7 +8087,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                         const isToday=d.day===habitDay;
                         return <div key={d.day} title={`${d.day}: ${d.done}/${d.total} selesai`} style={{height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:5,minWidth:0}}>
                           <div style={{width:"100%",height:82,minWidth:0,display:"flex",alignItems:"flex-end",borderRadius:7,background:T.card,border:`1px solid ${isToday?T.accent+"44":T.borderLight}`,overflow:"hidden"}}>
-                            <div style={{width:"100%",height:`${Math.max(d.pct,d.pct>0?8:3)}%`,background:d.pct>=100?`linear-gradient(180deg, ${T.ok}, ${T.ok}99)`:d.pct>=50?`linear-gradient(180deg, ${T.accent}, ${T.accent}99)`:d.pct>0?`linear-gradient(180deg, ${T.warn}, ${T.warn}99)`:T.border,transition:"height .35s ease, background .25s ease"}}/>
+                            <div className="chart-bar" style={{width:"100%",height:`${Math.max(d.pct,d.pct>0?8:3)}%`,background:d.pct>=100?`linear-gradient(180deg, ${T.ok}, ${T.ok}99)`:d.pct>=50?`linear-gradient(180deg, ${T.accent}, ${T.accent}99)`:d.pct>0?`linear-gradient(180deg, ${T.warn}, ${T.warn}99)`:T.border,transition:"height .35s ease, background .25s ease"}}/>
                           </div>
                           {(isToday||d.date===1||d.date%5===0)&&<span style={{fontSize:8,color:isToday?T.accent:T.muted,fontWeight:900}}>{d.date}</span>}
                         </div>;
@@ -8100,7 +8100,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <Card style={{minWidth:0,overflow:"hidden"}} ch={<>
                   <Sec t="Analisis habit" sub="Habit mana yang paling kuat dan mana yang perlu dibantu bulan ini."/>
                   <div style={{display:"grid",gap:10}}>
-                    {habitAnalytics.habitRows.slice(0,7).map(h=><div key={h.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"center",minWidth:0}}>
+                    {habitAnalytics.habitRows.slice(0,7).map((h,i)=><div key={h.id} className="stagger-in" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"center",minWidth:0,animationDelay:`${i*45}ms`}}>
                       <div style={{minWidth:0}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
                           <span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:T.cardAlt,border:`1px solid ${T.border}`,flex:"0 0 auto"}}>{uiIcon(h.icon||"🐾")}</span>
@@ -8110,7 +8110,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                           </div>
                         </div>
                         <div style={{height:9,borderRadius:99,background:T.cardAlt,border:`1px solid ${T.border}`,overflow:"hidden",marginTop:7}}>
-                          <div style={{width:`${Math.min(h.monthPct,100)}%`,height:"100%",background:h.monthPct>=80?T.ok:h.monthPct>=50?T.accent:T.warn,borderRadius:99}}/>
+                          <div className="pbar-fill" style={{width:`${Math.min(h.monthPct,100)}%`,height:"100%",background:h.monthPct>=80?T.ok:h.monthPct>=50?T.accent:T.warn,borderRadius:99}}/>
                         </div>
                       </div>
                       <div style={{fontSize:12,fontWeight:950,color:h.monthPct>=80?T.ok:h.monthPct>=50?T.accent:T.warn}}>{Math.round(h.monthPct)}%</div>
@@ -8130,7 +8130,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(12,minmax(0,1fr))",gap:isMobile?3:6,alignItems:"end",height:112,minWidth:0,maxWidth:"100%",marginBottom:12,padding:"8px 4px 0",borderRadius:14,background:T.cardAlt,border:`1px solid ${T.border}`,overflow:"hidden"}}>
                     {habitAnalytics.yearMonths.map(m=><div key={m.label} title={`${m.full}: ${Math.round(m.pct)}%`} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,height:"100%",justifyContent:"flex-end"}}>
-                      <div style={{width:"100%",height:78,display:"flex",alignItems:"flex-end",borderRadius:6,background:T.card,border:`1px solid ${T.borderLight}`,overflow:"hidden"}}><div style={{width:"100%",height:`${Math.max(m.pct,m.pct>0?8:3)}%`,background:m.pct>=80?T.ok:m.pct>=50?T.accent:m.pct>0?T.warn:T.border,transition:"height .4s ease"}}/></div>
+                      <div style={{width:"100%",height:78,display:"flex",alignItems:"flex-end",borderRadius:6,background:T.card,border:`1px solid ${T.borderLight}`,overflow:"hidden"}}><div className="chart-bar" style={{width:"100%",height:`${Math.max(m.pct,m.pct>0?8:3)}%`,background:m.pct>=80?T.ok:m.pct>=50?T.accent:m.pct>0?T.warn:T.border,transition:"height .4s ease"}}/></div>
                       <span style={{fontSize:8,color:T.muted,fontWeight:800}}>{m.label}</span>
                     </div>)}
                   </div>
