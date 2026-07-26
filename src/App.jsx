@@ -6622,6 +6622,7 @@ Saldo amplop bertambah.`}]);
         @keyframes pgBack{from{opacity:0;transform:translateX(-26px);}to{opacity:1;transform:none;}}
         @keyframes ovIn{from{opacity:0;}to{opacity:1;}}
         @keyframes ovOut{from{opacity:1;}to{opacity:0;}}
+        @keyframes mobilePageIn{from{opacity:.72;transform:translateY(8px);}to{opacity:1;transform:none;}}
         @keyframes modalOut{from{opacity:1;}to{opacity:0;transform:translateY(14px) scale(.97);}}
         @keyframes toastOut{from{opacity:1;}to{opacity:0;transform:translateX(18px) scale(.97);}}
         @keyframes sheetDown{from{transform:translateY(0);}to{transform:translateY(104%);}}
@@ -6691,7 +6692,9 @@ Saldo amplop bertambah.`}]);
         @media(display-mode:standalone) and (max-width:899px){
           .cat-mascot{animation:none;}
           .premium-panel:after,.fab:after{display:none;}
-          .page-in,.modal-pop,.quick-action-sheet{animation:none;}
+          .page-in{animation:mobilePageIn .24s cubic-bezier(.22,1,.36,1) both;}
+          .modal-pop{animation:modalPop .26s cubic-bezier(.26,1.1,.32,1) both;}
+          .quick-action-sheet{animation:sheetIn .24s cubic-bezier(.26,1.08,.3,1) both;}
         }
         @media(prefers-reduced-motion:reduce){
           *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important;}
@@ -6702,7 +6705,7 @@ Saldo amplop bertambah.`}]);
   .mobile-1col{grid-template-columns:1fr!important;}
   .card-lift:hover{transform:none;}
   .btn-go:hover,.fab:hover,.ai-float-btn:hover{transform:none;}
-  .page-in{animation:none;}
+  .page-in{animation:mobilePageIn .24s cubic-bezier(.22,1,.36,1) both;}
   input,select,textarea{min-height:40px;}
   .goal-fund-row{display:grid!important;grid-template-columns:minmax(0,1fr) 56px auto;gap:6px!important;width:100%;}
   .goal-fund-input{min-width:0;width:100%;}
