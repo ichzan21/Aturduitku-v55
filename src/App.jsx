@@ -5,6 +5,7 @@ import {
 import { reportClientError } from "./monitoring.js";
 import { applyTransactionToWallets, findWallet, hasWallet, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, walletDeltasForTransaction } from "./financeLedger.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
+import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -1392,12 +1393,12 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai})=>{
       </div>
       {pct>=100
         ?<Btn onClick={()=>onSelesai(g.id)} ch={"✓ "+(lang==="en"?"Mark Done":"Selesai")} c="#16A34A" style={{width:"100%",padding:10}}/>
-        :<div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <div style={{position:"relative",flex:1}}>
+        :<div className="goal-fund-row" style={{display:"flex",gap:8,alignItems:"center"}}>
+          <div className="goal-fund-input" style={{position:"relative",flex:1,minWidth:0}}>
             <CurIn value={inp} onChange={v=>setInp(v)} placeholder="Tambah dana..." style={{paddingRight:36}}/>
             <button onClick={()=>setShowCalc(true)} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14}}>🔢</button>
           </div>
-          <select value={dompetId} onChange={e=>setDompetId(e.target.value)} style={{width:60, padding:"8px", borderRadius:8, border:`1.5px solid ${T.inputBorder}`, background:T.input, color:T.text, fontSize:12, outline:"none"}}>
+          <select className="goal-fund-wallet" aria-label="Pilih dompet sumber" value={dompetId} onChange={e=>setDompetId(e.target.value)} style={{width:60, padding:"8px", borderRadius:8, border:`1.5px solid ${T.inputBorder}`, background:T.input, color:T.text, fontSize:12, outline:"none"}}>
              {dompetList.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)}</option>)}
           </select>
           {showCalc&&<Calculator value={inp} onChange={v=>{setInp(v);setShowCalc(false);}} onClose={()=>setShowCalc(false)}/>}
@@ -3126,30 +3127,65 @@ export default function App(){
 
   // Responsive
   const [vw,setVw]=useState(typeof window!=="undefined"?window.innerWidth:1200);
+  const [keyboardOpen,setKeyboardOpen]=useState(false);
+  const viewportBaselineRef=useRef(typeof window!=="undefined"?window.innerHeight:800);
+  const keyboardOpenRef=useRef(false);
   useEffect(()=>{
     let raf=0;
+    let focusTimer=0;
     const updateViewport=()=>{
       cancelAnimationFrame(raf);
       raf=requestAnimationFrame(()=>{
         setVw(window.innerWidth);
         const vv = window.visualViewport;
-        const h = vv?.height || window.innerHeight;
-        const top = vv?.offsetTop || 0;
-        const keyboardBottom = Math.max(0, window.innerHeight - h - top);
-        document.documentElement.style.setProperty("--app-height", `${h}px`);
-        document.documentElement.style.setProperty("--visual-top", `${top}px`);
-        document.documentElement.style.setProperty("--keyboard-bottom", `${keyboardBottom}px`);
+        const viewport=measureMobileViewport({
+          baselineHeight:viewportBaselineRef.current,
+          innerHeight:window.innerHeight,
+          visualHeight:vv?.height||window.innerHeight,
+          offsetTop:vv?.offsetTop||0,
+          editable:isEditableElement(document.activeElement),
+          wasKeyboardOpen:keyboardOpenRef.current,
+        });
+        if(!viewport.keyboardOpen) viewportBaselineRef.current=window.innerHeight;
+        keyboardOpenRef.current=viewport.keyboardOpen;
+        setKeyboardOpen(viewport.keyboardOpen);
+        const root=document.documentElement;
+        root.style.setProperty("--app-height",`${viewport.appHeight}px`);
+        root.style.setProperty("--visual-height",`${viewport.visualHeight}px`);
+        root.style.setProperty("--visual-top",`${viewport.visualTop}px`);
+        root.style.setProperty("--keyboard-bottom",`${viewport.keyboardBottom}px`);
+        if(viewport.keyboardOpen) root.dataset.keyboardOpen="1";
+        else delete root.dataset.keyboardOpen;
       });
+    };
+    const handleFocusIn=e=>{
+      if(!isEditableElement(e.target)) return;
+      updateViewport();
+      clearTimeout(focusTimer);
+      focusTimer=window.setTimeout(()=>{
+        updateViewport();
+        e.target?.scrollIntoView?.({block:"center",inline:"nearest",behavior:"smooth"});
+      },280);
+    };
+    const handleFocusOut=()=>{
+      clearTimeout(focusTimer);
+      focusTimer=window.setTimeout(updateViewport,320);
     };
     updateViewport();
     window.addEventListener("resize",updateViewport);
     window.visualViewport?.addEventListener("resize",updateViewport);
     window.visualViewport?.addEventListener("scroll",updateViewport);
+    document.addEventListener("focusin",handleFocusIn);
+    document.addEventListener("focusout",handleFocusOut);
     return()=>{
       window.removeEventListener("resize",updateViewport);
       window.visualViewport?.removeEventListener("resize",updateViewport);
       window.visualViewport?.removeEventListener("scroll",updateViewport);
+      document.removeEventListener("focusin",handleFocusIn);
+      document.removeEventListener("focusout",handleFocusOut);
+      clearTimeout(focusTimer);
       cancelAnimationFrame(raf);
+      delete document.documentElement.dataset.keyboardOpen;
     };
   },[]);
   const isMobile=vw<900;const isTablet=vw>=900&&vw<1180;const isReportCompact=isMobile||isTablet;
@@ -6638,6 +6674,10 @@ Saldo amplop bertambah.`}]);
   .btn-go:hover,.fab:hover,.ai-float-btn:hover{transform:none;}
   .page-in{animation:none;}
   input,select,textarea{min-height:40px;}
+  .goal-fund-row{display:grid!important;grid-template-columns:minmax(0,1fr) 56px auto;gap:6px!important;width:100%;}
+  .goal-fund-input{min-width:0;width:100%;}
+  .goal-fund-wallet{width:56px!important;}
+  .goal-fund-row>.btn-go{padding:8px 10px!important;white-space:nowrap;}
 }
 @media(max-width:374px){
   .bottom-nav-item{min-height:54px;padding-top:8px;}
@@ -6719,7 +6759,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
       {/* ── MODALS ── */}
       {modal&&(
-        <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",zIndex:1000,padding:isMobile?0:"16px",paddingTop:isMobile?"max(12px, env(safe-area-inset-top))":undefined}} onClick={()=>setModal(null)}>
+        <div className="modal-overlay" style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",zIndex:1000,padding:isMobile?0:"16px",paddingTop:isMobile?"max(12px, env(safe-area-inset-top))":undefined}} onClick={()=>setModal(null)}>
           <div className="modal-pop" style={{cursor:"pointer",background:T.card,borderRadius:isMobile?"24px 24px 0 0":20,padding:isMobile?"20px max(18px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(18px, env(safe-area-inset-left))":"26px",width:"100%",maxWidth:isMobile?"100%":520,maxHeight:isMobile?"min(88svh, calc(var(--app-height, 100dvh) - 12px))":"min(92vh, calc(var(--app-height, 100dvh) - 32px))",overflowY:"auto",overflowX:"hidden",color:T.text,WebkitOverflowScrolling:"touch"}} onClick={e=>e.stopPropagation()}>
 
             {isMobile&&<div style={{width:40,height:4,borderRadius:99,background:"rgba(0,0,0,.15)",margin:"-8px auto 16px",flexShrink:0}}/>}
@@ -7067,7 +7107,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
       )}
 
       {/* ── MAIN CONTENT ── */}
-      <div style={{flex:1,height:"var(--app-height, 100dvh)",overflowY:"auto",overflowX:"hidden",minWidth:0,maxWidth:"100%",width:0,background:T.bg,transition:"background .3s",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain"}}>
+      <div className="app-main-scroll" style={{flex:1,height:"var(--app-height, 100dvh)",overflowY:"auto",overflowX:"hidden",minWidth:0,maxWidth:"100%",width:0,background:T.bg,transition:"background .3s",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain"}}>
         {/* Topbar */}
         <div className="topbar-safe" style={{background:T.topbar,backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderBottom:`1.5px solid ${T.border}`,padding:isMobile?`10px max(14px,env(safe-area-inset-right)) 10px max(14px,env(safe-area-inset-left))`:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50,transition:"background .3s,border-color .3s"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0,flex:1}}>
@@ -7142,7 +7182,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
         </div>}
 
         {/* Mobile Quick Action */}
-        {isMobile&&!moreOpen&&!sidebarOpen&&!aiOpen&&!modal&&(page==="home"||page==="trans"||page==="budget"||page==="habit")&&(
+        {isMobile&&!keyboardOpen&&!moreOpen&&!sidebarOpen&&!aiOpen&&!modal&&(page==="home"||page==="trans"||page==="budget"||page==="habit")&&(
           <>
             {quickOpen&&<div onClick={()=>setQuickOpen(false)} style={{position:"fixed",inset:0,zIndex:610,background:"rgba(15,23,42,.18)",backdropFilter:"blur(2px)",WebkitBackdropFilter:"blur(2px)",touchAction:"none"}}/>}
             {quickOpen&&<div className="quick-action-sheet" style={{position:"fixed",right:"max(18px,env(safe-area-inset-right))",bottom:"calc(82px + max(env(safe-area-inset-bottom),8px))",zIndex:611,width:"min(292px, calc(100vw - 36px))",background:T.card,border:`1px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowMd,padding:12}}>
@@ -9053,7 +9093,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
       </div>
 
       {/* ── BOTTOM NAV (mobile only) ── */}
-      {isMobile&&<nav className="bottom-nav" style={{background:T.nav,borderTopColor:T.border,display:(sidebarOpen||moreOpen||quickOpen||aiOpen||modal||notifOpen||commandOpen)?"none":"flex"}}>
+      {isMobile&&<nav className="bottom-nav" style={{background:T.nav,borderTopColor:T.border,display:(keyboardOpen||sidebarOpen||moreOpen||quickOpen||aiOpen||modal||notifOpen||commandOpen)?"none":"flex"}}>
         {[NAV[0],NAV[1],NAV[2],NAV[3]].map(nav=>{const a=page===nav.id;const go=()=>navTo(nav.id);return(
           <button key={nav.id} type="button" onClick={go} className="bottom-nav-item" style={{color:a?T.accent:T.muted}}>
             <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,fontSize:16,fontWeight:700,letterSpacing:0,lineHeight:1,transition:"transform .15s",transform:a?"scale(1.05)":"scale(1)"}}>{uiIcon(nav.icon)}</span>
@@ -9252,7 +9292,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
       `}</style>
 
       {/* Float Button */}
-      {page!=="admin"&&!aiOpen&&!moreOpen&&!quickOpen&&!modal&&!sidebarOpen&&!notifOpen&&!commandOpen&&!(isMobile&&(page==="home"||page==="trans"||page==="budget"||page==="habit"||page==="laporan"))&&<button
+      {page!=="admin"&&!keyboardOpen&&!aiOpen&&!moreOpen&&!quickOpen&&!modal&&!sidebarOpen&&!notifOpen&&!commandOpen&&!(isMobile&&(page==="home"||page==="trans"||page==="budget"||page==="habit"||page==="laporan"))&&<button
         className="ai-float-btn"
         onClick={()=>setAiOpen(true)}
         style={{

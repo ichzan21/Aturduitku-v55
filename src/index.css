@@ -38,6 +38,9 @@ body {
 
 :root {
   --app-height: 100dvh;
+  --visual-height: 100dvh;
+  --visual-top: 0px;
+  --keyboard-bottom: 0px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -73,6 +76,8 @@ input, select, textarea {
   /* iOS: prevent auto-zoom (font must be >= 16px handled inline) */
   font-size: max(16px, 1em);
   max-width: 100%;
+  scroll-margin-top: 88px;
+  scroll-margin-bottom: 28px;
 }
 
 /* ─── SCROLLING ──────────────────────────────────────────────────────────── */
@@ -156,6 +161,37 @@ input[type="date"] {
     position: fixed;
     height: -webkit-fill-available;
   }
+}
+
+/* Keep the app shell stable while a software keyboard resizes the visual viewport. */
+html[data-keyboard-open="1"] .bottom-nav,
+html[data-keyboard-open="1"] .fab,
+html[data-keyboard-open="1"] .ai-float-btn {
+  display: none !important;
+}
+
+html[data-keyboard-open="1"] .modal-overlay {
+  inset: var(--visual-top) 0 auto 0 !important;
+  height: var(--visual-height) !important;
+  min-height: 0 !important;
+  align-items: flex-start !important;
+  padding-top: 6px !important;
+}
+
+html[data-keyboard-open="1"] .modal-overlay > .modal-pop {
+  max-height: calc(var(--visual-height) - 12px) !important;
+  border-radius: 16px !important;
+}
+
+html[data-keyboard-open="1"] .app-main-scroll {
+  scroll-padding-top: 88px;
+  scroll-padding-bottom: 32px;
+}
+
+html[data-keyboard-open="1"] .ai-panel {
+  top: var(--visual-top) !important;
+  height: var(--visual-height) !important;
+  max-height: var(--visual-height) !important;
 }
 
 /* Android ripple effect on touch */
