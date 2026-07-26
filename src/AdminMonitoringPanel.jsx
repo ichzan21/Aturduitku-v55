@@ -102,6 +102,8 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
                     ? "Peringatan performa"
                     : event.type === "api_network_error"
                       ? "Koneksi perangkat terputus"
+                      : event.type === "api_timeout"
+                        ? "Batas waktu koneksi terlewati"
                       : event.type === "storage_connection_lost"
                         ? "Penyimpanan perangkat dipulihkan"
                       : "Perlindungan sinkronisasi";

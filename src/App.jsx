@@ -2617,12 +2617,15 @@ export default function App(){
         },
       });
     }catch(error){
-      const requestError=new Error(error?.message||"Koneksi ke server terputus");
-      requestError.code=controller.signal.aborted?"API_TIMEOUT":"API_NETWORK_ERROR";
+      const didTimeout=controller.signal.aborted;
+      const requestError=new Error(didTimeout
+        ? `Permintaan melewati batas waktu ${requestTimeout} ms`
+        : error?.message||"Koneksi ke server terputus");
+      requestError.code=didTimeout?"API_TIMEOUT":"API_NETWORK_ERROR";
       requestError.monitorable=!requestWasHidden;
+      requestError.durationMs=Math.min(requestTimeout,Math.round(performance.now()-requestStartedAt));
       if(requestError.monitorable&&!suppressNetworkMonitoring){
-        const requestDuration=Math.min(requestTimeout,Math.round(performance.now()-requestStartedAt));
-        reportClientError(requestError,{type:controller.signal.aborted?"api_timeout":"api_network_error",component:"authedJson",route:url,durationMs:requestDuration});
+        reportClientError(requestError,{type:didTimeout?"api_timeout":"api_network_error",component:"authedJson",route:url,durationMs:requestError.durationMs});
       }
       throw requestError;
     }finally{
@@ -2736,7 +2739,7 @@ export default function App(){
     }
     if(!result){
       if(lastError?.monitorable){
-        reportClientError(lastError,{type:lastError.code==="API_TIMEOUT"?"api_timeout":"api_network_error",component:"cloud_autosave",route:"/api/users/data"});
+        reportClientError(lastError,{type:lastError.code==="API_TIMEOUT"?"api_timeout":"api_network_error",component:"cloud_autosave",route:"/api/users/data",durationMs:lastError.durationMs});
       }
       throw lastError||new Error("Data belum dapat disimpan");
     }
@@ -2890,10 +2893,6 @@ export default function App(){
                 approvalStatus:"verification_unavailable",
                 backendReady:false,
               });
-              try{
-                const cloudData = await loadCloudData(user.uid);
-                if(!disposed) applyLoadedUserData(user, cloudData);
-              }catch(err){}
             }
           } else {
             setCloudReady(false);

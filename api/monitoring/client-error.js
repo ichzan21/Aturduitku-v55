@@ -3,6 +3,7 @@ import { requireUser } from "../_lib/auth.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 import { consumeRateLimit } from "../_lib/rateLimit.js";
 import { evaluateMonitoringAlerts } from "../_lib/monitoringAlerts.js";
+import { classifyMonitoringEvent, isIgnoredMonitoringEvent } from "../_lib/monitoringPolicy.js";
 import { createHash } from "node:crypto";
 
 const text = (value, max) => String(value || "")
@@ -29,11 +30,8 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const eventType = text(body.type, 60);
     const message = text(body.message, 500);
-    const isOpaqueScriptError = eventType === "window_error" && /^script error\.?$/i.test(message);
-    if (isOpaqueScriptError) return res.status(202).json({ ok: true, ignored: true });
-    const isPerformance = ["api_slow", "performance_slow", "performance_long_task"].includes(eventType);
-    const isStorageDisconnect = /connection to indexed database server lost|indexeddb.*(?:connection|database).*(?:lost|closed|closing)|database connection is closing/i.test(message);
-    const isOperational = ["sync_conflict", "api_network_error", "storage_connection_lost"].includes(eventType) || isStorageDisconnect;
+    if (isIgnoredMonitoringEvent(eventType, message)) return res.status(202).json({ ok: true, ignored: true });
+    const category = classifyMonitoringEvent(eventType, message);
     const createdAt = new Date().toISOString();
     const route = text(body.route, 120);
     const bucket = Math.floor(Date.now() / (5 * 60 * 1000));
@@ -45,8 +43,8 @@ export default async function handler(req, res) {
     const eventData = {
       uid: decoded.uid,
       type: eventType,
-      category: isPerformance ? "performance" : isOperational ? "operational" : "incident",
-      severity: isPerformance || isOperational ? "warning" : "error",
+      category,
+      severity: category === "incident" ? "error" : "warning",
       message,
       stack: text(body.stack, 1600),
       route,
@@ -56,7 +54,7 @@ export default async function handler(req, res) {
       durationMs: Math.max(0, Math.min(120000, Math.round(Number(body.durationMs) || 0))),
       createdAt,
       lastSeenAt: createdAt,
-      resolved: isPerformance || isOperational,
+      resolved: category !== "incident",
     };
     await db.runTransaction(async (tx) => {
       const existing = await tx.get(eventRef);

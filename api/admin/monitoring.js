@@ -2,6 +2,7 @@ import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { requireAdmin } from "../_lib/auth.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 import { sendMonitoringTestAlert } from "../_lib/monitoringAlerts.js";
+import { classifyMonitoringEvent } from "../_lib/monitoringPolicy.js";
 
 const safeText = (value, max = 180) => String(value || "")
   .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[email]")
@@ -9,11 +10,6 @@ const safeText = (value, max = 180) => String(value || "")
   .slice(0, max);
 
 const enabled = (name) => Boolean(String(process.env[name] || "").trim());
-const performanceTypes = new Set(["api_slow", "performance_slow", "performance_long_task"]);
-const operationalTypes = new Set(["sync_conflict", "api_network_error", "storage_connection_lost"]);
-const ignoredBrowserNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
-const recoverableStorageFailure = /connection to indexed database server lost|indexeddb.*(?:connection|database).*(?:lost|closed|closing)|database connection is closing/i;
-
 export default async function handler(req, res) {
   const security = secureApi(req, res, { methods: ["GET", "POST"] });
   if (security.handled) return;
@@ -38,12 +34,7 @@ export default async function handler(req, res) {
       const data = doc.data() || {};
       const type = safeText(data.type, 60);
       const message = safeText(data.message, 220);
-      const isOpaqueScriptError = type === "window_error" && /^script error\.?$/i.test(message);
-      const category = ignoredBrowserNoise.test(message) || isOpaqueScriptError
-        ? "ignored"
-        : data.category === "performance" || performanceTypes.has(type)
-          ? "performance"
-          : data.category === "operational" || operationalTypes.has(type) || recoverableStorageFailure.test(message) ? "operational" : "incident";
+      const category = classifyMonitoringEvent(type, message, data.category);
       return {
         id: doc.id,
         type,

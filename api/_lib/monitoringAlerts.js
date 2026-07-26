@@ -1,4 +1,5 @@
 import { sendSystemHealthAlert } from "./telegram.js";
+import { isNetworkFailureType, isSevereMonitoringEvent } from "./monitoringPolicy.js";
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 const ALERT_COOLDOWN = 30 * 60 * 1000;
@@ -60,14 +61,12 @@ export async function evaluateMonitoringAlerts(db) {
   const snapshot = await db.collection("_client_errors").orderBy("createdAt", "desc").limit(80).get();
   const cutoff = Date.now() - FIFTEEN_MINUTES;
   const recent = snapshot.docs.map((doc) => doc.data() || {}).filter((event) => toMs(event.createdAt) >= cutoff);
-  const browserNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
-  const recoverableStorageFailure = /connection to indexed database server lost|indexeddb.*(?:connection|database).*(?:lost|closed|closing)|database connection is closing/i;
-  const opaqueScriptError = (event) => event.type === "window_error" && /^script error\.?$/i.test(String(event.message || ""));
-  const severe = recent.filter((event) => ["react_boundary", "window_error", "unhandled_rejection", "api_server_error", "api_timeout"].includes(event.type) && !browserNoise.test(String(event.message || "")) && !recoverableStorageFailure.test(String(event.message || "")) && !opaqueScriptError(event));
+  const severe = recent.filter(isSevereMonitoringEvent);
   const slow = recent.filter((event) => ["performance_slow", "performance_long_task", "api_slow"].includes(event.type));
   const slowSessions = new Set(slow.map((event) => `${event.uid || "server"}:${Math.floor(toMs(event.createdAt) / (5 * 60 * 1000))}`));
   const limited = recent.filter((event) => ["api_rate_limit", "ai_rate_limit"].includes(event.type));
-  const networkFailures = recent.filter((event) => event.type === "api_network_error");
+  const networkFailures = recent.filter((event) => isNetworkFailureType(event.type));
+  const networkFailureSessions = new Set(networkFailures.map((event) => `${event.uid || "server"}:${Math.floor(toMs(event.createdAt) / (5 * 60 * 1000))}`));
   const alerts = [];
 
   if (severe.length >= 5) alerts.push(["error_spike", {
@@ -89,9 +88,9 @@ export async function evaluateMonitoringAlerts(db) {
     lines:[`${limited.length} kejadian rate-limit dalam 15 menit.`, "Permintaan user sedang tinggi atau kuota layanan mendekati batas."],
     action:"Periksa usage Vercel, Firebase, dan Cloudflare lalu naikkan paket hanya bila tren berlanjut.",
   }]);
-  if (networkFailures.length >= 10) alerts.push(["network_spike", {
+  if (networkFailureSessions.size >= 5) alerts.push(["network_spike", {
     severity:"warning", title:"Banyak perangkat kehilangan koneksi",
-    lines:[`${networkFailures.length} kegagalan jaringan dalam 15 menit.`, "Jika berasal dari banyak user, kemungkinan ada gangguan konektivitas luas."],
+    lines:[`${networkFailureSessions.size} sesi mengalami timeout atau kegagalan jaringan dalam 15 menit.`, "Karena terjadi di beberapa sesi, kemungkinan ada gangguan konektivitas yang lebih luas."],
     action:"Periksa status Vercel dan Firebase. Jika keduanya normal, pantau jaringan pengguna.",
   }]);
 
