@@ -3524,6 +3524,22 @@ export default function App(){
   useEffect(()=>setTxPage(1),[txSearch,txFilt.dompet,txFilt.tipe]);
 
   const pieData=s.budgets.filter(b=>spendByKat[b.id]>0).map(b=>({name:b.icon+" "+b.kat,value:spendByKat[b.id]||0}));
+  const incomeCategoryData=useMemo(()=>{
+    const grouped=new Map();
+    txBulan.filter(tx=>tx.tipe==="pemasukan").forEach(tx=>{
+      const raw=String(tx.customKat||"").trim()||(typeof tx.katId==="string"?String(tx.katId).trim():"");
+      const label=raw||(lang==="en"?"Other income":"Pemasukan lainnya");
+      const key=label.toLocaleLowerCase(lang==="en"?"en-US":"id-ID");
+      const current=grouped.get(key)||{name:label,value:0};
+      current.value+=N(tx.jml);
+      grouped.set(key,current);
+    });
+    return [...grouped.values()]
+      .filter(item=>item.value>0)
+      .sort((a,b)=>b.value-a.value)
+      .map(item=>({...item,percent:totalIn>0?item.value/totalIn*100:0}));
+  },[txBulan,totalIn,lang]);
+  const incomePieData=incomeCategoryData.map(item=>({name:item.name,value:item.value}));
 
   const habitDay=today();
   const activeHabits=useMemo(()=>s.habits.filter(h=>h.active!==false),[s.habits]);
@@ -5096,6 +5112,11 @@ Saldo amplop bertambah.`}]);
       txM.filter(tx=>["pengeluaran","tabungan","investasi"].includes(tx.tipe)&&tx.katId).forEach(tx=>{
         const kid=Number(tx.katId); katSpend[kid]=(katSpend[kid]||0)+Num(tx.jml);
       });
+      const katIncome = {};
+      txM.filter(tx=>tx.tipe==="pemasukan").forEach(tx=>{
+        const nm=clean(String(tx.customKat||"").trim()||(typeof tx.katId==="string"?String(tx.katId).trim():"")||(isEN?"Other income":"Pemasukan lainnya"));
+        katIncome[nm]=(katIncome[nm]||0)+Num(tx.jml);
+      });
 
       // ── Budget helpers ────────────────────────────────────────────────────
       const budgetAlloc = s.budgets.reduce((a,b)=>a+Num(b.alokasi)+b.sub.reduce((x,sb)=>x+Num(sb.alokasi),0),0);
@@ -5359,6 +5380,33 @@ Saldo amplop bertambah.`}]);
       newPage(); y=6;
 
       // ── Spending by category (horizontal bar chart) ───────────────────────
+      const incomeData=Object.entries(katIncome)
+        .map(([name,value],i)=>({name,value,color:CAT_COLORS[i%CAT_COLORS.length]}))
+        .filter(item=>item.value>0)
+        .sort((a,b)=>b.value-a.value)
+        .slice(0,10);
+      y=secTitle(isEN?"Income Sources":"Sumber Pemasukan",
+                 isEN?`${incomeData.length} income categories this period`:`${incomeData.length} kategori pemasukan periode ini`,y);
+      if(incomeData.length){
+        const incomeBarX=ML+50,incomeMaxWidth=CT-50-34,incomeBarHeight=5.2,incomeBarGap=3.2;
+        incomeData.forEach((item,i)=>{
+          const barY=y+i*(incomeBarHeight+incomeBarGap);
+          const barWidth=Math.max(2,(item.value/Math.max(totalIn,1))*incomeMaxWidth);
+          fc(C.greenLt);rr(ML-1,barY,10,incomeBarHeight,1);
+          tc(C.green);ft("bold",6);txt("#"+(i+1),ML+4,barY+incomeBarHeight-.8,{align:"center"});
+          tc(C.dark);ft("normal",7.5);txt(item.name.slice(0,18),ML+10,barY+incomeBarHeight-.7);
+          fc(C.line);rr(incomeBarX,barY,incomeMaxWidth,incomeBarHeight,incomeBarHeight/2);
+          fc(item.color);rr(incomeBarX,barY,barWidth,incomeBarHeight,incomeBarHeight/2);
+          tc(C.gray);ft("bold",6.5);txt(idrs(item.value)+" ("+pctn(item.value,totalIn)+")",incomeBarX+incomeMaxWidth+2,barY+incomeBarHeight-.7);
+        });
+        y+=incomeData.length*(incomeBarHeight+incomeBarGap)+8;
+      }else{
+        tc(C.gray);ft("normal",8.5);
+        txt(isEN?"No income data this period":"Belum ada pemasukan bulan ini",ML,y+8);
+        y+=16;
+      }
+      if(y>H-100){newPage();y=6;}
+
       const katData = s.budgets
         .map((b,i)=>({
           id:b.id, kat:clean(b.kat),
@@ -5708,6 +5756,11 @@ Saldo amplop bertambah.`}]);
         const nm=String(tx.customKat||"").trim()||b?.kat||(isEN?"Other":"Lainnya");
         katSpend[nm]=(katSpend[nm]||0)+Num(tx.jml);
       });
+      const katIncome = {};
+      txM.filter(tx=>tx.tipe==="pemasukan").forEach(tx=>{
+        const nm=String(tx.customKat||"").trim()||(typeof tx.katId==="string"?String(tx.katId).trim():"")||(isEN?"Other income":"Pemasukan lainnya");
+        katIncome[nm]=(katIncome[nm]||0)+Num(tx.jml);
+      });
 
       const wb = XLSX.utils.book_new();
 
@@ -5925,6 +5978,12 @@ Saldo amplop bertambah.`}]);
         }));
         XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31));
       };
+      appendDataSheet(
+        isEN?"Income Sources":"Sumber Pemasukan",
+        [isEN?"Category":"Kategori",isEN?"Amount":"Jumlah","Percentage"],
+        Object.entries(katIncome).sort((a,b)=>b[1]-a[1]).map(([name,value])=>[name,value,totalIn>0?Number((value/totalIn*100).toFixed(1)):0]),
+        [30,20,14]
+      );
       appendDataSheet(isEN?"Goals":"Goals",[isEN?"Goal":"Goal",isEN?"Target":"Target",isEN?"Saved":"Terkumpul","Progress %","Deadline"],(s.goals||[]).map(g=>[g.nama,Num(g.target),Num(g.kumpul),Num(g.target)>0?Number((Num(g.kumpul)/Num(g.target)*100).toFixed(1)):0,g.deadline||""]),[28,18,18,14,16]);
       appendDataSheet(isEN?"Envelopes":"Amplop",[isEN?"Envelope":"Amplop",isEN?"Category":"Kategori",isEN?"Allocated":"Alokasi",isEN?"Used":"Terpakai",isEN?"Remaining":"Sisa"],(s.amplop||[]).map(a=>[a.nama,s.budgets.find(b=>b.id===a.katId)?.kat||"Lainnya",Num(a.alokasi),Num(a.terpakai),Math.max(Num(a.alokasi)-Num(a.terpakai),0)]),[26,22,18,18,18]);
       appendDataSheet(isEN?"Assets":"Aset",[isEN?"Asset":"Aset",isEN?"Value":"Nilai",isEN?"Note":"Keterangan"],(s.asetTetap||[]).map(a=>[a.nama,Num(a.nilai),a.ket||""]),[28,20,36]);
@@ -8685,6 +8744,66 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </div>
               ))}
             </div>
+
+            <Card ch={<>
+              <Sec
+                t={lang==="en"?"Income Sources":"Sumber Pemasukan"}
+                sub={lang==="en"?"See how much income comes from each category":"Lihat jumlah pemasukan dari masing-masing kategori"}
+              />
+              {incomeCategoryData.length?(
+                <div style={{display:"grid",gridTemplateColumns:isReportCompact?"1fr":"minmax(280px,.8fr) minmax(360px,1.2fr)",gap:isReportCompact?12:24,alignItems:"center"}}>
+                  <div style={{position:"relative",minWidth:0}}>
+                    <Suspense fallback={<ChartFallback height={isReportCompact?210:240}/>}>
+                      <DonutChartLazy
+                        pieData={incomePieData}
+                        pieColors={PIE_C}
+                        T={T}
+                        idr={IDR}
+                        height={isReportCompact?210:240}
+                        outerRadius={isReportCompact?78:92}
+                        innerRadius={isReportCompact?48:56}
+                        showLabel={!isReportCompact}
+                        isMobile={isReportCompact}
+                      />
+                    </Suspense>
+                    <div style={{position:"absolute",left:"50%",top:"50%",transform:"translate(-50%,-50%)",textAlign:"center",pointerEvents:"none",maxWidth:110}}>
+                      <div style={{fontSize:9,color:T.muted,fontWeight:800,textTransform:"uppercase",letterSpacing:.8,marginBottom:3}}>{lang==="en"?"Total":"Total"}</div>
+                      <div style={{fontSize:isReportCompact?14:16,fontWeight:950,color:T.ok,whiteSpace:"nowrap"}}><AnimatedAmount value={totalIn} compact/></div>
+                    </div>
+                  </div>
+                  <div style={{display:"grid",gap:8,maxHeight:isReportCompact?360:250,overflowY:"auto",paddingRight:3}}>
+                    {incomeCategoryData.map((item,i)=>(
+                      <div key={`${item.name}-${i}`} style={{background:T.cardAlt,border:`1px solid ${T.borderLight}`,borderRadius:12,padding:"10px 12px",minWidth:0}}>
+                        <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"center",marginBottom:7}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+                            <span aria-hidden="true" style={{width:10,height:10,borderRadius:3,background:PIE_C[i%PIE_C.length],flexShrink:0}}/>
+                            <span style={{fontSize:12,fontWeight:800,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={item.name}>{item.name}</span>
+                          </div>
+                          <div style={{textAlign:"right",whiteSpace:"nowrap"}}>
+                            <div style={{fontSize:12,fontWeight:900,color:T.ok}}><AnimatedAmount value={item.value} compact/></div>
+                            <div style={{fontSize:9,color:T.muted}}><AnimatedPercent value={item.percent} digits={1}/></div>
+                          </div>
+                        </div>
+                        <div style={{height:5,borderRadius:99,background:T.borderLight,overflow:"hidden"}}>
+                          <div className="pbar-fill" style={{height:"100%",width:`${Math.min(item.percent,100)}%`,borderRadius:99,background:PIE_C[i%PIE_C.length],animationDelay:`${i*45}ms`}}/>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ):(
+                <LaunchEmpty
+                  icon="💰"
+                  title={lang==="en"?"No income distribution yet":"Belum ada distribusi pemasukan"}
+                  desc={lang==="en"?"Record income and select its category to see each income source here.":"Catat pemasukan dan pilih kategorinya agar jumlah dari setiap sumber muncul di sini."}
+                  actionLabel={lang==="en"?"Record income":"Catat pemasukan"}
+                  onAction={()=>setModal({type:"tx",tipe:"pemasukan"})}
+                  secondaryLabel={lang==="en"?"Open transactions":"Buka transaksi"}
+                  onSecondary={()=>setPage("trans")}
+                  style={{padding:"28px 16px"}}
+                />
+              )}
+            </>} style={{marginBottom:18}}/>
 
             {/* Charts */}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:18,marginBottom:18}}>
