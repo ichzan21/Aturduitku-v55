@@ -88,6 +88,42 @@ const IDRs = v=>{const n=Number(v||0),a=Math.abs(n);if(a>=1e9)return(n<0?"-":"")
 const fmtN = v=>{const n=String(v).replace(/\D/g,"");return n?n.replace(/\B(?=(\d{3})+(?!\d))/g,"."):"";};
 const pN   = v=>String(v).replace(/\./g,"");
 const N    = v=>Number(String(v||0).replace(/\./g,""))||0;
+const AnimatedNumber=React.memo(function AnimatedNumber({value,format=Math.round,duration=720,className,style}){
+  const target=Number.isFinite(Number(value))?Number(value):0;
+  const currentRef=useRef(0);
+  const frameRef=useRef(0);
+  const [display,setDisplay]=useState(0);
+  useEffect(()=>{
+    cancelAnimationFrame(frameRef.current);
+    const from=currentRef.current;
+    const delta=target-from;
+    const reduceMotion=typeof window!=="undefined"&&window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if(reduceMotion||Math.abs(delta)<.01||document.visibilityState==="hidden"){
+      currentRef.current=target;
+      setDisplay(target);
+      return undefined;
+    }
+    const started=performance.now();
+    const tick=now=>{
+      const progress=Math.min((now-started)/duration,1);
+      const eased=1-Math.pow(1-progress,3);
+      const next=from+(delta*eased);
+      currentRef.current=next;
+      setDisplay(next);
+      if(progress<1) frameRef.current=requestAnimationFrame(tick);
+      else{
+        currentRef.current=target;
+        setDisplay(target);
+      }
+    };
+    frameRef.current=requestAnimationFrame(tick);
+    return()=>cancelAnimationFrame(frameRef.current);
+  },[target,duration]);
+  const text=format(display);
+  return <span data-animated-number={target} aria-label={format(target)} className={`number-flow${className?` ${className}`:""}`} style={style}>{text}</span>;
+});
+const AnimatedAmount=({value,compact=false,...props})=><AnimatedNumber value={N(value)} format={compact?IDRs:IDR} {...props}/>;
+const AnimatedPercent=({value,digits=0,suffix="%",...props})=><AnimatedNumber value={Number(value)||0} format={n=>`${n.toFixed(digits)}${suffix}`} {...props}/>;
 const PCT  = v=>Number(v||0).toFixed(1)+"%";
 const normalizeTransactionKinds = txs => (txs||[]).map(tx=>{
   const ket=String(tx?.ket||"").trim();
@@ -1139,7 +1175,7 @@ const CircleGauge=({value,max=100,size=110,c="#22C55E",label})=>{
           strokeLinecap="round" style={{transition:"stroke-dasharray .6s"}}/>
       </svg>
       <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
-        <div style={{fontSize:22,fontWeight:900,color:c,lineHeight:1}}>{Math.round(value)}</div>
+        <div style={{fontSize:22,fontWeight:900,color:c,lineHeight:1}}><AnimatedNumber value={value}/></div>
         {label&&<div style={{fontSize:9,color:"#94A3B8",fontWeight:600,marginTop:1}}>{label}</div>}
       </div>
     </div>
@@ -2188,7 +2224,7 @@ function YearInReview({ s, T, lang, onClose }) {
       <div style={{background:`linear-gradient(135deg,${T.accent},${T.accentSoft})`,borderRadius:16,padding:"16px 18px",marginBottom:14,color:"white",display:"flex",alignItems:"center",gap:16}}>
         <div style={{width:68,height:68,background:"rgba(255,255,255,.15)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
           <div style={{textAlign:"center"}}>
-            <div style={{fontSize:22,fontWeight:900}}>{yearScoreVal}</div>
+            <div style={{fontSize:22,fontWeight:900}}><AnimatedNumber value={yearScoreVal}/></div>
             <div style={{fontSize:8,opacity:.8}}>/100</div>
           </div>
         </div>
@@ -2212,7 +2248,7 @@ function YearInReview({ s, T, lang, onClose }) {
           <div key={l} className="stagger-in" style={{background:bg,borderRadius:12,padding:"12px 14px",animationDelay:`${i*55}ms`}}>
             <div style={{fontSize:18,marginBottom:4}}>{ico}</div>
             <div style={{fontSize:9,color:c,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:2}}>{l}</div>
-            <div style={{fontSize:14,fontWeight:900,color:c}}>{v}</div>
+            <div style={{fontSize:14,fontWeight:900,color:c}}><AnimatedAmount value={[totalIn,totalOut,totalSav,netCash][i]} compact/></div>
           </div>
         ))}
       </div>
@@ -2261,12 +2297,12 @@ function YearInReview({ s, T, lang, onClose }) {
       <div style={{background:T.card,borderRadius:12,padding:"10px 14px",marginBottom:14,border:`1px solid ${T.border}`,display:"flex",gap:12,flexWrap:"wrap"}}>
         <div style={{flex:1}}>
           <div style={{fontSize:9,color:T.muted,textTransform:"uppercase",letterSpacing:.8}}>{t("avgMonthly")} {lang==="en"?"Income":"Masuk"}</div>
-          <div style={{fontWeight:800,color:T.ok,fontSize:13,marginTop:2}}>{IDRs(avgIn)}</div>
+          <div style={{fontWeight:800,color:T.ok,fontSize:13,marginTop:2}}><AnimatedAmount value={avgIn} compact/></div>
         </div>
         <div style={{width:1,background:T.border}}/>
         <div style={{flex:1}}>
           <div style={{fontSize:9,color:T.muted,textTransform:"uppercase",letterSpacing:.8}}>{t("avgMonthly")} {lang==="en"?"Expense":"Keluar"}</div>
-          <div style={{fontWeight:800,color:T.err,fontSize:13,marginTop:2}}>{IDRs(avgOut)}</div>
+          <div style={{fontWeight:800,color:T.err,fontSize:13,marginTop:2}}><AnimatedAmount value={avgOut} compact/></div>
         </div>
       </div>
 
@@ -2282,7 +2318,7 @@ function YearInReview({ s, T, lang, onClose }) {
                 <div className="pbar-fill" style={{height:"100%",background:T.accent,borderRadius:99,width:(topCats[0][1].jml>0?jml/topCats[0][1].jml*100:0)+"%",transition:"width .5s ease",animationDelay:`${i*45}ms`}}/>
               </div>
             </div>
-            <div style={{fontWeight:800,fontSize:12,color:T.err,flexShrink:0}}>{IDRs(jml)}</div>
+            <div style={{fontWeight:800,fontSize:12,color:T.err,flexShrink:0}}><AnimatedAmount value={jml} compact/></div>
             <div style={{fontWeight:900,color:T.muted,fontSize:11,width:16,textAlign:"right"}}>#{i+1}</div>
           </div>
         ))}
@@ -2294,11 +2330,11 @@ function YearInReview({ s, T, lang, onClose }) {
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
             <div style={{fontSize:10,color:T.muted}}>{lang==="en"?"Current Balance":"Current Saldo"}</div>
-            <div style={{fontSize:18,fontWeight:900,color:T.accent}}>{IDR(totalSaldo)}</div>
+            <div style={{fontSize:18,fontWeight:900,color:T.accent}}><AnimatedAmount value={totalSaldo}/></div>
           </div>
           <div style={{textAlign:"right"}}>
             <div style={{fontSize:10,color:T.muted}}>{t("yearNet")+":"}</div>
-            <div style={{fontSize:14,fontWeight:800,color:netCash>=0?T.ok:T.err}}>{netCash>=0?"+":""}{IDRs(netCash)}</div>
+            <div style={{fontSize:14,fontWeight:800,color:netCash>=0?T.ok:T.err}}>{netCash>=0?"+":""}<AnimatedAmount value={netCash} compact/></div>
           </div>
         </div>
       </div>
@@ -6739,6 +6775,7 @@ Saldo amplop bertambah.`}]);
         .tx-row-new{animation:flashNew 1.4s ease-out both,fadeUp .45s cubic-bezier(.22,1,.36,1) both;}
         .tx-row-out{overflow:hidden;animation:rowOut .3s cubic-bezier(.4,0,1,1) both;}
         .pbar-fill{transform-origin:left;animation:growX .9s cubic-bezier(.22,1,.36,1) both;transition:width .6s cubic-bezier(.22,1,.36,1);}
+        .number-flow{display:inline-block;font-variant-numeric:tabular-nums;white-space:nowrap;transform:translateZ(0);}
         .chart-bar{transform-origin:bottom;animation:growY .7s cubic-bezier(.22,1,.36,1) both;}
         .stagger-in{animation:fadeUp .5s cubic-bezier(.22,1,.36,1) both;}
         .sheet-in{animation:sheetIn .38s cubic-bezier(.26,1.1,.3,1) both;}
@@ -7393,7 +7430,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",position:"relative",flexWrap:"wrap",gap:12}}>
                 <div>
                   <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>{t("dailyBudget")}</div>
-                  <div style={{fontSize:isMobile?24:32,fontWeight:900,letterSpacing:-.5,marginBottom:2}}>{IDR(budgetHarian)}</div>
+                  <div style={{fontSize:isMobile?24:32,fontWeight:900,letterSpacing:-.5,marginBottom:2}}><AnimatedAmount value={budgetHarian}/></div>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
                     <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,.15)",borderRadius:10,padding:"6px 14px"}}>
                       <span style={{fontSize:13}}>🕐</span>
@@ -7405,16 +7442,16 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     </div>}
                   </div>
                   <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>Masuk {IDRs(totalIn)}</div>
-                    <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>Keluar {IDRs(totalOut)}</div>
+                    <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>Masuk <AnimatedAmount value={totalIn} compact/></div>
+                    <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>Keluar <AnimatedAmount value={totalOut} compact/></div>
                     <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700}}>{sisaHari} {t("days")}</div>
                   </div>
                 </div>
                 <div style={{textAlign:"right",background:"rgba(0,0,0,.2)",borderRadius:12,padding:"14px 18px",flexShrink:0}}>
                   <div style={{fontSize:9,opacity:.6,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>{t("totalBalance")}</div>
-                  <div style={{fontSize:24,fontWeight:900}}><MV v={IDR(totalSaldo)}/></div>
-                  <div style={{fontSize:10,opacity:.65,marginTop:3}}>{t("runway")}: {runwayReal} {t("months")}</div>
-                  <div style={{fontSize:10,opacity:.65,marginTop:2}}>{t("scoreLabel")}: {skorTotal}/100 {getLabel(skorTotal)}</div>
+                  <div style={{fontSize:24,fontWeight:900}}><MV v={<AnimatedAmount value={totalSaldo}/>}/></div>
+                  <div style={{fontSize:10,opacity:.65,marginTop:3}}>{t("runway")}: <AnimatedNumber value={runwayReal} format={n=>n.toFixed(1)}/> {t("months")}</div>
+                  <div style={{fontSize:10,opacity:.65,marginTop:2}}>{t("scoreLabel")}: <AnimatedNumber value={skorTotal}/>/100 {getLabel(skorTotal)}</div>
                 </div>
               </div>
             </div>
@@ -7435,7 +7472,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   {l:"Runway",v:`${runwayReal} bln`,c:T.info},
                 ].map(item=><div key={item.l} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:12,padding:"10px 12px"}}>
                   <div style={{fontSize:9,color:T.muted,fontWeight:800,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>{item.l}</div>
-                  <div style={{fontSize:14,fontWeight:900,color:item.c,whiteSpace:"nowrap"}}>{item.v}</div>
+                  <div style={{fontSize:14,fontWeight:900,color:item.c,whiteSpace:"nowrap"}}>{item.l==="Skor"?<><AnimatedNumber value={skorTotal}/>/100</>:item.l==="Harian"?<AnimatedAmount value={budgetHarian} compact/>:<><AnimatedNumber value={runwayReal} format={n=>n.toFixed(1)}/> bln</>}</div>
                 </div>)}
               </div>
               <Btn onClick={moneyDoctorInsight.onAction} ch={moneyDoctorInsight.action} c={moneyDoctorInsight.tone==="danger"?T.err:moneyDoctorInsight.tone==="warn"?T.warn:T.accent} style={{padding:"10px 14px",fontSize:12,width:isMobile?"100%":"auto"}}/>
@@ -7601,7 +7638,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               ].map((x,i)=>(
                 <div key={x.l} className="stagger-in" style={{background:x.bg,borderRadius:13,padding:"14px 16px",border:`1px solid ${x.vc}22`,transition:"background .3s",animationDelay:`${i*55}ms`}}>
                   <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1.2,marginBottom:6}}>{x.l}</div>
-                  <div style={{fontSize:isMobile?14:16,fontWeight:800,color:x.vc,marginBottom:3}}>{x.v}</div>
+                  <div style={{fontSize:isMobile?14:16,fontWeight:800,color:x.vc,marginBottom:3}}>{i===0?<AnimatedPercent value={Math.min(savRate,999)} digits={1} suffix={savRate>999?"%+":"%"}/>:i===1?<AnimatedAmount value={netCash} compact/>:i===2?<><AnimatedNumber value={runwayReal} format={n=>n.toFixed(1)}/> {t("runwayMonths")}</>:x.v}</div>
                   <div style={{fontSize:10,color:T.muted}}>{x.sub}</div>
                 </div>
               ))}
@@ -7615,9 +7652,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     {l:"Masuk",v:IDRs(weeklyReport.income),c:T.ok,bg:T.okBg},
                     {l:"Keluar",v:IDRs(weeklyReport.expense),c:T.err,bg:T.errBg},
                     {l:"Nabung",v:IDRs(weeklyReport.saving),c:T.info,bg:T.infoBg},
-                  ].map(item=><div key={item.l} style={{background:item.bg,borderRadius:11,padding:"10px 11px"}}>
+                  ].map((item,i)=><div key={item.l} style={{background:item.bg,borderRadius:11,padding:"10px 11px"}}>
                     <div style={{fontSize:9,color:T.muted,fontWeight:800,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>{item.l}</div>
-                    <div style={{fontSize:13,fontWeight:900,color:item.c,whiteSpace:"nowrap"}}>{item.v}</div>
+                    <div style={{fontSize:13,fontWeight:900,color:item.c,whiteSpace:"nowrap"}}><AnimatedAmount value={[weeklyReport.income,weeklyReport.expense,weeklyReport.saving][i]} compact/></div>
                   </div>)}
                 </div>
                 <div style={{display:"flex",gap:10,alignItems:"flex-start",background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:12,padding:"12px 13px"}}>
@@ -7763,7 +7800,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           {page==="dompet"&&<>
             <div style={{background:T.hero,borderRadius:16,padding:"22px 28px",marginBottom:20,color:"white"}}>
               <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>{t("liquidAssets")}</div>
-              <div style={{fontSize:30,fontWeight:900,marginBottom:4}}><MV v={IDR(totalSaldo)}/></div>
+              <div style={{fontSize:30,fontWeight:900,marginBottom:4}}><MV v={<AnimatedAmount value={totalSaldo}/>}/></div>
               <div style={{display:"flex",gap:16,fontSize:12,opacity:.7}}>
                 <span>{t("scoreLabel")}: {getLabel(skorTotal)} ({skorTotal}/100)</span>
                 <span>{s.dompet.length} akun aktif</span>
@@ -7781,7 +7818,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   </div>
                   <div style={{fontSize:20,fontWeight:900,color:N(d.saldo)<0?T.err:T.text,marginBottom:8}}>
                     {N(d.saldo)<0&&<span style={{fontSize:12,background:T.errBg,color:T.err,borderRadius:6,padding:"1px 7px",marginRight:6,fontWeight:700}}>Minus</span>}
-                    <MV v={IDR(N(d.saldo))}/>
+                    <MV v={<AnimatedAmount value={N(d.saldo)}/>}/>
                   </div>
                   <div style={{height:4,background:T.border,borderRadius:4,marginBottom:12,overflow:"hidden"}}>
                     <div style={{width:totalSaldo>0?Math.min(N(d.saldo)/totalSaldo*100,100)+"%" :"0%",height:"100%",background:T.accent,borderRadius:4}}/>
@@ -7824,7 +7861,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               {[{l:t("incomeLabel"),v:IDR(totalIn),vc:T.ok,bg:T.okBg},{l:t("expenseLabel"),v:IDR(totalOut),vc:T.err,bg:T.errBg},{l:"Tabungan & Investasi",v:IDR(totalFuture),vc:T.info,bg:T.infoBg},{l:"Net",v:IDR(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg}].map((x,i)=>(
                 <div key={x.l} className="stagger-in" style={{background:x.bg,borderRadius:12,padding:"13px 16px",transition:"background .3s",animationDelay:`${i*55}ms`}}>
                   <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{x.l}</div>
-                  <div style={{fontWeight:800,fontSize:15,color:x.vc}}>{x.v}</div>
+                  <div style={{fontWeight:800,fontSize:15,color:x.vc}}><AnimatedAmount value={[totalIn,totalOut,totalFuture,netCash][i]}/></div>
                 </div>
               ))}
             </div>
@@ -7859,12 +7896,12 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             <div style={{background:T.hero,borderRadius:16,padding:"20px 26px",marginBottom:20,color:"white",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
               <div>
                 <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>{t("budgetMonthly")}</div>
-                <div style={{fontSize:isMobile?20:28,fontWeight:900,marginBottom:4}}>{IDR(totalBudget)}</div>
+                <div style={{fontSize:isMobile?20:28,fontWeight:900,marginBottom:4}}><AnimatedAmount value={totalBudget}/></div>
                 <div style={{fontSize:12,opacity:.78}}>{t("budgetUsed")} {IDR(totalBudgetUsed)} • {t("budgetLeft")} {IDR(Math.max(totalBudget-totalBudgetUsed,0))}</div>
               </div>
               <div style={{textAlign:"right"}}>
                 <div style={{fontSize:11,opacity:.6,marginBottom:4}}>{t("budgetDisc")}</div>
-                <div style={{fontSize:20,fontWeight:900}}>{Math.round(skorDisiplin)}/100</div>
+                <div style={{fontSize:20,fontWeight:900}}><AnimatedNumber value={skorDisiplin}/>/100</div>
                 <div style={{marginTop:8,width:120}}>
                   <div style={{background:"rgba(255,255,255,.2)",borderRadius:99,overflow:"hidden",height:6}}>
                     <div className="pbar-fill" style={{width:Math.min(totalBudget>0?totalBudgetUsed/totalBudget*100:0,100)+"%",height:"100%",background:"rgba(255,255,255,.7)",borderRadius:99,transition:"width .6s"}}/>
@@ -8084,7 +8121,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               {[{l:"Total Goal",v:s.goals.length,vc:T.accent,bg:T.accentBg},{l:"Tercapai",v:s.goals.filter(g=>g.selesai||(N(g.target)>0&&N(g.kumpul)>=N(g.target))).length,vc:T.ok,bg:T.okBg},{l:"Total Terkumpul",v:IDR(s.goals.reduce((a,g)=>a+N(g.kumpul),0)),vc:T.info,bg:T.infoBg}].map((x,i)=>(
                 <div key={x.l} className="stagger-in" style={{background:x.bg,borderRadius:13,padding:"14px 18px",transition:"background .3s",animationDelay:`${i*55}ms`}}>
                   <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:5}}>{x.l}</div>
-                  <div style={{fontWeight:800,fontSize:18,color:x.vc}}>{x.v}</div>
+                  <div style={{fontWeight:800,fontSize:18,color:x.vc}}>{i===0?<AnimatedNumber value={s.goals.length}/>:i===1?<AnimatedNumber value={s.goals.filter(g=>g.selesai||(N(g.target)>0&&N(g.kumpul)>=N(g.target))).length}/>:<AnimatedAmount value={s.goals.reduce((a,g)=>a+N(g.kumpul),0)}/>}</div>
                 </div>
               ))}
             </div>
@@ -8116,8 +8153,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   </div>
                 </div>
                 <div style={{background:"rgba(0,0,0,.22)",border:"1px solid rgba(255,255,255,.12)",borderRadius:16,padding:"14px 18px",minWidth:isMobile?"100%":190}}>
-                  <div style={{fontSize:10,opacity:.65,letterSpacing:1.3,textTransform:"uppercase",fontWeight:800,marginBottom:4}}>Level {habitLevel}</div>
-                  <div style={{fontSize:26,fontWeight:900,marginBottom:8}}>{habitXP} XP</div>
+                  <div style={{fontSize:10,opacity:.65,letterSpacing:1.3,textTransform:"uppercase",fontWeight:800,marginBottom:4}}>Level <AnimatedNumber value={habitLevel}/></div>
+                  <div style={{fontSize:26,fontWeight:900,marginBottom:8}}><AnimatedNumber value={habitXP}/> XP</div>
                   <div style={{height:8,borderRadius:99,background:"rgba(255,255,255,.18)",overflow:"hidden"}}>
                     <div className="pbar-fill" style={{width:`${habitLevelPct}%`,height:"100%",borderRadius:99,background:"white",transition:"width .45s ease"}}/>
                   </div>
@@ -8132,9 +8169,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 {l:"Perfect streak",v:`${perfectDayStreak} hari`,sub:"semua habit beres",c:T.ok,bg:T.okBg},
                 {l:"Best streak",v:`${habitBestAll} hari`,sub:"rekor terbaik",c:T.info,bg:T.infoBg},
                 {l:"Total clear",v:habitTotalDone,sub:"check sepanjang waktu",c:T.warn,bg:T.warnBg},
-              ].map(x=><div key={x.l} style={{background:x.bg,border:`1px solid ${x.c}22`,borderRadius:14,padding:"14px 16px"}}>
+              ].map((x,i)=><div key={x.l} style={{background:x.bg,border:`1px solid ${x.c}22`,borderRadius:14,padding:"14px 16px"}}>
                 <div style={{fontSize:9,color:T.muted,fontWeight:900,letterSpacing:1.1,textTransform:"uppercase",marginBottom:6}}>{x.l}</div>
-                <div style={{fontSize:18,fontWeight:900,color:x.c,marginBottom:2}}>{x.v}</div>
+                <div style={{fontSize:18,fontWeight:900,color:x.c,marginBottom:2}}>{i===0?<><AnimatedNumber value={habitDoneToday}/>/<AnimatedNumber value={habitTotalToday||0}/></>:i===1?<><AnimatedNumber value={perfectDayStreak}/> hari</>:i===2?<><AnimatedNumber value={habitBestAll}/> hari</>:<AnimatedNumber value={habitTotalDone}/>}</div>
                 <div style={{fontSize:10,color:T.muted}}>{x.sub}</div>
               </div>)}
             </div>
@@ -8148,9 +8185,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     ["Selesai",habitAnalytics.monthDoneToDate,T.ok,T.okBg],
                     ["Progress",`${Math.round(habitAnalytics.monthPctToDate)}%`,T.info,T.infoBg],
                     ["Hari aktif",`${habitAnalytics.elapsedDays.length}/${habitAnalytics.monthDays.length}`,T.warn,T.warnBg],
-                  ].map(([label,value,color,bg])=><div key={label} style={{background:bg,border:`1px solid ${T.border}`,borderRadius:12,padding:"10px 12px"}}>
+                  ].map(([label,value,color,bg],i)=><div key={label} style={{background:bg,border:`1px solid ${T.border}`,borderRadius:12,padding:"10px 12px"}}>
                     <div style={{fontSize:9,color:T.muted,fontWeight:900,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>{label}</div>
-                    <div style={{fontSize:17,fontWeight:950,color}}>{value}</div>
+                    <div style={{fontSize:17,fontWeight:950,color}}>{i===0?<AnimatedNumber value={habitTotalToday}/>:i===1?<AnimatedNumber value={habitAnalytics.monthDoneToDate}/>:i===2?<AnimatedPercent value={habitAnalytics.monthPctToDate}/>:<><AnimatedNumber value={habitAnalytics.elapsedDays.length}/>/<AnimatedNumber value={habitAnalytics.monthDays.length}/></>}</div>
                   </div>)}
                 </div>
                 {isMobile&&<div className="habit-scroll-cue">Geser tanggal untuk melihat bulan penuh</div>}
@@ -8385,7 +8422,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
                 <div>
                   <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>{lang==="en"?"Total Net Worth":t("assetHero")+" Bersih (Net Worth)"}</div>
-                  <div style={{fontSize:30,fontWeight:900,marginBottom:8}}>{IDR(netWorthTotal)}</div>
+                  <div style={{fontSize:30,fontWeight:900,marginBottom:8}}><AnimatedAmount value={netWorthTotal}/></div>
                   <div style={{display:"flex",gap:10,fontSize:12,flexWrap:"wrap"}}>
                     <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"6px 12px"}}>{t("assetLiquid")}: {IDRs(totalSaldo)}</div>
                     <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"6px 12px"}}>Goals: {IDRs(totalGoalFunds)}</div>
@@ -8411,7 +8448,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 ))}
                 <div style={{marginTop:12,background:T.okBg,borderRadius:9,padding:"10px 14px",border:`1px solid ${T.okBorder}`}}>
                   <div style={{fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:2}}>{t("liquidAssets")}</div>
-                  <div style={{fontWeight:800,color:T.ok,fontSize:16}}><MV v={IDR(totalSaldo)}/></div>
+                  <div style={{fontWeight:800,color:T.ok,fontSize:16}}><MV v={<AnimatedAmount value={totalSaldo}/>}/></div>
                 </div>
               </>}/>
               <Card ch={<>
@@ -8477,7 +8514,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 {[{l:t("debtActive"),v:IDR(totalUtangAktif),vc:T.err,bg:T.errBg},{l:t("recvActive"),v:IDR(totalPiutang),vc:T.ok,bg:T.okBg},{l:"Sudah Lunas",v:s.utang.filter(u=>u.lunas).length+" item",vc:T.accent,bg:T.accentBg}].map((x,i)=>(
                   <div key={x.l} className="stagger-in" style={{background:x.bg,borderRadius:12,padding:"14px 18px",transition:"background .3s",animationDelay:`${i*55}ms`}}>
                     <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:5}}>{x.l}</div>
-                    <div style={{fontWeight:800,fontSize:17,color:x.vc}}>{x.v}</div>
+                    <div style={{fontWeight:800,fontSize:17,color:x.vc}}>{i===0?<AnimatedAmount value={totalUtangAktif}/>:i===1?<AnimatedAmount value={totalPiutang}/>:<><AnimatedNumber value={s.utang.filter(u=>u.lunas).length}/> item</>}</div>
                   </div>
                 ))}
               </div>
@@ -8488,7 +8525,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"auto 1fr",gap:14,alignItems:"center",marginBottom:14}}>
                   <div style={{width:96,height:96,borderRadius:"50%",background:paylaterHealth.score>=80?T.okBg:paylaterHealth.score>=60?T.infoBg:paylaterHealth.score>=40?T.warnBg:T.errBg,border:`1.5px solid ${paylaterHealth.score>=80?T.okBorder:paylaterHealth.score>=60?T.infoBorder:paylaterHealth.score>=40?T.warnBorder:T.errBorder}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:T.shadow}}>
                     <div style={{textAlign:"center"}}>
-                      <div style={{fontSize:26,fontWeight:900,color:paylaterHealth.score>=80?T.ok:paylaterHealth.score>=60?T.info:paylaterHealth.score>=40?T.warn:T.err}}>{paylaterHealth.score}</div>
+                      <div style={{fontSize:26,fontWeight:900,color:paylaterHealth.score>=80?T.ok:paylaterHealth.score>=60?T.info:paylaterHealth.score>=40?T.warn:T.err}}><AnimatedNumber value={paylaterHealth.score}/></div>
                       <div style={{fontSize:9,color:T.muted,fontWeight:800,letterSpacing:1}}>SCORE</div>
                     </div>
                   </div>
@@ -8643,7 +8680,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               ].map((x,i)=>(
                 <div key={x.l} className="stagger-in" style={{background:x.bg,borderRadius:12,padding:"14px 16px",transition:"background .3s",animationDelay:`${i*55}ms`}}>
                   <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{x.l}</div>
-                  <div style={{fontWeight:800,fontSize:16,color:x.vc,marginBottom:2}}>{x.v}</div>
+                  <div style={{fontWeight:800,fontSize:16,color:x.vc,marginBottom:2}}><AnimatedAmount value={[totalFuture,totalIn,totalOut,netCash][i]}/></div>
                   {x.sub&&<div style={{fontSize:10,color:x.trend>0?T.ok:x.trend<0?T.err:T.muted}}>{x.sub}</div>}
                 </div>
               ))}
