@@ -4,6 +4,7 @@ import {
   replaceTransactionInWallets,
 } from "../src/financeLedger.js";
 import { assertDataVersion, isMutationReplay } from "../api/_lib/dataVersion.js";
+import { incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "../src/incomeCategory.js";
 
 const balances = wallets => Object.fromEntries(wallets.map(wallet => [String(wallet.id), Number(wallet.saldo)]));
 const base = [{ id:"utama", saldo:"1000000" }, { id:2, saldo:"500000" }];
@@ -45,5 +46,15 @@ assert.equal(assertDataVersion(5, 4, true), 5, "Resolusi konflik eksplisit boleh
 assert.equal(isMutationReplay("save-123", "save-123"), true, "Retry mutasi yang sama harus idempotent");
 assert.equal(isMutationReplay("save-123", "save-456"), false, "Mutasi baru tidak boleh dianggap replay");
 assert.equal(isMutationReplay("", ""), false, "Mutation ID kosong tidak boleh melewati pemeriksaan versi");
+
+assert.equal(inferIncomeCategory("Gaji kantor bulan Juli"), "Gaji", "Gaji harus dikenali otomatis");
+assert.equal(inferIncomeCategory("Fee proyek website klien"), "Freelance", "Fee proyek harus dikenali sebagai freelance");
+assert.equal(inferIncomeCategory("Bonus dan cashback"), "Bonus", "Bonus harus dikenali otomatis");
+assert.equal(inferIncomeCategory("Hasil jualan toko"), "Bisnis", "Penjualan harus dikenali sebagai bisnis");
+assert.equal(inferIncomeCategory("Dividen saham BRI"), "Investasi", "Dividen harus dikenali sebagai investasi");
+assert.equal(inferIncomeCategory("Transfer masuk dari keluarga"), "Transfer Masuk", "Kiriman dana harus dikenali otomatis");
+assert.equal(normalizeIncomeTransaction({tipe:"pemasukan",ket:"Fee proyek",katId:1}).katId, "Freelance", "Kategori numerik impor tidak boleh bocor ke laporan pemasukan");
+assert.equal(incomeCategoryLabel({tipe:"pemasukan",ket:"Fee proyek",katId:"Gaji"}), "Freelance", "Data lama dengan kategori default harus dianalisis ulang");
+assert.equal(incomeCategoryLabel({tipe:"pemasukan",ket:"Fee proyek",katId:"Lainnya",customKat:"Royalti"}), "Royalti", "Kategori manual user harus tetap dipertahankan");
 
 console.log("Financial user flow tests passed");

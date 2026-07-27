@@ -6,6 +6,7 @@ import { reportClientError } from "./monitoring.js";
 import { applyTransactionToWallets, findWallet, hasWallet, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, walletDeltasForTransaction } from "./financeLedger.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
+import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "./incomeCategory.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -167,7 +168,6 @@ const nowY = ()=>new Date().getFullYear();
 const MONTHS=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 const MSHORT=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
 const DAYS_SHORT=["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
-const KAT_IN=["Gaji","Bonus","Freelance","Transfer Masuk","Investasi","Bisnis","Lainnya"];
 const ICONS=["🍜","🚗","🛍️","💡","💊","🎮","📚","📈","🏦","📦","✈️","🏠","👗","💻","🎵","🐾","🍕","☕","🎁","💰","🏋️","💅","🎓","🌿","🎯","📱","🚿","🎭","🍷","🎸","🏀","⚽","🚌","🧴","🎬","🧘","🍔","🌮","🎪","💈"];
 const DREAM_ICONS=["⭐","🏠","🚗","✈️","💻","👗","🎓","💍","🐾","🎵","🏋️","🌿","🍕","📸","🎮","💎","🏖️","🎯","🚀","🎺","🏄","🌏","🎭","🏕️","🛶"];
 const PIE_C=["#6366F1","#22C55E","#F59E0B","#EF4444","#3B82F6","#EC4899","#14B8A6","#8B5CF6","#F97316","#06B6D4","#84CC16","#A855F7"];
@@ -3531,8 +3531,7 @@ export default function App(){
   const incomeCategoryData=useMemo(()=>{
     const grouped=new Map();
     txBulan.filter(tx=>tx.tipe==="pemasukan").forEach(tx=>{
-      const raw=String(tx.customKat||"").trim()||(typeof tx.katId==="string"?String(tx.katId).trim():"");
-      const label=raw||(lang==="en"?"Other income":"Pemasukan lainnya");
+      const label=incomeCategoryLabel(tx);
       const key=label.toLocaleLowerCase(lang==="en"?"en-US":"id-ID");
       const current=grouped.get(key)||{name:label,value:0};
       current.value+=N(tx.jml);
@@ -4800,7 +4799,9 @@ CONTOH GAYA:
           const tipe = ["pemasukan","pengeluaran","tabungan"].includes(parsed.tipe) ? parsed.tipe : "pengeluaran";
           const jumlah = aiAmount(parsed.jml, parsed.jumlah, parsed.nominal);
           const katMatch = aiBudget(parsed.kat);
-          const incomeKat = parsed.kat && KAT_IN.includes(parsed.kat) ? parsed.kat : (tipe==="pemasukan" ? (parsed.kat || "Lainnya") : "");
+          const incomeKat = tipe==="pemasukan"
+            ? (parsed.kat||inferIncomeCategory(parsed.ket||msg)||"Lainnya")
+            : "";
           const katId = tipe==="pemasukan" ? incomeKat : tipe==="tabungan" ? investasiBudgetId : (katMatch?.id || s.budgets[0]?.id || "");
           const dompetMatch = cleanAiText(parsed.dompet)?aiDompetStrict(parsed.dompet):aiDompet(parsed.dompet);
           const dompetId = dompetMatch?.id || s.dompet[0]?.id;
@@ -4970,7 +4971,7 @@ Saldo amplop bertambah.`}]);
     const rows = s.txs.map(t => {
       const d = findWallet(s.dompet,t.dompetId)?.nama || "";
       const isIncome = t.tipe==="pemasukan" || t.tipe==="pemasukan_transfer";
-      const k = String(t.customKat||"").trim()||(isIncome ? (typeof t.katId==="string" ? t.katId : "") : (s.budgets.find(x => x.id === t.katId)?.kat || ""));
+      const k = isIncome?incomeCategoryLabel(t):(String(t.customKat||"").trim()||(s.budgets.find(x => x.id === t.katId)?.kat || ""));
       return [t.id,t.tgl,t.tipe,t.ket||"",N(t.jml),d,k,t.subKat||""].map(csvCell).join(",");
     });
     const BOM = "\uFEFF"; // agar Excel baca UTF-8 dengan benar
@@ -5118,7 +5119,7 @@ Saldo amplop bertambah.`}]);
       });
       const katIncome = {};
       txM.filter(tx=>tx.tipe==="pemasukan").forEach(tx=>{
-        const nm=clean(String(tx.customKat||"").trim()||(typeof tx.katId==="string"?String(tx.katId).trim():"")||(isEN?"Other income":"Pemasukan lainnya"));
+        const nm=clean(incomeCategoryLabel(tx));
         katIncome[nm]=(katIncome[nm]||0)+Num(tx.jml);
       });
 
@@ -5316,7 +5317,7 @@ Saldo amplop bertambah.`}]);
       const txRows = txM.slice(0,60).map(tx=>{
         const dompet   = clean(findWallet(s.dompet,tx.dompetId)?.nama||"-");
         const katB     = s.budgets.find(b=>b.id===Number(tx.katId));
-        const katLabel = clean(String(tx.customKat||"").trim()||(tx.tipe==="pemasukan"&&typeof tx.katId==="string"?tx.katId:"")||katB?.kat||(tx.tipe==="pemasukan"?(isEN?"Income":"Pemasukan"):(isEN?"Other":"Lainnya")));
+        const katLabel = clean(tx.tipe==="pemasukan"?incomeCategoryLabel(tx):(String(tx.customKat||"").trim()||katB?.kat||(isEN?"Other":"Lainnya")));
         const tlbl     = TIPE_LBL[tx.tipe]||"[?]";
         const debit    = ["pengeluaran","tabungan","investasi","alokasi_amplop"].includes(tx.tipe)||(tx.tipe==="penyesuaian"&&Num(tx.adjustmentDelta)<0)?idr(Num(tx.jml)):"";
         const kredit   = tx.tipe==="pemasukan"||(tx.tipe==="penyesuaian"&&Num(tx.adjustmentDelta)>0)?idr(Num(tx.jml)):"";
@@ -5762,7 +5763,7 @@ Saldo amplop bertambah.`}]);
       });
       const katIncome = {};
       txM.filter(tx=>tx.tipe==="pemasukan").forEach(tx=>{
-        const nm=String(tx.customKat||"").trim()||(typeof tx.katId==="string"?String(tx.katId).trim():"")||(isEN?"Other income":"Pemasukan lainnya");
+        const nm=incomeCategoryLabel(tx);
         katIncome[nm]=(katIncome[nm]||0)+Num(tx.jml);
       });
 
@@ -5902,7 +5903,7 @@ Saldo amplop bertambah.`}]);
           {v:tx.tgl||"-", s:cell(bg,gray,false,"center")},
           {v:tx.ket||"-", s:cell(bg,dark)},
           {v:tx.tipe, s:cell(isTipe.bg,isTipe.fg,true,"center")},
-          {v:String(tx.customKat||"").trim()||(tx.tipe==="pemasukan"&&typeof tx.katId==="string"?tx.katId:"")||kat?.kat||(isEN?"Other":"Lainnya"), s:cell(bg,gray,false,"center")},
+          {v:tx.tipe==="pemasukan"?incomeCategoryLabel(tx):(String(tx.customKat||"").trim()||kat?.kat||(isEN?"Other":"Lainnya")), s:cell(bg,gray,false,"center")},
           {v:dom?.nama||"-", s:cell(bg,gray,false,"center")},
           {v:idr(Num(tx.jml)), s:cell(bg,(tx.tipe==="pemasukan"||tx.tipe==="pengembalian_amplop")?green:(tx.tipe==="tabungan"||tx.tipe==="investasi")?amber:tx.tipe==="alokasi_amplop"?purple:red,true,"right")},
         ]);
@@ -6004,13 +6005,14 @@ Saldo amplop bertambah.`}]);
   };
 
   const handleSaveScanTx = (tx) => {
-    const validationError=transactionValidationError(s.dompet,tx);
+    const normalizedTx=normalizeIncomeTransaction(tx);
+    const validationError=transactionValidationError(s.dompet,normalizedTx);
     if(validationError==="wallet_not_found"){showToast(t("toast_walletNotFound"));return;}
     if(validationError==="insufficient_funds"){showToast(t("toast_walletNotEnough"));return;}
     if(validationError){showToast("⚠️ Transaksi belum valid.");return;}
     setS(p => {
-      const newTxs = [...p.txs, tx];
-      const newDompet = applyTransactionToWallets(p.dompet, tx);
+      const newTxs = [...p.txs, normalizedTx];
+      const newDompet = applyTransactionToWallets(p.dompet, normalizedTx);
       return {...p, txs:newTxs, dompet:newDompet};
     });
     showToast(lang==="en"?"✅ Transaction saved!":"✅ Transaksi tersimpan!");
@@ -6290,11 +6292,11 @@ Saldo amplop bertambah.`}]);
     }
 
     if(tipe==="pemasukan"){
-      const incomeKat = KAT_IN.includes(katId) ? katId : "Lainnya";
+      const incomeKat = KAT_IN.includes(katId) ? katId : (inferIncomeCategory(ket)||"Lainnya");
       const savedTx={...txForm,id,jml:pN(jml),katId:incomeKat,customKat:usesCustomCategory?cleanCustomCategory:"",subKat:""};
       if(commitEditedTransaction(savedTx)!==null) return;
       setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
-      setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",katId:incomeKat,customKat:"",subKat:"",goalId:""}));
+      setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",katId:"",customKat:"",subKat:"",goalId:""}));
       showToast(t("toast_incomeOk"));closeModal();return;
     }
 
@@ -6324,7 +6326,7 @@ Saldo amplop bertambah.`}]);
   const addBulk=()=>{
     const valid=bulkRows.filter(r=>r.tgl&&N(r.jml)>0);
     if(!valid.length){showToast("⚠️ Minimal satu baris terisi!");return;}
-    const newTxs=valid.map((r,i)=>({...r,id:Date.now()+i,jml:pN(r.jml),ket:r.ket||""}));
+    const newTxs=valid.map((r,i)=>normalizeIncomeTransaction({...r,id:Date.now()+i,jml:pN(r.jml),ket:r.ket||""}));
     let simulatedWallets=s.dompet;
     for(const tx of newTxs){
       const error=transactionValidationError(simulatedWallets,tx);
@@ -6544,9 +6546,7 @@ Saldo amplop bertambah.`}]);
     const dompet=findWallet(s.dompet,t.dompetId);
     const kat=s.budgets.find(b=>b.id===t.katId);
     const isIn=t.tipe==="pemasukan"||t.tipe==="pemasukan_transfer";
-    const txKatLabel=String(t.customKat||"").trim()||(isIn
-      ? (KAT_IN.includes(t.katId) ? t.katId : (typeof t.katId==="string" ? t.katId : "Lainnya"))
-      : kat?.kat);
+    const txKatLabel=isIn?incomeCategoryLabel(t):(String(t.customKat||"").trim()||kat?.kat);
     const isEnvelopeRefund=t.tipe==="pengembalian_amplop";
     const txColor=t.tipe==="pemasukan"||isEnvelopeRefund?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="investasi"?T.ok:t.tipe==="penyesuaian"?T.warn:t.tipe==="alokasi_amplop"?T.accent:t.tipe==="transfer"?T.accent:T.err;
     const txBg=t.tipe==="pemasukan"||isEnvelopeRefund?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer")?T.accentBg:T.errBg;
@@ -6764,7 +6764,7 @@ Saldo amplop bertambah.`}]);
   // ── IMPORT MUTASI HANDLER ──────────────────────────────────────────────────
   const handleImportMutasi = (txRows, dompetId) => {
     if(!hasWallet(s.dompet,dompetId)){showToast(t("toast_walletNotFound"));return;}
-    const uniqueRows=uniqueNewTransactions(s.txs,txRows);
+    const uniqueRows=uniqueNewTransactions(s.txs,txRows.map(normalizeIncomeTransaction));
     setS(prev => {
       const newTxs = [...prev.txs, ...uniqueRows];
       const newDompet = uniqueRows.reduce((wallets,tx)=>applyTransactionToWallets(wallets,tx),prev.dompet);
@@ -7148,7 +7148,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{modal.editTxId!==undefined?"Edit Transaksi":t("newTx")}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>{modal.editTxId!==undefined?"Saldo lama akan dibalik, lalu data baru diterapkan secara otomatis.":"Catat transaksi baru dengan detail yang cukup supaya laporan tetap akurat."}</div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
                 {[{v:"pengeluaran",l:t("outflow2")},{v:"pemasukan",l:t("inflow2")},{v:"tabungan",l:t("savingShort")},{v:"transfer",l:"Transfer"}].filter(({v})=>modal.editTxId===undefined||v!=="tabungan").map(({v,l})=>(
-                  <button key={v} onClick={()=>setTxForm(f=>({...f,tipe:v,katId:v==="pemasukan"?(KAT_IN[0]||"Lainnya"):v==="pengeluaran"?(s.budgets[0]?.id||""):v==="tabungan"?investasiBudgetId:f.katId,customKat:"",subKat:"",goalId:""}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${txForm.tipe===v?T.accent:T.inputBorder}`,background:txForm.tipe===v?T.accentBg:T.input,color:txForm.tipe===v?T.accent:T.sub}}>{l}</button>
+                  <button key={v} onClick={()=>setTxForm(f=>({...f,tipe:v,katId:v==="pemasukan"?"":v==="pengeluaran"?(s.budgets[0]?.id||""):v==="tabungan"?investasiBudgetId:f.katId,customKat:"",subKat:"",goalId:""}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${txForm.tipe===v?T.accent:T.inputBorder}`,background:txForm.tipe===v?T.accentBg:T.input,color:txForm.tipe===v?T.accent:T.sub}}>{l}</button>
                 ))}
               </div>
               <label style={LS}>{t("date")}</label><input type="date" value={txForm.tgl} onChange={e=>setTxForm(f=>({...f,tgl:e.target.value}))} style={{...IS,marginBottom:10}}/>
@@ -7163,7 +7163,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <select value={txForm.dompetId} onChange={e=>setTxForm(f=>({...f,dompetId:e.target.value}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>
                 {txForm.tipe==="pengeluaran"&&<div><label style={LS}>{t("category")}</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:Number(e.target.value),customKat:"",subKat:""}))} style={IS}><option value="">-- Pilih --</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{uiIcon(b.icon)} {b.kat}</option>)}</select></div>}
                 {txForm.tipe==="transfer"&&<div><label style={LS}>{t("toWallet")}</label><select value={txForm.dompetTo} onChange={e=>setTxForm(f=>({...f,dompetTo:e.target.value}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>}
-                {txForm.tipe==="pemasukan"&&<div><label style={LS}>Kategori</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:e.target.value,customKat:""}))} style={IS}>{KAT_IN.map(k=><option key={k}>{k}</option>)}</select></div>}
+                {txForm.tipe==="pemasukan"&&<div><label style={LS}>Kategori</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:e.target.value,customKat:""}))} style={IS}><option value="">Otomatis dari keterangan</option>{KAT_IN.map(k=><option key={k}>{k}</option>)}</select><div style={{fontSize:10,color:T.muted,marginTop:5,lineHeight:1.45}}>{!txForm.katId&&txForm.ket.trim()?<>Terdeteksi: <strong style={{color:T.accent}}>{inferIncomeCategory(txForm.ket)||"Lainnya"}</strong></>:"Contoh: gaji kantor, fee proyek, bonus, jualan, dividen, atau transfer masuk."}</div></div>}
                 {txForm.tipe==="tabungan"&&<div><label style={LS}>Goal</label><select value={txForm.goalId} onChange={e=>setTxForm(f=>({...f,goalId:e.target.value}))} style={IS}><option value="">-- Pilih Goal --</option>{s.goals.filter(g=>!g.selesai).map(g=><option key={g.id} value={g.id}>{uiIcon(g.icon)} {g.nama}</option>)}</select></div>}
               </div>
               {((txForm.tipe==="pemasukan"&&txForm.katId==="Lainnya")||(txForm.tipe==="pengeluaran"&&s.budgets.find(b=>b.id===Number(txForm.katId))?.kat==="Lainnya"))&&(
@@ -8752,7 +8752,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             <Card ch={<>
               <Sec
                 t={lang==="en"?"Income Sources":"Sumber Pemasukan"}
-                sub={lang==="en"?"See how much income comes from each category":"Lihat jumlah pemasukan dari masing-masing kategori"}
+                sub={lang==="en"?"Automatically grouped from your income transactions":"Otomatis dikelompokkan dari transaksi pemasukan"}
               />
               {incomeCategoryData.length?(
                 <div style={{display:"grid",gridTemplateColumns:isReportCompact?"1fr":"minmax(280px,.8fr) minmax(360px,1.2fr)",gap:isReportCompact?12:24,alignItems:"center"}}>
@@ -8798,10 +8798,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               ):(
                 <LaunchEmpty
                   icon="💰"
-                  title={lang==="en"?"No income distribution yet":"Belum ada distribusi pemasukan"}
-                  desc={lang==="en"?"Record income and select its category to see each income source here.":"Catat pemasukan dan pilih kategorinya agar jumlah dari setiap sumber muncul di sini."}
-                  actionLabel={lang==="en"?"Record income":"Catat pemasukan"}
-                  onAction={()=>setModal({type:"tx",tipe:"pemasukan"})}
+                  kicker={lang==="en"?"Automatic":"Otomatis"}
+                  title={lang==="en"?"No income in this period":"Belum ada pemasukan pada periode ini"}
+                  desc={lang==="en"?"This chart fills itself from income transactions and their descriptions. Check that the report period matches your transactions.":"Diagram ini terisi otomatis dari transaksi dan keterangannya. Pastikan periode laporan sudah sesuai dengan tanggal pemasukan."}
                   secondaryLabel={lang==="en"?"Open transactions":"Buka transaksi"}
                   onSecondary={()=>setPage("trans")}
                   style={{padding:"28px 16px"}}
