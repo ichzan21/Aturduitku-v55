@@ -43,7 +43,7 @@ async function waitForModalClose(page) {
 
 async function cleanupE2ETransactions(page) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    const transactionText = page.getByText(/^\[E2E\] \d+$/).first();
+    const transactionText = page.getByText(/^\[E2E\](?: fee proyek)? \d+$/).first();
     if (!(await transactionText.isVisible().catch(() => false))) return;
     const row = transactionText.locator('xpath=ancestor::div[.//button[@aria-label="Hapus"]][1]');
     await row.getByRole("button", { name:"Hapus" }).click();
@@ -67,7 +67,7 @@ async function smoke(viewport, name, mutate = false) {
 
   if (mutate) {
     await cleanupE2ETransactions(page);
-    const note = `[E2E] ${Date.now()}`;
+    const note = `[E2E] fee proyek ${Date.now()}`;
     await page.getByRole("button", { name:/Tambah Transaksi|\+ Transaksi/i }).first().click();
     await page.getByText(/Transaksi Baru|Transaksi baru/i).first().waitFor();
     await page.getByRole("button", { name:"Masuk", exact:true }).last().click();
@@ -78,6 +78,12 @@ async function smoke(viewport, name, mutate = false) {
     const transactionText = page.getByText(note, { exact:true });
     await transactionText.waitFor({ state:"visible", timeout:15_000 });
     const row = transactionText.locator('xpath=ancestor::div[.//button[@aria-label="Edit transaksi"]][1]');
+
+    await page.getByText("Laporan", { exact:true }).first().click();
+    await page.getByText("Sumber Pemasukan", { exact:true }).waitFor({ state:"visible", timeout:15_000 });
+    await page.getByText("Freelance", { exact:true }).last().waitFor({ state:"visible", timeout:10_000 });
+    await openTransactions(page, false);
+
     await row.getByRole("button", { name:"Edit transaksi" }).click();
     await page.getByText("Edit Transaksi", { exact:true }).waitFor();
     await page.locator('input[inputmode="numeric"]').last().fill("2345");
