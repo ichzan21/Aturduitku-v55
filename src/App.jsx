@@ -2565,6 +2565,8 @@ export default function App(){
   const undoTimerRef=useRef(null);
   const [modal,setModal]=useState(null);
   const [modalClosing,setModalClosing]=useState(false);
+  const modalRef=useRef(null);
+  modalRef.current=modal;
   const [commandOpen,setCommandOpen]=useState(false);
   const [commandQuery,setCommandQuery]=useState("");
   const [showCalc,setShowCalc]=useState(false);
@@ -2587,7 +2589,7 @@ export default function App(){
     dismissTimersRef.current.push(timer);
   };
   const closeModal=after=>{
-    if(!modal){after?.();return;}
+    if(!modalRef.current){after?.();return;}
     if(modalClosingRef.current) return;
     modalClosingRef.current=true;
     setModalClosing(true);
