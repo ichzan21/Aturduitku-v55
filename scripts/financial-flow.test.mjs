@@ -54,6 +54,7 @@ assert.equal(inferIncomeCategory("Hasil jualan toko"), "Bisnis", "Penjualan haru
 assert.equal(inferIncomeCategory("Dividen saham BRI"), "Investasi", "Dividen harus dikenali sebagai investasi");
 assert.equal(inferIncomeCategory("Transfer masuk dari keluarga"), "Transfer Masuk", "Kiriman dana harus dikenali otomatis");
 assert.equal(normalizeIncomeTransaction({tipe:"pemasukan",ket:"Fee proyek",katId:1}).katId, "Freelance", "Kategori numerik impor tidak boleh bocor ke laporan pemasukan");
+assert.equal(normalizeIncomeTransaction({tipe:"pemasukan",ket:"Fee proyek",katId:1}).incomeCategoryAuto, true, "Pemasukan hasil impor harus tetap dapat dikategorikan ulang otomatis");
 assert.equal(incomeCategoryLabel({tipe:"pemasukan",ket:"Fee proyek",katId:"Gaji"}), "Freelance", "Data lama dengan kategori default harus dianalisis ulang");
 assert.equal(incomeCategoryLabel({tipe:"pemasukan",ket:"Fee proyek",katId:"Lainnya",customKat:"Royalti"}), "Royalti", "Kategori manual user harus tetap dipertahankan");
 

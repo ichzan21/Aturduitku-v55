@@ -6171,12 +6171,13 @@ Saldo amplop bertambah.`}]);
       showToast("Transaksi otomatis atau terhubung harus diubah dari fitur asalnya.");
       return;
     }
+    const automaticIncomeCategory=tx.tipe==="pemasukan"&&(tx.incomeCategoryAuto===true||(!tx.customKat&&tx.katId==="Lainnya"));
     setTxForm({
       tipe:tx.tipe,
       tgl:tx.tgl||today(),
       ket:tx.ket||"",
       jml:String(tx.jml||""),
-      katId:tx.katId??(tx.tipe==="pemasukan"?(KAT_IN[0]||"Lainnya"):(s.budgets[0]?.id||"")),
+      katId:automaticIncomeCategory?"":(tx.katId??(tx.tipe==="pemasukan"?"":(s.budgets[0]?.id||""))),
       customKat:tx.customKat||"",
       subKat:tx.subKat||"",
       dompetId:tx.dompetId??s.dompet[0]?.id??"",
@@ -6293,7 +6294,7 @@ Saldo amplop bertambah.`}]);
 
     if(tipe==="pemasukan"){
       const incomeKat = KAT_IN.includes(katId) ? katId : (inferIncomeCategory(ket)||"Lainnya");
-      const savedTx={...txForm,id,jml:pN(jml),katId:incomeKat,customKat:usesCustomCategory?cleanCustomCategory:"",subKat:""};
+      const savedTx={...txForm,id,jml:pN(jml),katId:incomeKat,customKat:usesCustomCategory?cleanCustomCategory:"",subKat:"",incomeCategoryAuto:!katId};
       if(commitEditedTransaction(savedTx)!==null) return;
       setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",katId:"",customKat:"",subKat:"",goalId:""}));

@@ -33,5 +33,5 @@ export const normalizeIncomeTransaction=tx=>{
     : (inferred&&(!stored||stored==="Lainnya"||stored==="Gaji")
       ? inferred
       : (KAT_IN.includes(stored)?stored:(inferred||"Lainnya")));
-  return {...tx,katId:category};
+  return {...tx,katId:category,incomeCategoryAuto:tx.incomeCategoryAuto??!custom};
 };
