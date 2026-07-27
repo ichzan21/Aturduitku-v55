@@ -1976,7 +1976,7 @@ function Onboarding({ onDone, lang="id", changeLang }) {
             <span>{t("ob_step")} {step} {t("ob_of")} 3</span><span>{Math.round(progressPct)}%</span>
           </div>
           <div style={{background:"#EDE9FE",borderRadius:99,height:5,overflow:"hidden"}}>
-            <div style={{background:"linear-gradient(90deg,#5B21B6,#7C3AED)",height:"100%",width:progressPct+"%",borderRadius:99,transition:"width .35s"}}/>
+            <div className="pbar-fill" style={{background:"linear-gradient(90deg,#5B21B6,#7C3AED)",height:"100%",width:progressPct+"%",borderRadius:99,transition:"width .35s"}}/>
           </div>
           <div style={{display:"flex",gap:6,justifyContent:"center",marginTop:8}}>
             {[1,2,3].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:step>=i?"#7C3AED":"#E9D5FF",transition:"background .3s"}}/>)}
@@ -2196,7 +2196,7 @@ function YearInReview({ s, T, lang, onClose }) {
           <div style={{fontWeight:900,fontSize:16,marginBottom:3}}>{scoreLabel} 🏆</div>
           <div style={{fontSize:11,opacity:.85}}>{t("yearScore")} {year}</div>
           <div style={{marginTop:8,background:"rgba(255,255,255,.2)",borderRadius:99,height:6,overflow:"hidden"}}>
-            <div style={{width:yearScoreVal+"%",height:"100%",background:"white",borderRadius:99,transition:"width .6s ease"}}/>
+            <div className="pbar-fill" style={{width:yearScoreVal+"%",height:"100%",background:"white",borderRadius:99,transition:"width .6s ease"}}/>
           </div>
         </div>
       </div>
@@ -2208,8 +2208,8 @@ function YearInReview({ s, T, lang, onClose }) {
           {l:t("yearExpense"), v:IDRs(totalOut), c:T.err, bg:T.errBg, ico:"📉"},
           {l:t("yearSaving"),  v:IDRs(totalSav), c:T.info,bg:T.infoBg,ico:"🏦"},
           {l:t("yearNet"),     v:IDRs(netCash),  c:netCash>=0?T.ok:T.err, bg:netCash>=0?T.okBg:T.errBg, ico:netCash>=0?"✨":"⚠️"},
-        ].map(({l,v,c,bg,ico})=>(
-          <div key={l} style={{background:bg,borderRadius:12,padding:"12px 14px"}}>
+        ].map(({l,v,c,bg,ico},i)=>(
+          <div key={l} className="stagger-in" style={{background:bg,borderRadius:12,padding:"12px 14px",animationDelay:`${i*55}ms`}}>
             <div style={{fontSize:18,marginBottom:4}}>{ico}</div>
             <div style={{fontSize:9,color:c,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:2}}>{l}</div>
             <div style={{fontSize:14,fontWeight:900,color:c}}>{v}</div>
@@ -2224,9 +2224,9 @@ function YearInReview({ s, T, lang, onClose }) {
           {monthly.map((m,i)=>(
             <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
               <div style={{width:"100%",display:"flex",flexDirection:"column",alignItems:"center",gap:1,height:72,justifyContent:"flex-end"}}>
-                <div style={{width:"80%",background:T.ok,borderRadius:"3px 3px 0 0",opacity:.85,
+                <div className="chart-bar" style={{width:"80%",background:T.ok,borderRadius:"3px 3px 0 0",opacity:.85,
                   height:m.inc?(m.inc/maxBar*66)+"px":"2px",minHeight:m.inc?2:0,transition:"height .4s"}}/>
-                <div style={{width:"80%",background:T.err,borderRadius:"3px 3px 0 0",opacity:.85,
+                <div className="chart-bar" style={{width:"80%",background:T.err,borderRadius:"3px 3px 0 0",opacity:.85,animationDelay:"70ms",
                   height:m.exp?(m.exp/maxBar*66)+"px":"2px",minHeight:m.exp?2:0,transition:"height .4s"}}/>
               </div>
               <div style={{fontSize:7,color:T.muted,marginTop:2,textAlign:"center"}}>{m.month}</div>
@@ -2279,7 +2279,7 @@ function YearInReview({ s, T, lang, onClose }) {
             <div style={{flex:1}}>
               <div style={{fontWeight:700,fontSize:12,color:T.text}}>{name}</div>
               <div style={{height:4,background:T.cardAlt,borderRadius:99,marginTop:4,overflow:"hidden"}}>
-                <div style={{height:"100%",background:T.accent,borderRadius:99,width:(topCats[0][1].jml>0?jml/topCats[0][1].jml*100:0)+"%",transition:"width .5s ease"}}/>
+                <div className="pbar-fill" style={{height:"100%",background:T.accent,borderRadius:99,width:(topCats[0][1].jml>0?jml/topCats[0][1].jml*100:0)+"%",transition:"width .5s ease",animationDelay:`${i*45}ms`}}/>
               </div>
             </div>
             <div style={{fontWeight:800,fontSize:12,color:T.err,flexShrink:0}}>{IDRs(jml)}</div>
@@ -2544,7 +2544,19 @@ export default function App(){
   const [simpleMode,setSimpleMode]=useState(()=>{try{return localStorage.getItem("aturduitku_simple_mode")==="1";}catch(e){return false;}});
   const [tourDismissed,setTourDismissed]=useState(()=>{try{return localStorage.getItem("aturduitku_tour_done")==="1";}catch(e){return false;}});
 
-  const [page,setPage]=useState("home");
+  const [page,setPageState]=useState("home");
+  const pageRef=useRef("home");
+  const [pageBack,setPageBack]=useState(false);
+  const setPage=nextPage=>{
+    const target=typeof nextPage==="function"?nextPage(pageRef.current):nextPage;
+    if(!target||target===pageRef.current) return;
+    const order=["home","dompet","trans","budget","amplop","goals","habit","aset","utang","laporan","setting","admin"];
+    const previousIndex=order.indexOf(pageRef.current);
+    const targetIndex=order.indexOf(target);
+    setPageBack(previousIndex>=0&&targetIndex>=0&&targetIndex<previousIndex);
+    pageRef.current=target;
+    setPageState(target);
+  };
   const [toast,setToast]=useState("");
   const [toastClosing,setToastClosing]=useState(false);
   const toastTimersRef=useRef([]);
@@ -2552,6 +2564,7 @@ export default function App(){
   const [undoAction,setUndoAction]=useState(null);
   const undoTimerRef=useRef(null);
   const [modal,setModal]=useState(null);
+  const [modalClosing,setModalClosing]=useState(false);
   const [commandOpen,setCommandOpen]=useState(false);
   const [commandQuery,setCommandQuery]=useState("");
   const [showCalc,setShowCalc]=useState(false);
@@ -2559,7 +2572,48 @@ export default function App(){
   const [notifOpen,setNotifOpen]=useState(false);
   const [moreOpen,setMoreOpen]=useState(false);
   const [quickOpen,setQuickOpen]=useState(false);
+  const [quickClosing,setQuickClosing]=useState(false);
   const [sidebarOpen,setSidebarOpen]=useState(false);
+  const [sidebarClosing,setSidebarClosing]=useState(false);
+  const dismissTimersRef=useRef([]);
+  const scheduleDismiss=(setter,setClosing,duration,after)=>{
+    setClosing(true);
+    const timer=setTimeout(()=>{
+      setter(false);
+      setClosing(false);
+      after?.();
+    },duration);
+    dismissTimersRef.current.push(timer);
+  };
+  const closeModal=after=>{
+    if(!modal){after?.();return;}
+    if(modalClosing) return;
+    scheduleDismiss(()=>setModal(null),setModalClosing,240,after);
+  };
+  const closeQuick=after=>{
+    if(!quickOpen){after?.();return;}
+    if(quickClosing) return;
+    scheduleDismiss(setQuickOpen,setQuickClosing,220,after);
+  };
+  const closeSidebar=after=>{
+    if(!sidebarOpen){after?.();return;}
+    if(sidebarClosing) return;
+    scheduleDismiss(setSidebarOpen,setSidebarClosing,260,after);
+  };
+  useEffect(()=>()=>dismissTimersRef.current.forEach(clearTimeout),[]);
+  const [txMotion,setTxMotion]=useState(null);
+  const txMotionTimerRef=useRef(null);
+  const knownTxIdsRef=useRef(new Set((s.txs||[]).map(tx=>String(tx.id))));
+  useEffect(()=>{
+    const nextIds=new Set((s.txs||[]).map(tx=>String(tx.id)));
+    const added=(s.txs||[]).find(tx=>!knownTxIdsRef.current.has(String(tx.id)));
+    knownTxIdsRef.current=nextIds;
+    if(!added) return;
+    clearTimeout(txMotionTimerRef.current);
+    setTxMotion({id:added.id,type:"new"});
+    txMotionTimerRef.current=setTimeout(()=>setTxMotion(null),1450);
+  },[s.txs]);
+  useEffect(()=>()=>clearTimeout(txMotionTimerRef.current),[]);
   const [installPrompt,setInstallPrompt]=useState(null);
   const [installDismissed,setInstallDismissed]=useState(()=>{try{return localStorage.getItem("aturduitku_install_dismissed")==="1";}catch(e){return false;}});
   const [now,setNow]=useState(new Date());
@@ -3212,11 +3266,14 @@ export default function App(){
   const navTo=id=>{
     const run=()=>{
       setPage(id);
-      setQuickOpen(false);
-      if(isMobile) setSidebarOpen(false);
+      if(quickOpen) setQuickOpen(false);
     };
-    if(React.startTransition) React.startTransition(run);
-    else run();
+    const navigate=()=>{
+      if(React.startTransition) React.startTransition(run);
+      else run();
+    };
+    if(isMobile&&sidebarOpen) closeSidebar(navigate);
+    else navigate();
   };
 
   // Forms
@@ -3845,13 +3902,14 @@ export default function App(){
     showToast("Buka menu browser lalu pilih Install app / Add to Home screen");
   };
   const openQuickAction=(kind)=>{
-    setQuickOpen(false);
-    if(kind==="expense") setModal({type:"tx",tipe:"pengeluaran"});
-    else if(kind==="income") setModal({type:"tx",tipe:"pemasukan"});
-    else if(kind==="goal") setModal({type:"goal"});
-    else if(kind==="budget") setPage("budget");
-    else if(kind==="habit") setPage("habit");
-    else if(kind==="ai") setAiOpen(true);
+    closeQuick(()=>{
+      if(kind==="expense") setModal({type:"tx",tipe:"pengeluaran"});
+      else if(kind==="income") setModal({type:"tx",tipe:"pemasukan"});
+      else if(kind==="goal") setModal({type:"goal"});
+      else if(kind==="budget") setPage("budget");
+      else if(kind==="habit") setPage("habit");
+      else if(kind==="ai") setAiOpen(true);
+    });
   };
   const openNotificationAction=(n)=>{
     setNotifOpen(false);
@@ -3916,7 +3974,7 @@ export default function App(){
   const finishTour=()=>{
     setTourDismissed(true);
     try{localStorage.setItem("aturduitku_tour_done","1");}catch(e){}
-    setModal(null);
+    closeModal();
   };
   const commandActions=[
     {title:"Catat transaksi",desc:"Tambah pemasukan atau pengeluaran",icon:"🧾",run:()=>setModal({type:"tx"})},
@@ -3979,7 +4037,7 @@ export default function App(){
     })}));
     if(completed){setHabitCelebrate(true);setTimeout(()=>setHabitCelebrate(false),900);showToast("🔥 Habit selesai! Streak naik.");}
   };
-  const deleteHabit=(id)=>setModal({type:"confirm",title:"Hapus habit?",msg:"Riwayat streak habit ini akan ikut terhapus.",danger:true,onConfirm:()=>{setS(p=>({...p,habits:(p.habits||[]).filter(h=>h.id!==id)}));setModal(null);showToast("Habit dihapus");}});
+  const deleteHabit=(id)=>setModal({type:"confirm",title:"Hapus habit?",msg:"Riwayat streak habit ini akan ikut terhapus.",danger:true,onConfirm:()=>{setS(p=>({...p,habits:(p.habits||[]).filter(h=>h.id!==id)}));closeModal();showToast("Habit dihapus");}});
   const renderHabitCard=(h)=>{
     const done=habitDone(h);
     const streak=habitStreak(h);
@@ -5859,7 +5917,7 @@ Saldo amplop bertambah.`}]);
         if(!Array.isArray(parsed.dompet)||!Array.isArray(parsed.txs)){showToast("❌ File tidak valid!");return;}
         setS(mergeUserData(parsed));
         showToast("✅ Data berhasil di-restore!");
-        setModal(null);
+        closeModal();
       }catch(err){showToast("❌ File rusak atau format salah!");}
     };
     reader.readAsText(file);
@@ -5987,7 +6045,7 @@ Saldo amplop bertambah.`}]);
         txs:refundTx?[refundTx,...p.txs]:p.txs
       };
     });
-    setModal(null);
+    closeModal();
     showToast(refunded>0?`Amplop dihapus. ${IDRs(refunded)} dikembalikan ke dompet.`:"Amplop dihapus.");
   };
 
@@ -6064,7 +6122,7 @@ Saldo amplop bertambah.`}]);
       setS(nextState);
       scheduleUndo(s,nextState,"Transaksi diperbarui");
       setTxForm(form=>({...form,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",biaya:"",goalId:""}));
-      setModal(null);
+      closeModal();
       showToast("Transaksi dan saldo berhasil diperbarui.");
       return true;
     }catch(error){
@@ -6105,7 +6163,7 @@ Saldo amplop bertambah.`}]);
       if(commitEditedTransaction(savedTx)!==null) return;
       setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",biaya:""}));
-      showToast(t("toast_transferOk"));setModal(null);return;
+      showToast(t("toast_transferOk"));closeModal();return;
     }
 
     if(tipe==="pengeluaran"){
@@ -6118,7 +6176,7 @@ Saldo amplop bertambah.`}]);
       if(commitEditedTransaction(savedTx)!==null) return;
       setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",goalId:""}));
-      showToast(t("toast_expenseOk"));setModal(null);return;
+      showToast(t("toast_expenseOk"));closeModal();return;
     }
 
     if(tipe==="pemasukan"){
@@ -6127,7 +6185,7 @@ Saldo amplop bertambah.`}]);
       if(commitEditedTransaction(savedTx)!==null) return;
       setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",katId:incomeKat,customKat:"",subKat:"",goalId:""}));
-      showToast(t("toast_incomeOk"));setModal(null);return;
+      showToast(t("toast_incomeOk"));closeModal();return;
     }
 
     if(tipe==="tabungan"){
@@ -6144,13 +6202,13 @@ Saldo amplop bertambah.`}]);
         txs:[savedTx,...p.txs]
       }));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",goalId:""}));
-      showToast(goalId?t("toast_savingOk"):t("toast_savingOk2"));setModal(null);return;
+      showToast(goalId?t("toast_savingOk"):t("toast_savingOk2"));closeModal();return;
     }
 
     const savedTx={...txForm,id,jml:pN(jml)};
     setS(p=>({...p,txs:[savedTx,...p.txs]}));
     setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",goalId:""}));
-    showToast(t("toast_txOk"));setModal(null);
+    showToast(t("toast_txOk"));closeModal();
   };
 
   const addBulk=()=>{
@@ -6171,7 +6229,7 @@ Saldo amplop bertambah.`}]);
       dompet:newTxs.reduce((wallets,tx)=>applyTransactionToWallets(wallets,tx),p.dompet)
     }));
     setBulkRows([{tgl:today(),jml:"",tipe:"pengeluaran",dompetId:s.dompet[0]?.id||"",katId:"",ket:""}]);
-    showToast(`✅ ${valid.length} transaksi ditambahkan & saldo diperbarui!`);setModal(null);
+    showToast(`✅ ${valid.length} transaksi ditambahkan & saldo diperbarui!`);closeModal();
   };
 
   const addUt=()=>{
@@ -6186,14 +6244,14 @@ Saldo amplop bertambah.`}]);
     if(!goalForm.nama||!goalForm.target){showToast("⚠️ Isi nama & target!");return;}
     setS(p=>({...p,goals:[{...goalForm,id:Date.now(),kumpul:goalForm.kumpul||"0",history:[],selesai:false},...p.goals]}));
     setGoalForm({nama:"",target:"",kumpul:"",deadline:"",icon:"⭐"});
-    showToast("✅ Goal ditambahkan!");setModal(null);
+    showToast("✅ Goal ditambahkan!");closeModal();
   };
 
   const addDompet=()=>{
     if(!dompetForm.nama){showToast("⚠️ Isi nama dompet!");return;}
     setS(p=>({...p,dompet:[...p.dompet,{...dompetForm,id:Date.now(),icon:DOMPET_ICONS[dompetForm.tipe]||"💳",saldo:dompetForm.saldo||"0"}]}));
     setDompetForm({tipe:"Bank",nama:"",norek:"",saldo:""});
-    showToast(t("toast_walletAdded"));setModal(null);
+    showToast(t("toast_walletAdded"));closeModal();
   };
 
   const requestDeleteWallet=(wallet)=>{
@@ -6209,7 +6267,7 @@ Saldo amplop bertambah.`}]);
       danger:true,
       onConfirm:()=>{
         setS(p=>({...p,dompet:p.dompet.filter(item=>!sameId(item.id,wallet.id))}));
-        setModal(null);
+        closeModal();
         showToast(`Dompet ${wallet.nama} dihapus!`);
       }
     });
@@ -6221,12 +6279,12 @@ Saldo amplop bertambah.`}]);
     const actual=N(modal?.actual);
     const diff=actual-N(wallet.saldo);
     if(!Number.isFinite(actual)||actual<0){showToast("Isi saldo sebenarnya yang valid");return;}
-    if(diff===0){showToast("Saldo sudah cocok");setModal(null);return;}
+    if(diff===0){showToast("Saldo sudah cocok");closeModal();return;}
     setS(p=>{
       const adjustmentTx={id:Date.now(),tipe:"penyesuaian",tgl:today(),ket:`Cocokkan saldo: ${wallet.nama}`,jml:String(Math.abs(diff)),adjustmentDelta:diff,dompetId:wallet.id,bulan:p.bulan,tahun:p.tahun};
       return {...p,dompet:applyTransactionToWallets(p.dompet,adjustmentTx),txs:[adjustmentTx,...p.txs]};
     });
-    showToast(`Saldo ${wallet.nama} berhasil dicocokkan`);setModal(null);
+    showToast(`Saldo ${wallet.nama} berhasil dicocokkan`);closeModal();
   };
 
   const payScheduledBill=()=>{
@@ -6240,7 +6298,7 @@ Saldo amplop bertambah.`}]);
       const paymentTx={id:Date.now(),tipe:"pengeluaran",tgl:today(),ket:`Bayar tagihan: ${bill.nama}`,jml:String(amount),katId:bill.katId,subKat:bill.nama,dompetId:walletId,billRef:bill.billRef,bulan:p.bulan,tahun:p.tahun};
       return {...p,dompet:applyTransactionToWallets(p.dompet,paymentTx),txs:[paymentTx,...p.txs]};
     });
-    showToast(`${bill.nama} ditandai sudah dibayar`);setModal(null);
+    showToast(`${bill.nama} ditandai sudah dibayar`);closeModal();
   };
 
   const addAset = () => {
@@ -6249,7 +6307,7 @@ Saldo amplop bertambah.`}]);
     if(asetForm.id){
       setS(p=>({...p,asetTetap:p.asetTetap.map(a=>a.id===asetForm.id?{...a,nama:asetForm.nama.trim(),nilai:pN(asetForm.nilai),ket:asetForm.ket.trim()}:a)}));
       setAsetForm({nama:"",nilai:"",ket:"",beliDariDompet:false,dompetId:s.dompet[0]?.id||1});
-      showToast("✅ Nilai aset diperbarui!");setModal(null);return;
+      showToast("✅ Nilai aset diperbarui!");closeModal();return;
     }
     if(asetForm.beliDariDompet) {
        const assetId=Date.now();
@@ -6268,7 +6326,7 @@ Saldo amplop bertambah.`}]);
        setS(p=>({...p,asetTetap:[...p.asetTetap,{id:Date.now(), nama:asetForm.nama, nilai:asetForm.nilai, ket:asetForm.ket}]}));
     }
     setAsetForm({nama:"",nilai:"",ket:"",beliDariDompet:false,dompetId:s.dompet[0]?.id||1});
-    showToast("✅ Aset ditambahkan!");setModal(null);
+    showToast("✅ Aset ditambahkan!");closeModal();
   }
 
   const catatCicilan=(uid,jml,dompetId)=>{
@@ -6313,7 +6371,7 @@ Saldo amplop bertambah.`}]);
       danger:true,
       onConfirm:()=>{
         onConfirm();
-        setModal(null);
+        closeModal();
         showToast(toastMsg);
       }
     });
@@ -6362,8 +6420,13 @@ Saldo amplop bertambah.`}]);
         }
       }
       const nextState={...p,txs:p.txs.filter(x=>x.id!==tx.id),dompet:newDompet,goals:newGoals,asetTetap:newAset,amplop:newAmplop};
-      setS(nextState);
-      scheduleUndo(s,nextState,"Transaksi dihapus");
+      clearTimeout(txMotionTimerRef.current);
+      setTxMotion({id:tx.id,type:"out"});
+      txMotionTimerRef.current=setTimeout(()=>{
+        setS(nextState);
+        scheduleUndo(s,nextState,"Transaksi dihapus");
+        setTxMotion(null);
+      },300);
     }
   });
 
@@ -6379,7 +6442,7 @@ Saldo amplop bertambah.`}]);
     const txBg=t.tipe==="pemasukan"||isEnvelopeRefund?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer")?T.accentBg:T.errBg;
     const txIcon=isIn?"📈":isEnvelopeRefund?"↩️":t.tipe==="tabungan"?"🏦":t.tipe==="investasi"?"💎":t.tipe==="penyesuaian"?"BAL":t.tipe==="alokasi_amplop"?"✉️":t.tipe==="transfer"?"↔️":kat?uiIcon(kat.icon):"📉";
     return(
-      <div key={t.id} className="tx-row-in" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
+      <div key={t.id} className={txMotion&&sameId(txMotion.id,t.id)?(txMotion.type==="out"?"tx-row-out":"tx-row-new"):"tx-row-in"} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
           <div style={{width:36,height:36,borderRadius:10,background:txBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>
             {txIcon}
@@ -6598,7 +6661,7 @@ Saldo amplop bertambah.`}]);
       return {...prev, txs:newTxs, dompet:newDompet};
     });
     showToast(uniqueRows.length?`✅ ${uniqueRows.length} transaksi berhasil diimport!`:"Semua transaksi di file ini sudah pernah diimport.");
-    setModal(null);
+    closeModal();
   };
 
   return(
@@ -6636,6 +6699,8 @@ Saldo amplop bertambah.`}]);
         .bottom-nav-item span:last-child{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
         .bottom-nav-item:hover{background:${T.navHover};}
         .bottom-nav-item:active{transform:scale(.9);}
+        .modal-overlay{animation:ovIn .24s ease both;}
+        .modal-overlay.closing{animation:ovOut .24s ease both;}
         .sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:499;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);touch-action:none;animation:ovIn .26s ease both;}
         .sidebar-overlay.closing{animation:ovOut .26s ease both;}
         @keyframes slideIn{from{transform:translateX(-100%);}to{transform:translateX(0);}}
@@ -6696,7 +6761,7 @@ Saldo amplop bertambah.`}]);
         @keyframes quickPop{0%{transform:scale(.82) rotate(-8deg);}65%{transform:scale(1.08) rotate(4deg);}100%{transform:scale(1) rotate(0);}}
         @keyframes shimmer{0%{background-position:120% 0;}100%{background-position:-120% 0;}}
         .quick-action-sheet{animation:sheetIn .3s cubic-bezier(.34,1.3,.5,1) both;transform-origin:bottom right;}
-        .quick-action-sheet.closing{animation:ovOut .2s ease both;}
+        .quick-action-sheet.closing{animation:sheetDown .22s cubic-bezier(.4,0,1,1) both;}
         .quick-action-item:hover{transform:translateY(-1px);box-shadow:0 10px 20px rgba(124,58,237,.12);}
         .quick-action-item:active{transform:scale(.98);}
         .fab.is-open{animation:quickPop .28s ease-out both;}
@@ -6820,15 +6885,15 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
       {/* ── MODALS ── */}
       {modal&&(
-        <div className="modal-overlay" style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",zIndex:1000,padding:isMobile?0:"16px",paddingTop:isMobile?"max(12px, env(safe-area-inset-top))":undefined}} onClick={()=>setModal(null)}>
-          <div className="modal-pop" style={{cursor:"pointer",background:T.card,borderRadius:isMobile?"24px 24px 0 0":20,padding:isMobile?"20px max(18px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(18px, env(safe-area-inset-left))":"26px",width:"100%",maxWidth:isMobile?"100%":520,maxHeight:isMobile?"min(88svh, calc(var(--app-height, 100dvh) - 12px))":"min(92vh, calc(var(--app-height, 100dvh) - 32px))",overflowY:"auto",overflowX:"hidden",color:T.text,WebkitOverflowScrolling:"touch"}} onClick={e=>e.stopPropagation()}>
+        <div className={`modal-overlay ${modalClosing?"closing":""}`} style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",zIndex:1000,padding:isMobile?0:"16px",paddingTop:isMobile?"max(12px, env(safe-area-inset-top))":undefined}} onClick={()=>closeModal()}>
+          <div className={`modal-pop ${modalClosing?"closing":""}`} style={{cursor:"pointer",background:T.card,borderRadius:isMobile?"24px 24px 0 0":20,padding:isMobile?"20px max(18px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(18px, env(safe-area-inset-left))":"26px",width:"100%",maxWidth:isMobile?"100%":520,maxHeight:isMobile?"min(88svh, calc(var(--app-height, 100dvh) - 12px))":"min(92vh, calc(var(--app-height, 100dvh) - 32px))",overflowY:"auto",overflowX:"hidden",color:T.text,WebkitOverflowScrolling:"touch"}} onClick={e=>e.stopPropagation()}>
 
             {isMobile&&<div style={{width:40,height:4,borderRadius:99,background:"rgba(0,0,0,.15)",margin:"-8px auto 16px",flexShrink:0}}/>}
             {/* Import Mutasi Bank Modal */}
-            {modal.type==="importMutasi"&&<ImportMutasiBank dompet={s.dompet} onImport={handleImportMutasi} onClose={()=>setModal(null)} T={T}/>}
+            {modal.type==="importMutasi"&&<ImportMutasiBank dompet={s.dompet} onImport={handleImportMutasi} onClose={()=>closeModal()} T={T}/>}
 
             {/* Kalkulator Cicilan */}
-            {modal.type==="yearReview"&&<YearInReview s={s} T={T} lang={lang} onClose={()=>setModal(null)}/>}
+            {modal.type==="yearReview"&&<YearInReview s={s} T={T} lang={lang} onClose={()=>closeModal()}/>}
             {modal.type==="monthlyRecap"&&<>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:14}}>
                 <div>
@@ -6878,8 +6943,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               </div>
               <div style={{fontSize:12,color:T.muted,lineHeight:1.6,marginBottom:14}}>Tips: buka modal ini, lalu screenshot untuk konten Threads atau laporan pribadi bulanan.</div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
-                <Btn onClick={()=>setPage("laporan")} ch="Buka laporan" c={T.accent} style={{padding:11}}/>
-                <Btn onClick={()=>setModal(null)} ch="Tutup" c={T.muted} outline style={{padding:11}}/>
+                <Btn onClick={()=>closeModal(()=>setPage("laporan"))} ch="Buka laporan" c={T.accent} style={{padding:11}}/>
+                <Btn onClick={()=>closeModal()} ch="Tutup" c={T.muted} outline style={{padding:11}}/>
               </div>
             </>}
             {modal.type==="tour"&&<>
@@ -6910,7 +6975,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <Btn onClick={finishTour} ch="Nanti dulu" c={T.muted} outline style={{padding:12}}/>
               </div>
             </>}
-            {modal.type==="kalkulator"&&<KalkulatorCicilan onClose={()=>setModal(null)} T={T}/>}
+            {modal.type==="kalkulator"&&<KalkulatorCicilan onClose={()=>closeModal()} T={T}/>}
 
             {/* Import JSON Modal */}
             {modal.type==="importJSON"&&<>
@@ -6922,7 +6987,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 Pilih file backup .json
                 <input type="file" accept=".json" style={{display:"none"}} onChange={e=>importJSON(e.target.files[0])}/>
               </label>
-              <Btn onClick={()=>setModal(null)} ch={t("cancel")} c={T.muted} outline style={{width:"100%",padding:10,marginTop:12}}/>
+              <Btn onClick={()=>closeModal()} ch={t("cancel")} c={T.muted} outline style={{width:"100%",padding:10,marginTop:12}}/>
             </>}
 
             {/* User Menu Modal */}
@@ -6941,11 +7006,11 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{fontSize:11,color:T.muted,marginTop:8}}>Data tersimpan otomatis ke akun ini.</div>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {isAdmin&&<Btn onClick={()=>{setModal(null);navTo("admin");}} ch="Dashboard Admin" c={T.info} style={{width:"100%",padding:11}}/>}
-                {!isStandalone&&!installDismissed&&<Btn onClick={()=>{setModal(null);handleInstallApp();}} ch="Pasang ke Home Screen" c={T.accent} style={{width:"100%",padding:11}}/>}
+                {isAdmin&&<Btn onClick={()=>closeModal(()=>navTo("admin"))} ch="Dashboard Admin" c={T.info} style={{width:"100%",padding:11}}/>}
+                {!isStandalone&&!installDismissed&&<Btn onClick={()=>closeModal(handleInstallApp)} ch="Pasang ke Home Screen" c={T.accent} style={{width:"100%",padding:11}}/>}
                 <Btn onClick={()=>{exportJSON();}} ch="Backup data JSON" c={T.ok} outline style={{width:"100%",padding:11}}/>
-                <Btn onClick={()=>{setModal(null);navTo("setting");}} ch="Pengaturan" outline c={T.accent} style={{width:"100%",padding:11}}/>
-                <button onClick={()=>{setModal(null);setTimeout(confirmSignOut,0);}} style={{width:"100%",padding:11,borderRadius:10,border:"1.5px solid #FCA5A5",background:"#FEF2F2",color:"#B91C1C",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+                <Btn onClick={()=>closeModal(()=>navTo("setting"))} ch="Pengaturan" outline c={T.accent} style={{width:"100%",padding:11}}/>
+                <button onClick={()=>closeModal(confirmSignOut)} style={{width:"100%",padding:11,borderRadius:10,border:"1.5px solid #FCA5A5",background:"#FEF2F2",color:"#B91C1C",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
                   Keluar akun
                 </button>
               </div>
@@ -6959,13 +7024,13 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{fontSize:13,color:T.sub,lineHeight:1.6}}>{modal.msg}</div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
-                <Btn onClick={()=>setModal(null)} ch={t("cancel")} c={T.muted} outline style={{flex:1,padding:11}}/>
+                <Btn onClick={()=>closeModal()} ch={t("cancel")} c={T.muted} outline style={{flex:1,padding:11}}/>
                 <Btn onClick={modal.onConfirm} ch={t("confirmBtn")} c={modal.danger?"#B91C1C":T.accent} style={{flex:1,padding:11}}/>
               </div>
             </>}
 
             {/* Kalkulator Finansial */}
-            {modal.type==="kalkulator"&&<KalkulatorFinansial onClose={()=>setModal(null)} />}
+            {modal.type==="kalkulator"&&<KalkulatorFinansial onClose={()=>closeModal()} />}
 
             {/* TX Modal */}
             {modal.type==="tx"&&<>
@@ -7057,7 +7122,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{maxHeight:isMobile?"58svh":440,overflowY:"auto",borderTop:`1px solid ${T.border}`}}>
                   {rows.length?rows.map(renderTxItem):<LaunchEmpty icon="🧾" title="Belum ada perubahan saldo" desc="Transaksi yang memakai dompet ini akan muncul di sini." style={{padding:"30px 12px"}}/>}
                 </div>
-                <Btn onClick={()=>setModal(null)} ch="Tutup" c={T.muted} outline style={{width:"100%",marginTop:14,padding:"10px"}}/>
+                <Btn onClick={()=>closeModal()} ch="Tutup" c={T.muted} outline style={{width:"100%",marginTop:14,padding:"10px"}}/>
               </>;
             })()}
 
@@ -7131,16 +7196,16 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
       )}
 
       {/* ── SIDEBAR ── */}
-      {isMobile&&sidebarOpen&&<div className="sidebar-overlay" style={{cursor:"pointer"}} onClick={()=>setSidebarOpen(false)}/>}
+      {isMobile&&sidebarOpen&&<div className={`sidebar-overlay ${sidebarClosing?"closing":""}`} style={{cursor:"pointer"}} onClick={()=>closeSidebar()}/>}
       {(!isMobile||sidebarOpen)&&(
-        <div className={isMobile?"sidebar-slide":""} style={{position:isMobile?"fixed":"relative",top:0,left:0,width:isMobile?"min(82vw, 300px)":isTablet?190:220,minWidth:isMobile?0:isTablet?190:220,background:T.nav,borderRight:`1.5px solid ${T.border}`,display:"flex",flexDirection:"column",height:"var(--app-height, 100dvh)",overflowY:"auto",flexShrink:0,zIndex:isMobile?500:10,boxShadow:isMobile?`6px 0 30px rgba(0,0,0,.2)`:T.shadow,transition:"background .3s,border-color .3s",paddingTop:isMobile?"env(safe-area-inset-top, 0px)":0,paddingBottom:isMobile?"env(safe-area-inset-bottom, 0px)":0}}>
+        <div className={isMobile?`sidebar-slide ${sidebarClosing?"closing":""}`:""} style={{position:isMobile?"fixed":"relative",top:0,left:0,width:isMobile?"min(82vw, 300px)":isTablet?190:220,minWidth:isMobile?0:isTablet?190:220,background:T.nav,borderRight:`1.5px solid ${T.border}`,display:"flex",flexDirection:"column",height:"var(--app-height, 100dvh)",overflowY:"auto",flexShrink:0,zIndex:isMobile?500:10,boxShadow:isMobile?`6px 0 30px rgba(0,0,0,.2)`:T.shadow,transition:"background .3s,border-color .3s",paddingTop:isMobile?"env(safe-area-inset-top, 0px)":0,paddingBottom:isMobile?"env(safe-area-inset-bottom, 0px)":0}}>
           <div style={{padding:"18px 16px",borderBottom:`1.5px solid ${T.border}`,display:"flex",alignItems:"center",gap:11}}>
             <img className="cat-mascot" src="/icon-192.png" alt="AturDuitku" style={{width:40,height:40,borderRadius:10,objectFit:"cover",flexShrink:0,boxShadow:`0 4px 14px ${T.accentPop}`}}/>
             <div style={{flex:1}}>
               <div style={{fontWeight:900,fontSize:15,color:T.text,letterSpacing:-.3}}>AturDuitku</div>
               <div style={{fontSize:10,color:T.accent,fontWeight:600,marginTop:1}}>{s.name} Workspace</div>
             </div>
-            {isMobile&&<button onClick={()=>setSidebarOpen(false)} style={{background:T.accentBg,border:"none",borderRadius:8,minWidth:44,height:32,cursor:"pointer",fontSize:10,fontWeight:800,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0,padding:"0 10px"}}>Tutup</button>}
+            {isMobile&&<button onClick={()=>closeSidebar()} style={{background:T.accentBg,border:"none",borderRadius:8,minWidth:44,height:32,cursor:"pointer",fontSize:10,fontWeight:800,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0,padding:"0 10px"}}>Tutup</button>}
           </div>
           <div style={{padding:"10px 8px",flex:1}}>
             {[{label:"Menu Utama",items:navItems.slice(0,4)},{label:"Keuangan",items:navItems.slice(4,9)},{label:"Pengaturan",items:navItems.slice(9)}].map(section=>(
@@ -7245,8 +7310,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
         {/* Mobile Quick Action */}
         {isMobile&&!keyboardOpen&&!moreOpen&&!sidebarOpen&&!aiOpen&&!modal&&(page==="home"||page==="trans"||page==="budget"||page==="habit")&&(
           <>
-            {quickOpen&&<div onClick={()=>setQuickOpen(false)} style={{position:"fixed",inset:0,zIndex:610,background:"rgba(15,23,42,.18)",backdropFilter:"blur(2px)",WebkitBackdropFilter:"blur(2px)",touchAction:"none"}}/>}
-            {quickOpen&&<div className="quick-action-sheet" style={{position:"fixed",right:"max(18px,env(safe-area-inset-right))",bottom:"calc(82px + max(env(safe-area-inset-bottom),8px))",zIndex:611,width:"min(292px, calc(100vw - 36px))",background:T.card,border:`1px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowMd,padding:12}}>
+            {quickOpen&&<div className={`sidebar-overlay ${quickClosing?"closing":""}`} onClick={()=>closeQuick()} style={{position:"fixed",inset:0,zIndex:610,background:"rgba(15,23,42,.18)",backdropFilter:"blur(2px)",WebkitBackdropFilter:"blur(2px)",touchAction:"none"}}/>}
+            {quickOpen&&<div className={`quick-action-sheet ${quickClosing?"closing":""}`} style={{position:"fixed",right:"max(18px,env(safe-area-inset-right))",bottom:"calc(82px + max(env(safe-area-inset-bottom),8px))",zIndex:611,width:"min(292px, calc(100vw - 36px))",background:T.card,border:`1px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowMd,padding:12}}>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,padding:"4px 4px 8px",borderBottom:`1px solid ${T.borderLight}`}}>
                 <img src="/icon-192.png" alt="" style={{width:34,height:34,borderRadius:11,objectFit:"cover",boxShadow:`0 6px 16px ${T.accentPop}`}}/>
                 <div>
@@ -7277,7 +7342,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           </>
         )}
 
-        <div key={page} className="page-in" style={{display:page==="admin"?"none":undefined,padding:isMobile?`14px max(14px,env(safe-area-inset-right)) calc(80px + max(env(safe-area-inset-bottom),0px)) max(14px,env(safe-area-inset-left))`:"22px 28px 40px",maxWidth:1340,margin:"0 auto"}}>
+        <div key={page} className={`page-in ${pageBack?"back":""}`} style={{display:page==="admin"?"none":undefined,padding:isMobile?`14px max(14px,env(safe-area-inset-right)) calc(80px + max(env(safe-area-inset-bottom),0px)) max(14px,env(safe-area-inset-left))`:"22px 28px 40px",maxWidth:1340,margin:"0 auto"}}>
 
           {/* ══════════════════════════════════════════════════════════
               HOME
@@ -7694,8 +7759,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(280px,1fr))",gap:14,marginBottom:20}}>
-              {s.dompet.map(d=>(
-                <div key={d.id} style={{background:T.card,borderRadius:14,padding:18,border:`1px solid ${T.border}`,boxShadow:T.shadow,transition:"background .3s"}}>
+              {s.dompet.map((d,i)=>(
+                <div key={d.id} className="stagger-in" style={{background:T.card,borderRadius:14,padding:18,border:`1px solid ${T.border}`,boxShadow:T.shadow,transition:"background .3s",animationDelay:`${Math.min(i,7)*45}ms`}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
                     <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
                       <span style={{fontSize:26}}>{uiIcon(d.icon)}</span>
@@ -7791,7 +7856,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{fontSize:20,fontWeight:900}}>{Math.round(skorDisiplin)}/100</div>
                 <div style={{marginTop:8,width:120}}>
                   <div style={{background:"rgba(255,255,255,.2)",borderRadius:99,overflow:"hidden",height:6}}>
-                    <div style={{width:Math.min(totalBudget>0?totalBudgetUsed/totalBudget*100:0,100)+"%",height:"100%",background:"rgba(255,255,255,.7)",borderRadius:99,transition:"width .6s"}}/>
+                    <div className="pbar-fill" style={{width:Math.min(totalBudget>0?totalBudgetUsed/totalBudget*100:0,100)+"%",height:"100%",background:"rgba(255,255,255,.7)",borderRadius:99,transition:"width .6s"}}/>
                   </div>
                 </div>
               </div>
@@ -7847,7 +7912,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     <Pill c={isNeed?"blue":isInvest?"green":"yellow"} ch={`${cats.length} ${lang==="en"?"categories":"kategori"}`}/>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14}}>
-                    {cats.map(b=>{
+                    {cats.map((b,i)=>{
                       const spend=spendByKat[b.id]||0;
                       const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
                       const pct=alloc>0?spend/alloc*100:0;
@@ -7856,7 +7921,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       const statusColor=unallocated?"yellow":over?"red":pct>80?"yellow":"green";
                       const statusLabel=unallocated?"Perlu budget":over?t("overLabel"):pct>80?t("almostLabel"):t("safeLabel");
                       return(
-                        <div key={b.id} style={{background:T.card,borderRadius:13,padding:16,border:`1px solid ${over?T.errBorder:unallocated?T.warnBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s"}}>
+                        <div key={b.id} className="stagger-in" style={{background:T.card,borderRadius:13,padding:16,border:`1px solid ${over?T.errBorder:unallocated?T.warnBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s",animationDelay:`${Math.min(i,7)*45}ms`}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                             <div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:20}}>{uiIcon(b.icon)}</span><span style={{fontWeight:700,fontSize:13,color:T.text}}>{b.kat}</span></div>
                             <div style={{display:"flex",gap:6,alignItems:"center"}}>
@@ -8043,7 +8108,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <div style={{fontSize:10,opacity:.65,letterSpacing:1.3,textTransform:"uppercase",fontWeight:800,marginBottom:4}}>Level {habitLevel}</div>
                   <div style={{fontSize:26,fontWeight:900,marginBottom:8}}>{habitXP} XP</div>
                   <div style={{height:8,borderRadius:99,background:"rgba(255,255,255,.18)",overflow:"hidden"}}>
-                    <div style={{width:`${habitLevelPct}%`,height:"100%",borderRadius:99,background:"white",transition:"width .45s ease"}}/>
+                    <div className="pbar-fill" style={{width:`${habitLevelPct}%`,height:"100%",borderRadius:99,background:"white",transition:"width .45s ease"}}/>
                   </div>
                   <div style={{fontSize:10,opacity:.72,marginTop:6}}>{120-(habitXP%120)} XP menuju level berikutnya</div>
                 </div>
@@ -8398,8 +8463,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <Btn onClick={addUt} ch={t("saveNote")} style={{width:"100%",padding:11}}/>
               </>}/>
               <div style={{display:"grid",gap:14,alignContent:"start"}}>
-                {[{l:t("debtActive"),v:IDR(totalUtangAktif),vc:T.err,bg:T.errBg},{l:t("recvActive"),v:IDR(totalPiutang),vc:T.ok,bg:T.okBg},{l:"Sudah Lunas",v:s.utang.filter(u=>u.lunas).length+" item",vc:T.accent,bg:T.accentBg}].map(x=>(
-                  <div key={x.l} style={{background:x.bg,borderRadius:12,padding:"14px 18px",transition:"background .3s"}}>
+                {[{l:t("debtActive"),v:IDR(totalUtangAktif),vc:T.err,bg:T.errBg},{l:t("recvActive"),v:IDR(totalPiutang),vc:T.ok,bg:T.okBg},{l:"Sudah Lunas",v:s.utang.filter(u=>u.lunas).length+" item",vc:T.accent,bg:T.accentBg}].map((x,i)=>(
+                  <div key={x.l} className="stagger-in" style={{background:x.bg,borderRadius:12,padding:"14px 18px",transition:"background .3s",animationDelay:`${i*55}ms`}}>
                     <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:5}}>{x.l}</div>
                     <div style={{fontWeight:800,fontSize:17,color:x.vc}}>{x.v}</div>
                   </div>
@@ -8818,7 +8883,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               localStorage.removeItem("aturduitku_onboarded");
               setS(INIT);
               setOnboarded(false);
-              setModal(null);
+              closeModal();
               showToast("Semua data berhasil direset!");
             }})} style={{width:"100%",padding:10,borderRadius:10,border:`1.5px solid ${T.errBorder}`,background:T.errBg,color:T.err,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
                     Reset semua data
