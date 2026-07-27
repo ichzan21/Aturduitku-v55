@@ -34,6 +34,7 @@ async function openTransactions(page, mobile) {
     await page.getByText("Transaksi", { exact:true }).first().click();
   }
   await page.getByPlaceholder(/Cari transaksi/i).waitFor({ state:"visible", timeout:15_000 });
+  await page.waitForTimeout(300);
 }
 
 async function waitForModalClose(page) {
