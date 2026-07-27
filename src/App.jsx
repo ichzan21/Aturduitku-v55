@@ -2576,6 +2576,7 @@ export default function App(){
   const [sidebarOpen,setSidebarOpen]=useState(false);
   const [sidebarClosing,setSidebarClosing]=useState(false);
   const dismissTimersRef=useRef([]);
+  const modalClosingRef=useRef(false);
   const scheduleDismiss=(setter,setClosing,duration,after)=>{
     setClosing(true);
     const timer=setTimeout(()=>{
@@ -2587,8 +2588,16 @@ export default function App(){
   };
   const closeModal=after=>{
     if(!modal){after?.();return;}
-    if(modalClosing) return;
-    scheduleDismiss(()=>setModal(null),setModalClosing,240,after);
+    if(modalClosingRef.current) return;
+    modalClosingRef.current=true;
+    setModalClosing(true);
+    const timer=setTimeout(()=>{
+      setModal(null);
+      setModalClosing(false);
+      modalClosingRef.current=false;
+      after?.();
+    },240);
+    dismissTimersRef.current.push(timer);
   };
   const closeQuick=after=>{
     if(!quickOpen){after?.();return;}
@@ -6971,7 +6980,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </div>)}
               </div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
-                <Btn onClick={()=>{finishTour();setModal({type:"tx"});}} ch="Mulai catat" c={T.accent} style={{padding:12}}/>
+                <Btn onClick={()=>{setTourDismissed(true);try{localStorage.setItem("aturduitku_tour_done","1");}catch(e){}closeModal(()=>setModal({type:"tx"}));}} ch="Mulai catat" c={T.accent} style={{padding:12}}/>
                 <Btn onClick={finishTour} ch="Nanti dulu" c={T.muted} outline style={{padding:12}}/>
               </div>
             </>}

@@ -23,6 +23,8 @@ async function login(page) {
   await page.getByText("Home", { exact:true }).first().waitFor({ state:"visible", timeout:45_000 });
   const dismissTour = page.getByRole("button", { name:"Nanti dulu", exact:true });
   if (await dismissTour.isVisible().catch(() => false)) await dismissTour.click();
+  const dismissInstall = page.getByRole("button", { name:"Nanti", exact:true });
+  if (await dismissInstall.isVisible().catch(() => false)) await dismissInstall.click();
 }
 
 async function openTransactions(page, mobile) {
@@ -34,6 +36,10 @@ async function openTransactions(page, mobile) {
   await page.getByPlaceholder(/Cari transaksi/i).waitFor({ state:"visible", timeout:15_000 });
 }
 
+async function waitForModalClose(page) {
+  await page.locator(".modal-overlay").waitFor({ state:"detached", timeout:5_000 });
+}
+
 async function cleanupE2ETransactions(page) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const transactionText = page.getByText(/^\[E2E\] \d+$/).first();
@@ -41,6 +47,7 @@ async function cleanupE2ETransactions(page) {
     const row = transactionText.locator('xpath=ancestor::div[.//button[@aria-label="Hapus"]][1]');
     await row.getByRole("button", { name:"Hapus" }).click();
     await page.getByRole("button", { name:/Ya, Lanjutkan|Yes, Proceed/ }).click();
+    await waitForModalClose(page);
     await transactionText.waitFor({ state:"detached", timeout:15_000 });
   }
   throw new Error("Lebih dari 10 transaksi E2E lama ditemukan; cleanup dihentikan.");
@@ -74,15 +81,18 @@ async function smoke(viewport, name, mutate = false) {
     await page.getByText("Edit Transaksi", { exact:true }).waitFor();
     await page.locator('input[inputmode="numeric"]').last().fill("2345");
     await page.getByRole("button", { name:"Simpan Perubahan", exact:true }).click();
+    await waitForModalClose(page);
     await page.getByTestId("transaction-undo-button").click();
 
     await row.getByRole("button", { name:"Hapus" }).click();
     await page.getByRole("button", { name:/Ya, Lanjutkan|Yes, Proceed/ }).click();
+    await waitForModalClose(page);
     await page.getByTestId("transaction-undo-button").click();
     await page.getByText(note, { exact:true }).waitFor();
 
     await row.getByRole("button", { name:"Hapus" }).click();
     await page.getByRole("button", { name:/Ya, Lanjutkan|Yes, Proceed/ }).click();
+    await waitForModalClose(page);
     await page.getByText(note, { exact:true }).waitFor({ state:"detached", timeout:15_000 });
   }
 
