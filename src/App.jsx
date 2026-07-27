@@ -950,6 +950,20 @@ const PBar=({pct,c="#8B5CF6",h=6})=>{
     </div>
   );
 };
+const useDismissAnimation=(onClose,duration=260)=>{
+  const [closing,setClosing]=useState(false);
+  const timerRef=useRef(null);
+  useEffect(()=>()=>clearTimeout(timerRef.current),[]);
+  const close=after=>{
+    if(closing) return;
+    setClosing(true);
+    timerRef.current=setTimeout(()=>{
+      after?.();
+      onClose?.();
+    },duration);
+  };
+  return [closing,close];
+};
 const Btn=({onClick,ch,c,outline,style={}})=>{
   const T=useT();const bc=c||T.accent;
   return <button onClick={onClick} className="btn-go" style={{padding:"9px 18px",borderRadius:10,border:outline?`1.5px solid ${bc}`:"none",cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit",background:outline?"transparent":bc,color:outline?bc:"white",...style}}>{ch}</button>;
@@ -991,17 +1005,18 @@ const CurIn=({value,onChange,placeholder="0",style={}})=>{
 const Calculator=({value,onChange,onClose})=>{
   const T=useT();
   const [disp,setDisp]=useState(value||"0");
+  const [closing,close]=useDismissAnimation(onClose,240);
   const press=k=>{
     if(k==="C"){setDisp("0");return;}
     if(k==="⌫"){setDisp(p=>p.length>1?p.slice(0,-1):"0");return;}
-    if(k==="✓"){onChange(pN(disp));onClose();return;}
+    if(k==="✓"){onChange(pN(disp));close();return;}
     if(k==="."){setDisp(p=>p.includes(".")?p:p+".");return;}
     setDisp(p=>p==="0"?k:p+k);
   };
   const keys=["7","8","9","⌫","4","5","6","C","1","2","3","","0",".",""," ✓"];
   return(
-    <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:9999}} onClick={onClose}>
-      <div style={{cursor:"pointer",background:T.card,borderRadius:"24px 24px 0 0",padding:"22px 22px calc(env(safe-area-inset-bottom, 0px) + 22px)",width:"100%",maxWidth:380,maxHeight:"min(520px, calc(var(--app-height, 100dvh) - 18px))",overflowY:"auto",boxShadow:T.shadowMd}} onClick={e=>e.stopPropagation()}>
+    <div className={`sidebar-overlay ${closing?"closing":""}`} style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:9999}} onClick={()=>close()}>
+      <div className={`sheet-in ${closing?"closing":""}`} style={{cursor:"pointer",background:T.card,borderRadius:"24px 24px 0 0",padding:"22px 22px calc(env(safe-area-inset-bottom, 0px) + 22px)",width:"100%",maxWidth:380,maxHeight:"min(520px, calc(var(--app-height, 100dvh) - 18px))",overflowY:"auto",boxShadow:T.shadowMd}} onClick={e=>e.stopPropagation()}>
         <div style={{textAlign:"right",fontSize:28,fontWeight:900,color:T.text,marginBottom:14,padding:"6px 12px",background:T.cardAlt,borderRadius:10}}>{fmtN(disp)||"0"}</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
           {keys.map((k,i)=>(
@@ -1134,20 +1149,21 @@ const CircleGauge=({value,max=100,size=110,c="#22C55E",label})=>{
 // ─── NOTIFICATION PANEL ───────────────────────────────────────────────────────
 const NotificationPanel=({notifs,onClose,onAction})=>{
   const T=useT();
+  const [closing,close]=useDismissAnimation(onClose,260);
   const colMap={danger:{bg:T.errBg,border:T.errBorder,c:T.err},warning:{bg:T.warnBg,border:T.warnBorder,c:T.warn},success:{bg:T.okBg,border:T.okBorder,c:T.ok},info:{bg:T.infoBg,border:T.infoBorder,c:T.info}};
   const groups=[
     {title:"Perlu tindakan",items:notifs.filter(n=>n.color==="danger"||n.color==="warning")},
     {title:"Info keuangan",items:notifs.filter(n=>n.color!=="danger"&&n.color!=="warning")},
   ].filter(g=>g.items.length);
   return(
-    <div style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",zIndex:500,display:"flex",justifyContent:"flex-end"}} onClick={onClose}>
-      <div style={{cursor:"pointer",width:"min(380px, 100vw)",background:T.card,height:"var(--app-height, 100dvh)",overflowY:"auto",boxShadow:T.shadowMd,animation:"slideInRight .25s cubic-bezier(.4,0,.2,1)",paddingBottom:"env(safe-area-inset-bottom, 0px)"}} onClick={e=>e.stopPropagation()}>
+    <div className={`sidebar-overlay ${closing?"closing":""}`} style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",zIndex:500,display:"flex",justifyContent:"flex-end"}} onClick={()=>close()}>
+      <div className={`panel-right ${closing?"closing":""}`} style={{cursor:"pointer",width:"min(380px, 100vw)",background:T.card,height:"var(--app-height, 100dvh)",overflowY:"auto",boxShadow:T.shadowMd,paddingBottom:"env(safe-area-inset-bottom, 0px)"}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:"20px 20px 14px",borderBottom:`1.5px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:T.card,zIndex:1}}>
           <div>
             <div style={{fontWeight:900,fontSize:17,color:T.text}}>Notifikasi</div>
             <div style={{fontSize:11,color:T.muted,marginTop:1}}>{notifs.length} peringatan aktif</div>
           </div>
-          <button onClick={onClose} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:9,width:32,height:32,cursor:"pointer",fontSize:15,color:T.sub,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center"}}>X</button>
+          <button onClick={()=>close()} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:9,width:32,height:32,cursor:"pointer",fontSize:15,color:T.sub,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center"}}>X</button>
         </div>
         <div style={{padding:16}}>
           {notifs.length===0?(
@@ -1162,7 +1178,7 @@ const NotificationPanel=({notifs,onClose,onAction})=>{
               {group.items.map((n,i)=>{
             const col=colMap[n.color]||colMap.info;
             return(
-              <button key={`${group.title}-${i}`} onClick={()=>onAction?.(n)} style={{width:"100%",textAlign:"left",background:col.bg,border:`1px solid ${col.border}`,borderRadius:12,padding:"12px 14px",marginBottom:10,display:"flex",gap:12,alignItems:"flex-start",cursor:"pointer",fontFamily:"inherit",transition:"transform .16s, box-shadow .16s"}} className="notif-card">
+              <button key={`${group.title}-${i}`} onClick={()=>close(()=>onAction?.(n))} style={{width:"100%",textAlign:"left",background:col.bg,border:`1px solid ${col.border}`,borderRadius:12,padding:"12px 14px",marginBottom:10,display:"flex",gap:12,alignItems:"flex-start",cursor:"pointer",fontFamily:"inherit",transition:"transform .16s, box-shadow .16s"}} className="notif-card">
                 <span style={{fontSize:22,flexShrink:0,marginTop:1}}>{uiIcon(n.icon)}</span>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,fontSize:13,color:col.c,marginBottom:3}}>{n.title}</div>
@@ -1412,15 +1428,16 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai})=>{
 // ─── MORE MENU (mobile) ───────────────────────────────────────────────────────
 const MoreMenu=({page,onNavigate,onClose,navItems=NAV})=>{
   const T=useT();
+  const [closing,close]=useDismissAnimation(onClose,240);
   return(
-    <div role="presentation" style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",zIndex:650,isolation:"isolate"}} onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label="Menu lainnya" style={{cursor:"default",position:"fixed",bottom:0,left:0,right:0,background:T.card,border:`1px solid ${T.border}`,borderBottom:"none",borderRadius:"22px 22px 0 0",padding:"20px max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(16px, env(safe-area-inset-left))",boxShadow:T.shadowMd,maxHeight:"min(74svh, calc(var(--app-height, 100dvh) - 16px))",overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain"}} onClick={e=>e.stopPropagation()}>
+    <div role="presentation" className={`sidebar-overlay ${closing?"closing":""}`} style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",zIndex:650,isolation:"isolate"}} onClick={()=>close()}>
+      <div role="dialog" aria-modal="true" aria-label="Menu lainnya" className={`sheet-in ${closing?"closing":""}`} style={{cursor:"default",position:"fixed",bottom:0,left:0,right:0,background:T.card,border:`1px solid ${T.border}`,borderBottom:"none",borderRadius:"22px 22px 0 0",padding:"20px max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(16px, env(safe-area-inset-left))",boxShadow:T.shadowMd,maxHeight:"min(74svh, calc(var(--app-height, 100dvh) - 16px))",overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain"}} onClick={e=>e.stopPropagation()}>
         <div style={{width:40,height:4,background:T.border,borderRadius:4,margin:"0 auto 16px"}}/>
         <div style={{fontSize:10,color:T.muted,fontWeight:700,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>Menu Lainnya</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
           {navItems.slice(4).map(n=>{
             const a=page===n.id;
-            const go=e=>{e.preventDefault();e.stopPropagation();onNavigate(n.id);onClose();};
+            const go=e=>{e.preventDefault();e.stopPropagation();close(()=>onNavigate(n.id));};
             return(
               <button key={n.id} type="button" onClick={go} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:"12px 8px",borderRadius:12,border:`1.5px solid ${a?T.navBorder:T.border}`,background:a?T.navActive:T.cardAlt,cursor:"pointer",fontFamily:"inherit",touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
                 <span style={{fontSize:22}}>{uiIcon(n.icon)}</span>
@@ -2529,6 +2546,9 @@ export default function App(){
 
   const [page,setPage]=useState("home");
   const [toast,setToast]=useState("");
+  const [toastClosing,setToastClosing]=useState(false);
+  const toastTimersRef=useRef([]);
+  useEffect(()=>()=>toastTimersRef.current.forEach(clearTimeout),[]);
   const [undoAction,setUndoAction]=useState(null);
   const undoTimerRef=useRef(null);
   const [modal,setModal]=useState(null);
@@ -3801,7 +3821,15 @@ export default function App(){
   const hariShort = now.toLocaleDateString(lang==="en"?"en-US":"id-ID",{weekday:"long",day:"numeric",month:"short",year:"numeric"});
 
   // Handlers
-  const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(""),2500);};
+  const showToast=msg=>{
+    toastTimersRef.current.forEach(clearTimeout);
+    setToastClosing(false);
+    setToast(msg);
+    toastTimersRef.current=[
+      setTimeout(()=>setToastClosing(true),2200),
+      setTimeout(()=>setToast(""),2500),
+    ];
+  };
   const isIosDevice=typeof navigator!=="undefined"&&/iphone|ipad|ipod/i.test(navigator.userAgent||"");
   const isStandalone=typeof window!=="undefined"&&(window.matchMedia?.("(display-mode: standalone)")?.matches||window.navigator?.standalone);
   const dismissInstallPrompt=()=>{setInstallPrompt(null);setInstallDismissed(true);try{localStorage.setItem("aturduitku_install_dismissed","1");}catch(e){}showToast("Banner install disembunyikan");};
@@ -6751,7 +6779,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
       </div>}
 
       {/* Toast */}
-      {toast&&<div className="toast-in" style={{position:"fixed",top:"max(18px, calc(env(safe-area-inset-top) + 8px))",right:"max(14px, env(safe-area-inset-right))",left:isMobile?"max(14px, env(safe-area-inset-left))":"auto",maxWidth:isMobile?"none":"min(430px, calc(100vw - 28px))",background:T.card,color:T.text,padding:"12px 15px",borderRadius:14,fontSize:13,fontWeight:800,zIndex:9999,boxShadow:T.shadowMd,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:10,lineHeight:1.35}}><span style={{width:28,height:28,borderRadius:9,background:T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><img src="/icon-192.png" style={{width:22,height:22,borderRadius:6,verticalAlign:"middle"}}/></span><span style={{minWidth:0,overflowWrap:"anywhere"}}>{toast}</span></div>}
+      {toast&&<div className={`toast-in ${toastClosing?"closing":""}`} style={{position:"fixed",top:"max(18px, calc(env(safe-area-inset-top) + 8px))",right:"max(14px, env(safe-area-inset-right))",left:isMobile?"max(14px, env(safe-area-inset-left))":"auto",maxWidth:isMobile?"none":"min(430px, calc(100vw - 28px))",background:T.card,color:T.text,padding:"12px 15px",borderRadius:14,fontSize:13,fontWeight:800,zIndex:9999,boxShadow:T.shadowMd,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:10,lineHeight:1.35}}><span style={{width:28,height:28,borderRadius:9,background:T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><img src="/icon-192.png" style={{width:22,height:22,borderRadius:6,verticalAlign:"middle"}}/></span><span style={{minWidth:0,overflowWrap:"anywhere"}}>{toast}</span></div>}
       {undoAction&&<div data-testid="transaction-undo" style={{position:"fixed",left:isMobile?"max(14px,env(safe-area-inset-left))":"50%",right:isMobile?"max(14px,env(safe-area-inset-right))":"auto",transform:isMobile?"none":"translateX(-50%)",bottom:isMobile?"calc(82px + env(safe-area-inset-bottom))":"24px",zIndex:10010,display:"flex",alignItems:"center",justifyContent:"space-between",gap:18,padding:"11px 12px 11px 15px",borderRadius:12,background:T.text,color:T.card,boxShadow:T.shadowMd,minWidth:isMobile?0:340,maxWidth:"calc(100vw - 28px)"}}><span style={{fontSize:12,fontWeight:800}}>{undoAction.label}. Bisa dibatalkan 15 detik.</span><button data-testid="transaction-undo-button" type="button" onClick={applyUndo} style={{border:"none",borderRadius:8,padding:"8px 11px",background:T.accent,color:"white",fontSize:11,fontWeight:900,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Batalkan</button></div>}
 
       {/* Global Calculator */}
@@ -7249,7 +7277,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           </>
         )}
 
-        <div className="page-in" style={{display:page==="admin"?"none":undefined,padding:isMobile?`14px max(14px,env(safe-area-inset-right)) calc(80px + max(env(safe-area-inset-bottom),0px)) max(14px,env(safe-area-inset-left))`:"22px 28px 40px",maxWidth:1340,margin:"0 auto"}}>
+        <div key={page} className="page-in" style={{display:page==="admin"?"none":undefined,padding:isMobile?`14px max(14px,env(safe-area-inset-right)) calc(80px + max(env(safe-area-inset-bottom),0px)) max(14px,env(safe-area-inset-left))`:"22px 28px 40px",maxWidth:1340,margin:"0 auto"}}>
 
           {/* ══════════════════════════════════════════════════════════
               HOME
@@ -7494,8 +7522,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 {l:t("netCashLabel"),v:IDRs(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg,sub:netCash>=0?"Surplus bulan ini":"Defisit bulan ini"},
                 {l:t("runwayLabel"),v:`${runwayReal} ${t("runwayMonths")}`,vc:T.info,bg:T.infoBg,sub:t("runwayDesc")},
                 {l:"Pengeluaran Terbesar",v:topKat[0]?.[0]||"-",vc:T.warn,bg:T.warnBg,sub:topKat[0]?IDRs(topKat[0][1]):"Belum ada data"},
-              ].map(x=>(
-                <div key={x.l} style={{background:x.bg,borderRadius:13,padding:"14px 16px",border:`1px solid ${x.vc}22`,transition:"background .3s"}}>
+              ].map((x,i)=>(
+                <div key={x.l} className="stagger-in" style={{background:x.bg,borderRadius:13,padding:"14px 16px",border:`1px solid ${x.vc}22`,transition:"background .3s",animationDelay:`${i*55}ms`}}>
                   <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1.2,marginBottom:6}}>{x.l}</div>
                   <div style={{fontSize:isMobile?14:16,fontWeight:800,color:x.vc,marginBottom:3}}>{x.v}</div>
                   <div style={{fontSize:10,color:T.muted}}>{x.sub}</div>
@@ -7717,8 +7745,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             </>} style={{marginBottom:16}}/>
 
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:16}}>
-              {[{l:t("incomeLabel"),v:IDR(totalIn),vc:T.ok,bg:T.okBg},{l:t("expenseLabel"),v:IDR(totalOut),vc:T.err,bg:T.errBg},{l:"Tabungan & Investasi",v:IDR(totalFuture),vc:T.info,bg:T.infoBg},{l:"Net",v:IDR(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg}].map(x=>(
-                <div key={x.l} style={{background:x.bg,borderRadius:12,padding:"13px 16px",transition:"background .3s"}}>
+              {[{l:t("incomeLabel"),v:IDR(totalIn),vc:T.ok,bg:T.okBg},{l:t("expenseLabel"),v:IDR(totalOut),vc:T.err,bg:T.errBg},{l:"Tabungan & Investasi",v:IDR(totalFuture),vc:T.info,bg:T.infoBg},{l:"Net",v:IDR(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg}].map((x,i)=>(
+                <div key={x.l} className="stagger-in" style={{background:x.bg,borderRadius:12,padding:"13px 16px",transition:"background .3s",animationDelay:`${i*55}ms`}}>
                   <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{x.l}</div>
                   <div style={{fontWeight:800,fontSize:15,color:x.vc}}>{x.v}</div>
                 </div>
@@ -7977,8 +8005,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           ══════════════════════════════════════════════════════════ */}
           {page==="goals"&&<>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:isMobile?10:14,marginBottom:20}}>
-              {[{l:"Total Goal",v:s.goals.length,vc:T.accent,bg:T.accentBg},{l:"Tercapai",v:s.goals.filter(g=>g.selesai||(N(g.target)>0&&N(g.kumpul)>=N(g.target))).length,vc:T.ok,bg:T.okBg},{l:"Total Terkumpul",v:IDR(s.goals.reduce((a,g)=>a+N(g.kumpul),0)),vc:T.info,bg:T.infoBg}].map(x=>(
-                <div key={x.l} style={{background:x.bg,borderRadius:13,padding:"14px 18px",transition:"background .3s"}}>
+              {[{l:"Total Goal",v:s.goals.length,vc:T.accent,bg:T.accentBg},{l:"Tercapai",v:s.goals.filter(g=>g.selesai||(N(g.target)>0&&N(g.kumpul)>=N(g.target))).length,vc:T.ok,bg:T.okBg},{l:"Total Terkumpul",v:IDR(s.goals.reduce((a,g)=>a+N(g.kumpul),0)),vc:T.info,bg:T.infoBg}].map((x,i)=>(
+                <div key={x.l} className="stagger-in" style={{background:x.bg,borderRadius:13,padding:"14px 18px",transition:"background .3s",animationDelay:`${i*55}ms`}}>
                   <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:5}}>{x.l}</div>
                   <div style={{fontWeight:800,fontSize:18,color:x.vc}}>{x.v}</div>
                 </div>
@@ -8536,8 +8564,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 {l:"+ "+t("incomeLabel"),v:IDR(totalIn),sub:prevIn>0?`${changePct(totalIn,prevIn)>0?"+":""}${changePct(totalIn,prevIn)}% vs lalu`:null,vc:T.ok,bg:T.okBg,trend:changePct(totalIn,prevIn)},
                 {l:"- "+t("expenseLabel"),v:IDR(totalOut),sub:prevOut>0?`${changePct(totalOut,prevOut)>0?"+":""}${changePct(totalOut,prevOut)}% vs lalu`:null,vc:T.err,bg:T.errBg,trend:changePct(totalOut,prevOut)},
                 {l:"Net Cashflow",v:IDR(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg},
-              ].map(x=>(
-                <div key={x.l} style={{background:x.bg,borderRadius:12,padding:"14px 16px",transition:"background .3s"}}>
+              ].map((x,i)=>(
+                <div key={x.l} className="stagger-in" style={{background:x.bg,borderRadius:12,padding:"14px 16px",transition:"background .3s",animationDelay:`${i*55}ms`}}>
                   <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{x.l}</div>
                   <div style={{fontWeight:800,fontSize:16,color:x.vc,marginBottom:2}}>{x.v}</div>
                   {x.sub&&<div style={{fontSize:10,color:x.trend>0?T.ok:x.trend<0?T.err:T.muted}}>{x.sub}</div>}
