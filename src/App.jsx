@@ -124,6 +124,11 @@ const AnimatedNumber=React.memo(function AnimatedNumber({value,format=Math.round
 });
 const AnimatedAmount=({value,compact=false,...props})=><AnimatedNumber value={N(value)} format={compact?IDRs:IDR} {...props}/>;
 const AnimatedPercent=({value,digits=0,suffix="%",...props})=><AnimatedNumber value={Number(value)||0} format={n=>`${n.toFixed(digits)}${suffix}`} {...props}/>;
+const MaskedValue=React.memo(function MaskedValue({blur,v,style,className}){
+  return blur
+    ? <span className={className} style={{filter:"blur(7px)",userSelect:"none",transition:"filter .25s",...style}}>{v}</span>
+    : <span className={className} style={style}>{v}</span>;
+});
 const PCT  = v=>Number(v||0).toFixed(1)+"%";
 const normalizeTransactionKinds = txs => (txs||[]).map(tx=>{
   const ket=String(tx?.ket||"").trim();
@@ -2677,7 +2682,6 @@ export default function App(){
   },[isAdmin,simpleMode]);
   const YEAR_OPTIONS = Array.from({ length: 20 }, (_, i) => String(2020 + i));
   const toggleBlur=()=>{setBlurSaldo(v=>{try{localStorage.setItem("aturduitku_blur",!v?"1":"0");}catch(e){}return !v;});};
-  const MV=({v,style,className})=>blurSaldo?<span className={className} style={{filter:"blur(7px)",userSelect:"none",transition:"filter .25s",...style}}>{v}</span>:<span className={className} style={style}>{v}</span>;
 
   // Viewport
   useEffect(()=>{
@@ -7508,7 +7512,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </div>
                 <div style={{textAlign:"right",background:"rgba(0,0,0,.2)",borderRadius:12,padding:"14px 18px",flexShrink:0}}>
                   <div style={{fontSize:9,opacity:.6,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>{t("totalBalance")}</div>
-                  <div style={{fontSize:24,fontWeight:900}}><MV v={<AnimatedAmount value={totalSaldo}/>}/></div>
+                  <div style={{fontSize:24,fontWeight:900}}><MaskedValue blur={blurSaldo} v={<AnimatedAmount value={totalSaldo}/>}/></div>
                   <div style={{fontSize:10,opacity:.65,marginTop:3}}>{t("runway")}: <AnimatedNumber value={runwayReal} format={n=>n.toFixed(1)}/> {t("months")}</div>
                   <div style={{fontSize:10,opacity:.65,marginTop:2}}>{t("scoreLabel")}: <AnimatedNumber value={skorTotal}/>/100 {getLabel(skorTotal)}</div>
                 </div>
@@ -7859,7 +7863,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           {page==="dompet"&&<>
             <div style={{background:T.hero,borderRadius:16,padding:"22px 28px",marginBottom:20,color:"white"}}>
               <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>{t("liquidAssets")}</div>
-              <div style={{fontSize:30,fontWeight:900,marginBottom:4}}><MV v={<AnimatedAmount value={totalSaldo}/>}/></div>
+              <div style={{fontSize:30,fontWeight:900,marginBottom:4}}><MaskedValue blur={blurSaldo} v={<AnimatedAmount value={totalSaldo}/>}/></div>
               <div style={{display:"flex",gap:16,fontSize:12,opacity:.7}}>
                 <span>{t("scoreLabel")}: {getLabel(skorTotal)} ({skorTotal}/100)</span>
                 <span>{s.dompet.length} akun aktif</span>
@@ -7877,7 +7881,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   </div>
                   <div style={{fontSize:20,fontWeight:900,color:N(d.saldo)<0?T.err:T.text,marginBottom:8}}>
                     {N(d.saldo)<0&&<span style={{fontSize:12,background:T.errBg,color:T.err,borderRadius:6,padding:"1px 7px",marginRight:6,fontWeight:700}}>Minus</span>}
-                    <MV v={<AnimatedAmount value={N(d.saldo)}/>}/>
+                    <MaskedValue blur={blurSaldo} v={<AnimatedAmount value={N(d.saldo)}/>}/>
                   </div>
                   <div style={{height:4,background:T.border,borderRadius:4,marginBottom:12,overflow:"hidden"}}>
                     <div style={{width:totalSaldo>0?Math.min(N(d.saldo)/totalSaldo*100,100)+"%" :"0%",height:"100%",background:T.accent,borderRadius:4}}/>
@@ -8502,12 +8506,12 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 {s.dompet.map(d=>(
                   <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
                     <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}><span style={{fontSize:20}}>{uiIcon(d.icon)}</span><div><div style={{fontSize:13,fontWeight:600,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}</div></div></div>
-                    <span style={{fontWeight:700,color:T.text}}><MV v={IDR(N(d.saldo))}/></span>
+                    <span style={{fontWeight:700,color:T.text}}><MaskedValue blur={blurSaldo} v={IDR(N(d.saldo))}/></span>
                   </div>
                 ))}
                 <div style={{marginTop:12,background:T.okBg,borderRadius:9,padding:"10px 14px",border:`1px solid ${T.okBorder}`}}>
                   <div style={{fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:2}}>{t("liquidAssets")}</div>
-                  <div style={{fontWeight:800,color:T.ok,fontSize:16}}><MV v={<AnimatedAmount value={totalSaldo}/>}/></div>
+                  <div style={{fontWeight:800,color:T.ok,fontSize:16}}><MaskedValue blur={blurSaldo} v={<AnimatedAmount value={totalSaldo}/>}/></div>
                 </div>
               </>}/>
               <Card ch={<>
