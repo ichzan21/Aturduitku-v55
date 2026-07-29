@@ -63,6 +63,13 @@ async function smoke(viewport, name, mutate = false) {
 
   await login(page);
   await openTransactions(page, viewport.width < 900);
+  const searchInput = page.getByPlaceholder(/Cari transaksi/i);
+  await searchInput.fill(`[E2E-NO-MATCH] ${Date.now()}`);
+  await page.getByText("Tidak ada transaksi yang cocok", { exact:true }).waitFor({ state:"visible", timeout:10_000 });
+  const currentMonthButton = page.getByRole("button", { name:"Bulan ini", exact:true });
+  if (await currentMonthButton.count() !== 1) throw new Error(`${name}: tombol Bulan ini tidak unik`);
+  await currentMonthButton.click();
+  await searchInput.fill("");
   await page.screenshot({ path:`${artifacts}/${name}-transactions.png`, fullPage:true });
 
   if (mutate) {
