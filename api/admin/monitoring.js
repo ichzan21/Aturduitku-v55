@@ -2,7 +2,7 @@ import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { requireAdmin } from "../_lib/auth.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 import { sendMonitoringTestAlert } from "../_lib/monitoringAlerts.js";
-import { classifyMonitoringEvent } from "../_lib/monitoringPolicy.js";
+import { classifyMonitoringEvent, isExpectedAiLatency, knownIncidentResolution } from "../_lib/monitoringPolicy.js";
 
 const safeText = (value, max = 180) => String(value || "")
   .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[email]")
@@ -34,21 +34,25 @@ export default async function handler(req, res) {
       const data = doc.data() || {};
       const type = safeText(data.type, 60);
       const message = safeText(data.message, 220);
-      const category = classifyMonitoringEvent(type, message, data.category);
+      const route = safeText(data.route, 100);
+      const durationMs = Math.max(0, Math.round(Number(data.durationMs) || 0));
+      const expectedAiLatency = isExpectedAiLatency(type, route, durationMs);
+      const category = expectedAiLatency ? "ignored" : classifyMonitoringEvent(type, message, data.category);
+      const automaticResolution = knownIncidentResolution(type, message);
       return {
         id: doc.id,
         type,
         category,
         severity: category === "incident" ? safeText(data.severity, 20) || "error" : "warning",
         message,
-        route: safeText(data.route, 100),
+        route,
         component: safeText(data.component, 80),
         appVersion: safeText(data.appVersion, 40),
-        durationMs: Math.max(0, Math.round(Number(data.durationMs) || 0)),
+        durationMs,
         createdAt: data.createdAt || null,
-        resolved: category !== "incident" || data.resolved === true,
-        resolvedAt: data.resolvedAt || null,
-        resolution: safeText(data.resolution, 160),
+        resolved: category !== "incident" || data.resolved === true || Boolean(automaticResolution),
+        resolvedAt: data.resolvedAt || (automaticResolution ? new Date().toISOString() : null),
+        resolution: safeText(data.resolution || automaticResolution, 160),
       };
     });
 

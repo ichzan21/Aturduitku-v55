@@ -2772,7 +2772,7 @@ export default function App(){
       }
       throw error;
     }
-    const slowThreshold=url.startsWith("/api/ai/")?10000:8000;
+    const slowThreshold=url.startsWith("/api/ai/")?20000:8000;
     if(!requestWasHidden&&requestDuration>=slowThreshold){
       reportClientError(new Error(`API lambat: ${requestDuration} ms`),{type:"api_slow",component:"authedJson",route:url,durationMs:requestDuration});
     }
@@ -7948,7 +7948,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 actionLabel="Tambah transaksi baru"
                 onAction={()=>setModal({type:"tx"})}
                 secondaryLabel="Bulan ini"
-                onSecondary={()=>{setBln(MONTHS[now.getMonth()]);setThn(String(now.getFullYear()));}}
+                onSecondary={()=>setS(p=>({...p,bulan:MONTHS[now.getMonth()],tahun:String(now.getFullYear())}))}
               />}
             </>}/>
           </>}

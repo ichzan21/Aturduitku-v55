@@ -48,6 +48,9 @@ const appSource = readFileSync("src/App.jsx", "utf8");
 for (const marker of ["replaceTransactionInWallets", "resolveConflictWithCloud", "resolveConflictWithLocal", "scheduleUndo", "AdminMonitoringPanelLazy"]) {
   if (!appSource.includes(marker)) failures.push(`Alur integritas transaksi hilang: ${marker}`);
 }
+for (const removedSetter of ["setBln(", "setThn("]) {
+  if (appSource.includes(removedSetter)) failures.push(`Setter state lama masih dipakai: ${removedSetter}`);
+}
 
 function jsFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
