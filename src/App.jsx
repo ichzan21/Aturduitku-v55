@@ -2388,10 +2388,26 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
     BTN:"BTN Mobile → Rekening → Mutasi CSV",
     Generic:"Deteksi otomatis untuk CSV dan PDF berbasis teks",
   };
-  const BANK_ICONS = {
-    BCA:"🔵",Mandiri:"🟡",BNI:"🟠",BRI:"🔵",CIMB:"🔴",
-    Jenius:"💎",OVO:"💜",GoPay:"🟢",Dana:"🔵",ShopeePay:"🟠",
-    BSI:"🟢",Permata:"🔵",BTN:"🟡",Generic:"⚙️",
+  const BANK_MARKS = {
+    BCA:{label:"BCA",bg:"#0066AE",color:"#FFFFFF"},
+    Mandiri:{label:"M",bg:"#003D79",color:"#FFD43B"},
+    BNI:{label:"46",bg:"#F15A24",color:"#FFFFFF"},
+    BRI:{label:"BRI",bg:"#00529C",color:"#FFFFFF"},
+    CIMB:{label:"◇",bg:"#D71920",color:"#FFFFFF"},
+    Jenius:{label:"J",bg:"#00A6CE",color:"#FFFFFF"},
+    OVO:{label:"OVO",bg:"#4C2A86",color:"#FFFFFF"},
+    GoPay:{label:"G",bg:"#00AA5B",color:"#FFFFFF"},
+    Dana:{label:"DANA",bg:"#118EEA",color:"#FFFFFF"},
+    ShopeePay:{label:"S",bg:"#EE4D2D",color:"#FFFFFF"},
+    BSI:{label:"BSI",bg:"#00A39A",color:"#FFFFFF"},
+    Permata:{label:"✦",bg:"#0072BC",color:"#F6C343"},
+    BTN:{label:"BTN",bg:"#004B87",color:"#FFFFFF"},
+    Generic:{label:"✦",bg:"#6D28D9",color:"#FFFFFF"},
+  };
+  const BankMark = ({bank,size=28}) => {
+    const mark = BANK_MARKS[bank] || BANK_MARKS.Generic;
+    const wide = mark.label.length > 2;
+    return <span aria-hidden="true" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:wide?Math.max(size,38):size,height:size,borderRadius:wide?7:9,background:mark.bg,color:mark.color,fontSize:wide?9:13,fontWeight:900,letterSpacing:0,lineHeight:1,boxShadow:"0 3px 8px rgba(15,23,42,.14)"}}>{mark.label}</span>;
   };
 
   const processFile = async (file, password="") => {
@@ -2489,7 +2505,7 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:5}}>
             {BANKS.map(b=>(
               <button key={b} onClick={()=>setBankType(b)} style={{padding:"6px 4px",borderRadius:9,border:`2px solid ${bankType===b?T.accent:T.border}`,background:bankType===b?T.accentBg:T.card,color:bankType===b?T.accent:T.sub,fontWeight:700,fontSize:10,cursor:"pointer",transition:"all .15s",textAlign:"center",lineHeight:1.3}}>
-                <span style={{fontSize:14,display:"block"}}>{BANK_ICONS[b]}</span>
+                <span style={{display:"flex",justifyContent:"center",marginBottom:4}}><BankMark bank={b}/></span>
                 {b==="Generic"?"Auto":b==="ShopeePay"?"SPay":b}
               </button>
             ))}
