@@ -152,4 +152,59 @@ assert.deepEqual(bcaPageBreak.map(row => [row.tipe, row.jml]), [
 ]);
 assert.ok(!/NO\. REKENING/i.test(bcaPageBreak[0].ket), "Header halaman BCA tidak boleh masuk keterangan");
 
+// GoPay/e-wallet: bulan ditulis penuh, nominal bergaya "-Rp25.000" / "+Rp100.000".
+const gopay = parsePdfStatementLines([
+  "Riwayat Transaksi GoPay",
+  "Periode 1 Juni 2026 - 30 Juni 2026",
+  "01 Juni 2026",
+  "Pembayaran QRIS Kopi Kenangan",
+  "-Rp25.000",
+  "02 Juni 2026",
+  "Top Up GoPay dari BCA",
+  "+Rp100.000",
+  "03 Juni 2026",
+  "Cashback Promo",
+  "Rp500",
+], "GoPay");
+assert.deepEqual(gopay.map(row => [row.tgl, row.tipe, row.jml]), [
+  ["2026-06-01", "pengeluaran", "25000"],
+  ["2026-06-02", "pemasukan", "100000"],
+  ["2026-06-03", "pemasukan", "500"],
+], "Format e-wallet Rp harus terbaca dengan arah yang benar");
+
+// OVO: nominal "IDR 50.000" dengan kata arah Masuk/Keluar.
+const ovo = parsePdfStatementLines([
+  "OVO Transaction History 2026",
+  "01 Juni 2026 Pembayaran Merchant IDR 50.000 Keluar",
+  "02 Juni 2026 Isi Saldo IDR 200.000 Masuk",
+], "OVO");
+assert.deepEqual(ovo.map(row => [row.tgl, row.tipe, row.jml]), [
+  ["2026-06-01", "pengeluaran", "50000"],
+  ["2026-06-02", "pemasukan", "200000"],
+]);
+
+// BSI dan bank lain dengan kolom Debit/Kredit terpisah seperti BRI.
+const bsiLines = [
+  "BANK SYARIAH INDONESIA LAPORAN MUTASI 2026",
+  "Tanggal Keterangan Debit Kredit Saldo",
+  "01/06/2026 BAGI HASIL 0.00 1,250.00 500,000.00",
+  "02/06/2026 PEMBELIAN QRIS 75,000.00 0.00 425,000.00",
+];
+const bsi = parsePdfStatementLines(bsiLines, "BSI");
+assert.deepEqual(bsi.map(row => [row.tgl, row.tipe, row.jml]), [
+  ["2026-06-01", "pemasukan", "1250"],
+  ["2026-06-02", "pengeluaran", "75000"],
+], "Tabel Debit/Kredit non-BRI harus memakai logika kolom");
+
+// Jenius: format Inggris "1 Jun 2026" dengan nominal bertanda.
+const jenius = parsePdfStatementLines([
+  "Jenius Account Statement 2026",
+  "1 Jun 2026 Send It BCA - RENT -1,500,000.00 3,200,000.00",
+  "2 Jun 2026 Top Up via Virtual Account +500,000.00 3,700,000.00",
+], "Jenius");
+assert.deepEqual(jenius.map(row => [row.tgl, row.tipe, row.jml]), [
+  ["2026-06-01", "pengeluaran", "1500000"],
+  ["2026-06-02", "pemasukan", "500000"],
+]);
+
 console.log("PDF e-statement parser tests passed");

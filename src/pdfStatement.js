@@ -4,9 +4,12 @@ const MONTHS = {
   nov: "11", des: "12", dec: "12",
 };
 
-const MONTH_PATTERN = "(?:Jan|Feb|Mar|Apr|Mei|May|Jun|Jul|Agu|Ags|Aug|Sep|Okt|Oct|Nov|Des|Dec)";
+// Month names may be abbreviated (Jun) or written out (Juni/June, Agustus/August).
+const MONTH_PATTERN = "(?:Jan|Feb|Mar|Apr|Mei|May|Jun|Jul|Agu|Ags|Aug|Sep|Okt|Oct|Nov|Des|Dec)[a-z]*";
 const DATE_AT_START = new RegExp(`^\\s*(\\d{4}[\\/.\\-]\\d{1,2}[\\/.\\-]\\d{1,2}|\\d{1,2}[\\/.\\-]\\d{1,2}(?:[\\/.\\-]\\d{2,4})?|\\d{1,2}\\s+${MONTH_PATTERN}(?:\\s+\\d{2,4})?)(?:\\s+|$)`, "i");
-const MONEY_TOKEN = /(?:Rp\s*)?[+\-]?(?:\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{2})?|\d+[.,]\d{2})(?:\s*(?:DB|DR|CR|D|K|C)\b)?/gi;
+// Two shapes of money: currency-prefixed integers (e-wallets: "-Rp25.000", "IDR 50.000",
+// "Rp500") and separator/decimal numbers (bank tables: "1,544,000.00", "203.000,00").
+const MONEY_TOKEN = /[+\-]?\s*\b(?:Rp\.?|IDR)\s*[+\-]?\d+(?:[.,]\d{3})*(?:[.,]\d{2})?(?:\s*(?:DB|DR|CR|D|K|C)\b)?|[+\-]?(?:\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{2})?|\d+[.,]\d{2})(?:\s*(?:DB|DR|CR|D|K|C)\b)?/gi;
 const SKIP_LINE = /^(?:page|halaman|tanggal\s+transaksi|transaction\s+date|date\s+description|saldo\s+awal|opening\s+balance|saldo\s+akhir|closing\s+balance|total\s+(?:debit|debet|kredit|credit))/i;
 // Page furniture (bank footers, page headers, column headers). A record stops
 // absorbing continuation lines once one of these appears, so page-break junk
@@ -14,7 +17,7 @@ const SKIP_LINE = /^(?:page|halaman|tanggal\s+transaksi|transaction\s+date|date\
 const NOISE_LINE = /^(?:pt\.?\s+bank\b|peserta\s+penjamin|serta\s+merupakan|bersambung\s+ke\s+halaman|informasi\s+lainnya|laporan\s+(?:mutasi|transaksi)\b|statement\s+of\s+financial|no\.?\s+(?:date|tanggal)\b|tanggal\s*&\s*waktu|tanggal\s+keterangan\s+cbg|created\s+by\s+brimo|mandiri\s+call|menara\s+mandiri|e-statement$|rekening\s+tahapan\b|nama\s*\/\s*name\b|cabang\s*\/\s*branch\b|kepada\s+yth|terbilang\s*\/|in\s+words|c\s*a\s*t\s*a\s*t\s*a\s*n|k\s+c\s+p\b|•|\d+\s+(?:dari|of)\s+\d+$)/i;
 
 const cleanNumber = value => {
-  let raw = String(value || "").replace(/Rp/gi, "").replace(/\s+/g, "").replace(/(?:DB|DR|CR|D|K|C)$/i, "");
+  let raw = String(value || "").replace(/Rp\.?/gi, "").replace(/\bIDR\b/gi, "").replace(/\s+/g, "").replace(/(?:DB|DR|CR|D|K|C)$/i, "");
   const negative = raw.startsWith("-");
   raw = raw.replace(/^[+\-]/, "");
   const lastComma = raw.lastIndexOf(",");
@@ -57,8 +60,10 @@ const directionFor = (record, money) => {
   if (mutation.startsWith("-")) return "pengeluaran";
   if (/(?:CR|K|C)\s*$/i.test(mutation)) return "pemasukan";
   if (/(?:DB|DR|D)\s*$/i.test(mutation)) return "pengeluaran";
-  if (/\b(?:cr|credit|kredit)\b/i.test(record) || /(?:dana masuk|transfer masuk|setoran|deposit|interest|bunga masuk|cashback|refund)/i.test(text)) return "pemasukan";
-  if (/\b(?:db|dr|debit|debet)\b/i.test(record) || /(?:pembayaran|purchase|penarikan|tarik tunai|biaya admin|transfer keluar|withdrawal)/i.test(text)) return "pengeluaran";
+  if (/\b(?:cr|credit|kredit)\b/i.test(record) || /(?:dana masuk|transfer masuk|setoran|deposit|interest|bunga masuk|cashback|refund|top\s*up|isi (?:saldo|ulang)|uang masuk|saldo masuk|diterima dari|terima dari|penerimaan)/i.test(text)) return "pemasukan";
+  if (/\b(?:db|dr|debit|debet)\b/i.test(record) || /(?:pembayaran|purchase|penarikan|tarik tunai|biaya admin|transfer keluar|withdrawal|belanja|pembelian|kirim uang|uang keluar|saldo keluar)/i.test(text)) return "pengeluaran";
+  if (/\bmasuk\b/i.test(text)) return "pemasukan";
+  if (/\bkeluar\b/i.test(text)) return "pengeluaran";
   return "";
 };
 
@@ -80,6 +85,10 @@ export const parsePdfStatementLines = (inputLines, bank = "Generic") => {
   const lines = (inputLines || []).map(line => String(line || "").replace(/\s+/g, " ").trim()).filter(Boolean);
   const fullText = lines.join("\n");
   const year = inferYear(fullText);
+  // Statements whose table has separate Debit and Credit columns (BRI, BSI,
+  // CIMB, Permata, BTN, ...) put the amount in one column and 0.00 in the other.
+  const hasDebitCreditColumns = bank === "BRI" ||
+    lines.some(line => /(?:debet|debit)\s+(?:kredit|credit)\s+(?:saldo|balance)/i.test(line));
   const records = [];
   let current = "";
   let sealed = false;
@@ -117,7 +126,7 @@ export const parsePdfStatementLines = (inputLines, bank = "Generic") => {
     const values = money.map(cleanNumber).filter(value => Math.abs(value) > 0);
     if (!values.length) return null;
     let amount = 0;
-    if (bank === "BRI" && money.length >= 3) {
+    if (hasDebitCreditColumns && money.length >= 3) {
       const debit = Math.abs(cleanNumber(money[money.length - 3]));
       const credit = Math.abs(cleanNumber(money[money.length - 2]));
       if (credit > 0 && debit === 0) { direction = "pemasukan"; amount = credit; }
