@@ -37,5 +37,7 @@ assert.equal(ambiguous[0].needsReview, true, "Arah transaksi ambigu harus diperi
 assert.equal(detectFinancialProvider("Riwayat transaksi GoPay dari aplikasi Gojek"), "GoPay");
 assert.equal(detectFinancialProvider("e-Statement Bank Syariah Indonesia BYOND"), "BSI");
 assert.equal(detectFinancialProvider("Dokumen tanpa identitas penyedia"), "Generic");
+assert.equal(detectFinancialProvider("LAPORAN TRANSAKSI FINANSIAL\nTransfer dari BANK CENTRAL ASIA"), "BRI", "Nama bank lawan transaksi tidak boleh mengalahkan identitas penerbit");
+assert.equal(detectFinancialProvider("Laporan Mutasi Rekening\nTransfer ke Mandiri"), "BNI", "Header penerbit harus diprioritaskan");
 
 console.log("Bank and e-wallet import tests passed");

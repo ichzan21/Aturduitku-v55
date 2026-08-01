@@ -14,6 +14,16 @@ const PROVIDERS = [
   ["BTN", /bank tabungan negara|btn mobile|\bbtn\b/i],
 ];
 
+const STRONG_PROVIDER_SIGNATURES = [
+  ["BCA", /(?:rekening tahapan|tanggal\s+keterangan\s+cbg\s+mutasi\s+saldo|bank central asia)/i],
+  ["Mandiri", /(?:menara mandiri|mandiri call|saldo awal\s*\/\s*initial balance|livin'?\s+by\s+mandiri)/i],
+  ["BNI", /(?:laporan mutasi rekening|kantor cabang|pt\.?\s*bank negara indonesia)/i],
+  ["BRI", /(?:laporan transaksi finansial|created by brimo|rekening simpedes|pt\.?\s*bank rakyat indonesia)/i],
+  ["CIMB", /(?:octo mobile|cimb niaga)/i],
+  ["Jenius", /(?:jenius account statement|bank btpn)/i],
+  ["BSI", /(?:bank syariah indonesia|byond by bsi)/i],
+];
+
 const HEADER_ALIASES = {
   date: ["tanggal transaksi", "transaction date", "tanggal", "date", "tgl", "waktu", "time"],
   description: ["keterangan", "description", "deskripsi", "remarks", "remark", "uraian", "detail transaksi", "transaction details", "merchant", "nama"],
@@ -145,8 +155,16 @@ const directionFromText = value => {
 };
 
 export const detectFinancialProvider = text => {
-  const sample = String(text || "").slice(0, 6000);
-  return PROVIDERS.find(([, pattern]) => pattern.test(sample))?.[0] || "Generic";
+  const source = String(text || "");
+  const header = source.slice(0, 4000);
+  const strong = STRONG_PROVIDER_SIGNATURES
+    .map(([provider, pattern]) => ({ provider, index:header.search(pattern) }))
+    .filter(match => match.index >= 0)
+    .sort((left, right) => left.index - right.index)[0];
+  if (strong) return strong.provider;
+  const headerProvider = PROVIDERS.find(([, pattern]) => pattern.test(source.slice(0, 900)));
+  if (headerProvider) return headerProvider[0];
+  return PROVIDERS.find(([, pattern]) => pattern.test(source))?.[0] || "Generic";
 };
 
 export const parseStatementCSV = (text, provider = "Generic") => {

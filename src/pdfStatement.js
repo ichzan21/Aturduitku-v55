@@ -4,7 +4,8 @@ const MONTHS = {
   nov: "11", des: "12", dec: "12",
 };
 
-const DATE_AT_START = /^\s*(\d{4}[\/.\-]\d{1,2}[\/.\-]\d{1,2}|\d{1,2}[\/.\-]\d{1,2}(?:[\/.\-]\d{2,4})?|\d{1,2}\s+[A-Za-z]{3,9}(?:\s+\d{2,4})?)(?:\s+|$)/;
+const MONTH_PATTERN = "(?:Jan|Feb|Mar|Apr|Mei|May|Jun|Jul|Agu|Ags|Aug|Sep|Okt|Oct|Nov|Des|Dec)";
+const DATE_AT_START = new RegExp(`^\\s*(\\d{4}[\\/.\\-]\\d{1,2}[\\/.\\-]\\d{1,2}|\\d{1,2}[\\/.\\-]\\d{1,2}(?:[\\/.\\-]\\d{2,4})?|\\d{1,2}\\s+${MONTH_PATTERN}(?:\\s+\\d{2,4})?)(?:\\s+|$)`, "i");
 const MONEY_TOKEN = /(?:Rp\s*)?[+\-]?(?:\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{2})?|\d+[.,]\d{2})(?:\s*(?:DB|DR|CR|D|K|C))?/gi;
 const SKIP_LINE = /^(?:page|halaman|tanggal\s+transaksi|transaction\s+date|date\s+description|saldo\s+awal|opening\s+balance|saldo\s+akhir|closing\s+balance|total\s+(?:debit|debet|kredit|credit))/i;
 
@@ -47,10 +48,13 @@ const isoDate = (raw, fallbackYear) => {
 
 const directionFor = (record, money) => {
   const text = record.toLowerCase();
+  const mutation = String(money[0] || "").trim();
+  if (mutation.startsWith("+")) return "pemasukan";
+  if (mutation.startsWith("-")) return "pengeluaran";
+  if (/(?:CR|K|C)\s*$/i.test(mutation)) return "pemasukan";
+  if (/(?:DB|DR|D)\s*$/i.test(mutation)) return "pengeluaran";
   if (/\b(?:cr|credit|kredit)\b/i.test(record) || /(?:dana masuk|transfer masuk|setoran|deposit|interest|bunga masuk|cashback|refund)/i.test(text)) return "pemasukan";
   if (/\b(?:db|dr|debit|debet)\b/i.test(record) || /(?:pembayaran|purchase|penarikan|tarik tunai|biaya admin|transfer keluar|withdrawal)/i.test(text)) return "pengeluaran";
-  if (money.some(token => token.trim().startsWith("+"))) return "pemasukan";
-  if (money.some(token => token.trim().startsWith("-"))) return "pengeluaran";
   return "";
 };
 
@@ -72,7 +76,13 @@ export const parsePdfStatementLines = (inputLines, bank = "Generic") => {
   const records = [];
   let current = "";
   for (const line of lines) {
-    if (SKIP_LINE.test(line)) continue;
+    if (SKIP_LINE.test(line)) {
+      if (/^(?:saldo awal|opening balance|saldo akhir|closing balance|mutasi cr|mutasi db)/i.test(line)) {
+        if (current) records.push(current);
+        current = "";
+      }
+      continue;
+    }
     if (DATE_AT_START.test(line)) {
       if (current) records.push(current);
       current = line;
@@ -87,17 +97,29 @@ export const parsePdfStatementLines = (inputLines, bank = "Generic") => {
     const recordWithoutDate = dateMatch ? record.replace(dateMatch[1], " ") : record;
     const money = recordWithoutDate.match(MONEY_TOKEN) || [];
     if (!dateMatch || !money.length) return null;
-    const direction = directionFor(record, money);
+    if (/\b(?:saldo awal|opening balance)\b/i.test(record)) return null;
+    let direction = bank === "BCA" && /\bKR\b/i.test(record)
+      ? "pemasukan"
+      : directionFor(record, money);
     const values = money.map(cleanNumber).filter(value => Math.abs(value) > 0);
     if (!values.length) return null;
-    const markerIndex = money.findIndex(token => /(?:DB|DR|CR|D|K|C)\s*$/i.test(token));
-    const amount = Math.abs(markerIndex >= 0 ? cleanNumber(money[markerIndex]) : values[0]);
+    let amount = 0;
+    if (bank === "BRI" && money.length >= 3) {
+      const debit = Math.abs(cleanNumber(money[money.length - 3]));
+      const credit = Math.abs(cleanNumber(money[money.length - 2]));
+      if (credit > 0 && debit === 0) { direction = "pemasukan"; amount = credit; }
+      else if (debit > 0 && credit === 0) { direction = "pengeluaran"; amount = debit; }
+    }
+    if (!amount) {
+      const markerIndex = money.findIndex(token => /(?:DB|DR|CR|D|K|C)\s*$/i.test(token));
+      amount = Math.abs(markerIndex >= 0 ? cleanNumber(money[markerIndex]) : values[0]);
+    }
     const tgl = isoDate(dateMatch[1], year);
     if (!tgl || !amount) return null;
     return {
       tgl,
       ket: descriptionFor(record, dateMatch[1], money),
-      jml: String(amount),
+      jml: String(Math.round(amount)),
       tipe: direction || "pengeluaran",
       katId: 9,
       bank,
@@ -105,6 +127,59 @@ export const parsePdfStatementLines = (inputLines, bank = "Generic") => {
       needsReview: !direction,
     };
   }).filter(Boolean);
+};
+
+const amountsIn = line => (String(line || "").match(MONEY_TOKEN) || []).map(value => Math.abs(cleanNumber(value)));
+const nearbyAmounts = (lines, index, count = 4) => {
+  for (let offset = 0; offset <= 4; offset += 1) {
+    const values = amountsIn(lines[index + offset]);
+    if (values.length >= count) return values;
+  }
+  return [];
+};
+
+export const extractPdfStatementSummary = inputLines => {
+  const lines = (inputLines || []).map(line => String(line || "").replace(/\s+/g, " ").trim()).filter(Boolean);
+  const findValue = pattern => {
+    const index = lines.findIndex(line => pattern.test(line));
+    if (index < 0) return null;
+    const own = amountsIn(lines[index]);
+    if (own.length) return own[own.length - 1];
+    return amountsIn(lines[index + 1] || "")[0] ?? null;
+  };
+  const combinedIndex = lines.findIndex(line => /saldo awal/i.test(line) && /(?:saldo akhir|total.*(?:debit|debet|kredit|credit)|dana masuk)/i.test(line));
+  if (combinedIndex >= 0) {
+    const values = nearbyAmounts(lines, combinedIndex + 1, 4);
+    if (values.length >= 4) {
+      const header = `${lines[combinedIndex]} ${lines[combinedIndex + 1] || ""}`.toLowerCase();
+      const debitFirst = header.search(/(?:debit|debet)/) >= 0 && header.search(/(?:debit|debet)/) < header.search(/(?:credit|kredit)/);
+      return debitFirst
+        ? { opening:values[0], income:values[2], expense:values[1], closing:values[3] }
+        : { opening:values[0], income:values[1], expense:values[2], closing:values[3] };
+    }
+  }
+  const opening = findValue(/^(?:saldo awal|opening balance)\b/i);
+  const income = findValue(/(?:^|\s)(?:mutasi cr|dana masuk|incoming transactions|total kredit|total credit)\b/i);
+  const expense = findValue(/(?:^|\s)(?:mutasi db|dana keluar|outgoing transactions|total debit|total debet)\b/i);
+  const closing = findValue(/(?:^|\s)(?:saldo akhir|closing balance)\b/i);
+  return [opening,income,expense,closing].every(value => value !== null)
+    ? { opening, income, expense, closing }
+    : null;
+};
+
+export const validatePdfStatement = (inputLines, rows) => {
+  const expected = extractPdfStatementSummary(inputLines);
+  const actual = (rows || []).reduce((totals, row) => {
+    const amount = Number(row.jml) || 0;
+    if (row.tipe === "pemasukan") totals.income += amount;
+    if (row.tipe === "pengeluaran") totals.expense += amount;
+    return totals;
+  }, { income:0, expense:0 });
+  if (!expected) return { hasReference:false, accurate:true, expected:null, actual };
+  const closeEnough = (left, right) => Math.abs(Number(left) - Number(right)) <= 1;
+  const referenceBalanced = closeEnough(expected.opening + expected.income - expected.expense, expected.closing);
+  const accurate = referenceBalanced && closeEnough(actual.income, expected.income) && closeEnough(actual.expense, expected.expense);
+  return { hasReference:true, accurate, referenceBalanced, expected, actual };
 };
 
 const linesFromTextContent = content => {

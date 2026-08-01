@@ -7,7 +7,7 @@ import { applyTransactionToWallets, findWallet, hasWallet, replaceTransactionInW
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
 import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "./incomeCategory.js";
-import { extractPdfStatement, parsePdfStatementLines } from "./pdfStatement.js";
+import { extractPdfStatement, parsePdfStatementLines, validatePdfStatement } from "./pdfStatement.js";
 import { detectFinancialProvider as detectBank, parseStatementCSV as parseBankCSV } from "./bankImport.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
@@ -2372,6 +2372,7 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
   const [pdfPassword, setPdfPassword] = useState("");
   const [passwordState, setPasswordState] = useState("");
   const [fileKind, setFileKind] = useState("");
+  const [statementCheck, setStatementCheck] = useState(null);
   const BANKS = ["BCA","Mandiri","BNI","BRI","CIMB","Jenius","OVO","GoPay","Dana","ShopeePay","BSI","Permata","BTN","Generic"];
   const BANK_GUIDES = {
     BCA:"myBCA → Rekening → e-Statement/Mutasi → PDF atau CSV",
@@ -2428,11 +2429,21 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
         const text = lines.join("\n");
         const detected = detectBank(text);
         const useBank = bankType === "Generic" ? detected : (detected !== "Generic" ? detected : bankType);
-        if (detected !== "Generic") setBankType(detected);
+        if (detected !== "Generic") {
+          setBankType(detected);
+          const matchingWallet = dompet.find(wallet => detectBank(`${wallet.nama||""} ${wallet.jenis||""}`) === detected);
+          if (matchingWallet) setDompetId(matchingWallet.id);
+        }
         rows = parsePdfStatementLines(lines, useBank).map(row => ({
           ...row,
           katId: row.tipe === "pengeluaran" ? autoKat(row.ket) : 9,
         }));
+        const check = validatePdfStatement(lines, rows);
+        setStatementCheck(check);
+        if (check.hasReference && !check.accurate) {
+          setError("Total transaksi belum cocok dengan ringkasan resmi bank. Impor diblokir agar saldo tidak rusak. Pilih format bank yang benar atau laporkan file ini ke admin.");
+          return;
+        }
       } else {
         const text = await file.text();
         const detected = detectBank(text);
@@ -2442,6 +2453,7 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
           ...row,
           katId: row.tipe === "pengeluaran" ? autoKat(row.ket) : 9,
         }));
+        setStatementCheck(null);
       }
       if (!rows.length) {
         setError(isPdf ? "Tidak ada transaksi yang terbaca. Pastikan PDF adalah e-Statement asli, bukan foto/scan." : t("toast_noData"));
@@ -2478,6 +2490,15 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
   const totalMasuk = parsed.reduce((a,r,i)=>selected[i]&&r.tipe==="pemasukan"?a+Number(r.jml):a,0);
   const totalKeluar = parsed.reduce((a,r,i)=>selected[i]&&r.tipe==="pengeluaran"?a+Number(r.jml):a,0);
   const reviewCount = parsed.filter(row=>row.needsReview).length;
+  const expectedTotals = statementCheck?.expected;
+  const statementTotalsStillMatch = !expectedTotals || (
+    selectedCount===parsed.length &&
+    Math.abs(totalMasuk-expectedTotals.income)<=1 &&
+    Math.abs(totalKeluar-expectedTotals.expense)<=1
+  );
+  const selectedWallet = dompet.find(wallet=>sameId(wallet.id,dompetId));
+  const selectedWalletProvider = detectBank(`${selectedWallet?.nama||""} ${selectedWallet?.jenis||""}`);
+  const walletProviderMismatch = bankType!=="Generic" && selectedWalletProvider!=="Generic" && selectedWalletProvider!==bankType;
   const toggleAll = () => {
     const idxs = filtered.map(([i])=>i);
     const allOn = idxs.every(i=>selected[i]);
@@ -2491,7 +2512,11 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
       dompetId, subKat:"", biaya:"0",
       importRef:`${r.bank||bankType}|${r.sourceIndex??i}|${r.tgl}|${r.tipe}|${r.jml}|${String(r.ket||"").trim().toLowerCase()}`,
     }));
-    onImport(toImport, dompetId);
+    onImport(toImport, dompetId, {
+      closingBalance: statementCheck?.hasReference && statementCheck?.accurate && statementTotalsStillMatch ? statementCheck.expected.closing : null,
+      openingBalance: statementCheck?.hasReference ? statementCheck.expected.opening : null,
+      provider: bankType,
+    });
   };
   const katName = id => KW_KAT.find(k=>k.id===id)?.kat || "Lainnya";
 
@@ -2566,6 +2591,17 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
           <div style={{background:T.okBg,borderRadius:9,padding:"7px 11px"}}><div style={{fontSize:9,color:T.ok,fontWeight:700,textTransform:"uppercase"}}>{t("incomeLabel")}</div><div style={{fontSize:13,fontWeight:800,color:T.ok}}>{IDRf(totalMasuk)}</div></div>
           <div style={{background:T.errBg,borderRadius:9,padding:"7px 11px"}}><div style={{fontSize:9,color:T.err,fontWeight:700,textTransform:"uppercase"}}>{t("expenseLabel")}</div><div style={{fontSize:13,fontWeight:800,color:T.err}}>{IDRf(totalKeluar)}</div></div>
         </div>
+        {statementCheck?.hasReference&&statementCheck.accurate&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:10,background:T.okBg,border:`1px solid ${T.ok}30`,borderRadius:9,padding:"8px 10px"}}>
+          <div><div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase"}}>Saldo awal bank</div><div style={{fontSize:12,fontWeight:800,color:T.text}}>{IDRf(statementCheck.expected.opening)}</div></div>
+          <div style={{textAlign:"right"}}><div style={{fontSize:9,color:T.ok,fontWeight:700,textTransform:"uppercase"}}>Saldo akhir terverifikasi</div><div style={{fontSize:12,fontWeight:800,color:T.ok}}>{IDRf(statementCheck.expected.closing)}</div></div>
+          <div style={{gridColumn:"1 / -1",fontSize:10,color:T.ok,fontWeight:700}}>Total PDF cocok dengan ringkasan resmi bank. Saldo dompet akan disinkronkan ke saldo akhir.</div>
+        </div>}
+        {walletProviderMismatch&&<div style={{marginBottom:10,color:T.err,fontSize:10,fontWeight:700,background:T.errBg,border:`1px solid ${T.err}30`,borderRadius:9,padding:"8px 10px"}}>
+          File {bankType} tidak boleh dimasukkan ke dompet {selectedWalletProvider}. Pilih dompet {bankType} atau dompet dengan nama umum agar saldo antarbank tidak tercampur.
+        </div>}
+        {statementCheck?.hasReference&&!statementTotalsStillMatch&&<div style={{marginBottom:10,color:T.warn,fontSize:10,fontWeight:700,background:T.warnBg,borderRadius:9,padding:"8px 10px"}}>
+          Sebagian transaksi tidak dipilih atau arahnya diubah. Saldo akhir bank tidak akan diterapkan otomatis.
+        </div>}
         <div style={{display:"flex",gap:5,marginBottom:8,alignItems:"center",flexWrap:"wrap"}}>
           {["all","pemasukan","pengeluaran"].map(f=>(
             <button key={f} onClick={()=>setFilter(f)} style={{padding:"4px 10px",borderRadius:99,border:"none",background:filter===f?T.accent:T.cardAlt,color:filter===f?"white":T.sub,fontWeight:700,fontSize:10,cursor:"pointer"}}>
@@ -2600,7 +2636,7 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
         </div>
         <div style={{display:"flex",gap:7}}>
           <button onClick={()=>{setStep(0);setParsed([]);}} style={{flex:1,padding:"10px",borderRadius:11,border:`2px solid ${T.border}`,background:T.card,color:T.sub,fontWeight:700,cursor:"pointer",fontSize:12}}>← Ulang</button>
-          <button onClick={handleImport} disabled={!selectedCount} style={{flex:2,padding:"10px",borderRadius:11,border:"none",background:selectedCount?"linear-gradient(135deg,#5B21B6,#7C3AED)":"#E9D5FF",color:selectedCount?"white":"#94A3B8",fontWeight:800,cursor:selectedCount?"pointer":"default",fontSize:13}}>
+          <button onClick={handleImport} disabled={!selectedCount||walletProviderMismatch} style={{flex:2,padding:"10px",borderRadius:11,border:"none",background:selectedCount&&!walletProviderMismatch?"linear-gradient(135deg,#5B21B6,#7C3AED)":"#E9D5FF",color:selectedCount&&!walletProviderMismatch?"white":"#94A3B8",fontWeight:800,cursor:selectedCount&&!walletProviderMismatch?"pointer":"default",fontSize:13}}>
             📥 Import {selectedCount} Transaksi
           </button>
         </div>
@@ -6836,12 +6872,15 @@ Saldo amplop bertambah.`}]);
   if (!onboarded) return <Onboarding onDone={handleOnboardDone} lang={lang} changeLang={changeLang}/>;
 
   // ── IMPORT MUTASI HANDLER ──────────────────────────────────────────────────
-  const handleImportMutasi = (txRows, dompetId) => {
+  const handleImportMutasi = (txRows, dompetId, importOptions={}) => {
     if(!hasWallet(s.dompet,dompetId)){showToast(t("toast_walletNotFound"));return;}
     const uniqueRows=uniqueNewTransactions(s.txs,txRows.map(normalizeIncomeTransaction));
     setS(prev => {
       const newTxs = [...prev.txs, ...uniqueRows];
-      const newDompet = uniqueRows.reduce((wallets,tx)=>applyTransactionToWallets(wallets,tx),prev.dompet);
+      let newDompet = uniqueRows.reduce((wallets,tx)=>applyTransactionToWallets(wallets,tx),prev.dompet);
+      if(importOptions.closingBalance!==null&&importOptions.closingBalance!==undefined){
+        newDompet=newDompet.map(wallet=>sameId(wallet.id,dompetId)?{...wallet,saldo:String(Math.round(Number(importOptions.closingBalance)||0))}:wallet);
+      }
       return {...prev, txs:newTxs, dompet:newDompet};
     });
     showToast(uniqueRows.length?`✅ ${uniqueRows.length} transaksi berhasil diimport!`:"Semua transaksi di file ini sudah pernah diimport.");
