@@ -3,7 +3,7 @@ import {
   getCurrentIdToken, onAuthChange, sendResetPassword, sendVerificationEmail, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
 } from "./firebase.js";
 import { reportClientError } from "./monitoring.js";
-import { applyTransactionToWallets, findWallet, hasWallet, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, walletDeltasForTransaction } from "./financeLedger.js";
+import { applyTransactionToWallets, findWallet, hasWallet, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, walletDeltasForTransaction } from "./financeLedger.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
 import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "./incomeCategory.js";
@@ -2516,6 +2516,9 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
       closingBalance: statementCheck?.hasReference && statementCheck?.accurate && statementTotalsStillMatch ? statementCheck.expected.closing : null,
       openingBalance: statementCheck?.hasReference ? statementCheck.expected.opening : null,
       provider: bankType,
+      replaceImportedPeriod: fileKind==="PDF" && statementCheck?.hasReference && statementCheck?.accurate && statementTotalsStillMatch,
+      periodStart: toImport.map(row=>row.tgl).sort()[0]||null,
+      periodEnd: toImport.map(row=>row.tgl).sort().at(-1)||null,
     });
   };
   const katName = id => KW_KAT.find(k=>k.id===id)?.kat || "Lainnya";
@@ -6874,14 +6877,12 @@ Saldo amplop bertambah.`}]);
   // ── IMPORT MUTASI HANDLER ──────────────────────────────────────────────────
   const handleImportMutasi = (txRows, dompetId, importOptions={}) => {
     if(!hasWallet(s.dompet,dompetId)){showToast(t("toast_walletNotFound"));return;}
-    const uniqueRows=uniqueNewTransactions(s.txs,txRows.map(normalizeIncomeTransaction));
+    const normalizedRows=txRows.map(normalizeIncomeTransaction);
+    const preview=reconcileImportedStatement(s.txs,s.dompet,normalizedRows,dompetId,importOptions);
+    const uniqueRows={length:preview.importedCount};
     setS(prev => {
-      const newTxs = [...prev.txs, ...uniqueRows];
-      let newDompet = uniqueRows.reduce((wallets,tx)=>applyTransactionToWallets(wallets,tx),prev.dompet);
-      if(importOptions.closingBalance!==null&&importOptions.closingBalance!==undefined){
-        newDompet=newDompet.map(wallet=>sameId(wallet.id,dompetId)?{...wallet,saldo:String(Math.round(Number(importOptions.closingBalance)||0))}:wallet);
-      }
-      return {...prev, txs:newTxs, dompet:newDompet};
+      const result=reconcileImportedStatement(prev.txs,prev.dompet,normalizedRows,dompetId,importOptions);
+      return {...prev,txs:result.transactions,dompet:result.wallets};
     });
     showToast(uniqueRows.length?`✅ ${uniqueRows.length} transaksi berhasil diimport!`:"Semua transaksi di file ini sudah pernah diimport.");
     closeModal();

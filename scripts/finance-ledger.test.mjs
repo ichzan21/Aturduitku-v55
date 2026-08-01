@@ -4,6 +4,7 @@ import {
   findWallet,
   hasWallet,
   moneyNumber,
+  reconcileImportedStatement,
   transactionValidationError,
   uniqueNewTransactions,
 } from "../src/financeLedger.js";
@@ -73,5 +74,19 @@ assert.equal(uniqueNewTransactions(
   [{...imported,importRef:"BCA|1|internet"}],
   [{...imported,importRef:"BCA|1|internet"}],
 ).length,0,"Baris impor yang sama tidak boleh masuk ulang");
+
+const legacyStatement = [
+  {tgl:"2026-05-01",tipe:"pengeluaran",jml:"1264259",ket:"SALDO AWAL",dompetId:"bca-live",importRef:"BCA|0|2026-05-01|pengeluaran|1264259|saldo awal"},
+  {tgl:"2026-05-02",tipe:"pemasukan",jml:"35000",ket:"KR OTOMATIS",dompetId:"bca-live",importRef:"BCA|1|2026-05-02|pemasukan|35000|kr otomatis"},
+];
+const correctedStatement = [
+  {tgl:"2026-05-02",tipe:"pemasukan",jml:"35000",ket:"KR OTOMATIS",dompetId:"bca-live",importRef:"BCA|1|2026-05-02|pemasukan|35000|kr otomatis"},
+];
+const reconciled = reconcileImportedStatement(legacyStatement,[{id:"bca-live",saldo:"-1229259"}],correctedStatement,"bca-live",{
+  provider:"BCA",periodStart:"2026-05-01",periodEnd:"2026-05-31",replaceImportedPeriod:true,closingBalance:716813.94,
+});
+assert.equal(reconciled.replacedCount,2,"Impor lama dalam periode yang sama harus diganti");
+assert.equal(reconciled.transactions.length,1,"Saldo awal lama tidak boleh tersisa sebagai transaksi");
+assert.equal(reconciled.wallets[0].saldo,"716814","Saldo dompet harus mengikuti saldo akhir bank dalam rupiah bulat");
 
 console.log("Finance ledger tests passed");

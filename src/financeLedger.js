@@ -98,6 +98,36 @@ export const uniqueNewTransactions = (existing, incoming) => {
   });
 };
 
+export const reconcileImportedStatement = (existingTransactions, wallets, incomingTransactions, walletId, options = {}) => {
+  const normalizedText = value => String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const refParts = transaction => String(transaction?.importRef || "").split("|");
+  const incoming = incomingTransactions || [];
+  const incomingKeys = new Set(incoming.map(transaction => {
+    const parts = refParts(transaction);
+    return `${transaction.tgl}|${parts[1] || ""}|${normalizedText(transaction.ket)}`;
+  }));
+  const shouldReplace = transaction => {
+    if (!options.replaceImportedPeriod || !transaction?.importRef) return false;
+    const parts = refParts(transaction);
+    const samePeriod = transaction.tgl >= options.periodStart && transaction.tgl <= options.periodEnd;
+    const sameProvider = String(parts[0] || "").toLowerCase() === String(options.provider || "").toLowerCase();
+    const sameRow = incomingKeys.has(`${transaction.tgl}|${parts[1] || ""}|${normalizedText(transaction.ket)}`);
+    const legacyOpening = samePeriod && /\b(?:saldo awal|opening balance)\b/i.test(String(transaction.ket || ""));
+    return sameId(transaction.dompetId, walletId) && ((sameProvider && samePeriod) || sameRow || legacyOpening);
+  };
+  const replaced = (existingTransactions || []).filter(shouldReplace);
+  const remaining = (existingTransactions || []).filter(transaction => !shouldReplace(transaction));
+  const added = uniqueNewTransactions(remaining, incoming);
+  const restoredWallets = replaced.reduce((all, transaction) => applyTransactionToWallets(all, transaction, -1), wallets || []);
+  let nextWallets = added.reduce((all, transaction) => applyTransactionToWallets(all, transaction), restoredWallets);
+  if (options.closingBalance !== null && options.closingBalance !== undefined) {
+    nextWallets = nextWallets.map(wallet => sameId(wallet.id, walletId)
+      ? { ...wallet, saldo:String(Math.round(Number(options.closingBalance) || 0)) }
+      : wallet);
+  }
+  return { transactions:[...remaining, ...added], wallets:nextWallets, importedCount:added.length, replacedCount:replaced.length };
+};
+
 export const replaceTransactionInWallets = (wallets, previousTransaction, nextTransaction) => {
   const restoredWallets = applyTransactionToWallets(wallets, previousTransaction, -1);
   const validationError = transactionValidationError(restoredWallets, nextTransaction);
