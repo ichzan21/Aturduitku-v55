@@ -4,6 +4,7 @@ import {
   findWallet,
   hasWallet,
   moneyNumber,
+  pairImportedInternalTransfers,
   reconcileImportedStatement,
   transactionValidationError,
   uniqueNewTransactions,
@@ -88,5 +89,39 @@ const reconciled = reconcileImportedStatement(legacyStatement,[{id:"bca-live",sa
 assert.equal(reconciled.replacedCount,2,"Impor lama dalam periode yang sama harus diganti");
 assert.equal(reconciled.transactions.length,1,"Saldo awal lama tidak boleh tersisa sebagai transaksi");
 assert.equal(reconciled.wallets[0].saldo,"716814","Saldo dompet harus mengikuti saldo akhir bank dalam rupiah bulat");
+
+const internalRows = [
+  {id:"out",tgl:"2026-07-15",tipe:"pengeluaran",jml:"500000",ket:"Transfer BI-FAST ke BNI IKSAN",dompetId:"bca",importRef:"BCA|10|out"},
+  {id:"in",tgl:"2026-07-15",tipe:"pemasukan",jml:"500000",ket:"Transfer dari BCA IKSAN",dompetId:"bni",importRef:"BNI|20|in"},
+  {id:"qris",tgl:"2026-07-15",tipe:"pengeluaran",jml:"500000",ket:"Pembayaran QRIS TOKO",dompetId:"bca",importRef:"BCA|11|qris"},
+];
+const paired = pairImportedInternalTransfers(internalRows,[{id:"bca",nama:"BCA"},{id:"bni",nama:"BNI"}]);
+assert.equal(paired.pairCount,1,"Pasangan transfer internal unik harus ditautkan");
+assert.equal(paired.transactions.find(tx=>tx.id==="out").tipe,"transfer_internal_keluar");
+assert.equal(paired.transactions.find(tx=>tx.id==="in").tipe,"transfer_internal_masuk");
+assert.equal(paired.transactions.find(tx=>tx.id==="qris").tipe,"pengeluaran","QRIS tidak boleh dianggap transfer internal");
+assert.equal(paired.newPairCount,1,"Pasangan baru harus dilaporkan satu kali");
+const pairedWallets = paired.transactions.reduce((all,tx)=>applyTransactionToWallets(all,tx),[{id:"bca",saldo:"1000000"},{id:"bni",saldo:"0"}]);
+assert.deepEqual(balances(pairedWallets),{bca:0,bni:500000},"Penandaan internal tidak boleh mengubah efek saldo setiap baris");
+const pairedAgain = pairImportedInternalTransfers(paired.transactions,[{id:"bca",nama:"BCA"},{id:"bni",nama:"BNI"}]);
+assert.equal(pairedAgain.pairCount,1,"Pasangan lama harus tetap tertaut");
+assert.equal(pairedAgain.newPairCount,0,"Pasangan lama tidak boleh diumumkan sebagai pasangan baru");
+assert.equal(pairedAgain.transactions.find(tx=>tx.id==="out").internalTransferMatchedAt,paired.transactions.find(tx=>tx.id==="out").internalTransferMatchedAt,"Waktu pairing lama harus stabil");
+const orphaned = pairImportedInternalTransfers(paired.transactions.filter(tx=>tx.id!=="in"),[{id:"bca",nama:"BCA"},{id:"bni",nama:"BNI"}]);
+assert.equal(orphaned.pairCount,0,"Pasangan harus dilepas ketika salah satu baris dihapus");
+assert.equal(orphaned.transactions.find(tx=>tx.id==="out").tipe,"pengeluaran","Sisi keluar yang yatim harus kembali menjadi pengeluaran biasa");
+assert.equal(orphaned.transactions.find(tx=>tx.id==="out").internalTransferPairId,undefined,"Metadata pasangan yatim harus dibersihkan");
+
+const distantRows = [
+  {...internalRows[0],id:"distant-out",tgl:"2026-07-10",importRef:"BCA|30|out"},
+  {...internalRows[1],id:"distant-in",tgl:"2026-07-15",importRef:"BNI|31|in"},
+];
+assert.equal(pairImportedInternalTransfers(distantRows,[{id:"bca",nama:"BCA"},{id:"bni",nama:"BNI"}]).pairCount,0,"Transaksi beda lebih dari satu hari tidak boleh dipasangkan otomatis");
+
+const ambiguousRows = [
+  ...internalRows.slice(0,2),
+  {id:"in-2",tgl:"2026-07-15",tipe:"pemasukan",jml:"500000",ket:"Transfer dari BCA IKSAN",dompetId:"bni-2",importRef:"BNI|21|in"},
+];
+assert.equal(pairImportedInternalTransfers(ambiguousRows,[{id:"bca",nama:"BCA"},{id:"bni",nama:"BNI"},{id:"bni-2",nama:"BNI 2"}]).pairCount,0,"Nominal dengan beberapa pasangan tidak boleh dicocokkan otomatis");
 
 console.log("Finance ledger tests passed");

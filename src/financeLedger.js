@@ -22,6 +22,10 @@ export const walletDeltasForTransaction = transaction => {
   if (tx.tipe === "transfer") {
     add(tx.dompetId, -amount - fee);
     add(tx.dompetTo, amount);
+  } else if (tx.tipe === "transfer_internal_keluar") {
+    add(tx.dompetId, -amount);
+  } else if (tx.tipe === "transfer_internal_masuk") {
+    add(tx.dompetId, amount);
   } else if (tx.tipe === "pemasukan" || tx.tipe === "pengembalian_amplop") {
     add(tx.dompetId, amount);
   } else if (tx.tipe === "pengeluaran") {
@@ -96,6 +100,114 @@ export const uniqueNewTransactions = (existing, incoming) => {
     seen.add(fingerprint);
     return true;
   });
+};
+
+const normalizedWords = value => String(value || "").toLowerCase()
+  .normalize("NFKD")
+  .replace(/[^a-z0-9]+/g, " ")
+  .trim();
+
+const TRANSFER_WORDS = /\b(?:transfer|trsf|bi\s*fast|bif|top\s*up|topup|pindah|kiriman|from|dari)\b/i;
+const NON_TRANSFER_PAYMENT = /\b(?:qris|pembayaran|payment|purchase|belanja|tarik\s*tunai|withdraw|admin|fee|biaya)\b/i;
+const GENERIC_TRANSFER_TOKENS = new Set(["transfer","trsf","fast","bank","dari","from","untuk","kepada","rekening","top","up","bif","ebanking","mobile","wib","idr"]);
+
+const transactionDateDistance = (left, right) => {
+  const a = Date.parse(`${left}T00:00:00Z`);
+  const b = Date.parse(`${right}T00:00:00Z`);
+  return Number.isFinite(a) && Number.isFinite(b) ? Math.abs(a - b) / 86400000 : Infinity;
+};
+
+const transferDescription = value => TRANSFER_WORDS.test(String(value || "")) && !NON_TRANSFER_PAYMENT.test(String(value || ""));
+
+const descriptionMentionsWallet = (description, wallet) => {
+  const text = ` ${normalizedWords(description)} `;
+  const walletName = normalizedWords(wallet?.nama);
+  if (walletName.length >= 3 && text.includes(` ${walletName} `)) return true;
+  return walletName.split(" ").some(word => word.length >= 3 && text.includes(` ${word} `));
+};
+
+const meaningfulTokens = description => new Set(normalizedWords(description).split(" ").filter(word =>
+  word.length >= 4 && !/^\d+$/.test(word) && !GENERIC_TRANSFER_TOKENS.has(word)
+));
+
+const descriptionsOverlap = (left, right) => {
+  const a = meaningfulTokens(left);
+  return [...meaningfulTokens(right)].some(word => a.has(word));
+};
+
+export const pairImportedInternalTransfers = (transactions, wallets = []) => {
+  const previousPairs = new Map();
+  (transactions || []).forEach(transaction => {
+    if (!transaction?.internalTransferPairId) return;
+    previousPairs.set(String(transaction.internalTransferPairId), transaction.internalTransferMatchedAt || "");
+  });
+  const restored = (transactions || []).map(transaction => {
+    if (transaction.tipe === "transfer_internal_keluar") {
+      const { internalTransferPairId, internalTransferDirection, internalTransferMatchedAt, ...rest } = transaction;
+      return { ...rest, tipe:"pengeluaran" };
+    }
+    if (transaction.tipe === "transfer_internal_masuk") {
+      const { internalTransferPairId, internalTransferDirection, internalTransferMatchedAt, ...rest } = transaction;
+      return { ...rest, tipe:"pemasukan" };
+    }
+    return transaction;
+  });
+
+  const outgoing = restored.filter(tx => tx.importRef && tx.tipe === "pengeluaran" && transferDescription(tx.ket));
+  const incoming = restored.filter(tx => tx.importRef && tx.tipe === "pemasukan" && transferDescription(tx.ket));
+  const incomingByAmount = new Map();
+  incoming.forEach(transaction => {
+    const amount = moneyNumber(transaction.jml);
+    const rows = incomingByAmount.get(amount);
+    if (rows) rows.push(transaction);
+    else incomingByAmount.set(amount,[transaction]);
+  });
+  const candidates = [];
+  for (const out of outgoing) {
+    for (const inc of incomingByAmount.get(moneyNumber(out.jml)) || []) {
+      if (sameId(out.dompetId, inc.dompetId)) continue;
+      const dateDistance = transactionDateDistance(out.tgl, inc.tgl);
+      if (dateDistance > 1) continue;
+      const outWallet = findWallet(wallets, out.dompetId);
+      const inWallet = findWallet(wallets, inc.dompetId);
+      const crossWalletHint = descriptionMentionsWallet(inc.ket, outWallet)
+        || descriptionMentionsWallet(out.ket, inWallet)
+        || descriptionsOverlap(out.ket, inc.ket);
+      if (!crossWalletHint) continue;
+      candidates.push({out,inc});
+    }
+  }
+
+  const outCounts = new Map();
+  const inCounts = new Map();
+  candidates.forEach(({out,inc}) => {
+    outCounts.set(String(out.id), (outCounts.get(String(out.id)) || 0) + 1);
+    inCounts.set(String(inc.id), (inCounts.get(String(inc.id)) || 0) + 1);
+  });
+  const accepted = candidates.filter(({out,inc}) => outCounts.get(String(out.id)) === 1 && inCounts.get(String(inc.id)) === 1);
+  const pairById = new Map();
+  accepted.forEach(({out,inc}) => {
+    const pairId = `internal|${String(out.importRef)}|${String(inc.importRef)}`;
+    const matchedAt = previousPairs.get(pairId) || new Date().toISOString();
+    pairById.set(String(out.id), {pairId,direction:"keluar",matchedAt});
+    pairById.set(String(inc.id), {pairId,direction:"masuk",matchedAt});
+  });
+  const nextTransactions = restored.map(transaction => {
+    const pair = pairById.get(String(transaction.id));
+    if (!pair) return transaction;
+    return {
+      ...transaction,
+      tipe:pair.direction === "keluar" ? "transfer_internal_keluar" : "transfer_internal_masuk",
+      internalTransferPairId:pair.pairId,
+      internalTransferDirection:pair.direction,
+      internalTransferMatchedAt:pair.matchedAt,
+    };
+  });
+  const newPairCount = accepted.reduce((count,{out,inc}) => {
+    const pairId = `internal|${String(out.importRef)}|${String(inc.importRef)}`;
+    return count + (previousPairs.has(pairId) ? 0 : 1);
+  },0);
+  return { transactions:nextTransactions, pairCount:accepted.length, newPairCount };
 };
 
 export const reconcileImportedStatement = (existingTransactions, wallets, incomingTransactions, walletId, options = {}) => {

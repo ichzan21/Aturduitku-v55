@@ -3,7 +3,7 @@ import {
   getCurrentIdToken, onAuthChange, sendResetPassword, sendVerificationEmail, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
 } from "./firebase.js";
 import { reportClientError } from "./monitoring.js";
-import { applyTransactionToWallets, findWallet, hasWallet, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, walletDeltasForTransaction } from "./financeLedger.js";
+import { applyTransactionToWallets, findWallet, hasWallet, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, walletDeltasForTransaction } from "./financeLedger.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
 import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "./incomeCategory.js";
@@ -145,6 +145,8 @@ const normalizeTransactionKinds = txs => (txs||[]).map(tx=>{
   }
   return normalized;
 });
+const normalizeLoadedTransactions = (txs,wallets) =>
+  pairImportedInternalTransfers(normalizeTransactionKinds(txs),wallets).transactions;
 const normalizeEnvelopes = (items,budgets=[]) => (items||[]).map(amp=>{
   if(amp?.katId) return amp;
   const name=String(amp?.nama||"").toLowerCase();
@@ -2580,6 +2582,9 @@ function ImportMutasiBank({ dompet, budgets=[], onImport, onClose, T, lang="id" 
           <span><b>{fileKind||"File"}</b> diproses lokal. Periksa nominal dan arah transaksi sebelum impor.</span>
           {reviewCount>0&&<span style={{flexShrink:0,color:T.warn,fontWeight:800}}>{reviewCount} perlu dicek</span>}
         </div>
+        <div style={{marginBottom:9,padding:"7px 10px",borderRadius:9,background:T.accentBg,color:T.sub,fontSize:10,lineHeight:1.5}}>
+          Transfer antar dompet milikmu akan ditautkan otomatis setelah mutasi rekening pasangannya diimpor. Saldo tiap dompet tetap mengikuti rekening masing-masing, sedangkan laporan tidak menghitungnya sebagai pemasukan atau pengeluaran.
+        </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:10}}>
           <div style={{background:T.okBg,borderRadius:9,padding:"7px 11px"}}><div style={{fontSize:9,color:T.ok,fontWeight:700,textTransform:"uppercase"}}>{t("incomeLabel")}</div><div style={{fontSize:13,fontWeight:800,color:T.ok}}>{IDRf(totalMasuk)}</div></div>
           <div style={{background:T.errBg,borderRadius:9,padding:"7px 11px"}}><div style={{fontSize:9,color:T.err,fontWeight:700,textTransform:"uppercase"}}>{t("expenseLabel")}</div><div style={{fontSize:13,fontWeight:800,color:T.err}}>{IDRf(totalKeluar)}</div></div>
@@ -2649,7 +2654,7 @@ export default function App(){
   const [s,setS]=useState(()=>{
     try{
       const saved=localStorage.getItem("aturduitku_data");
-      if(saved){const p=JSON.parse(saved);const budgets=normalizeBudgets(p.budgets);return{...INIT,...p,dompet:p.dompet||INIT.dompet,txs:normalizeTransactionKinds(p.txs),utang:p.utang||[],budgets,goals:p.goals||[],asetTetap:p.asetTetap||[],recurring:p.recurring||[],amplop:normalizeEnvelopes(p.amplop,budgets),habits:p.habits||[],processedRecurring:p.processedRecurring||{}};}
+      if(saved){const p=JSON.parse(saved);const budgets=normalizeBudgets(p.budgets);const wallets=p.dompet||INIT.dompet;return{...INIT,...p,dompet:wallets,txs:normalizeLoadedTransactions(p.txs,wallets),utang:p.utang||[],budgets,goals:p.goals||[],asetTetap:p.asetTetap||[],recurring:p.recurring||[],amplop:normalizeEnvelopes(p.amplop,budgets),habits:p.habits||[],processedRecurring:p.processedRecurring||{}};}
     }catch(e){}
     return INIT;
   });
@@ -3626,7 +3631,8 @@ export default function App(){
     let list=[...s.txs].sort((a,b)=>new Date(b.tgl)-new Date(a.tgl));
     if(txSearch)list=list.filter(t=>t.ket?.toLowerCase().includes(txSearch.toLowerCase()));
     if(txFilt.dompet)list=list.filter(t=>String(t.dompetId)===String(txFilt.dompet));
-    if(txFilt.tipe)list=list.filter(t=>t.tipe===txFilt.tipe);
+    if(txFilt.tipe==="transfer_internal") list=list.filter(t=>["transfer_internal_keluar","transfer_internal_masuk"].includes(t.tipe));
+    else if(txFilt.tipe)list=list.filter(t=>t.tipe===txFilt.tipe);
     return list;
   },[s.txs,txSearch,txFilt]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -3662,9 +3668,10 @@ export default function App(){
 
   const mergeUserData=(d={})=>{
     const budgets=normalizeBudgets(d.budgets);
+    const wallets=d.dompet||INIT.dompet;
     return {
       ...INIT,...d,
-      dompet:d.dompet||INIT.dompet,txs:normalizeTransactionKinds(d.txs),utang:d.utang||[],
+      dompet:wallets,txs:normalizeLoadedTransactions(d.txs,wallets),utang:d.utang||[],
       budgets,goals:d.goals||[],asetTetap:d.asetTetap||[],
       recurring:d.recurring||[],amplop:normalizeEnvelopes(d.amplop,budgets),habits:d.habits||[],processedRecurring:d.processedRecurring||{},
     };
@@ -4405,9 +4412,11 @@ export default function App(){
 
     // Recent 5 transactions
     const recentTx = s.txs.slice(0,5).map(t=>{
-      const kat = String(t.customKat||"").trim()||(t.tipe==="pemasukan"&&typeof t.katId==="string"?t.katId:"")||s.budgets.find(b=>b.id===t.katId)?.kat||"-";
+      const isInternal = ["transfer_internal_keluar","transfer_internal_masuk"].includes(t.tipe);
+      const kat = isInternal?"Transfer Internal":String(t.customKat||"").trim()||(t.tipe==="pemasukan"&&typeof t.katId==="string"?t.katId:"")||s.budgets.find(b=>b.id===t.katId)?.kat||"-";
       const dompet = findWallet(s.dompet,t.dompetId)?.nama||"-";
-      return `${t.tgl} | ${t.tipe==="pemasukan"?"➕":"➖"} ${t.ket} | Rp ${Number(t.jml).toLocaleString("id-ID")} | ${kat} | ${dompet}`;
+      const marker=isInternal?"↔":t.tipe==="pemasukan"?"➕":"➖";
+      return `${t.tgl} | ${marker} ${t.ket} | Rp ${Number(t.jml).toLocaleString("id-ID")} | ${kat} | ${dompet}`;
     }).join("\n  ") || "Belum ada transaksi";
 
     // Financial health score
@@ -5075,8 +5084,9 @@ Saldo amplop bertambah.`}]);
     };
     const rows = s.txs.map(t => {
       const d = findWallet(s.dompet,t.dompetId)?.nama || "";
+      const isInternalTransfer=["transfer_internal_keluar","transfer_internal_masuk"].includes(t.tipe);
       const isIncome = t.tipe==="pemasukan" || t.tipe==="pemasukan_transfer";
-      const k = isIncome?incomeCategoryLabel(t):(String(t.customKat||"").trim()||(s.budgets.find(x => x.id === t.katId)?.kat || ""));
+      const k = isInternalTransfer?"Transfer Internal":isIncome?incomeCategoryLabel(t):(String(t.customKat||"").trim()||(s.budgets.find(x => x.id === t.katId)?.kat || ""));
       return [t.id,t.tgl,t.tipe,t.ket||"",N(t.jml),d,k,t.subKat||""].map(csvCell).join(",");
     });
     const BOM = "\uFEFF"; // agar Excel baca UTF-8 dengan benar
@@ -5418,14 +5428,15 @@ Saldo amplop bertambah.`}]);
       y=secTitle(isEN?"Transaction History":"Riwayat Transaksi",
                  `${bulanLabel} ${s.tahun}  |  ${txM.length} ${isEN?"transactions":"transaksi"}  |  Max 60 ${isEN?"shown":"ditampilkan"}`, y);
 
-      const TIPE_LBL  = {pemasukan:"[+]", pengeluaran:"[-]", tabungan:"[S]", investasi:"[I]", alokasi_amplop:"[A]", pengembalian_amplop:"[R]", penyesuaian:"[K]", transfer:"[T]"};
+      const TIPE_LBL  = {pemasukan:"[+]", pengeluaran:"[-]", tabungan:"[S]", investasi:"[I]", alokasi_amplop:"[A]", pengembalian_amplop:"[R]", penyesuaian:"[K]", transfer:"[T]", transfer_internal_keluar:"[TI]", transfer_internal_masuk:"[TI]"};
       const txRows = txM.slice(0,60).map(tx=>{
         const dompet   = clean(findWallet(s.dompet,tx.dompetId)?.nama||"-");
         const katB     = s.budgets.find(b=>b.id===Number(tx.katId));
-        const katLabel = clean(tx.tipe==="pemasukan"?incomeCategoryLabel(tx):(String(tx.customKat||"").trim()||katB?.kat||(isEN?"Other":"Lainnya")));
+        const isInternal = ["transfer_internal_keluar","transfer_internal_masuk"].includes(tx.tipe);
+        const katLabel = clean(isInternal?(isEN?"Internal Transfer":"Transfer Internal"):tx.tipe==="pemasukan"?incomeCategoryLabel(tx):(String(tx.customKat||"").trim()||katB?.kat||(isEN?"Other":"Lainnya")));
         const tlbl     = TIPE_LBL[tx.tipe]||"[?]";
-        const debit    = ["pengeluaran","tabungan","investasi","alokasi_amplop"].includes(tx.tipe)||(tx.tipe==="penyesuaian"&&Num(tx.adjustmentDelta)<0)?idr(Num(tx.jml)):"";
-        const kredit   = tx.tipe==="pemasukan"||(tx.tipe==="penyesuaian"&&Num(tx.adjustmentDelta)>0)?idr(Num(tx.jml)):"";
+        const debit    = ["pengeluaran","tabungan","investasi","alokasi_amplop","transfer_internal_keluar"].includes(tx.tipe)||(tx.tipe==="penyesuaian"&&Num(tx.adjustmentDelta)<0)?idr(Num(tx.jml)):"";
+        const kredit   = ["pemasukan","transfer_internal_masuk"].includes(tx.tipe)||(tx.tipe==="penyesuaian"&&Num(tx.adjustmentDelta)>0)?idr(Num(tx.jml)):"";
         return [tx.tgl||"-", tlbl, clean(tx.ket||"-").slice(0,34), katLabel.slice(0,18), dompet.slice(0,14), debit, kredit];
       });
       // Total row
@@ -5469,6 +5480,7 @@ Saldo amplop bertambah.`}]);
           if(d.column.index===6&&tx.tipe==="pemasukan")  d.cell.styles.textColor=C.green;
           if(d.column.index===5&&tx.tipe==="pengeluaran")d.cell.styles.textColor=C.red;
           if(d.column.index===5&&tx.tipe==="tabungan")   d.cell.styles.textColor=C.purple;
+          if((d.column.index===5&&tx.tipe==="transfer_internal_keluar")||(d.column.index===6&&tx.tipe==="transfer_internal_masuk")) d.cell.styles.textColor=C.purple;
           if(d.column.index===1){
             if(tx.tipe==="pemasukan")   d.cell.styles.textColor=C.green;
             else if(tx.tipe==="pengeluaran") d.cell.styles.textColor=C.red;
@@ -6001,16 +6013,17 @@ Saldo amplop bertambah.`}]);
       const sorted = [...txM].sort((a,b)=>new Date(b.tgl)-new Date(a.tgl));
       sorted.forEach((tx,idx) => {
         const bg = idx%2===0?white:grayLt;
-        const isTipe = tx.tipe==="pemasukan"||tx.tipe==="pengembalian_amplop"?{bg:greenLt,fg:green}:(tx.tipe==="tabungan"||tx.tipe==="investasi")?{bg:amberLt,fg:amber}:tx.tipe==="alokasi_amplop"?{bg:purpleLt,fg:purple}:{bg:redLt,fg:red};
+        const isInternal = ["transfer_internal_keluar","transfer_internal_masuk"].includes(tx.tipe);
+        const isTipe = isInternal?{bg:purpleLt,fg:purple}:tx.tipe==="pemasukan"||tx.tipe==="pengembalian_amplop"?{bg:greenLt,fg:green}:(tx.tipe==="tabungan"||tx.tipe==="investasi")?{bg:amberLt,fg:amber}:tx.tipe==="alokasi_amplop"?{bg:purpleLt,fg:purple}:{bg:redLt,fg:red};
         const kat = s.budgets.find(b=>b.id===Number(tx.katId));
         const dom = findWallet(s.dompet,tx.dompetId);
         rows2.push([
           {v:tx.tgl||"-", s:cell(bg,gray,false,"center")},
           {v:tx.ket||"-", s:cell(bg,dark)},
           {v:tx.tipe, s:cell(isTipe.bg,isTipe.fg,true,"center")},
-          {v:tx.tipe==="pemasukan"?incomeCategoryLabel(tx):(String(tx.customKat||"").trim()||kat?.kat||(isEN?"Other":"Lainnya")), s:cell(bg,gray,false,"center")},
+          {v:isInternal?(isEN?"Internal Transfer":"Transfer Internal"):tx.tipe==="pemasukan"?incomeCategoryLabel(tx):(String(tx.customKat||"").trim()||kat?.kat||(isEN?"Other":"Lainnya")), s:cell(bg,gray,false,"center")},
           {v:dom?.nama||"-", s:cell(bg,gray,false,"center")},
-          {v:idr(Num(tx.jml)), s:cell(bg,(tx.tipe==="pemasukan"||tx.tipe==="pengembalian_amplop")?green:(tx.tipe==="tabungan"||tx.tipe==="investasi")?amber:tx.tipe==="alokasi_amplop"?purple:red,true,"right")},
+          {v:idr(Num(tx.jml)), s:cell(bg,isInternal?purple:(tx.tipe==="pemasukan"||tx.tipe==="pengembalian_amplop")?green:(tx.tipe==="tabungan"||tx.tipe==="investasi")?amber:tx.tipe==="alokasi_amplop"?purple:red,true,"right")},
         ]);
       });
       // Total row
@@ -6637,7 +6650,9 @@ Saldo amplop bertambah.`}]);
           });
         }
       }
-      const nextState={...p,txs:p.txs.filter(x=>x.id!==tx.id),dompet:newDompet,goals:newGoals,asetTetap:newAset,amplop:newAmplop};
+      const remainingTransactions=p.txs.filter(x=>x.id!==tx.id);
+      const repairedPairs=pairImportedInternalTransfers(remainingTransactions,newDompet);
+      const nextState={...p,txs:repairedPairs.transactions,dompet:newDompet,goals:newGoals,asetTetap:newAset,amplop:newAmplop};
       clearTimeout(txMotionTimerRef.current);
       setTxMotion({id:tx.id,type:"out"});
       txMotionTimerRef.current=setTimeout(()=>{
@@ -6651,12 +6666,13 @@ Saldo amplop bertambah.`}]);
   const renderTxItem=t=>{
     const dompet=findWallet(s.dompet,t.dompetId);
     const kat=s.budgets.find(b=>b.id===t.katId);
-    const isIn=t.tipe==="pemasukan"||t.tipe==="pemasukan_transfer";
-    const txKatLabel=isIn?incomeCategoryLabel(t):(String(t.customKat||"").trim()||kat?.kat);
+    const isInternalTransfer=["transfer_internal_keluar","transfer_internal_masuk"].includes(t.tipe);
+    const isIn=t.tipe==="pemasukan"||t.tipe==="pemasukan_transfer"||t.tipe==="transfer_internal_masuk";
+    const txKatLabel=isInternalTransfer?"Transfer internal":isIn?incomeCategoryLabel(t):(String(t.customKat||"").trim()||kat?.kat);
     const isEnvelopeRefund=t.tipe==="pengembalian_amplop";
-    const txColor=t.tipe==="pemasukan"||isEnvelopeRefund?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="investasi"?T.ok:t.tipe==="penyesuaian"?T.warn:t.tipe==="alokasi_amplop"?T.accent:t.tipe==="transfer"?T.accent:T.err;
-    const txBg=t.tipe==="pemasukan"||isEnvelopeRefund?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer")?T.accentBg:T.errBg;
-    const txIcon=isIn?"📈":isEnvelopeRefund?"↩️":t.tipe==="tabungan"?"🏦":t.tipe==="investasi"?"💎":t.tipe==="penyesuaian"?"BAL":t.tipe==="alokasi_amplop"?"✉️":t.tipe==="transfer"?"↔️":kat?uiIcon(kat.icon):"📉";
+    const txColor=isInternalTransfer?T.accent:t.tipe==="pemasukan"||isEnvelopeRefund?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="investasi"?T.ok:t.tipe==="penyesuaian"?T.warn:t.tipe==="alokasi_amplop"?T.accent:t.tipe==="transfer"?T.accent:T.err;
+    const txBg=isInternalTransfer?T.accentBg:t.tipe==="pemasukan"||isEnvelopeRefund?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer")?T.accentBg:T.errBg;
+    const txIcon=isInternalTransfer?"↔️":isIn?"📈":isEnvelopeRefund?"↩️":t.tipe==="tabungan"?"🏦":t.tipe==="investasi"?"💎":t.tipe==="penyesuaian"?"BAL":t.tipe==="alokasi_amplop"?"✉️":t.tipe==="transfer"?"↔️":kat?uiIcon(kat.icon):"📉";
     return(
       <div key={t.id} className={txMotion&&sameId(txMotion.id,t.id)?(txMotion.type==="out"?"tx-row-out":"tx-row-new"):"tx-row-in"} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
@@ -6670,7 +6686,7 @@ Saldo amplop bertambah.`}]);
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
           <span style={{fontWeight:700,fontSize:13,color:txColor}}>
-            {isIn||isEnvelopeRefund?"+":t.tipe==="penyesuaian"?(N(t.adjustmentDelta)>=0?"+":"-"):t.tipe==="alokasi_amplop"?"→":t.tipe==="transfer"?"→":"-"}{IDRs(N(t.jml))}
+            {isInternalTransfer?"↔ ":isIn||isEnvelopeRefund?"+":t.tipe==="penyesuaian"?(N(t.adjustmentDelta)>=0?"+":"-"):t.tipe==="alokasi_amplop"?"→":t.tipe==="transfer"?"→":"-"}{IDRs(N(t.jml))}
           </span>
           {t.locked?<span title="Catatan otomatis" style={{fontSize:11,color:T.muted,fontWeight:800}}>AUTO</span>:<>
             {canEditTransaction(t)&&<button type="button" onClick={()=>openEditTransaction(t)} title="Edit transaksi" aria-label="Edit transaksi" style={{width:30,height:30,borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:15,fontWeight:900,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>✎</button>}
@@ -6872,12 +6888,16 @@ Saldo amplop bertambah.`}]);
     if(!hasWallet(s.dompet,dompetId)){showToast(t("toast_walletNotFound"));return;}
     const normalizedRows=txRows.map(normalizeIncomeTransaction);
     const preview=reconcileImportedStatement(s.txs,s.dompet,normalizedRows,dompetId,importOptions);
+    const pairedPreview=pairImportedInternalTransfers(preview.transactions,preview.wallets);
     const uniqueRows={length:preview.importedCount};
     setS(prev => {
       const result=reconcileImportedStatement(prev.txs,prev.dompet,normalizedRows,dompetId,importOptions);
-      return {...prev,txs:result.transactions,dompet:result.wallets};
+      const paired=pairImportedInternalTransfers(result.transactions,result.wallets);
+      return {...prev,txs:paired.transactions,dompet:result.wallets};
     });
-    showToast(uniqueRows.length?`✅ ${uniqueRows.length} transaksi berhasil diimport!`:"Semua transaksi di file ini sudah pernah diimport.");
+    showToast(uniqueRows.length
+      ? `✅ ${uniqueRows.length} transaksi diimport${pairedPreview.newPairCount?` · ${pairedPreview.newPairCount} transfer internal ditautkan`:""}!`
+      : "Semua transaksi di file ini sudah pernah diimport.");
     closeModal();
   };
 
@@ -8019,7 +8039,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <option value="">{t("allWallets")}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}
                 </select>
                 <select value={txFilt.tipe} onChange={e=>{setTxFilt(f=>({...f,tipe:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
-                  <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="investasi">Investasi</option><option value="alokasi_amplop">Alokasi Amplop</option><option value="pengembalian_amplop">Pengembalian Amplop</option><option value="penyesuaian">Koreksi saldo</option><option value="transfer">Transfer</option>
+                  <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="investasi">Investasi</option><option value="alokasi_amplop">Alokasi Amplop</option><option value="pengembalian_amplop">Pengembalian Amplop</option><option value="penyesuaian">Koreksi saldo</option><option value="transfer">Transfer</option><option value="transfer_internal">Transfer Internal</option>
                 </select>
                 {(txSearch||txFilt.dompet||txFilt.tipe)&&<Btn onClick={()=>{setTxSearch("");setTxFilt({dompet:"",tipe:"",sub:""});setTxPage(1);}} ch="Reset" c={T.err} outline style={{padding:"7px 12px",fontSize:12}}/>}
                 <Btn onClick={exportCSV} ch="Export" c="#16A34A" outline style={{padding:"7px 12px",fontSize:12}}/>
