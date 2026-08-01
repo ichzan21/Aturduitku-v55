@@ -8,6 +8,7 @@ import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
 import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "./incomeCategory.js";
 import { extractPdfStatement, parsePdfStatementLines } from "./pdfStatement.js";
+import { detectFinancialProvider as detectBank, parseStatementCSV as parseBankCSV } from "./bankImport.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -1525,7 +1526,7 @@ const toIso = (tgl) => {
   const y = p[2].length===4?p[2]:"20"+p[2];
   return `${y}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}`;
 };
-const detectBank = (text) => {
+const detectBankLegacy = (text) => {
   const t = (text||"").toLowerCase().slice(0,1200);
   if (t.includes("bank central asia")||t.includes("klik bca")||t.includes("mybca")||t.includes(",bca,")) return "BCA";
   if (t.includes("bank mandiri")||t.includes("livin")||t.includes("mandiri")) return "Mandiri";
@@ -1564,7 +1565,7 @@ const toIsoFlex = (raw) => {
 // Detect debit/credit from mutation type string
 const isCR = (s) => { const l=(s||"").toLowerCase(); return l.includes("cr")||l.includes("credit")||l.includes("kredit")||l.includes("masuk")||l.includes("+"); };
 const isDB = (s) => { const l=(s||"").toLowerCase(); return l.includes("db")||l.includes("debet")||l.includes("debit")||l.includes("keluar"); };
-const parseBankCSV = (text, bank) => {
+const parseBankCSVLegacy = (text, bank) => {
   const lines = text.split(/\r?\n/).filter(l=>l.trim());
   const results = [];
   // ── Find header row ──────────────────────────────────────────────────────
@@ -2358,7 +2359,7 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
     allSelected:"Batalkan Semua", selectAll:"Pilih Semua",
   }[k]||k);
   const [step, setStep] = useState(0);
-  const [bankType, setBankType] = useState("BCA");
+  const [bankType, setBankType] = useState("Generic");
   const [dompetId, setDompetId] = useState(dompet[0]?.id || 1);
   const [parsed, setParsed] = useState([]);
   const [selected, setSelected] = useState({});
@@ -2437,7 +2438,10 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
         const detected = detectBank(text);
         const useBank = bankType === "Generic" ? detected : bankType;
         if (detected !== "Generic") setBankType(detected);
-        rows = parseBankCSV(text, useBank);
+        rows = parseBankCSV(text, useBank).map(row => ({
+          ...row,
+          katId: row.tipe === "pengeluaran" ? autoKat(row.ket) : 9,
+        }));
       }
       if (!rows.length) {
         setError(isPdf ? "Tidak ada transaksi yang terbaca. Pastikan PDF adalah e-Statement asli, bukan foto/scan." : t("toast_noData"));
