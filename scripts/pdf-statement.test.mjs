@@ -74,4 +74,82 @@ assert.equal(mandiriNumberedFee[0].jml,"4000");
 assert.equal(isEncryptedPdfBytes(new TextEncoder().encode("trailer << /Encrypt 14 0 R >>")), true, "PDF terenkripsi harus dikenali sebelum mesin PDF dimuat");
 assert.equal(isEncryptedPdfBytes(new TextEncoder().encode("trailer << /Root 1 0 R >>")), false, "PDF biasa tidak boleh meminta password");
 
+// Format riil BNI "Laporan Mutasi Rekening" (wondr): nominal bertanda +/- di baris kedua,
+// footer bank di setiap halaman tidak boleh bocor ke keterangan.
+const bniLines = [
+  "Laporan Mutasi Rekening",
+  "Periode: 1 - 30 Juni 2026",
+  "Saldo Awal Total Pemasukan Total Pengeluaran Saldo Akhir",
+  "100,000 +5,000,000 -3,000,000 2,100,000",
+  "Tanggal & Waktu Rincian Transaksi Nominal (IDR) Saldo (IDR)",
+  "Saldo Awal 100,000",
+  "01 Jun 2026 Transfer",
+  "+5,000,000 5,100,000",
+  "06:26:02 WIB BNI - PT CONTOH SEJAHTERA",
+  "PT Bank Negara Indonesia (Persero) Tbk. berizin dan diawasi oleh Otoritas Jasa Keuangan (OJK) serta merupakan",
+  "peserta penjaminan Lembaga Penjamin Simpanan (LPS). 1 dari 2",
+  "Laporan Mutasi Rekening",
+  "Tanggal & Waktu Rincian Transaksi Nominal (IDR) Saldo (IDR)",
+  "02 Jun 2026 Pembayaran Qris",
+  "-3,000,000 2,100,000",
+  "13:06:38 WIB TOKO CONTOH - MAKASSAR",
+  "Saldo Akhir 2,100,000",
+];
+const bni = parsePdfStatementLines(bniLines, "BNI");
+assert.deepEqual(bni.map(row => [row.tgl, row.tipe, row.jml]), [
+  ["2026-06-01", "pemasukan", "5000000"],
+  ["2026-06-02", "pengeluaran", "3000000"],
+]);
+assert.ok(!/pt bank negara/i.test(bni[0].ket), "Footer bank tidak boleh masuk keterangan");
+assert.ok(!/\bWIB\b/.test(bni[0].ket), "Jam transaksi tidak boleh masuk keterangan");
+assert.deepEqual(extractPdfStatementSummary(bniLines), { opening:100000, income:5000000, expense:3000000, closing:2100000 });
+assert.equal(validatePdfStatement(bniLines, bni).accurate, true);
+
+// Format riil Mandiri e-Statement (Livin): tanggal di baris sendiri, lalu "no ±nominal saldo".
+const mandiriLivin = parsePdfStatementLines([
+  "e-Statement",
+  "Menara Mandiri 1 Jalan Jenderal Sudirman Kav. 54-55, Jakarta 12190, Indonesia",
+  "Nama/ Name : CONTOH Periode/ Period : 01 Jul 2026 - 28 Jul 2026 1 dari 2",
+  "Saldo Awal/ Initial Balance : 0,00",
+  "Nomor Rekening/ Account Number : 1234567890 Dana Masuk/ Incoming Transactions : + 203.000,00",
+  "Dana Keluar/ Outgoing Transactions : - 4.000,00",
+  "Saldo Akhir/ Closing Balance : 199.000,00",
+  "No Tanggal Keterangan Nominal (IDR) Saldo (IDR)",
+  "Transfer antar Mandiri",
+  "02 Jul 2026",
+  "1 +203.000,00 203.000,00",
+  "17:40:21 WIB",
+  "1234567890 987654321",
+  "03 Jul 2026",
+  "6 Biaya administrasi kartu debit -4.000,00 199.000,00",
+  "05:06:20 WIB",
+  "PT Bank Mandiri (Persero) Tbk. berizin dan diawasi oleh Otoritas Jasa Keuangan (OJK) dan Bank Indonesia (BI),",
+  "Mandiri Call 14000",
+], "Mandiri");
+assert.deepEqual(mandiriLivin.map(row => [row.tgl, row.tipe, row.jml]), [
+  ["2026-07-02", "pemasukan", "203000"],
+  ["2026-07-03", "pengeluaran", "4000"],
+]);
+assert.ok(!/\bWIB\b/.test(mandiriLivin[0].ket), "Jam WIB tidak boleh masuk keterangan Mandiri");
+assert.ok(!/mandiri call/i.test(mandiriLivin[1].ket), "Footer Mandiri tidak boleh masuk keterangan");
+
+// Pergantian halaman BCA: header halaman baru tidak boleh menempel ke transaksi terakhir.
+const bcaPageBreak = parsePdfStatementLines([
+  "REKENING TAHAPAN PERIODE MEI 2026",
+  "TANGGAL KETERANGAN CBG MUTASI SALDO",
+  "30/05 TRANSAKSI DEBIT TGL: 30/05 39,500.00 DB 897,182.94",
+  "QR 918",
+  "Bersambung ke halaman berikut",
+  "REKENING TAHAPAN",
+  "K C P D A Y E U H K O L O T",
+  "NAMA NASABAH NO. REKENING : 1234567890",
+  "TANGGAL KETERANGAN CBG MUTASI SALDO",
+  "31/05 TRANSAKSI DEBIT TGL: 31/05 30,000.00 DB 867,182.94",
+], "BCA");
+assert.deepEqual(bcaPageBreak.map(row => [row.tipe, row.jml]), [
+  ["pengeluaran", "39500"],
+  ["pengeluaran", "30000"],
+]);
+assert.ok(!/NO\. REKENING/i.test(bcaPageBreak[0].ket), "Header halaman BCA tidak boleh masuk keterangan");
+
 console.log("PDF e-statement parser tests passed");

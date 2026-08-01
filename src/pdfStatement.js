@@ -6,8 +6,12 @@ const MONTHS = {
 
 const MONTH_PATTERN = "(?:Jan|Feb|Mar|Apr|Mei|May|Jun|Jul|Agu|Ags|Aug|Sep|Okt|Oct|Nov|Des|Dec)";
 const DATE_AT_START = new RegExp(`^\\s*(\\d{4}[\\/.\\-]\\d{1,2}[\\/.\\-]\\d{1,2}|\\d{1,2}[\\/.\\-]\\d{1,2}(?:[\\/.\\-]\\d{2,4})?|\\d{1,2}\\s+${MONTH_PATTERN}(?:\\s+\\d{2,4})?)(?:\\s+|$)`, "i");
-const MONEY_TOKEN = /(?:Rp\s*)?[+\-]?(?:\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{2})?|\d+[.,]\d{2})(?:\s*(?:DB|DR|CR|D|K|C))?/gi;
+const MONEY_TOKEN = /(?:Rp\s*)?[+\-]?(?:\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{2})?|\d+[.,]\d{2})(?:\s*(?:DB|DR|CR|D|K|C)\b)?/gi;
 const SKIP_LINE = /^(?:page|halaman|tanggal\s+transaksi|transaction\s+date|date\s+description|saldo\s+awal|opening\s+balance|saldo\s+akhir|closing\s+balance|total\s+(?:debit|debet|kredit|credit))/i;
+// Page furniture (bank footers, page headers, column headers). A record stops
+// absorbing continuation lines once one of these appears, so page-break junk
+// never leaks into transaction descriptions.
+const NOISE_LINE = /^(?:pt\.?\s+bank\b|peserta\s+penjamin|serta\s+merupakan|bersambung\s+ke\s+halaman|informasi\s+lainnya|laporan\s+(?:mutasi|transaksi)\b|statement\s+of\s+financial|no\.?\s+(?:date|tanggal)\b|tanggal\s*&\s*waktu|tanggal\s+keterangan\s+cbg|created\s+by\s+brimo|mandiri\s+call|menara\s+mandiri|e-statement$|rekening\s+tahapan\b|nama\s*\/\s*name\b|cabang\s*\/\s*branch\b|kepada\s+yth|terbilang\s*\/|in\s+words|c\s*a\s*t\s*a\s*t\s*a\s*n|k\s+c\s+p\b|•|\d+\s+(?:dari|of)\s+\d+$)/i;
 
 const cleanNumber = value => {
   let raw = String(value || "").replace(/Rp/gi, "").replace(/\s+/g, "").replace(/(?:DB|DR|CR|D|K|C)$/i, "");
@@ -63,8 +67,11 @@ const descriptionFor = (record, dateToken, money) => {
   money.forEach(token => { description = description.replace(token, " "); });
   description = description
     .replace(/\b(?:DB|DR|CR|DEBIT|DEBET|CREDIT|KREDIT)\b/gi, " ")
+    .replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, " ")
+    .replace(/\b(?:WIB|WITA|WIT)\b/gi, " ")
     .replace(/\s+/g, " ")
     .replace(/^[|:\-\s]+|[|:\-\s]+$/g, "")
+    .replace(/^\d{1,4}\s+(?=\S)/, "")
     .trim();
   return description || "Transaksi bank";
 };
@@ -75,6 +82,7 @@ export const parsePdfStatementLines = (inputLines, bank = "Generic") => {
   const year = inferYear(fullText);
   const records = [];
   let current = "";
+  let sealed = false;
   for (const line of lines) {
     if (SKIP_LINE.test(line)) {
       if (/^(?:saldo awal|opening balance|saldo akhir|closing balance|mutasi cr|mutasi db)/i.test(line)) {
@@ -83,10 +91,15 @@ export const parsePdfStatementLines = (inputLines, bank = "Generic") => {
       }
       continue;
     }
+    if (NOISE_LINE.test(line)) {
+      sealed = true;
+      continue;
+    }
     if (DATE_AT_START.test(line)) {
       if (current) records.push(current);
       current = line;
-    } else if (current && !/^(?:rekening|account|periode|period|mata uang|currency)\b/i.test(line)) {
+      sealed = false;
+    } else if (current && !sealed && !/^(?:rekening|account|periode|period|mata uang|currency)\b/i.test(line)) {
       current += ` ${line}`;
     }
   }
@@ -215,11 +228,9 @@ export const isEncryptedPdfBytes = data => {
 
 export const extractPdfStatement = async (file, password = "") => {
   const sourceBytes = new Uint8Array(await readFileBuffer(file));
-  if (!password && isEncryptedPdfBytes(sourceBytes)) {
-    const passwordError = new Error("PASSWORD_REQUIRED");
-    passwordError.code = "PASSWORD_REQUIRED";
-    throw passwordError;
-  }
+  // Always try to open first: PDFs with only an owner password (print/copy
+  // restrictions) contain /Encrypt but open fine without any password.
+  // PdfJS raises PasswordException only when a user password is truly needed.
   const { loadPdfRuntime } = await import("./pdfRuntime.js");
   const { getDocument } = await loadPdfRuntime();
   let pdf;
