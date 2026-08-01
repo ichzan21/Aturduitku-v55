@@ -9,6 +9,7 @@ import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
 import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "./incomeCategory.js";
 import { extractPdfStatement, parsePdfStatementLines, validatePdfStatement } from "./pdfStatement.js";
 import { detectFinancialProvider as detectBank, parseStatementCSV as parseBankCSV } from "./bankImport.js";
+import { EXPENSE_CATEGORY_RULES, resolveExpenseCategory } from "./transactionCategory.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -1495,21 +1496,8 @@ const MoreMenu=({page,onNavigate,onClose,navItems=NAV})=>{
 };
 
 // ─── KEYWORD AUTO-KATEGORISASI ───────────────────────────────────────────────
-const KW_KAT = [
-  { kat:"Makan & Minum",  id:1, kw:["makan","resto","kafe","cafe","kopi","coffee","starbucks","kfc","mcd","mcdonalds","pizza","burger","bakso","mie","nasi","warung","seafood","sushi","boba","chatime","grab food","gofood","shopeefood","snack","minuman"] },
-  { kat:"Transportasi",   id:2, kw:["grab","gojek","maxim","ojol","ojek","bensin","pertamina","spbu","parkir","tol","busway","mrt","lrt","kereta","krl","tiket","damri","taxi","pertamax","pertalite","solar"] },
-  { kat:"Tagihan & Utilitas", id:3, kw:["pln","listrik","air","pdam","internet","telkom","indihome","wifi","xl","telkomsel","axis","smartfren","im3","tri","pulsa","paket data","token","bpjs","asuransi"] },
-  { kat:"Kesehatan",      id:4, kw:["apotek","kimia farma","guardian","apotik","dokter","klinik","rumah sakit","vitamin","obat","halodoc","alodokter","gym","fitnes","fitness"] },
-  { kat:"Belanja",        id:5, kw:["shopee","tokopedia","lazada","blibli","bukalapak","tiktok shop","zalora","indomaret","alfamart","alfamidi","superindo","giant","hypermart","transmart","carrefour","ikea","ecommerce"] },
-  { kat:"Hiburan",        id:6, kw:["netflix","spotify","youtube","disney","vidio","genflix","viu","wetv","bioskop","cgv","cineplex","game","steam","playstation","xbox","nintendo","deezer","joox"] },
-  { kat:"Pendidikan",     id:7, kw:["buku","gramedia","toga mas","ruangguru","zenius","coursera","udemy","kampus","spp","ukt","sekolah","kursus","les"] },
-  { kat:"Investasi",      id:8, kw:["bibit","bareksa","ipot","indopremier","ajaib","pluang","stockbit","reksadana","reksa dana","saham","obligasi","emas","logam mulia","kripto","crypto"] },
-];
-const autoKat = (desc) => {
-  const d = (desc||"").toLowerCase();
-  for (const k of KW_KAT) { if (k.kw.some(w => d.includes(w))) return k.id; }
-  return 9;
-};
+const KW_KAT = EXPENSE_CATEGORY_RULES.map((rule,index)=>({kat:rule.name,id:index+1,kw:rule.phrases}));
+const autoKat = desc => resolveExpenseCategory(desc).id;
 const splitCSVLine = (line) => {
   const result = []; let cur = ""; let inQ = false;
   for (let i = 0; i < line.length; i++) {
@@ -2352,7 +2340,7 @@ function YearInReview({ s, T, lang, onClose }) {
     </div>
   );
 }
-function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
+function ImportMutasiBank({ dompet, budgets=[], onImport, onClose, T, lang="id" }) {
   const t = k => ({
     toast_noData:"Tidak ada data transaksi ditemukan.",
     all:"Semua", inflow2:"Masuk", outflow2:"Keluar",
@@ -2373,6 +2361,7 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
   const [passwordState, setPasswordState] = useState("");
   const [fileKind, setFileKind] = useState("");
   const [statementCheck, setStatementCheck] = useState(null);
+  const expenseCategory = description => resolveExpenseCategory(description, budgets);
   const BANKS = ["BCA","Mandiri","BNI","BRI","CIMB","Jenius","OVO","GoPay","Dana","ShopeePay","BSI","Permata","BTN","Generic"];
   const BANK_GUIDES = {
     BCA:"myBCA → Rekening → e-Statement/Mutasi → PDF atau CSV",
@@ -2434,10 +2423,10 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
           const matchingWallet = dompet.find(wallet => detectBank(`${wallet.nama||""} ${wallet.jenis||""}`) === detected);
           if (matchingWallet) setDompetId(matchingWallet.id);
         }
-        rows = parsePdfStatementLines(lines, useBank).map(row => ({
-          ...row,
-          katId: row.tipe === "pengeluaran" ? autoKat(row.ket) : 9,
-        }));
+        rows = parsePdfStatementLines(lines, useBank).map(row => {
+          const category = row.tipe === "pengeluaran" ? expenseCategory(row.ket) : null;
+          return {...row,katId:category?.id??9,categoryConfidence:category?.confidence||"high"};
+        });
         const check = validatePdfStatement(lines, rows);
         setStatementCheck(check);
         if (check.hasReference && !check.accurate) {
@@ -2449,10 +2438,10 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
         const detected = detectBank(text);
         const useBank = bankType === "Generic" ? detected : bankType;
         if (detected !== "Generic") setBankType(detected);
-        rows = parseBankCSV(text, useBank).map(row => ({
-          ...row,
-          katId: row.tipe === "pengeluaran" ? autoKat(row.ket) : 9,
-        }));
+        rows = parseBankCSV(text, useBank).map(row => {
+          const category = row.tipe === "pengeluaran" ? expenseCategory(row.ket) : null;
+          return {...row,katId:category?.id??9,categoryConfidence:category?.confidence||"high"};
+        });
         setStatementCheck(null);
       }
       if (!rows.length) {
@@ -2521,7 +2510,8 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
       periodEnd: toImport.map(row=>row.tgl).sort().at(-1)||null,
     });
   };
-  const katName = id => KW_KAT.find(k=>k.id===id)?.kat || "Lainnya";
+  const katName = id => budgets.find(item=>sameId(item.id,id))?.kat || KW_KAT.find(k=>sameId(k.id,id))?.kat || "Lainnya";
+  const expenseOptions = budgets.length ? budgets : [...KW_KAT.map(({id,kat})=>({id,kat})),{id:9,kat:"Lainnya"}];
 
   return (
     <div>
@@ -2617,18 +2607,21 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
         </div>
         <div style={{maxHeight:280,overflowY:"auto",border:`1px solid ${T.border}`,borderRadius:11,marginBottom:10}}>
           {filtered.map(([i,r])=>(
-            <div key={i} onClick={()=>setSelected(p=>({...p,[i]:!p[i]}))} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 11px",borderBottom:`1px solid ${T.borderLight}`,cursor:"pointer",background:selected[i]?T.cardAlt:T.card,transition:"background .12s"}}>
-              <div style={{width:17,height:17,borderRadius:4,border:`2px solid ${selected[i]?T.accent:T.border}`,background:selected[i]?T.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <div key={i} onClick={()=>setSelected(p=>({...p,[i]:!p[i]}))} style={{display:"grid",gridTemplateColumns:"17px minmax(0,1fr) auto",alignItems:"center",gap:"5px 8px",padding:"8px 11px",borderBottom:`1px solid ${T.borderLight}`,cursor:"pointer",background:selected[i]?T.cardAlt:T.card,transition:"background .12s"}}>
+              <div style={{gridColumn:1,gridRow:"1 / span 2",width:17,height:17,borderRadius:4,border:`2px solid ${selected[i]?T.accent:T.border}`,background:selected[i]?T.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                 {selected[i]&&<span style={{color:"white",fontSize:10,fontWeight:900}}>✓</span>}
               </div>
-              <div style={{flex:1,minWidth:0}}>
+              <div style={{gridColumn:2,gridRow:1,minWidth:0}}>
                 <div style={{fontSize:11,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.ket||"—"}</div>
-                <div style={{fontSize:9,color:r.needsReview?T.warn:T.muted,marginTop:1}}>{r.tgl} · {katName(kat[i]||r.katId)}{r.needsReview?" · Periksa arah":""}</div>
+                <div style={{fontSize:9,color:r.needsReview||r.categoryConfidence==="low"?T.warn:T.muted,marginTop:1}}>{r.tgl} · {katName(kat[i]||r.katId)}{r.needsReview?" · Periksa arah":r.categoryConfidence==="low"&&r.tipe==="pengeluaran"?" · Periksa kategori":""}</div>
               </div>
-              <select aria-label={`Arah transaksi ${r.ket||i+1}`} value={r.tipe} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();const tipe=e.target.value;setParsed(rows=>rows.map((row,idx)=>idx===i?{...row,tipe,needsReview:false,katId:tipe==="pengeluaran"?autoKat(row.ket):9}:row));setKat(all=>({...all,[i]:tipe==="pengeluaran"?autoKat(r.ket):9}));setSelected(all=>({...all,[i]:true}));}} style={{padding:"4px 5px",borderRadius:7,border:`1px solid ${T.border}`,background:T.input,color:r.tipe==="pemasukan"?T.ok:T.err,fontSize:9,fontWeight:800,flexShrink:0}}>
+              {r.tipe==="pengeluaran"&&<select aria-label={`Kategori transaksi ${r.ket||i+1}`} value={kat[i]||r.katId} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();const next=expenseOptions.find(option=>sameId(option.id,e.target.value));setKat(all=>({...all,[i]:next?.id??e.target.value}));setParsed(rows=>rows.map((row,idx)=>idx===i?{...row,katId:next?.id??e.target.value,categoryConfidence:"manual"}:row));}} style={{gridColumn:2,gridRow:2,width:"100%",maxWidth:160,padding:"4px 5px",borderRadius:7,border:`1px solid ${T.border}`,background:T.input,color:T.sub,fontSize:9,fontWeight:700}}>
+                {expenseOptions.map(option=><option key={option.id} value={option.id}>{option.kat}</option>)}
+              </select>}
+              <select aria-label={`Arah transaksi ${r.ket||i+1}`} value={r.tipe} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();const tipe=e.target.value;const category=expenseCategory(r.ket);setParsed(rows=>rows.map((row,idx)=>idx===i?{...row,tipe,needsReview:false,katId:tipe==="pengeluaran"?category.id:9,categoryConfidence:tipe==="pengeluaran"?category.confidence:"high"}:row));setKat(all=>({...all,[i]:tipe==="pengeluaran"?category.id:9}));setSelected(all=>({...all,[i]:true}));}} style={{gridColumn:3,gridRow:2,padding:"4px 5px",borderRadius:7,border:`1px solid ${T.border}`,background:T.input,color:r.tipe==="pemasukan"?T.ok:T.err,fontSize:9,fontWeight:800}}>
                 <option value="pemasukan">Masuk</option><option value="pengeluaran">Keluar</option>
               </select>
-              <div style={{fontSize:12,fontWeight:800,color:r.tipe==="pemasukan"?T.ok:T.err,flexShrink:0}}>
+              <div style={{gridColumn:3,gridRow:1,fontSize:12,fontWeight:800,color:r.tipe==="pemasukan"?T.ok:T.err,whiteSpace:"nowrap"}}>
                 {r.tipe==="pemasukan"?"+":"-"}{IDRf(r.jml)}
               </div>
             </div>
@@ -7115,7 +7108,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
             {isMobile&&<div style={{width:40,height:4,borderRadius:99,background:"rgba(0,0,0,.15)",margin:"-8px auto 16px",flexShrink:0}}/>}
             {/* Import Mutasi Bank Modal */}
-            {modal.type==="importMutasi"&&<ImportMutasiBank dompet={s.dompet} onImport={handleImportMutasi} onClose={()=>closeModal()} T={T}/>}
+            {modal.type==="importMutasi"&&<ImportMutasiBank dompet={s.dompet} budgets={s.budgets} onImport={handleImportMutasi} onClose={()=>closeModal()} T={T}/>}
 
             {/* Kalkulator Cicilan */}
             {modal.type==="yearReview"&&<YearInReview s={s} T={T} lang={lang} onClose={()=>closeModal()}/>}
