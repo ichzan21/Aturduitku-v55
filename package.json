@@ -11,16 +11,18 @@
     "test:runtime": "node scripts/runtime-recovery.test.mjs",
     "test:viewport": "node scripts/mobile-viewport.test.mjs",
     "test:monitoring": "node scripts/monitoring-policy.test.mjs",
+    "test:pdf": "node scripts/pdf-statement.test.mjs",
     "test:e2e": "node scripts/e2e-production.mjs",
     "test:e2e:keyboard": "node scripts/e2e-keyboard-layout.mjs",
     "build": "npm run check:secrets && vite build",
-    "qa:release": "npm run test:ledger && npm run test:flows && npm run test:runtime && npm run test:viewport && npm run test:monitoring && npm run build && node scripts/prelaunch-check.mjs",
+    "qa:release": "npm run test:ledger && npm run test:flows && npm run test:runtime && npm run test:viewport && npm run test:monitoring && npm run test:pdf && npm run build && node scripts/prelaunch-check.mjs",
     "qa:full": "npm run qa:release && npm run test:e2e",
     "preview": "vite preview"
   },
   "dependencies": {
     "firebase": "^10.12.0",
     "firebase-admin": "^13.0.0",
+    "pdfjs-dist": "^6.2.108",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.12.7"

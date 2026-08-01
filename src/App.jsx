@@ -7,6 +7,7 @@ import { applyTransactionToWallets, findWallet, hasWallet, replaceTransactionInW
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
 import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "./incomeCategory.js";
+import { extractPdfStatement, parsePdfStatementLines } from "./pdfStatement.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -2366,12 +2367,16 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
   const [fileName, setFileName] = useState("");
   const [filter, setFilter] = useState("all");
   const [kat, setKat] = useState({});
+  const [pendingFile, setPendingFile] = useState(null);
+  const [pdfPassword, setPdfPassword] = useState("");
+  const [passwordState, setPasswordState] = useState("");
+  const [fileKind, setFileKind] = useState("");
   const BANKS = ["BCA","Mandiri","BNI","BRI","CIMB","Jenius","OVO","GoPay","Dana","ShopeePay","BSI","Permata","BTN","Generic"];
   const BANK_GUIDES = {
-    BCA:"myBCA → Rekening → Unduh Mutasi → CSV",
-    Mandiri:"Livin → Rekening → Cetak Rekening → Export",
-    BNI:"BNI Mobile → Informasi → Mutasi → Download",
-    BRI:"BRImo → Rekening → Mutasi → Download CSV",
+    BCA:"myBCA → Rekening → e-Statement/Mutasi → PDF atau CSV",
+    Mandiri:"Livin → Rekening → e-Statement → unduh PDF",
+    BNI:"wondr/BNI → Rekening → e-Statement atau Mutasi",
+    BRI:"BRImo → Rekening → e-Statement atau Mutasi",
     CIMB:"OCTO Mobile → Rekening → Mutasi → Export",
     Jenius:"Jenius → Akun → Riwayat Transaksi → Export CSV",
     OVO:"OVO → Transaksi → Filter → Download Riwayat",
@@ -2381,7 +2386,7 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
     BSI:"BSIm → Rekening → Mutasi → Download CSV",
     Permata:"PermataMobile X → Rekening → Mutasi",
     BTN:"BTN Mobile → Rekening → Mutasi CSV",
-    Generic:"Format otomatis — coba upload & lihat hasilnya",
+    Generic:"Deteksi otomatis untuk CSV dan PDF berbasis teks",
   };
   const BANK_ICONS = {
     BCA:"🔵",Mandiri:"🟡",BNI:"🟠",BRI:"🔵",CIMB:"🔴",
@@ -2389,29 +2394,61 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
     BSI:"🟢",Permata:"🔵",BTN:"🟡",Generic:"⚙️",
   };
 
+  const processFile = async (file, password="") => {
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) { setError("File terlalu besar. Maksimal 20 MB."); return; }
+    const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
+    const isCsv = /\.(csv|txt)$/i.test(file.name || "") || /(?:csv|text)/i.test(file.type || "");
+    if (!isPdf && !isCsv) { setError("Gunakan file e-Statement PDF atau mutasi CSV."); return; }
+    setFileName(file.name || (isPdf ? "e-statement.pdf" : "mutasi.csv"));
+    setFileKind(isPdf ? "PDF" : "CSV");
+    setPendingFile(file);
+    setLoading(true); setError(""); setPasswordState("");
+    try {
+      let rows;
+      if (isPdf) {
+        const lines = await extractPdfStatement(file, password);
+        const text = lines.join("\n");
+        const detected = detectBank(text);
+        const useBank = bankType === "Generic" ? detected : (detected !== "Generic" ? detected : bankType);
+        if (detected !== "Generic") setBankType(detected);
+        rows = parsePdfStatementLines(lines, useBank).map(row => ({
+          ...row,
+          katId: row.tipe === "pengeluaran" ? autoKat(row.ket) : 9,
+        }));
+      } else {
+        const text = await file.text();
+        const detected = detectBank(text);
+        const useBank = bankType === "Generic" ? detected : bankType;
+        if (detected !== "Generic") setBankType(detected);
+        rows = parseBankCSV(text, useBank);
+      }
+      if (!rows.length) {
+        setError(isPdf ? "Tidak ada transaksi yang terbaca. Pastikan PDF adalah e-Statement asli, bukan foto/scan." : t("toast_noData"));
+        return;
+      }
+      setParsed(rows);
+      const sel = {}; const categories = {};
+      rows.forEach((row, i) => { sel[i] = !row.needsReview; categories[i] = row.katId; });
+      setSelected(sel); setKat(categories); setPdfPassword(""); setStep(1);
+    } catch (err) {
+      if (err?.code === "PASSWORD_REQUIRED" || err?.message === "PASSWORD_REQUIRED") {
+        setPasswordState("required"); setError("PDF ini dilindungi password. Masukkan password e-Statement untuk membukanya.");
+      } else if (err?.code === "PASSWORD_INVALID" || err?.message === "PASSWORD_INVALID") {
+        setPasswordState("invalid"); setError("Password PDF tidak cocok. Periksa lalu coba lagi.");
+      } else if (err?.message === "PDF_IMAGE_ONLY") {
+        setError("PDF ini berupa scan/gambar sehingga teks transaksi tidak bisa dibaca. Gunakan e-Statement PDF asli dari aplikasi bank.");
+      } else if (err?.message === "PDF_TOO_LONG") {
+        setError("PDF terlalu panjang. Maksimal 120 halaman per impor.");
+      } else {
+        setError(`Gagal membaca ${isPdf ? "PDF" : "CSV"}. File mungkin rusak atau format bank belum dikenali.`);
+      }
+    } finally { setLoading(false); }
+  };
+
   const handleFile = (e) => {
     const file = e.target.files?.[0] || e;
-    if (!file) return;
-    setFileName(file.name||"file.csv");
-    setLoading(true); setError("");
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const text = ev.target.result;
-        const detected = detectBank(text);
-        const useBank = bankType==="Generic" ? detected : bankType;
-        if (detected!=="Generic") setBankType(detected);
-        const rows = parseBankCSV(text, useBank);
-        if (!rows.length) { setError(t("toast_noData")); setLoading(false); return; }
-        setParsed(rows);
-        const sel = {}; const k = {};
-        rows.forEach((r,i)=>{ sel[i]=true; k[i]=r.katId; });
-        setSelected(sel); setKat(k);
-        setStep(1);
-      } catch(err) { setError("Gagal membaca file. Pastikan file adalah CSV yang valid."); }
-      setLoading(false);
-    };
-    reader.readAsText(file, "UTF-8");
+    processFile(file);
   };
 
   const IDRf = n => "Rp " + Number(n||0).toLocaleString("id-ID");
@@ -2419,6 +2456,7 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
   const selectedCount = Object.values(selected).filter(Boolean).length;
   const totalMasuk = parsed.reduce((a,r,i)=>selected[i]&&r.tipe==="pemasukan"?a+Number(r.jml):a,0);
   const totalKeluar = parsed.reduce((a,r,i)=>selected[i]&&r.tipe==="pengeluaran"?a+Number(r.jml):a,0);
+  const reviewCount = parsed.filter(row=>row.needsReview).length;
   const toggleAll = () => {
     const idxs = filtered.map(([i])=>i);
     const allOn = idxs.every(i=>selected[i]);
@@ -2430,7 +2468,7 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
       bulan:MONTHS[new Date(r.tgl).getMonth()]||MONTHS[0],
       tahun:String(new Date(r.tgl).getFullYear()),
       dompetId, subKat:"", biaya:"0",
-      importRef:`${r.bank||bankType}|${i}|${r.tgl}|${r.tipe}|${r.jml}|${String(r.ket||"").trim().toLowerCase()}`,
+      importRef:`${r.bank||bankType}|${r.sourceIndex??i}|${r.tgl}|${r.tipe}|${r.jml}|${String(r.ket||"").trim().toLowerCase()}`,
     }));
     onImport(toImport, dompetId);
   };
@@ -2441,7 +2479,7 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
         <div>
           <div style={{fontSize:16,fontWeight:800,color:T.text}}>🏦 Import Mutasi Bank</div>
-          <div style={{fontSize:11,color:T.muted,marginTop:2}}>{step===0?"Upload file CSV dari m-banking atau internet banking":`${parsed.length} transaksi ditemukan dari ${fileName}`}</div>
+          <div style={{fontSize:11,color:T.muted,marginTop:2}}>{step===0?"Upload CSV atau e-Statement PDF dari bank":`${parsed.length} transaksi ditemukan dari ${fileName}`}</div>
         </div>
         <button onClick={onClose} style={{background:T.cardAlt,border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",color:T.muted,fontSize:16}}>X</button>
       </div>
@@ -2471,20 +2509,27 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
           <div style={{border:`2px dashed ${T.border}`,borderRadius:14,padding:"24px 18px",textAlign:"center",background:T.cardAlt}}>
             {loading?<div style={{color:T.accent,fontWeight:700}}>⏳ Memproses...</div>:<>
               <div style={{fontSize:36,marginBottom:8}}>📂</div>
-              <div style={{fontWeight:800,color:T.text,fontSize:14,marginBottom:3}}>Klik atau drag & drop file CSV</div>
+              <div style={{fontWeight:800,color:T.text,fontSize:14,marginBottom:3}}>Klik atau drag & drop file CSV/PDF</div>
               <div style={{fontSize:10,color:T.muted,lineHeight:1.6}}>BCA · Mandiri · BNI · BRI · CIMB<br/>Jenius · OVO · GoPay · Dana · ShopeePay · BSI</div>
             </>}
           </div>
-          <input type="file" accept=".csv,.txt" onChange={handleFile} style={{display:"none"}}/>
+          <input type="file" accept=".csv,.txt,.pdf,text/csv,application/pdf" onChange={handleFile} style={{display:"none"}}/>
         </label>
         {error&&<div style={{marginTop:8,color:T.err,fontSize:11,background:T.errBg,borderRadius:7,padding:"7px 11px"}}>{error}</div>}
+        {passwordState&&<div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,marginTop:8}}>
+          <input type="password" value={pdfPassword} onChange={e=>setPdfPassword(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&pdfPassword&&!loading)processFile(pendingFile,pdfPassword);}} placeholder="Password e-Statement" autoComplete="off" style={{minWidth:0,padding:"9px 11px",borderRadius:9,border:`1.5px solid ${T.inputBorder}`,background:T.input,color:T.text,fontSize:12,outline:"none"}}/>
+          <button type="button" disabled={!pdfPassword||loading} onClick={()=>processFile(pendingFile,pdfPassword)} style={{padding:"9px 13px",borderRadius:9,border:"none",background:pdfPassword?T.accent:T.border,color:pdfPassword?"white":T.muted,fontWeight:800,cursor:pdfPassword?"pointer":"default"}}>Buka PDF</button>
+        </div>}
+        <div style={{marginTop:8,fontSize:10,color:T.ok,background:T.okBg,border:`1px solid ${T.ok}30`,borderRadius:8,padding:"7px 10px"}}>
+          Privasi aman: file dan password diproses langsung di perangkat, tidak diunggah ke server.
+        </div>
         <div style={{marginTop:12,background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:9,padding:"9px 12px"}}>
-          <div style={{fontSize:11,fontWeight:700,color:T.info,marginBottom:5}}>💡 Cara download mutasi CSV:</div>
+          <div style={{fontSize:11,fontWeight:700,color:T.info,marginBottom:5}}>Cara mendapatkan mutasi CSV/PDF:</div>
           <div style={{fontSize:10,color:T.sub,lineHeight:1.75}}>
-            <b>BCA:</b> myBCA → Rekening → Unduh Mutasi → CSV<br/>
-            <b>Mandiri:</b> Livin → Rekening → Cetak Rekening → Export<br/>
-            <b>BNI:</b> BNI Mobile → Informasi → Mutasi → Download<br/>
-            <b>BRI:</b> BRImo → Rekening → Mutasi → Download CSV<br/>
+            <b>BCA:</b> myBCA → Rekening → e-Statement/Mutasi → PDF/CSV<br/>
+            <b>Mandiri:</b> Livin → Rekening → e-Statement → PDF<br/>
+            <b>BNI:</b> wondr/BNI → Rekening → e-Statement atau Mutasi<br/>
+            <b>BRI:</b> BRImo → Rekening → e-Statement atau Mutasi<br/>
             <b>Jenius:</b> Akun → Riwayat Transaksi → Export CSV<br/>
             <b>OVO/GoPay/Dana:</b> Riwayat → Download / Export<br/>
             <b>ShopeePay:</b> Saya → ShopeePay → Riwayat → Export
@@ -2492,6 +2537,10 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
         </div>
       </>}
       {step===1&&<>
+        <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:9,padding:"7px 10px",marginBottom:9,fontSize:10,color:T.sub}}>
+          <span><b>{fileKind||"File"}</b> diproses lokal. Periksa nominal dan arah transaksi sebelum impor.</span>
+          {reviewCount>0&&<span style={{flexShrink:0,color:T.warn,fontWeight:800}}>{reviewCount} perlu dicek</span>}
+        </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:10}}>
           <div style={{background:T.okBg,borderRadius:9,padding:"7px 11px"}}><div style={{fontSize:9,color:T.ok,fontWeight:700,textTransform:"uppercase"}}>{t("incomeLabel")}</div><div style={{fontSize:13,fontWeight:800,color:T.ok}}>{IDRf(totalMasuk)}</div></div>
           <div style={{background:T.errBg,borderRadius:9,padding:"7px 11px"}}><div style={{fontSize:9,color:T.err,fontWeight:700,textTransform:"uppercase"}}>{t("expenseLabel")}</div><div style={{fontSize:13,fontWeight:800,color:T.err}}>{IDRf(totalKeluar)}</div></div>
@@ -2514,8 +2563,11 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
               </div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:11,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.ket||"—"}</div>
-                <div style={{fontSize:9,color:T.muted,marginTop:1}}>{r.tgl} · {katName(kat[i]||r.katId)}</div>
+                <div style={{fontSize:9,color:r.needsReview?T.warn:T.muted,marginTop:1}}>{r.tgl} · {katName(kat[i]||r.katId)}{r.needsReview?" · Periksa arah":""}</div>
               </div>
+              <select aria-label={`Arah transaksi ${r.ket||i+1}`} value={r.tipe} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();const tipe=e.target.value;setParsed(rows=>rows.map((row,idx)=>idx===i?{...row,tipe,needsReview:false,katId:tipe==="pengeluaran"?autoKat(row.ket):9}:row));setKat(all=>({...all,[i]:tipe==="pengeluaran"?autoKat(r.ket):9}));setSelected(all=>({...all,[i]:true}));}} style={{padding:"4px 5px",borderRadius:7,border:`1px solid ${T.border}`,background:T.input,color:r.tipe==="pemasukan"?T.ok:T.err,fontSize:9,fontWeight:800,flexShrink:0}}>
+                <option value="pemasukan">Masuk</option><option value="pengeluaran">Keluar</option>
+              </select>
               <div style={{fontSize:12,fontWeight:800,color:r.tipe==="pemasukan"?T.ok:T.err,flexShrink:0}}>
                 {r.tipe==="pemasukan"?"+":"-"}{IDRf(r.jml)}
               </div>
