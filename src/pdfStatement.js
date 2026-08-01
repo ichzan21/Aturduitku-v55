@@ -121,16 +121,38 @@ const linesFromTextContent = content => {
   return rows.sort((a, b) => b.y - a.y).map(row => row.items.sort((a, b) => a.x - b.x).map(item => item.str).join(" ").trim()).filter(Boolean);
 };
 
+const readFileBuffer = file => {
+  if (typeof file?.arrayBuffer === "function") return file.arrayBuffer();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error("FILE_READ_FAILED"));
+    reader.readAsArrayBuffer(file);
+  });
+};
+
+export const isEncryptedPdfBytes = data => {
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data || 0);
+  const start = Math.max(0, bytes.length - 512 * 1024);
+  const trailer = new TextDecoder("latin1").decode(bytes.subarray(start));
+  return /\/Encrypt\b/.test(trailer);
+};
+
 export const extractPdfStatement = async (file, password = "") => {
+  const sourceBytes = new Uint8Array(await readFileBuffer(file));
+  if (!password && isEncryptedPdfBytes(sourceBytes)) {
+    const passwordError = new Error("PASSWORD_REQUIRED");
+    passwordError.code = "PASSWORD_REQUIRED";
+    throw passwordError;
+  }
   const [{ getDocument, GlobalWorkerOptions }, workerModule] = await Promise.all([
     import("pdfjs-dist/legacy/build/pdf.mjs"),
     import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url"),
   ]);
   GlobalWorkerOptions.workerSrc = workerModule.default;
-  const data = new Uint8Array(await file.arrayBuffer());
   let pdf;
   try {
-    pdf = await getDocument({ data, password, isEvalSupported: false }).promise;
+    pdf = await getDocument({ data: sourceBytes, password, isEvalSupported: false }).promise;
   } catch (error) {
     const message = String(error?.message || "");
     if (error?.name === "PasswordException" || /password/i.test(message)) {

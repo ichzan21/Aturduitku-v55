@@ -2457,6 +2457,7 @@ function ImportMutasiBank({ dompet, onImport, onClose, T, lang="id" }) {
       } else if (err?.message === "PDF_TOO_LONG") {
         setError("PDF terlalu panjang. Maksimal 120 halaman per impor.");
       } else {
+        reportClientError(err, {type:"pdf_import_error",component:"ImportMutasiBank"});
         setError(`Gagal membaca ${isPdf ? "PDF" : "CSV"}. File mungkin rusak atau format bank belum dikenali.`);
       }
     } finally { setLoading(false); }

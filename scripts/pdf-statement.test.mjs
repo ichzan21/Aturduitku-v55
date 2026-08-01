@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { parsePdfStatementLines } from "../src/pdfStatement.js";
+import { isEncryptedPdfBytes, parsePdfStatementLines } from "../src/pdfStatement.js";
 
 const bca = parsePdfStatementLines([
   "BANK CENTRAL ASIA E-STATEMENT PERIODE JULI 2026",
@@ -36,5 +36,7 @@ const dottedDate = parsePdfStatementLines([
   "06.07.2026 TRANSFER KELUAR 125.000,00 DB 8.380.000,00",
 ], "Generic");
 assert.equal(dottedDate[0].jml, "125000", "Tanggal dengan titik tidak boleh terbaca sebagai nominal");
+assert.equal(isEncryptedPdfBytes(new TextEncoder().encode("trailer << /Encrypt 14 0 R >>")), true, "PDF terenkripsi harus dikenali sebelum mesin PDF dimuat");
+assert.equal(isEncryptedPdfBytes(new TextEncoder().encode("trailer << /Root 1 0 R >>")), false, "PDF biasa tidak boleh meminta password");
 
 console.log("PDF e-statement parser tests passed");
