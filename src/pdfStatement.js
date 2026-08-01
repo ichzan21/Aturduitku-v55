@@ -145,11 +145,8 @@ export const extractPdfStatement = async (file, password = "") => {
     passwordError.code = "PASSWORD_REQUIRED";
     throw passwordError;
   }
-  const [{ getDocument, GlobalWorkerOptions }, workerModule] = await Promise.all([
-    import("pdfjs-dist/legacy/build/pdf.mjs"),
-    import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url"),
-  ]);
-  GlobalWorkerOptions.workerSrc = workerModule.default;
+  const { loadPdfRuntime } = await import("./pdfRuntime.js");
+  const { getDocument } = await loadPdfRuntime();
   let pdf;
   try {
     pdf = await getDocument({ data: sourceBytes, password, isEvalSupported: false }).promise;
@@ -170,7 +167,8 @@ export const extractPdfStatement = async (file, password = "") => {
     lines.push(...linesFromTextContent(content));
     page.cleanup();
   }
-  await pdf.destroy();
+  if (typeof pdf.cleanup === "function") await pdf.cleanup();
+  if (typeof pdf.destroy === "function") await pdf.destroy();
   if (lines.join("").length < 40) throw new Error("PDF_IMAGE_ONLY");
   return lines;
 };
