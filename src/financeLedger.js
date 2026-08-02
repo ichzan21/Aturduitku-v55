@@ -119,11 +119,23 @@ const transactionDateDistance = (left, right) => {
 
 const transferDescription = value => TRANSFER_WORDS.test(String(value || "")) && !NON_TRANSFER_PAYMENT.test(String(value || ""));
 
+// Words that appear in almost every wallet name ("Bank Jago", "Dompet Utama")
+// and just as often inside statement descriptions. Matching on them alone would
+// link two unrelated transfers that merely share an amount and a date.
+const GENERIC_WALLET_TOKENS = new Set([
+  "bank","dompet","rekening","tabungan","kartu","akun","saldo","utama","cadangan",
+  "digital","wallet","ewallet","pribadi","harian","payroll","simpanan","giro",
+]);
+
 const descriptionMentionsWallet = (description, wallet) => {
   const text = ` ${normalizedWords(description)} `;
   const walletName = normalizedWords(wallet?.nama);
-  if (walletName.length >= 3 && text.includes(` ${walletName} `)) return true;
-  return walletName.split(" ").some(word => word.length >= 3 && text.includes(` ${word} `));
+  if (!walletName) return false;
+  const words = walletName.split(" ").filter(Boolean);
+  const distinctive = words.filter(word => word.length >= 3 && !GENERIC_WALLET_TOKENS.has(word));
+  // The full name still counts, but only when it carries something distinctive.
+  if (distinctive.length && walletName.length >= 3 && text.includes(` ${walletName} `)) return true;
+  return distinctive.some(word => text.includes(` ${word} `));
 };
 
 const meaningfulTokens = description => new Set(normalizedWords(description).split(" ").filter(word =>
@@ -153,47 +165,59 @@ export const pairImportedInternalTransfers = (transactions, wallets = []) => {
     return transaction;
   });
 
-  const outgoing = restored.filter(tx => tx.importRef && tx.tipe === "pengeluaran" && transferDescription(tx.ket));
-  const incoming = restored.filter(tx => tx.importRef && tx.tipe === "pemasukan" && transferDescription(tx.ket));
+  // Rows are tracked by their position, never by id: transactions restored from
+  // older backups can share an id or have none at all, and an id-keyed map would
+  // then stamp one row's pairing onto every other row that looks the same.
+  const optedOut = new Set();
+  restored.forEach(transaction => {
+    if (transaction?.internalTransferOptOut) optedOut.add(String(transaction.internalTransferOptOut));
+  });
+  const indexed = restored.map((tx, index) => ({ tx, index }));
+  const outgoing = indexed.filter(({tx}) => tx.importRef && tx.tipe === "pengeluaran" && transferDescription(tx.ket));
+  const incoming = indexed.filter(({tx}) => tx.importRef && tx.tipe === "pemasukan" && transferDescription(tx.ket));
   const incomingByAmount = new Map();
-  incoming.forEach(transaction => {
-    const amount = moneyNumber(transaction.jml);
+  incoming.forEach(entry => {
+    const amount = moneyNumber(entry.tx.jml);
     const rows = incomingByAmount.get(amount);
-    if (rows) rows.push(transaction);
-    else incomingByAmount.set(amount,[transaction]);
+    if (rows) rows.push(entry);
+    else incomingByAmount.set(amount,[entry]);
   });
   const candidates = [];
-  for (const out of outgoing) {
-    for (const inc of incomingByAmount.get(moneyNumber(out.jml)) || []) {
+  for (const outEntry of outgoing) {
+    const out = outEntry.tx;
+    for (const incEntry of incomingByAmount.get(moneyNumber(out.jml)) || []) {
+      const inc = incEntry.tx;
       if (sameId(out.dompetId, inc.dompetId)) continue;
       const dateDistance = transactionDateDistance(out.tgl, inc.tgl);
       if (dateDistance > 1) continue;
+      const pairId = `internal|${String(out.importRef)}|${String(inc.importRef)}`;
+      if (optedOut.has(pairId)) continue;
       const outWallet = findWallet(wallets, out.dompetId);
       const inWallet = findWallet(wallets, inc.dompetId);
       const crossWalletHint = descriptionMentionsWallet(inc.ket, outWallet)
         || descriptionMentionsWallet(out.ket, inWallet)
         || descriptionsOverlap(out.ket, inc.ket);
       if (!crossWalletHint) continue;
-      candidates.push({out,inc});
+      candidates.push({outEntry,incEntry,pairId});
     }
   }
 
   const outCounts = new Map();
   const inCounts = new Map();
-  candidates.forEach(({out,inc}) => {
-    outCounts.set(String(out.id), (outCounts.get(String(out.id)) || 0) + 1);
-    inCounts.set(String(inc.id), (inCounts.get(String(inc.id)) || 0) + 1);
+  candidates.forEach(({outEntry,incEntry}) => {
+    outCounts.set(outEntry.index, (outCounts.get(outEntry.index) || 0) + 1);
+    inCounts.set(incEntry.index, (inCounts.get(incEntry.index) || 0) + 1);
   });
-  const accepted = candidates.filter(({out,inc}) => outCounts.get(String(out.id)) === 1 && inCounts.get(String(inc.id)) === 1);
-  const pairById = new Map();
-  accepted.forEach(({out,inc}) => {
-    const pairId = `internal|${String(out.importRef)}|${String(inc.importRef)}`;
+  const accepted = candidates.filter(({outEntry,incEntry}) =>
+    outCounts.get(outEntry.index) === 1 && inCounts.get(incEntry.index) === 1);
+  const pairByIndex = new Map();
+  accepted.forEach(({outEntry,incEntry,pairId}) => {
     const matchedAt = previousPairs.get(pairId) || new Date().toISOString();
-    pairById.set(String(out.id), {pairId,direction:"keluar",matchedAt});
-    pairById.set(String(inc.id), {pairId,direction:"masuk",matchedAt});
+    pairByIndex.set(outEntry.index, {pairId,direction:"keluar",matchedAt});
+    pairByIndex.set(incEntry.index, {pairId,direction:"masuk",matchedAt});
   });
-  const nextTransactions = restored.map(transaction => {
-    const pair = pairById.get(String(transaction.id));
+  const nextTransactions = restored.map((transaction, index) => {
+    const pair = pairByIndex.get(index);
     if (!pair) return transaction;
     return {
       ...transaction,
@@ -203,11 +227,25 @@ export const pairImportedInternalTransfers = (transactions, wallets = []) => {
       internalTransferMatchedAt:pair.matchedAt,
     };
   });
-  const newPairCount = accepted.reduce((count,{out,inc}) => {
-    const pairId = `internal|${String(out.importRef)}|${String(inc.importRef)}`;
-    return count + (previousPairs.has(pairId) ? 0 : 1);
-  },0);
+  const newPairCount = accepted.reduce((count,{pairId}) =>
+    count + (previousPairs.has(pairId) ? 0 : 1), 0);
   return { transactions:nextTransactions, pairCount:accepted.length, newPairCount };
+};
+
+// Lets the user undo a wrong automatic match. Both rows keep an opt-out marker
+// so a later re-import (or app reload) does not silently pair them again.
+export const unlinkInternalTransferPair = (transactions, pairId) => {
+  const target = String(pairId || "");
+  if (!target) return transactions || [];
+  return (transactions || []).map(transaction => {
+    if (String(transaction?.internalTransferPairId || "") !== target) return transaction;
+    const { internalTransferPairId, internalTransferDirection, internalTransferMatchedAt, ...rest } = transaction;
+    return {
+      ...rest,
+      tipe: transaction.tipe === "transfer_internal_masuk" ? "pemasukan" : "pengeluaran",
+      internalTransferOptOut: target,
+    };
+  });
 };
 
 export const reconcileImportedStatement = (existingTransactions, wallets, incomingTransactions, walletId, options = {}) => {

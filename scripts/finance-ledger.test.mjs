@@ -8,6 +8,7 @@ import {
   reconcileImportedStatement,
   transactionValidationError,
   uniqueNewTransactions,
+  unlinkInternalTransferPair,
 } from "../src/financeLedger.js";
 
 const balances = wallets => Object.fromEntries(wallets.map(wallet => [String(wallet.id),Number(wallet.saldo)]));
@@ -123,5 +124,119 @@ const ambiguousRows = [
   {id:"in-2",tgl:"2026-07-15",tipe:"pemasukan",jml:"500000",ket:"Transfer dari BCA IKSAN",dompetId:"bni-2",importRef:"BNI|21|in"},
 ];
 assert.equal(pairImportedInternalTransfers(ambiguousRows,[{id:"bca",nama:"BCA"},{id:"bni",nama:"BNI"},{id:"bni-2",nama:"BNI 2"}]).pairCount,0,"Nominal dengan beberapa pasangan tidak boleh dicocokkan otomatis");
+
+// Transaksi lama tanpa id tidak boleh saling mewarisi status pasangan.
+const idlessRows = [
+  {tgl:"2026-07-15",tipe:"pengeluaran",jml:"500000",ket:"Transfer ke BNI IKSAN",dompetId:"bca",importRef:"BCA|40|out"},
+  {tgl:"2026-07-15",tipe:"pemasukan",jml:"500000",ket:"Transfer dari BCA IKSAN",dompetId:"bni",importRef:"BNI|41|in"},
+  {tgl:"2026-07-15",tipe:"pengeluaran",jml:"9000",ket:"Beli kopi",dompetId:"bca",importRef:"BCA|42|kopi"},
+];
+const idless = pairImportedInternalTransfers(idlessRows,[{id:"bca",nama:"BCA"},{id:"bni",nama:"BNI"}]);
+assert.equal(idless.pairCount,1,"Baris tanpa id tetap harus dipasangkan sekali");
+assert.deepEqual(idless.transactions.map(tx=>tx.tipe),
+  ["transfer_internal_keluar","transfer_internal_masuk","pengeluaran"],
+  "Transaksi lain tanpa id tidak boleh ikut berubah menjadi transfer internal");
+
+// Nama dompet yang generik tidak boleh menjadi satu-satunya alasan pencocokan.
+const genericWalletRows = [
+  {id:"g-out",tgl:"2026-07-15",tipe:"pengeluaran",jml:"250000",ket:"Top up dompet digital merchant",dompetId:"w1",importRef:"BCA|50|out"},
+  {id:"g-in",tgl:"2026-07-15",tipe:"pemasukan",jml:"250000",ket:"Transfer dari pihak ketiga",dompetId:"w2",importRef:"BNI|51|in"},
+];
+assert.equal(
+  pairImportedInternalTransfers(genericWalletRows,[{id:"w1",nama:"Dompet Utama"},{id:"w2",nama:"Dompet Cadangan"}]).pairCount,
+  0,
+  "Kata umum seperti 'dompet' atau 'bank' tidak boleh memicu pasangan palsu");
+
+// Nama dompet yang khas tetap boleh menjadi petunjuk.
+const distinctiveWalletRows = [
+  {id:"d2-out",tgl:"2026-07-15",tipe:"pengeluaran",jml:"250000",ket:"Transfer ke rekening Jenius pribadi",dompetId:"w1",importRef:"BCA|60|out"},
+  {id:"d2-in",tgl:"2026-07-15",tipe:"pemasukan",jml:"250000",ket:"Transfer masuk dari luar",dompetId:"w2",importRef:"JENIUS|61|in"},
+];
+assert.equal(
+  pairImportedInternalTransfers(distinctiveWalletRows,[{id:"w1",nama:"Bank BCA"},{id:"w2",nama:"Jenius"}]).pairCount,
+  1,
+  "Nama dompet yang khas harus tetap dikenali sebagai petunjuk transfer internal");
+
+// Pengguna dapat melepas pasangan yang salah, dan pelepasan itu harus bertahan.
+const wrongPair = pairImportedInternalTransfers(internalRows,[{id:"bca",nama:"BCA"},{id:"bni",nama:"BNI"}]);
+const pairIdToUndo = wrongPair.transactions.find(tx=>tx.id==="out").internalTransferPairId;
+const unlinked = unlinkInternalTransferPair(wrongPair.transactions,pairIdToUndo);
+assert.deepEqual(
+  [unlinked.find(tx=>tx.id==="out").tipe,unlinked.find(tx=>tx.id==="in").tipe],
+  ["pengeluaran","pemasukan"],
+  "Melepas pasangan harus mengembalikan kedua baris ke tipe aslinya");
+assert.equal(unlinked.find(tx=>tx.id==="out").internalTransferPairId,undefined,"Metadata pasangan harus dibersihkan setelah dilepas");
+const afterUnlinkWallets = unlinked.reduce((all,tx)=>applyTransactionToWallets(all,tx),[{id:"bca",saldo:"1000000"},{id:"bni",saldo:"0"}]);
+assert.deepEqual(balances(afterUnlinkWallets),{bca:0,bni:500000},"Melepas pasangan tidak boleh mengubah saldo dompet");
+const rePaired = pairImportedInternalTransfers(unlinked,[{id:"bca",nama:"BCA"},{id:"bni",nama:"BNI"}]);
+assert.equal(rePaired.pairCount,0,"Pasangan yang sudah dilepas pengguna tidak boleh terbentuk lagi otomatis");
+assert.equal(rePaired.transactions.find(tx=>tx.id==="out").tipe,"pengeluaran","Baris yang dilepas harus tetap menjadi pengeluaran biasa");
+
+// Integrasi: impor mutasi dua rekening berurutan seperti yang dilakukan pengguna.
+// Saldo tiap dompet harus mengikuti saldo akhir banknya, transfer antar dompet
+// sendiri tertaut, dan laporan tidak lagi menghitungnya sebagai masuk/keluar.
+const importStatement = (state, rows, walletId, closingBalance) => {
+  const result = reconcileImportedStatement(state.txs, state.wallets, rows, walletId, { closingBalance });
+  const paired = pairImportedInternalTransfers(result.transactions, result.wallets);
+  return { txs:paired.transactions, wallets:result.wallets, newPairCount:paired.newPairCount };
+};
+const startState = {
+  txs:[],
+  wallets:[{id:"w-bca",nama:"BCA",saldo:"0"},{id:"w-bni",nama:"BNI",saldo:"0"}],
+};
+const bcaStatementRows = [
+  {id:"s-bca-1",tgl:"2026-07-10",tipe:"pemasukan",jml:"5000000",ket:"Gaji bulanan",dompetId:"w-bca",importRef:"BCA|1|gaji"},
+  {id:"s-bca-2",tgl:"2026-07-12",tipe:"pengeluaran",jml:"150000",ket:"Pembayaran QRIS TOKO FALIH",dompetId:"w-bca",importRef:"BCA|2|qris"},
+  {id:"s-bca-3",tgl:"2026-07-15",tipe:"pengeluaran",jml:"1000000",ket:"Transfer BI-FAST ke BNI MUHAMMAD NOER",dompetId:"w-bca",importRef:"BCA|3|out"},
+];
+const afterBca = importStatement(startState, bcaStatementRows, "w-bca", 3850000);
+assert.equal(afterBca.newPairCount,0,"Belum ada pasangan sebelum rekening lawannya diimpor");
+assert.equal(afterBca.txs.find(tx=>tx.id==="s-bca-3").tipe,"pengeluaran","Sebelum pasangannya ada, transfer tetap pengeluaran biasa");
+
+const bniStatementRows = [
+  {id:"s-bni-1",tgl:"2026-07-15",tipe:"pemasukan",jml:"1000000",ket:"Transfer dari BCA MUHAMMAD NOER",dompetId:"w-bni",importRef:"BNI|1|in"},
+  {id:"s-bni-2",tgl:"2026-07-16",tipe:"pengeluaran",jml:"250000",ket:"Pembayaran Qris SHOPEE INDONESIA",dompetId:"w-bni",importRef:"BNI|2|qris"},
+];
+const afterBni = importStatement(afterBca, bniStatementRows, "w-bni", 750000);
+assert.equal(afterBni.newPairCount,1,"Impor rekening kedua harus menautkan satu transfer internal");
+assert.equal(afterBni.txs.find(tx=>tx.id==="s-bca-3").tipe,"transfer_internal_keluar");
+assert.equal(afterBni.txs.find(tx=>tx.id==="s-bni-1").tipe,"transfer_internal_masuk");
+assert.deepEqual(balances(afterBni.wallets),{"w-bca":3850000,"w-bni":750000},
+  "Saldo tiap dompet harus tetap mengikuti saldo akhir banknya");
+
+const reportTotals = txs => txs.reduce((totals,tx)=>{
+  if(tx.tipe==="pemasukan") totals.income+=moneyNumber(tx.jml);
+  if(tx.tipe==="pengeluaran") totals.expense+=moneyNumber(tx.jml);
+  return totals;
+},{income:0,expense:0});
+assert.deepEqual(reportTotals(afterBni.txs),{income:5000000,expense:400000},
+  "Laporan tidak boleh menghitung transfer antar dompet sendiri sebagai pemasukan atau pengeluaran");
+
+// Impor ulang file yang sama tidak boleh menggandakan atau melepas pasangan.
+const reimported = importStatement(afterBni, bniStatementRows, "w-bni", 750000);
+assert.equal(reimported.txs.length,afterBni.txs.length,"Impor ulang tidak boleh menambah baris duplikat");
+assert.equal(reimported.newPairCount,0,"Impor ulang tidak boleh melaporkan pasangan baru");
+assert.equal(reimported.txs.find(tx=>tx.id==="s-bca-3").tipe,"transfer_internal_keluar","Pasangan harus bertahan setelah impor ulang");
+assert.deepEqual(balances(reimported.wallets),{"w-bca":3850000,"w-bni":750000},"Impor ulang tidak boleh menggeser saldo");
+
+// Jalur produksi PDF: impor ulang periode yang sama mengganti baris lama.
+// Pasangan transfer internal harus terbentuk kembali, bukan menggantung.
+const replaceOptions = {
+  closingBalance:3850000,
+  provider:"BCA",
+  replaceImportedPeriod:true,
+  periodStart:"2026-07-10",
+  periodEnd:"2026-07-15",
+};
+const replacedResult = reconcileImportedStatement(afterBni.txs, afterBni.wallets, bcaStatementRows, "w-bca", replaceOptions);
+const replacedPaired = pairImportedInternalTransfers(replacedResult.transactions, replacedResult.wallets);
+assert.equal(replacedResult.replacedCount,3,"Seluruh baris BCA periode itu harus diganti");
+assert.equal(replacedPaired.transactions.length,afterBni.txs.length,"Impor ulang periode tidak boleh mengubah jumlah transaksi");
+assert.equal(replacedPaired.newPairCount,0,"Pasangan lama tidak boleh dihitung sebagai pasangan baru");
+assert.equal(replacedPaired.pairCount,1,"Pasangan harus terbentuk kembali setelah baris lama diganti");
+assert.equal(replacedPaired.transactions.find(tx=>tx.importRef==="BNI|1|in").tipe,"transfer_internal_masuk",
+  "Sisi BNI tidak boleh menggantung setelah sisi BCA diimpor ulang");
+assert.deepEqual(balances(replacedResult.wallets),{"w-bca":3850000,"w-bni":750000},
+  "Impor ulang periode tidak boleh menggeser saldo dompet");
 
 console.log("Finance ledger tests passed");

@@ -3,7 +3,7 @@ import {
   getCurrentIdToken, onAuthChange, sendResetPassword, sendVerificationEmail, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
 } from "./firebase.js";
 import { reportClientError } from "./monitoring.js";
-import { applyTransactionToWallets, findWallet, hasWallet, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, walletDeltasForTransaction } from "./financeLedger.js";
+import { applyTransactionToWallets, findWallet, hasWallet, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, unlinkInternalTransferPair, walletDeltasForTransaction } from "./financeLedger.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
 import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "./incomeCategory.js";
@@ -6663,6 +6663,12 @@ Saldo amplop bertambah.`}]);
     }
   });
 
+  const unlinkInternalTransfer=tx=>{
+    if(!tx?.internalTransferPairId) return;
+    setS(p=>({...p,txs:unlinkInternalTransferPair(p.txs,tx.internalTransferPairId)}));
+    showToast("Tautan transfer internal dilepas. Kedua baris kembali dihitung di laporan.");
+  };
+
   const renderTxItem=t=>{
     const dompet=findWallet(s.dompet,t.dompetId);
     const kat=s.budgets.find(b=>b.id===t.katId);
@@ -6688,6 +6694,7 @@ Saldo amplop bertambah.`}]);
           <span style={{fontWeight:700,fontSize:13,color:txColor}}>
             {isInternalTransfer?"↔ ":isIn||isEnvelopeRefund?"+":t.tipe==="penyesuaian"?(N(t.adjustmentDelta)>=0?"+":"-"):t.tipe==="alokasi_amplop"?"→":t.tipe==="transfer"?"→":"-"}{IDRs(N(t.jml))}
           </span>
+          {isInternalTransfer&&t.internalTransferPairId&&<button type="button" onClick={()=>unlinkInternalTransfer(t)} title="Bukan transfer antar dompet saya" aria-label="Lepas tautan transfer internal" style={{width:30,height:30,borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:13,fontWeight:900,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>⛓</button>}
           {t.locked?<span title="Catatan otomatis" style={{fontSize:11,color:T.muted,fontWeight:800}}>AUTO</span>:<>
             {canEditTransaction(t)&&<button type="button" onClick={()=>openEditTransaction(t)} title="Edit transaksi" aria-label="Edit transaksi" style={{width:30,height:30,borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:15,fontWeight:900,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>✎</button>}
             <Del onClick={()=>deleteTx(t)}/>
