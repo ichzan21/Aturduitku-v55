@@ -2337,10 +2337,13 @@ function YearInReview({ s, T, lang, onClose }) {
   );
 }
 function ImportMutasiBank({ dompet, budgets=[], onImport, onClose, T, lang="id" }) {
+  const isEnglish = lang==="en";
   const t = k => ({
     toast_noData:"Tidak ada data transaksi ditemukan.",
     all:"Semua", inflow2:"Masuk", outflow2:"Keluar",
     allSelected:"Batalkan Semua", selectAll:"Pilih Semua",
+    incomeLabel:isEnglish?"Income":"Pemasukan",
+    expenseLabel:isEnglish?"Expenses":"Pengeluaran",
   }[k]||k);
   const [step, setStep] = useState(0);
   const [bankType, setBankType] = useState("Generic");
