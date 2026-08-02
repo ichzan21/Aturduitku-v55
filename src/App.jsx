@@ -11,6 +11,7 @@ import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransa
 import { extractPdfStatement, parsePdfStatementLines, validatePdfStatement } from "./pdfStatement.js";
 import { detectFinancialProvider as detectBank, findWalletForProvider, parseStatementCSV as parseBankCSV, walletDraftForProvider } from "./bankImport.js";
 import { EXPENSE_CATEGORY_RULES, resolveExpenseCategory } from "./transactionCategory.js";
+import { inferDirectTransactionAction, normalizeAiTransactionAction, parseConversationalMoney } from "./aiIntent.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -4629,10 +4630,17 @@ CONTOH GAYA:
     setAiInput("");
     setAiLoading(true);
     try {
-      const reply = await callAi(
-        newMsgs.filter(m=>m.role!=="system").map(m=>({role:m.role,content:m.content})),
-        getAiSystemPrompt()
-      );
+      const directAction=inferDirectTransactionAction(msg);
+      const directWallet=directAction?s.dompet.find(dompet=>{
+        const walletName=String(dompet.nama||"").toLowerCase().trim();
+        return walletName&&String(msg).toLowerCase().includes(walletName);
+      }):null;
+      const reply = directAction
+        ? JSON.stringify({...directAction,dompet:directWallet?.nama||s.dompet[0]?.nama||"",kat:directAction.tipe==="pemasukan"?inferIncomeCategory(msg):undefined})
+        : await callAi(
+          newMsgs.filter(m=>m.role!=="system").map(m=>({role:m.role,content:m.content})),
+          getAiSystemPrompt()
+        );
 
       // Try parse JSON action
       let parsed = null;
@@ -4640,6 +4648,7 @@ CONTOH GAYA:
         const jsonMatch = reply.match(/\{[\s\S]*?"action"\s*:[\s\S]*?\}/);
         if(jsonMatch) parsed = JSON.parse(jsonMatch[0]);
       } catch(e){}
+      parsed=normalizeAiTransactionAction(parsed,msg);
       const cleanAiText = v => String(v||"").toLowerCase().trim();
       const findAiItem = (items, name, keys=["nama","kat"]) => {
         const q=cleanAiText(name);
@@ -4660,16 +4669,7 @@ CONTOH GAYA:
         const body = lines.filter(Boolean).map(line=>`• ${line}`).join("\n");
         aiDone(`${icon} **${title}**${body?`\n\n${body}`:""}${next?`\n\n${next}`:""}`);
       };
-      const parseAiMoney = v => {
-        const text=String(v||"").toLowerCase().replace(/\s+/g,"");
-        if(!text) return 0;
-        const match=text.match(/[0-9][0-9.,]*/);
-        if(!match) return 0;
-        const numeric=Number(match[0].replace(/\./g,"").replace(",", "."))||0;
-        if(/jt|juta/.test(text)) return Math.round(numeric*1000000);
-        if(/rb|ribu|k/.test(text)) return Math.round(numeric*1000);
-        return Math.round(numeric);
-      };
+      const parseAiMoney = parseConversationalMoney;
       const aiAmount = (...vals) => parseAiMoney(vals.find(v=>v!==undefined&&v!==null&&String(v)!=="")||0);
       const isInvestmentIntent = source => /(investasi|emas(?:\s+digital)?|reksadana|saham|obligasi|deposito|sukuk|crypto|kripto|aset\s+digital)/i.test(String(source||""));
       if(parsed?.action==="catat" && isInvestmentIntent(msg)) {

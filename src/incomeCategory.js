@@ -5,7 +5,7 @@ export const inferIncomeCategory=description=>{
   if(!text) return "";
   const rules=[
     ["Gaji",/(^|\b)(gaji|salary|payroll|upah|tunjangan|thr)(\b|$)/],
-    ["Freelance",/(^|\b)(freelance|freelancer|honor|honorer|fee proyek|project fee|jasa|klien|client)(\b|$)/],
+    ["Freelance",/(^|\b)(freelance|freelancer|honor|honorer|fee proyek|project fee|jasa|klien|client|makeup|make up|mua|artist|artis)(\b|$)/],
     ["Bonus",/(^|\b)(bonus|insentif|komisi|tip|tips|reward|cashback|reimburse|hadiah|kado)(\b|$)/],
     ["Investasi",/(^|\b)(dividen|deposito|bunga bank|yield|investasi|reksadana|saham|crypto|kripto)(\b|$)/],
     ["Bisnis",/(^|\b)(bisnis|usaha|jualan|penjualan|order|pesanan|reseller|affiliate|afiliasi|customer|pelanggan)(\b|$)/],
