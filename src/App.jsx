@@ -6751,6 +6751,16 @@ Saldo amplop bertambah.`}]);
   const supportHref=`mailto:${supportEmail}?subject=${supportSubject}&body=${supportBody}`;
   const supportBugBody=encodeURIComponent(`Halo admin AturDuitku,\n\nSaya mau lapor kendala/bug.\n\nEmail akun: ${fireUser?.email||accessProfile?.email||"-"}\nNama: ${accessProfile?.displayName||fireUser?.displayName||s.name||"-"}\nHalaman: ${page}\nStatus akun: ${accessProfile?.approvalStatus||"belum login"}\nStatus sync: ${!isOnline?"offline":syncStatus}\nMode PWA: ${isStandalone?"terpasang":"browser"}\nPerangkat: ${typeof navigator!=="undefined"?(navigator.userAgent||"").slice(0,160):"-"}\n\nKendala yang saya alami:\n`);
   const supportBugWhatsappHref="https://wa.me/6287785472696?text="+supportBugBody;
+  const openSupportLink=(event,href)=>{
+    event?.preventDefault();
+    event?.stopPropagation();
+    if(typeof window==="undefined"||!href)return;
+    try{
+      window.location.assign(href);
+    }catch{
+      window.location.href=href;
+    }
+  };
   const hasPasswordLogin=Boolean(fireUser?.providerData?.some(provider=>provider.providerId==="password"));
   const formatCloudTime=(value)=>value?new Date(value).toLocaleString("id-ID",{dateStyle:"medium",timeStyle:"short"}):"Belum tersedia";
   const handleResetPassword=async()=>{
@@ -6898,7 +6908,7 @@ Saldo amplop bertambah.`}]);
             </div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            <a href={supportWhatsappHref} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7,color:"#052E16",fontWeight:900,textDecoration:"none",background:"#86EFAC",border:"1px solid rgba(134,239,172,.45)",borderRadius:12,padding:"10px 11px",fontSize:12}}>WhatsApp</a>
+            <a href={supportWhatsappHref} target="_self" onClick={event=>openSupportLink(event,supportWhatsappHref)} aria-label="Hubungi admin melalui WhatsApp" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7,minHeight:46,color:"#052E16",fontWeight:900,textDecoration:"none",background:"#86EFAC",border:"1px solid rgba(134,239,172,.45)",borderRadius:12,padding:"10px 11px",fontSize:12,touchAction:"manipulation",position:"relative",zIndex:1}}>WhatsApp</a>
             <a href={supportInstagramHref} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7,color:"white",fontWeight:900,textDecoration:"none",background:"rgba(124,58,237,.72)",border:"1px solid rgba(196,181,253,.32)",borderRadius:12,padding:"10px 11px",fontSize:12}}>Instagram</a>
           </div>
         </div>
@@ -7579,7 +7589,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{fontSize:13,fontWeight:900,color:!isOnline?T.warn:T.err,marginBottom:2}}>{!isOnline?"Kamu sedang offline":"Sinkronisasi perlu dicek"}</div>
               <div style={{fontSize:11,color:T.sub,lineHeight:1.55}}>Data tetap aman tersimpan di perangkat ini. AturDuitku akan mencoba sync otomatis lagi saat koneksi stabil.</div>
             </div>
-            <a href={supportBugWhatsappHref} target="_blank" rel="noreferrer" style={{fontSize:11,fontWeight:900,color:!isOnline?T.warn:T.err,textDecoration:"none",background:T.card,border:`1px solid ${T.border}`,borderRadius:999,padding:"7px 10px",whiteSpace:"nowrap"}}>Lapor</a>
+            <a href={supportBugWhatsappHref} target="_self" onClick={event=>openSupportLink(event,supportBugWhatsappHref)} style={{fontSize:11,fontWeight:900,color:!isOnline?T.warn:T.err,textDecoration:"none",background:T.card,border:`1px solid ${T.border}`,borderRadius:999,padding:"7px 10px",whiteSpace:"nowrap"}}>Lapor</a>
           </div>
         </div>}
 
@@ -9334,8 +9344,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     </div>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8}}>
-                    <a href={supportWhatsappHref} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"11px 14px",borderRadius:14,background:T.ok,color:"white",fontSize:13,fontWeight:900,textDecoration:"none",boxShadow:`0 12px 28px ${T.ok}22`}}>Hubungi Admin</a>
-                    <a href={supportBugWhatsappHref} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"11px 14px",borderRadius:14,background:T.accentBg,color:T.accent,border:`1px solid ${T.accent}44`,fontSize:13,fontWeight:900,textDecoration:"none"}}>Kirim masukan / bug</a>
+                    <a href={supportWhatsappHref} target="_self" onClick={event=>openSupportLink(event,supportWhatsappHref)} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"11px 14px",borderRadius:14,background:T.ok,color:"white",fontSize:13,fontWeight:900,textDecoration:"none",boxShadow:`0 12px 28px ${T.ok}22`}}>Hubungi Admin</a>
+                    <a href={supportBugWhatsappHref} target="_self" onClick={event=>openSupportLink(event,supportBugWhatsappHref)} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"11px 14px",borderRadius:14,background:T.accentBg,color:T.accent,border:`1px solid ${T.accent}44`,fontSize:13,fontWeight:900,textDecoration:"none"}}>Kirim masukan / bug</a>
                   </div>
                 </>}/>
 

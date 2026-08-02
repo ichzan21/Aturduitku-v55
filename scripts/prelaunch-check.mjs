@@ -51,6 +51,12 @@ for (const marker of ["replaceTransactionInWallets", "resolveConflictWithCloud",
 for (const removedSetter of ["setBln(", "setThn("]) {
   if (appSource.includes(removedSetter)) failures.push(`Setter state lama masih dipakai: ${removedSetter}`);
 }
+if (!appSource.includes("window.location.assign(href)")) {
+  failures.push("Fallback universal-link bantuan WhatsApp tidak ditemukan");
+}
+if (/href=\{support(?:Bug)?WhatsappHref\}\s+target="_blank"/.test(appSource)) {
+  failures.push("Tautan WhatsApp masih membuka tab baru dan dapat gagal di PWA/WebView");
+}
 
 function jsFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
