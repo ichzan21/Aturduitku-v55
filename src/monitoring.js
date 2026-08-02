@@ -6,6 +6,7 @@ const cleanText = (value, maxLength) => String(value || "")
 
 const ignoredBrowserNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
 const opaqueScriptError = /^script error\.?$/i;
+const appVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "local";
 
 const fingerprint = (value) => {
   let hash = 2166136261;
@@ -37,7 +38,7 @@ export async function reportClientError(error, context = {}) {
       stack: cleanText(error?.stack, 1600),
       route,
       component: cleanText(context.component, 100),
-      appVersion: cleanText(import.meta.env.VITE_APP_VERSION || "web", 40),
+      appVersion: cleanText(appVersion, 40),
       userAgent: cleanText(navigator.userAgent, 320),
       durationMs: Math.max(0, Math.min(120000, Math.round(Number(context.durationMs) || 0))),
     };

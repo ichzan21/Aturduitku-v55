@@ -7,6 +7,7 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [testing, setTesting] = useState(false);
+  const [resolvingId, setResolvingId] = useState("");
   const [testResult, setTestResult] = useState("");
   const recentListRef = useRef(null);
 
@@ -41,6 +42,22 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
     }
   };
 
+  const resolveIncident = async (incidentId) => {
+    setResolvingId(incidentId);
+    setError("");
+    try {
+      await authedJson("/api/admin/monitoring", {
+        method:"POST",
+        body:JSON.stringify({ action:"resolve_incident", incidentId }),
+      });
+      await load();
+    } catch (requestError) {
+      setError(requestError.message || "Insiden belum dapat ditandai selesai");
+    } finally {
+      setResolvingId("");
+    }
+  };
+
   const services = data?.services || {};
   const latestBackupAt = data?.serviceDetails?.latestBackupAt || null;
   const serviceItems = [
@@ -69,7 +86,7 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
 
       <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,minmax(0,1fr))":"repeat(3,minmax(0,1fr))",gap:10,marginBottom:14}}>
         {[
-          ["Error 24 jam", data?.summary?.last24Hours ?? "-", T.err, T.errBg],
+          ["Error aktif 24 jam", data?.summary?.last24Hours ?? "-", T.err, T.errBg],
           ["Lambat 1 jam", data?.summary?.performance1Hour ?? "-", T.warn, T.warnBg],
           ["Belum selesai", data?.summary?.unresolved ?? "-", T.info, T.infoBg],
         ].map(([label,value,color,bg]) => <div key={label} style={{padding:"12px 13px",borderRadius:11,background:bg,border:`1px solid ${T.border}`}}><div style={{fontSize:9,fontWeight:800,color:T.muted,textTransform:"uppercase",letterSpacing:.8}}>{label}</div><div style={{fontSize:21,fontWeight:900,color,marginTop:3}}>{value}</div></div>)}
@@ -115,6 +132,17 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
                   </div>
                   <div style={{fontSize:9,fontWeight:800,color,marginTop:3}}>{label}</div>
                   <div style={{fontSize:10,color:T.sub,marginTop:3,overflowWrap:"anywhere"}}>{event.message || "Tanpa detail"}</div>
+                  {event.appVersion && <div style={{fontSize:9,color:T.muted,marginTop:4}}>Versi: {event.appVersion}</div>}
+                  {unresolvedIncident && (
+                    <button
+                      type="button"
+                      onClick={() => resolveIncident(event.id)}
+                      disabled={resolvingId === event.id}
+                      style={{marginTop:7,padding:"6px 9px",borderRadius:8,border:`1px solid ${T.okBorder}`,background:T.okBg,color:T.ok,fontFamily:"inherit",fontSize:9,fontWeight:900,cursor:resolvingId === event.id?"wait":"pointer"}}
+                    >
+                      {resolvingId === event.id ? "Menyimpan..." : "Tandai selesai"}
+                    </button>
+                  )}
                   {resolvedIncident && <div style={{fontSize:9,color:T.ok,fontWeight:700,marginTop:4}}>Sudah ditangani dan tidak dihitung sebagai error aktif.</div>}
                 </div>
               );

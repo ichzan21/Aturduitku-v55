@@ -16,15 +16,28 @@ export const isExpectedAiLatency = (type, route, durationMs) =>
   Number(durationMs) > 0 &&
   Number(durationMs) < 20000;
 
-export const knownIncidentResolution = (type, message) => {
+const PDF_MOBILE_COMPATIBILITY_FIXED_AT = Date.parse("2026-08-02T13:15:00.000Z");
+
+export const knownIncidentResolution = (type, message, event = {}) => {
   if (type === "window_error" && /(?:can't find variable|is not defined):?\s*setBln/i.test(String(message || ""))) {
     return "Navigasi Bulan ini sudah diperbaiki pada rilis terbaru.";
   }
-  if (type === "pdf_import_error" && /undefined is not a function.*(?:of|iterator)|PDF_RUNTIME_UNAVAILABLE/i.test(String(message || ""))) {
+  const createdAt = Date.parse(event.createdAt || "");
+  const isPdfCompatibilityFailure = /undefined is not a function.*(?:of|iterator)|PDF_RUNTIME_UNAVAILABLE/i.test(String(message || ""));
+  const predatesPdfCompatibilityFix = Number.isFinite(createdAt) && createdAt <= PDF_MOBILE_COMPATIBILITY_FIXED_AT;
+  const legacyPdfFailureWithoutTimestamp = isPdfCompatibilityFailure && !Number.isFinite(createdAt);
+  if (type === "pdf_import_error" && (predatesPdfCompatibilityFix || legacyPdfFailureWithoutTimestamp)) {
     return "Kompatibilitas pembaca PDF Safari/WebView sudah diperbaiki pada rilis terbaru.";
   }
   return "";
 };
+
+export const sortMonitoringEvents = (events = []) => [...events].sort((left, right) => {
+  const leftActive = left.category === "incident" && !left.resolved ? 1 : 0;
+  const rightActive = right.category === "incident" && !right.resolved ? 1 : 0;
+  if (leftActive !== rightActive) return rightActive - leftActive;
+  return (Date.parse(right.createdAt || "") || 0) - (Date.parse(left.createdAt || "") || 0);
+});
 
 export const isRecoverableStorageEvent = (message) =>
   recoverableStorageFailure.test(String(message || ""));
