@@ -204,9 +204,16 @@ export const validatePdfStatement = (inputLines, rows) => {
   return { hasReference:true, accurate, referenceBalanced, expected, actual };
 };
 
-const linesFromTextContent = content => {
+export const linesFromTextContent = content => {
   const rows = [];
-  for (const item of content.items || []) {
+  // Some Safari/WebView versions receive PDF.js worker results as an
+  // array-like object without Symbol.iterator. An indexed loop works for
+  // both normal arrays and those structured-clone results.
+  const items = content?.items;
+  const itemCount = Math.max(0, Number(items?.length) || 0);
+  for (let index = 0; index < itemCount; index += 1) {
+    const item = items[index];
+    if (!item || typeof item !== "object") continue;
     const str = String(item.str || "").trim();
     if (!str) continue;
     const x = Number(item.transform?.[4] || 0);
@@ -241,7 +248,9 @@ export const extractPdfStatement = async (file, password = "") => {
   // restrictions) contain /Encrypt but open fine without any password.
   // PdfJS raises PasswordException only when a user password is truly needed.
   const { loadPdfRuntime } = await import("./pdfRuntime.js");
-  const { getDocument } = await loadPdfRuntime();
+  const runtime = await loadPdfRuntime();
+  const getDocument = runtime?.getDocument;
+  if (typeof getDocument !== "function") throw new Error("PDF_RUNTIME_UNAVAILABLE");
   let pdf;
   try {
     pdf = await getDocument({ data: sourceBytes, password, isEvalSupported: false }).promise;
@@ -260,7 +269,7 @@ export const extractPdfStatement = async (file, password = "") => {
     const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent({ disableNormalization: false });
     lines.push(...linesFromTextContent(content));
-    page.cleanup();
+    if (typeof page?.cleanup === "function") page.cleanup();
   }
   if (typeof pdf.cleanup === "function") await pdf.cleanup();
   if (typeof pdf.destroy === "function") await pdf.destroy();

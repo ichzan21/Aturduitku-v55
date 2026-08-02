@@ -20,6 +20,9 @@ export const knownIncidentResolution = (type, message) => {
   if (type === "window_error" && /(?:can't find variable|is not defined):?\s*setBln/i.test(String(message || ""))) {
     return "Navigasi Bulan ini sudah diperbaiki pada rilis terbaru.";
   }
+  if (type === "pdf_import_error" && /undefined is not a function.*(?:of|iterator)|PDF_RUNTIME_UNAVAILABLE/i.test(String(message || ""))) {
+    return "Kompatibilitas pembaca PDF Safari/WebView sudah diperbaiki pada rilis terbaru.";
+  }
   return "";
 };
 

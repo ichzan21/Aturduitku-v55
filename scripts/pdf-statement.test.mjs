@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { extractPdfStatementSummary, isEncryptedPdfBytes, parsePdfStatementLines, validatePdfStatement } from "../src/pdfStatement.js";
+import { extractPdfStatementSummary, isEncryptedPdfBytes, linesFromTextContent, parsePdfStatementLines, validatePdfStatement } from "../src/pdfStatement.js";
 
 const bca = parsePdfStatementLines([
   "BANK CENTRAL ASIA E-STATEMENT PERIODE JULI 2026",
@@ -206,5 +206,15 @@ assert.deepEqual(jenius.map(row => [row.tgl, row.tipe, row.jml]), [
   ["2026-06-01", "pengeluaran", "1500000"],
   ["2026-06-02", "pemasukan", "500000"],
 ]);
+
+// Safari/WebView may return an array-like structured clone without an
+// iterator. Text extraction must not depend on Symbol.iterator.
+const arrayLikeItems = {
+  0: { str:"01/06/2026", transform:[1,0,0,1,10,100] },
+  1: { str:"QRIS Kopi", transform:[1,0,0,1,80,100] },
+  2: { str:"25,000.00 DB", transform:[1,0,0,1,200,100] },
+  length:3,
+};
+assert.deepEqual(linesFromTextContent({ items:arrayLikeItems }), ["01/06/2026 QRIS Kopi 25,000.00 DB"]);
 
 console.log("PDF e-statement parser tests passed");

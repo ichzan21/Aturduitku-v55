@@ -18,5 +18,10 @@ assert.equal(isNetworkFailureType("api_timeout"), true);
 assert.equal(isExpectedAiLatency("api_slow", "/api/ai/cloudflare", 10597), true, "Latensi AI di bawah ambang baru bukan gangguan produksi");
 assert.equal(isExpectedAiLatency("api_slow", "/api/users/data", 10597), false, "Endpoint data biasa tetap dipantau ketat");
 assert.match(knownIncidentResolution("window_error", "Can't find variable: setBln"), /diperbaiki/, "Insiden setter lama harus ditandai selesai");
+assert.match(
+  knownIncidentResolution("pdf_import_error", "undefined is not a function (near '...j of t...')"),
+  /PDF Safari\/WebView sudah diperbaiki/,
+  "Insiden iterator PDF lama harus ditandai selesai",
+);
 
 console.log("Monitoring policy tests passed");
