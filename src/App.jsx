@@ -3,7 +3,7 @@ import {
   getCurrentIdToken, onAuthChange, sendResetPassword, sendVerificationEmail, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
 } from "./firebase.js";
 import { reportClientError } from "./monitoring.js";
-import { applyTransactionToWallets, confirmInternalTransferPair, findWallet, hasWallet, internalTransferPairsForReview, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, unlinkInternalTransferPair, walletDeltasForTransaction } from "./financeLedger.js";
+import { applyTransactionToWallets, confirmInternalTransferPair, displayNumber, findWallet, hasWallet, internalTransferPairsForReview, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, unlinkInternalTransferPair, walletDeltasForTransaction } from "./financeLedger.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
 import { afterFirstPaint } from "./runtimeRecovery.js";
@@ -89,10 +89,10 @@ const DARK = {
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const IDR  = v=>"Rp "+Math.round(Number(v||0)).toLocaleString("id-ID");
-const IDRs = v=>{const n=Number(v||0),a=Math.abs(n);if(a>=1e9)return(n<0?"-":"")+"Rp "+(a/1e9).toFixed(1)+"M";if(a>=1e6)return(n<0?"-":"")+"Rp "+(a/1e6).toFixed(1)+"jt";if(a>=1e3)return(n<0?"-":"")+"Rp "+(a/1e3).toFixed(0)+"rb";return"Rp "+n;};
+const IDRs = v=>{const n=Number(v||0),a=Math.abs(n);if(a>=1e9)return(n<0?"-":"")+"Rp "+(a/1e9).toFixed(1)+"M";if(a>=1e6)return(n<0?"-":"")+"Rp "+(a/1e6).toFixed(1)+"jt";if(a>=1e3)return(n<0?"-":"")+"Rp "+(a/1e3).toFixed(0)+"rb";return"Rp "+Math.round(n).toLocaleString("id-ID");};
 const fmtN = v=>{const n=String(v).replace(/\D/g,"");return n?n.replace(/\B(?=(\d{3})+(?!\d))/g,"."):"";};
 const pN   = v=>String(v).replace(/\./g,"");
-const N    = v=>Number(String(v||0).replace(/\./g,""))||0;
+const N    = displayNumber;
 const AnimatedNumber=React.memo(function AnimatedNumber({value,format=Math.round,duration=720,className,style}){
   const target=Number.isFinite(Number(value))?Number(value):0;
   const currentRef=useRef(0);
@@ -1688,7 +1688,7 @@ function KalkulatorCicilan({ onClose, T }) {
   const [bunga, setBunga] = useState("1");
   const [tipe, setTipe] = useState("flat"); // flat | efektif
   const fmtN = v => { const n=String(v).replace(/\D/g,""); return n?n.replace(/\B(?=(\d{3})+(?!\d))/g,"."):""};
-  const N2 = v => parseFloat(String(v).replace(/\./g,""))||0;
+  const N2 = displayNumber;
   const idr = n => "Rp " + Math.round(n).toLocaleString("id-ID");
 
   const hargaN = N2(harga), dpN = N2(dp), tenorN = parseInt(tenor)||12, bungaN = parseFloat(bunga)||0;
@@ -2137,7 +2137,7 @@ function YearInReview({ s, T, lang, onClose }) {
     : ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
   const IDR = n => "Rp " + Math.abs(Math.round(n||0)).toLocaleString("id-ID");
   const IDRs = n => { const abs=Math.abs(Math.round(n||0)); return (n<0?"-":"")+"Rp "+(abs>=1e9?(abs/1e9).toFixed(1)+"M":abs>=1e6?(abs/1e6).toFixed(1)+"jt":abs.toLocaleString("id-ID")); };
-  const N = v => parseFloat(String(v||0).replace(/[^0-9.,-]/g,"").replace(/\./g,"").replace(",","."))||0;
+  const N = displayNumber;
   const year = s.tahun || String(new Date().getFullYear());
 
   // Filter transactions for the year
@@ -5204,7 +5204,7 @@ Saldo amplop bertambah.`}]);
       const txt = (text,x,y,opts={}) => doc.text(String(text),x,y,opts);
 
       // ── Data helpers ─────────────────────────────────────────────────────
-      const Num = v => parseFloat(String(v||0).replace(/[^\d.,-]/g,"").replace(/\./g,"").replace(",","."))||0;
+      const Num = displayNumber;
       const idr = n => "Rp "+Math.round(Math.abs(n||0)).toLocaleString("id-ID");
       const idrc = n => (n<0?"-":"")+"Rp "+Math.round(Math.abs(n||0)).toLocaleString("id-ID");
       const idrs = n => {
@@ -5859,7 +5859,7 @@ Saldo amplop bertambah.`}]);
     if (!XLSX) { showToast("Tunggu sebentar, library sedang dimuat..."); return; }
     try {
       const isEN = lang==="en";
-      const Num = v => parseFloat(String(v||0).replace(/[^\d.,-]/g,"").replace(/\./g,"").replace(",","."))||0;
+      const Num = displayNumber;
       const idr = n => "Rp "+Math.round(Math.abs(n||0)).toLocaleString("id-ID");
       const pct = (v,t) => t>0?((v/t)*100).toFixed(1)+"%":"0%";
 

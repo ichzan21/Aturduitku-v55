@@ -8,6 +8,16 @@ export const moneyNumber = value => {
 
 export const sameId = (left, right) => String(left ?? "") === String(right ?? "");
 
+// Reads an amount that may arrive either as a stored string or as a value the
+// app just computed. Indonesian strings use "." for thousands and "," for
+// decimals ("1.500.000,50"), but a number is taken as-is: stripping the "." from
+// a computed 120689.65 would silently turn it into 12,068,965.
+export const displayNumber = value => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const raw = String(value || 0).replace(/[^0-9.,-]/g, "").replace(/\./g, "").replace(",", ".");
+  return parseFloat(raw) || 0;
+};
+
 export const walletDeltasForTransaction = transaction => {
   const tx = transaction || {};
   const amount = moneyNumber(tx.jml);

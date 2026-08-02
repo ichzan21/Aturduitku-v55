@@ -7,6 +7,7 @@ import {
   pairImportedInternalTransfers,
   reconcileImportedStatement,
   confirmInternalTransferPair,
+  displayNumber,
   internalTransferPairsForReview,
   transactionValidationError,
   uniqueNewTransactions,
@@ -364,5 +365,33 @@ const bulkPaired = pairImportedInternalTransfers([...bulkRows,...feeRows],bankWa
 const bulkMs = Number(process.hrtime.bigint()-bulkStart)/1e6;
 assert.equal(bulkPaired.pairCount,1,"Data besar tidak boleh menghasilkan pasangan palsu");
 assert.ok(bulkMs < 1500,`Pemasangan pada 4000 transaksi harus tetap cepat (butuh ${bulkMs.toFixed(0)} ms)`);
+
+// ── Pembacaan angka untuk tampilan ────────────────────────────────────────
+// Nilai hasil hitungan sering pecahan. Membuang titiknya seperti pemisah ribuan
+// mengubah budget harian Rp 120.689 menjadi Rp 1,2 kuadriliun di dashboard.
+assert.equal(displayNumber(3500000 / 29), 3500000 / 29, "Angka pecahan hasil hitungan harus utuh");
+assert.equal(displayNumber(120689.65517241379), 120689.65517241379);
+assert.equal(displayNumber(0.5), 0.5, "Nilai di bawah satu rupiah tidak boleh membesar");
+assert.equal(displayNumber(-1234.56), -1234.56, "Angka negatif pecahan harus utuh");
+assert.equal(displayNumber(1500000), 1500000, "Angka bulat tidak boleh berubah");
+
+// String tersimpan tetap dibaca dengan format Indonesia seperti sebelumnya.
+assert.equal(displayNumber("1.500.000"), 1500000, "Titik pada string tetap pemisah ribuan");
+assert.equal(displayNumber("300000"), 300000);
+assert.equal(displayNumber("Rp 2.500"), 2500, "Awalan Rp harus diabaikan");
+assert.equal(displayNumber("1.500.000,50"), 1500000.5, "Koma pada string adalah desimal");
+assert.equal(displayNumber("-75.000"), -75000);
+
+// Masukan yang tidak wajar tetap aman.
+[null, undefined, "", "abc", Number.NaN, Number.POSITIVE_INFINITY, {}, []].forEach(value => {
+  assert.equal(displayNumber(value), 0, `Nilai tidak wajar harus menjadi nol: ${String(value)}`);
+});
+
+// Budget harian di dashboard: sisa anggaran dibagi sisa hari.
+const dailyBudget = (remainingBudget, remainingDays) =>
+  remainingDays > 0 ? Math.max(remainingBudget, 0) / remainingDays : 0;
+const shownDailyBudget = displayNumber(dailyBudget(3500000, 29));
+assert.ok(shownDailyBudget > 120000 && shownDailyBudget < 121000,
+  `Budget harian harus sekitar Rp 120.690, bukan Rp ${Math.round(shownDailyBudget)}`);
 
 console.log("Finance ledger tests passed");
