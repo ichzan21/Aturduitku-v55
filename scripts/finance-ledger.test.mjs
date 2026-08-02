@@ -6,6 +6,8 @@ import {
   moneyNumber,
   pairImportedInternalTransfers,
   reconcileImportedStatement,
+  confirmInternalTransferPair,
+  internalTransferPairsForReview,
   transactionValidationError,
   uniqueNewTransactions,
   unlinkInternalTransferPair,
@@ -238,5 +240,129 @@ assert.equal(replacedPaired.transactions.find(tx=>tx.importRef==="BNI|1|in").tip
   "Sisi BNI tidak boleh menggantung setelah sisi BCA diimpor ulang");
 assert.deepEqual(balances(replacedResult.wallets),{"w-bca":3850000,"w-bni":750000},
   "Impor ulang periode tidak boleh menggeser saldo dompet");
+
+// ── Biaya transfer, toleransi e-wallet, dan panel tinjauan ─────────────────
+const bankWallets = [{id:"bca",nama:"BCA"},{id:"bni",nama:"BNI"}];
+const feeRows = [
+  {id:"f-out",tgl:"2026-07-15",tipe:"pengeluaran",jml:"1000000",ket:"Transfer BI-FAST ke BNI IKSAN",dompetId:"bca",importRef:"BCA|70|out"},
+  {id:"f-fee",tgl:"2026-07-15",tipe:"pengeluaran",jml:"2500",ket:"Biaya Transfer BI-FAST",dompetId:"bca",importRef:"BCA|71|fee"},
+  {id:"f-in",tgl:"2026-07-15",tipe:"pemasukan",jml:"1000000",ket:"Transfer dari BCA IKSAN",dompetId:"bni",importRef:"BNI|72|in"},
+];
+const feePaired = pairImportedInternalTransfers(feeRows,bankWallets);
+const feePairId = feePaired.transactions.find(tx=>tx.id==="f-out").internalTransferPairId;
+assert.equal(feePaired.feeCount,1,"Biaya bank di baris terpisah harus ditautkan ke transfer internalnya");
+assert.equal(feePaired.transactions.find(tx=>tx.id==="f-fee").internalTransferFeeFor,feePairId);
+assert.equal(feePaired.transactions.find(tx=>tx.id==="f-fee").tipe,"pengeluaran",
+  "Biaya bank tetap pengeluaran nyata karena uangnya benar-benar keluar");
+assert.deepEqual(reportTotals(feePaired.transactions),{income:0,expense:2500},
+  "Laporan hanya menghitung biaya banknya, bukan pokok transfernya");
+
+// Biaya yang ambigu (dua kandidat) tidak boleh ditebak.
+const ambiguousFee = pairImportedInternalTransfers([
+  ...feeRows,
+  {id:"f-fee2",tgl:"2026-07-15",tipe:"pengeluaran",jml:"2500",ket:"Biaya admin lain",dompetId:"bca",importRef:"BCA|73|fee2"},
+],bankWallets);
+assert.equal(ambiguousFee.feeCount,0,"Biaya yang ambigu tidak boleh ditautkan otomatis");
+
+// Biaya di dompet lain atau bernominal besar bukan biaya transfer ini.
+assert.equal(pairImportedInternalTransfers([
+  feeRows[0],feeRows[2],
+  {id:"f-far",tgl:"2026-07-15",tipe:"pengeluaran",jml:"2500",ket:"Biaya admin",dompetId:"bni",importRef:"BNI|74|fee"},
+],bankWallets).feeCount,0,"Biaya di dompet berbeda tidak boleh ditautkan");
+assert.equal(pairImportedInternalTransfers([
+  feeRows[0],feeRows[2],
+  {id:"f-big",tgl:"2026-07-15",tipe:"pengeluaran",jml:"900000",ket:"Biaya layanan",dompetId:"bca",importRef:"BCA|75|fee"},
+],bankWallets).feeCount,0,"Nominal sebesar itu bukan biaya transfer");
+
+// Toleransi tanggal: bank↔bank tetap 1 hari, bank↔e-wallet sampai 2 hari.
+const lateRows = [
+  {id:"l-out",tgl:"2026-07-13",tipe:"pengeluaran",jml:"300000",ket:"Top up GoPay dari BCA",dompetId:"bca",importRef:"BCA|80|out"},
+  {id:"l-in",tgl:"2026-07-15",tipe:"pemasukan",jml:"300000",ket:"Top up dari BCA",dompetId:"gopay",importRef:"GOPAY|81|in"},
+];
+assert.equal(pairImportedInternalTransfers(lateRows,[{id:"bca",nama:"BCA"},{id:"gopay",nama:"GoPay"}]).pairCount,1,
+  "Top up e-wallet yang settle H+2 harus tetap tertaut");
+assert.equal(pairImportedInternalTransfers(lateRows,[{id:"bca",nama:"BCA"},{id:"gopay",nama:"Bank Lain"}]).pairCount,0,
+  "Selisih dua hari antar rekening bank tidak boleh dipasangkan");
+assert.equal(pairImportedInternalTransfers([
+  {...lateRows[0],tgl:"2026-07-12"},lateRows[1],
+],[{id:"bca",nama:"BCA"},{id:"gopay",nama:"GoPay"}]).pairCount,0,
+  "Selisih tiga hari tetap terlalu jauh walau melibatkan e-wallet");
+
+// Panel tinjauan: hanya pasangan yang belum dicek dan masih baru.
+const review = internalTransferPairsForReview(feePaired.transactions,bankWallets,{now:"2026-07-16T00:00:00.000Z"});
+assert.equal(review.length,1,"Pasangan baru harus muncul di panel tinjauan");
+assert.deepEqual(
+  {amount:review[0].amount,fee:review[0].fee,from:review[0].fromWallet?.nama,to:review[0].toWallet?.nama},
+  {amount:1000000,fee:2500,from:"BCA",to:"BNI"},
+  "Panel harus menampilkan pokok, biaya, dan arah dompetnya");
+
+const confirmed = confirmInternalTransferPair(feePaired.transactions,feePairId,"2026-07-16T01:00:00.000Z");
+assert.equal(internalTransferPairsForReview(confirmed,bankWallets,{now:"2026-07-16T02:00:00.000Z"}).length,0,
+  "Pasangan yang sudah dicek harus hilang dari panel");
+assert.equal(confirmed.find(tx=>tx.id==="f-fee").internalTransferReviewedAt,"2026-07-16T01:00:00.000Z",
+  "Baris biaya ikut ditandai sudah dicek");
+assert.deepEqual(balances(confirmed.reduce((all,tx)=>applyTransactionToWallets(all,tx),[{id:"bca",saldo:"2000000"},{id:"bni",saldo:"0"}])),
+  {bca:997500,bni:1000000},"Menandai sudah dicek tidak boleh mengubah saldo");
+
+const confirmedAgain = pairImportedInternalTransfers(confirmed,bankWallets);
+assert.equal(internalTransferPairsForReview(confirmedAgain.transactions,bankWallets,{now:"2026-07-16T02:00:00.000Z"}).length,0,
+  "Status sudah dicek harus bertahan setelah pemasangan ulang");
+assert.equal(confirmedAgain.feeCount,1,"Tautan biaya harus bertahan setelah pemasangan ulang");
+
+// Pasangan lama tidak lagi mengganggu panel.
+assert.equal(internalTransferPairsForReview(feePaired.transactions,bankWallets,{now:"2026-08-30T00:00:00.000Z"}).length,0,
+  "Pasangan lama tidak perlu ditinjau lagi di panel mingguan");
+
+// Melepas tautan juga melepaskan biaya yang menempel padanya.
+const unlinkedWithFee = unlinkInternalTransferPair(feePaired.transactions,feePairId);
+assert.equal(unlinkedWithFee.find(tx=>tx.id==="f-fee").internalTransferFeeFor,undefined,
+  "Biaya tidak boleh menggantung ke pasangan yang sudah dilepas");
+assert.deepEqual(reportTotals(unlinkedWithFee),{income:1000000,expense:1002500},
+  "Setelah dilepas, kedua sisi kembali dihitung penuh di laporan");
+assert.deepEqual(balances(unlinkedWithFee.reduce((all,tx)=>applyTransactionToWallets(all,tx),[{id:"bca",saldo:"2000000"},{id:"bni",saldo:"0"}])),
+  {bca:997500,bni:1000000},"Melepas tautan tidak boleh mengubah saldo dompet");
+
+// Dua transfer di hari yang sama, masing-masing berbiaya: penautan biaya harus
+// mengalah karena tidak ada cara aman menentukan biaya mana milik transfer mana.
+const twoPairsWithFees = pairImportedInternalTransfers([
+  {id:"p1-out",tgl:"2026-07-15",tipe:"pengeluaran",jml:"1000000",ket:"Transfer BI-FAST ke BNI IKSAN",dompetId:"bca",importRef:"BCA|90|out"},
+  {id:"p1-fee",tgl:"2026-07-15",tipe:"pengeluaran",jml:"2500",ket:"Biaya Transfer BI-FAST",dompetId:"bca",importRef:"BCA|91|fee"},
+  {id:"p1-in",tgl:"2026-07-15",tipe:"pemasukan",jml:"1000000",ket:"Transfer dari BCA IKSAN",dompetId:"bni",importRef:"BNI|92|in"},
+  {id:"p2-out",tgl:"2026-07-15",tipe:"pengeluaran",jml:"750000",ket:"Transfer BI-FAST ke Jenius IKSAN",dompetId:"bca",importRef:"BCA|93|out"},
+  {id:"p2-fee",tgl:"2026-07-15",tipe:"pengeluaran",jml:"2500",ket:"Biaya Transfer BI-FAST",dompetId:"bca",importRef:"BCA|94|fee"},
+  {id:"p2-in",tgl:"2026-07-15",tipe:"pemasukan",jml:"750000",ket:"Transfer dari BCA IKSAN",dompetId:"jenius",importRef:"JEN|95|in"},
+],[{id:"bca",nama:"BCA"},{id:"bni",nama:"BNI"},{id:"jenius",nama:"Jenius"}]);
+assert.equal(twoPairsWithFees.pairCount,2,"Dua transfer berbeda nominal tetap harus tertaut masing-masing");
+assert.equal(twoPairsWithFees.feeCount,0,"Biaya yang tidak bisa dipastikan pemiliknya tidak boleh ditebak");
+assert.deepEqual(reportTotals(twoPairsWithFees.transactions),{income:0,expense:5000},
+  "Kedua biaya bank tetap dihitung sebagai pengeluaran walau tidak tertaut");
+
+// Data rusak dari backup lama tidak boleh membuat aplikasi gagal dimuat.
+const messyRows = [null,undefined,...feeRows];
+const messyPaired = pairImportedInternalTransfers(messyRows,bankWallets);
+assert.equal(messyPaired.pairCount,1,"Baris kosong harus diabaikan, bukan menggagalkan pemasangan");
+assert.equal(messyPaired.transactions.length,feeRows.length,"Baris kosong tidak boleh ikut tersimpan");
+assert.deepEqual(internalTransferPairsForReview([null,...messyPaired.transactions],bankWallets,{now:"2026-07-16T00:00:00.000Z"}).length,1,
+  "Panel tinjauan harus tahan terhadap baris kosong");
+assert.deepEqual(confirmInternalTransferPair([null,...messyPaired.transactions],"tidak-ada").length,messyPaired.transactions.length+1,
+  "Menandai pasangan yang tidak ada tidak boleh mengubah data");
+
+// Dompet yang sudah dihapus tidak boleh membuat panel gagal dirender.
+const missingWalletReview = internalTransferPairsForReview(feePaired.transactions,[],{now:"2026-07-16T00:00:00.000Z"});
+assert.equal(missingWalletReview.length,1,"Pasangan tetap tampil walau dompetnya sudah dihapus");
+assert.deepEqual([missingWalletReview[0].fromWallet,missingWalletReview[0].toWallet],[null,null],
+  "Dompet yang hilang harus dilaporkan null, bukan undefined yang bikin render gagal");
+
+// Beban wajar: ribuan transaksi tetap diproses cepat karena baris biaya diindeks.
+const bulkRows = [];
+for (let index = 0; index < 4000; index += 1) {
+  bulkRows.push({id:`bulk-${index}`,tgl:"2026-07-15",tipe:index%2?"pengeluaran":"pemasukan",jml:String(10000+index),
+    ket:index%3?"Pembayaran QRIS TOKO":"Biaya admin bulanan",dompetId:index%2?"bca":"bni",importRef:`BULK|${index}|row`});
+}
+const bulkStart = process.hrtime.bigint();
+const bulkPaired = pairImportedInternalTransfers([...bulkRows,...feeRows],bankWallets);
+const bulkMs = Number(process.hrtime.bigint()-bulkStart)/1e6;
+assert.equal(bulkPaired.pairCount,1,"Data besar tidak boleh menghasilkan pasangan palsu");
+assert.ok(bulkMs < 1500,`Pemasangan pada 4000 transaksi harus tetap cepat (butuh ${bulkMs.toFixed(0)} ms)`);
 
 console.log("Finance ledger tests passed");

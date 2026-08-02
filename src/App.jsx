@@ -3,7 +3,7 @@ import {
   getCurrentIdToken, onAuthChange, sendResetPassword, sendVerificationEmail, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
 } from "./firebase.js";
 import { reportClientError } from "./monitoring.js";
-import { applyTransactionToWallets, findWallet, hasWallet, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, unlinkInternalTransferPair, walletDeltasForTransaction } from "./financeLedger.js";
+import { applyTransactionToWallets, confirmInternalTransferPair, findWallet, hasWallet, internalTransferPairsForReview, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, unlinkInternalTransferPair, walletDeltasForTransaction } from "./financeLedger.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
 import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "./incomeCategory.js";
@@ -3484,6 +3484,7 @@ export default function App(){
   // ── Computed ────────────────────────────────────────────────────────────────
   const bulanIdx=MONTHS.indexOf(s.bulan);const yr=Number(s.tahun);
   const txBulan=useMemo(()=>s.txs.filter(t=>t.tgl&&t.tgl.startsWith(`${yr}-${String(bulanIdx+1).padStart(2,"0")}`)),[s.txs,yr,bulanIdx]);
+  const internalTransferReview=useMemo(()=>internalTransferPairsForReview(s.txs,s.dompet),[s.txs,s.dompet]);
   const totalIn=useMemo(()=>txBulan.filter(t=>t.tipe==="pemasukan").reduce((a,b)=>a+N(b.jml),0),[txBulan]);
   const totalOut=useMemo(()=>txBulan.filter(t=>t.tipe==="pengeluaran").reduce((a,b)=>a+N(b.jml),0),[txBulan]);
   const totalTabung=useMemo(()=>txBulan.filter(t=>t.tipe==="tabungan").reduce((a,b)=>a+N(b.jml),0),[txBulan]);
@@ -6663,10 +6664,22 @@ Saldo amplop bertambah.`}]);
     }
   });
 
-  const unlinkInternalTransfer=tx=>{
-    if(!tx?.internalTransferPairId) return;
-    setS(p=>({...p,txs:unlinkInternalTransferPair(p.txs,tx.internalTransferPairId)}));
+  const unlinkInternalTransferByPair=pairId=>{
+    if(!pairId) return;
+    setS(p=>({...p,txs:unlinkInternalTransferPair(p.txs,pairId)}));
     showToast("Tautan transfer internal dilepas. Kedua baris kembali dihitung di laporan.");
+  };
+  const unlinkInternalTransfer=tx=>unlinkInternalTransferByPair(tx?.internalTransferPairId);
+  const confirmInternalTransfer=pairId=>{
+    if(!pairId) return;
+    setS(p=>({...p,txs:confirmInternalTransferPair(p.txs,pairId)}));
+    showToast("Ditandai sudah dicek.");
+  };
+  const confirmAllInternalTransfers=()=>{
+    const pairIds=internalTransferReview.map(item=>item.pairId);
+    if(!pairIds.length) return;
+    setS(p=>({...p,txs:pairIds.reduce((all,pairId)=>confirmInternalTransferPair(all,pairId),p.txs)}));
+    showToast(`${pairIds.length} transfer internal ditandai sudah dicek.`);
   };
 
   const renderTxItem=t=>{
@@ -6674,7 +6687,7 @@ Saldo amplop bertambah.`}]);
     const kat=s.budgets.find(b=>b.id===t.katId);
     const isInternalTransfer=["transfer_internal_keluar","transfer_internal_masuk"].includes(t.tipe);
     const isIn=t.tipe==="pemasukan"||t.tipe==="pemasukan_transfer"||t.tipe==="transfer_internal_masuk";
-    const txKatLabel=isInternalTransfer?"Transfer internal":isIn?incomeCategoryLabel(t):(String(t.customKat||"").trim()||kat?.kat);
+    const txKatLabel=isInternalTransfer?"Transfer internal":t.internalTransferFeeFor?"Biaya transfer internal":isIn?incomeCategoryLabel(t):(String(t.customKat||"").trim()||kat?.kat);
     const isEnvelopeRefund=t.tipe==="pengembalian_amplop";
     const txColor=isInternalTransfer?T.accent:t.tipe==="pemasukan"||isEnvelopeRefund?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="investasi"?T.ok:t.tipe==="penyesuaian"?T.warn:t.tipe==="alokasi_amplop"?T.accent:t.tipe==="transfer"?T.accent:T.err;
     const txBg=isInternalTransfer?T.accentBg:t.tipe==="pemasukan"||isEnvelopeRefund?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer")?T.accentBg:T.errBg;
@@ -8053,6 +8066,36 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <Btn onClick={()=>setModal({type:"importMutasi"})} ch="Import Mutasi" c={T.accent} style={{padding:"7px 12px",fontSize:12}}/>
               </div>
             </>} style={{marginBottom:16}}/>
+
+            {internalTransferReview.length>0&&<Card ch={<>
+              <Sec t="Perlu dicek: transfer antar dompetmu" right={<div style={{fontSize:12,color:T.muted}}>{internalTransferReview.length} pasangan</div>}/>
+              <div style={{fontSize:11,color:T.muted,lineHeight:1.6,marginBottom:10}}>
+                Mutasi berikut dianggap perpindahan saldo antar dompetmu sendiri, jadi tidak dihitung sebagai pemasukan atau pengeluaran di laporan. Saldo tiap dompet tetap mengikuti rekeningnya.
+              </div>
+              {internalTransferReview.map(item=>(
+                <div key={item.pairId} style={{border:`1px solid ${T.border}`,borderRadius:11,padding:"10px 12px",marginBottom:8,background:T.cardAlt}}>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}>
+                    <div style={{minWidth:0,flex:1}}>
+                      <div style={{fontSize:13,fontWeight:700,color:T.text}}>
+                        {uiIcon(item.fromWallet?.icon)} {item.fromWallet?.nama||"?"} <span style={{color:T.accent}}>→</span> {uiIcon(item.toWallet?.icon)} {item.toWallet?.nama||"?"}
+                      </div>
+                      <div style={{fontSize:11,color:T.muted,marginTop:2,overflow:"hidden",textOverflow:"ellipsis"}}>
+                        {item.tgl}{item.description?` · ${item.description}`:""}
+                      </div>
+                    </div>
+                    <div style={{textAlign:"right",flexShrink:0}}>
+                      <div style={{fontSize:14,fontWeight:800,color:T.accent}}>{IDR(item.amount)}</div>
+                      {item.fee>0&&<div style={{fontSize:10,color:T.muted,marginTop:2}}>+ biaya bank {IDR(item.fee)}</div>}
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:7,marginTop:9,flexWrap:"wrap"}}>
+                    <Btn onClick={()=>confirmInternalTransfer(item.pairId)} ch="Benar, transfer saya" c={T.ok} style={{padding:"6px 11px",fontSize:11}}/>
+                    <Btn onClick={()=>unlinkInternalTransferByPair(item.pairId)} ch="Bukan, pisahkan" c={T.err} outline style={{padding:"6px 11px",fontSize:11}}/>
+                  </div>
+                </div>
+              ))}
+              {internalTransferReview.length>1&&<Btn onClick={confirmAllInternalTransfers} ch="Tandai semua sudah benar" c={T.accent} outline style={{padding:"7px 12px",fontSize:12,marginTop:2}}/>}
+            </>} style={{marginBottom:16}}/>}
 
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:16}}>
               {[{l:t("incomeLabel"),v:IDR(totalIn),vc:T.ok,bg:T.okBg},{l:t("expenseLabel"),v:IDR(totalOut),vc:T.err,bg:T.errBg},{l:"Tabungan & Investasi",v:IDR(totalFuture),vc:T.info,bg:T.infoBg},{l:"Net",v:IDR(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg}].map((x,i)=>(
