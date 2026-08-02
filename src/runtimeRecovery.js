@@ -16,3 +16,23 @@ export const classifyRuntimeFailure = (reason) => {
 };
 
 export const isRecoverableStorageFailure = (value) => storageDisconnect.test(getRuntimeErrorMessage(value));
+
+// Defers start-up work until the first frame is on screen, but never waits
+// longer than the fallback: a hidden tab (background tab, restored session,
+// PWA launched unfocused) never runs requestAnimationFrame, which would leave
+// sign-in unstarted and the app stuck on its loading screen until focused.
+export const afterFirstPaint = (win = typeof window === "undefined" ? null : window, fallbackMs = 1000) =>
+  new Promise(resolve => {
+    if (!win) { resolve(); return; }
+    let settled = false;
+    const finish = () => { if (settled) return; settled = true; resolve(); };
+    const schedule = () => (typeof win.requestIdleCallback === "function"
+      ? win.requestIdleCallback(finish, { timeout:700 })
+      : win.setTimeout(finish, 0));
+    if (typeof win.requestAnimationFrame === "function") {
+      win.requestAnimationFrame(() => win.setTimeout(schedule, 0));
+    } else {
+      win.setTimeout(schedule, 0);
+    }
+    win.setTimeout(finish, fallbackMs);
+  });

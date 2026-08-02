@@ -6,6 +6,7 @@ import { reportClientError } from "./monitoring.js";
 import { applyTransactionToWallets, confirmInternalTransferPair, findWallet, hasWallet, internalTransferPairsForReview, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, unlinkInternalTransferPair, walletDeltasForTransaction } from "./financeLedger.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
+import { afterFirstPaint } from "./runtimeRecovery.js";
 import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "./incomeCategory.js";
 import { extractPdfStatement, parsePdfStatementLines, validatePdfStatement } from "./pdfStatement.js";
 import { detectFinancialProvider as detectBank, parseStatementCSV as parseBankCSV } from "./bankImport.js";
@@ -161,13 +162,6 @@ const normalizeBudgets = budgets => (budgets||INIT_BUDGETS).map(b=>String(b.kat)
 const dateKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const today= ()=>dateKey();
 const dateAdd=(key,days)=>{const [y,m,d]=String(key).split("-").map(Number);const dt=new Date(y,(m||1)-1,d||1);dt.setDate(dt.getDate()+days);return dateKey(dt);};
-const afterFirstPaint=()=>new Promise(resolve=>{
-  if(typeof window==="undefined"){resolve();return;}
-  const schedule=()=>("requestIdleCallback" in window)
-    ? window.requestIdleCallback(resolve,{timeout:700})
-    : setTimeout(resolve,0);
-  requestAnimationFrame(()=>setTimeout(schedule,0));
-});
 const nowM = ()=>new Date().getMonth();
 const nowY = ()=>new Date().getFullYear();
 const MONTHS=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
