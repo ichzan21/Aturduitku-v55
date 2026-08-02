@@ -3,6 +3,7 @@ import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 import { consumeRateLimit } from "../_lib/rateLimit.js";
 import { recordMonitoringEvent } from "../_lib/monitoringAlerts.js";
+import { selectRecentAiMessages } from "../_lib/aiMessages.js";
 
 // Account IDs identify a Cloudflare account but do not authorize requests.
 // The API token remains server-only and is always required from Vercel env.
@@ -44,13 +45,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Konteks AI tidak tersedia" });
     }
 
-    const recentMsgs = messages
-      .filter((message) => ["user", "assistant"].includes(message?.role) && message?.content)
-      .slice(-10)
-      .map((message) => ({
-        role: message.role,
-        content: String(message.content).slice(0, 4000),
-      }));
+    const recentMsgs = selectRecentAiMessages(messages);
 
     const aiStartedAt = Date.now();
     const cfRes = await fetch(
@@ -63,8 +58,8 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           messages: [{ role: "system", content: safeSystemPrompt }, ...recentMsgs],
-          max_tokens: 1200,
-          temperature: 0.6,
+          max_tokens: 1400,
+          temperature: 0.45,
         }),
       }
     );

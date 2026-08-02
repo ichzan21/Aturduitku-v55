@@ -12,6 +12,7 @@ import { extractPdfStatement, parsePdfStatementLines, validatePdfStatement } fro
 import { detectFinancialProvider as detectBank, findWalletForProvider, parseStatementCSV as parseBankCSV, walletDraftForProvider } from "./bankImport.js";
 import { EXPENSE_CATEGORY_RULES, resolveExpenseCategory } from "./transactionCategory.js";
 import { inferDirectTransactionAction, normalizeAiTransactionAction, parseConversationalMoney } from "./aiIntent.js";
+import { buildAiFallbackAnswer, buildAiQuestionGuidance } from "./aiConversation.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -4334,7 +4335,8 @@ export default function App(){
     }catch(e){}
   },[isApproved,onboarded]);
 
-  const getAiSystemPrompt = () => {
+  const getAiSystemPrompt = (latestMessage="") => {
+    const questionGuidance=buildAiQuestionGuidance(latestMessage);
     // ── Compute financial metrics ──────────────────────
     const totalSaldo = s.dompet.reduce((a,d)=>a+N(d.saldo),0);
     const txBulan = s.txs.filter(t=>t.bulan===s.bulan&&t.tahun===s.tahun);
@@ -4459,6 +4461,12 @@ MODE SUPERPOWER:
 - Mode Habit Coach: pahami habit user dari data aktual, sebut nama habit, streak, progress bulan/tahun, quest yang belum selesai, lalu beri langkah kecil yang realistis.
 
 PRINSIP JAWABAN:
+- Pahami bahasa Indonesia sehari-hari, singkatan, typo, kata yang tertukar, dan kalimat yang tidak rapi. Cari maksud paling masuk akal dari konteks, bukan sekadar mencocokkan kata.
+- Jawab inti pertanyaan pada kalimat pertama. Setelah itu jelaskan alasan, solusi utama, alternatif bila perlu, dan tindakan berikutnya.
+- Jika user memiliki asumsi yang salah, koreksi dengan lembut: jelaskan bagian yang keliru, alasan sederhananya, lalu berikan contoh yang benar.
+- Jika pertanyaan kurang lengkap tetapi maksud dominannya jelas, sebutkan asumsi singkat lalu tetap bantu. Bertanya ulang hanya jika ada dua interpretasi yang sama kuat.
+- Jangan mengulang pertanyaan user, jangan memberi kuliah panjang, dan jangan memakai jargon tanpa penjelasan sederhana.
+- Untuk pertanyaan umum yang aman, tetap bantu secara ringkas. Jangan mengarang berita terbaru, harga real-time, hukum terbaru, diagnosis medis, atau kepastian investasi yang tidak tersedia di data aplikasi.
 - Jangan beri nasihat generik seperti "hemat pengeluaran" tanpa angka, kategori, atau langkah nyata.
 - Jangan berkata percakapan sebelumnya tidak ditemukan hanya karena user menyebut istilah umum. Untuk pertanyaan lanjutan seperti "sinking fund tadi gimana", jelaskan singkat bahwa itu dana khusus untuk kebutuhan terencana, lalu arahkan user membuat amplop atau goal sesuai kebutuhan.
 - Selalu gunakan data user bila tersedia: saldo, transaksi, budget, goals, utang, amplop, habit, aset, dan runway.
@@ -4610,6 +4618,7 @@ ATURAN EKSEKUSI:
 - Jangan membuat user merasa dihakimi. Pakai nada seperti coach finansial pribadi yang menemani.
 
 FORMAT KONSULTASI PREMIUM:
+- Ikuti arahan aman untuk pesan terbaru ini: ${questionGuidance}
 - Mulai dengan 1 kalimat empatik sesuai kondisi user.
 - Lalu ringkas diagnosis: "Kondisi utama", "Risiko", "Langkah hari ini".
 - Maksimal 3-5 poin utama, jangan terlalu panjang.
@@ -4639,7 +4648,7 @@ CONTOH GAYA:
         ? JSON.stringify({...directAction,dompet:directWallet?.nama||s.dompet[0]?.nama||"",kat:directAction.tipe==="pemasukan"?inferIncomeCategory(msg):undefined})
         : await callAi(
           newMsgs.filter(m=>m.role!=="system").map(m=>({role:m.role,content:m.content})),
-          getAiSystemPrompt()
+          getAiSystemPrompt(msg)
         );
 
       // Try parse JSON action
@@ -5065,7 +5074,7 @@ Saldo amplop bertambah.`}]);
           }
         } else {
           // Chat biasa
-          setAiMsgs(prev=>[...prev,{role:"assistant",content:reply}]);
+          setAiMsgs(prev=>[...prev,{role:"assistant",content:String(reply||"").trim()||buildAiFallbackAnswer(msg)}]);
         }
       }
     } catch(e) {
