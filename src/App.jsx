@@ -9,7 +9,7 @@ import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
 import { afterFirstPaint } from "./runtimeRecovery.js";
 import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "./incomeCategory.js";
 import { extractPdfStatement, parsePdfStatementLines, validatePdfStatement } from "./pdfStatement.js";
-import { detectFinancialProvider as detectBank, parseStatementCSV as parseBankCSV } from "./bankImport.js";
+import { detectFinancialProvider as detectBank, findWalletForProvider, parseStatementCSV as parseBankCSV, walletDraftForProvider } from "./bankImport.js";
 import { EXPENSE_CATEGORY_RULES, resolveExpenseCategory } from "./transactionCategory.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
@@ -2361,6 +2361,15 @@ function ImportMutasiBank({ dompet, budgets=[], onImport, onClose, T, lang="id" 
   const [fileKind, setFileKind] = useState("");
   const [statementCheck, setStatementCheck] = useState(null);
   const expenseCategory = description => resolveExpenseCategory(description, budgets);
+  // Points the destination at the wallet this provider belongs to. When the user
+  // never made that wallet, the destination becomes a draft shown in the picker
+  // and only turned into a real wallet if the import is actually confirmed.
+  const NEW_WALLET = "__new__";
+  const aimWalletAt = provider => {
+    const existing = findWalletForProvider(dompet, provider);
+    if (existing) { setDompetId(existing.id); return; }
+    setDompetId(walletDraftForProvider(provider) ? NEW_WALLET : dompetId);
+  };
   const BANKS = ["BCA","Mandiri","BNI","BRI","CIMB","Jenius","OVO","GoPay","Dana","ShopeePay","BSI","Permata","BTN","Generic"];
   const BANK_GUIDES = {
     BCA:"myBCA → Rekening → e-Statement/Mutasi → PDF atau CSV",
@@ -2417,11 +2426,7 @@ function ImportMutasiBank({ dompet, budgets=[], onImport, onClose, T, lang="id" 
         const text = lines.join("\n");
         const detected = detectBank(text);
         const useBank = bankType === "Generic" ? detected : (detected !== "Generic" ? detected : bankType);
-        if (detected !== "Generic") {
-          setBankType(detected);
-          const matchingWallet = dompet.find(wallet => detectBank(`${wallet.nama||""} ${wallet.jenis||""}`) === detected);
-          if (matchingWallet) setDompetId(matchingWallet.id);
-        }
+        if (detected !== "Generic") { setBankType(detected); aimWalletAt(detected); }
         rows = parsePdfStatementLines(lines, useBank).map(row => {
           const category = row.tipe === "pengeluaran" ? expenseCategory(row.ket) : null;
           return {...row,katId:category?.id??9,categoryConfidence:category?.confidence||"high"};
@@ -2436,7 +2441,7 @@ function ImportMutasiBank({ dompet, budgets=[], onImport, onClose, T, lang="id" 
         const text = await file.text();
         const detected = detectBank(text);
         const useBank = bankType === "Generic" ? detected : bankType;
-        if (detected !== "Generic") setBankType(detected);
+        if (detected !== "Generic") { setBankType(detected); aimWalletAt(detected); }
         rows = parseBankCSV(text, useBank).map(row => {
           const category = row.tipe === "pengeluaran" ? expenseCategory(row.ket) : null;
           return {...row,katId:category?.id??9,categoryConfidence:category?.confidence||"high"};
@@ -2484,9 +2489,11 @@ function ImportMutasiBank({ dompet, budgets=[], onImport, onClose, T, lang="id" 
     Math.abs(totalMasuk-expectedTotals.income)<=1 &&
     Math.abs(totalKeluar-expectedTotals.expense)<=1
   );
+  const walletDraft = walletDraftForProvider(bankType);
+  const creatingWallet = dompetId===NEW_WALLET && Boolean(walletDraft);
   const selectedWallet = dompet.find(wallet=>sameId(wallet.id,dompetId));
-  const selectedWalletProvider = detectBank(`${selectedWallet?.nama||""} ${selectedWallet?.jenis||""}`);
-  const walletProviderMismatch = bankType!=="Generic" && selectedWalletProvider!=="Generic" && selectedWalletProvider!==bankType;
+  const selectedWalletProvider = detectBank(`${selectedWallet?.nama||""} ${selectedWallet?.tipe||""}`);
+  const walletProviderMismatch = !creatingWallet && bankType!=="Generic" && selectedWalletProvider!=="Generic" && selectedWalletProvider!==bankType;
   const toggleAll = () => {
     const idxs = filtered.map(([i])=>i);
     const allOn = idxs.every(i=>selected[i]);
@@ -2505,6 +2512,7 @@ function ImportMutasiBank({ dompet, budgets=[], onImport, onClose, T, lang="id" 
       openingBalance: statementCheck?.hasReference ? statementCheck.expected.opening : null,
       provider: bankType,
       replaceImportedPeriod: fileKind==="PDF" && statementCheck?.hasReference && statementCheck?.accurate && statementTotalsStillMatch,
+      createWallet: creatingWallet ? walletDraft : null,
       periodStart: toImport.map(row=>row.tgl).sort()[0]||null,
       periodEnd: toImport.map(row=>row.tgl).sort().at(-1)||null,
     });
@@ -2526,7 +2534,7 @@ function ImportMutasiBank({ dompet, budgets=[], onImport, onClose, T, lang="id" 
           <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:6}}>Format Bank</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:5}}>
             {BANKS.map(b=>(
-              <button key={b} onClick={()=>setBankType(b)} style={{padding:"6px 4px",borderRadius:9,border:`2px solid ${bankType===b?T.accent:T.border}`,background:bankType===b?T.accentBg:T.card,color:bankType===b?T.accent:T.sub,fontWeight:700,fontSize:10,cursor:"pointer",transition:"all .15s",textAlign:"center",lineHeight:1.3}}>
+              <button key={b} onClick={()=>{setBankType(b);aimWalletAt(b);}} style={{padding:"6px 4px",borderRadius:9,border:`2px solid ${bankType===b?T.accent:T.border}`,background:bankType===b?T.accentBg:T.card,color:bankType===b?T.accent:T.sub,fontWeight:700,fontSize:10,cursor:"pointer",transition:"all .15s",textAlign:"center",lineHeight:1.3}}>
                 <span style={{display:"flex",justifyContent:"center",marginBottom:4}}><BankMark bank={b}/></span>
                 {b==="Generic"?"Auto":b==="ShopeePay"?"SPay":b}
               </button>
@@ -2539,8 +2547,12 @@ function ImportMutasiBank({ dompet, budgets=[], onImport, onClose, T, lang="id" 
         <div style={{marginBottom:12}}>
           <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:5}}>Masukkan ke Dompet</div>
           <select value={dompetId} onChange={e=>setDompetId(e.target.value)} style={{width:"100%",padding:"8px 10px",borderRadius:9,border:`1.5px solid ${T.inputBorder}`,background:T.input,color:T.text,fontSize:13,fontWeight:600,outline:"none"}}>
+            {walletDraft&&<option value={NEW_WALLET}>➕ Buat dompet {walletDraft.nama} otomatis</option>}
             {dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}
           </select>
+          {creatingWallet&&<div style={{marginTop:6,fontSize:10,color:T.accent,background:T.accentBg,borderRadius:7,padding:"6px 10px",lineHeight:1.5}}>
+            Kamu belum punya dompet {walletDraft.nama}. Dompet {walletDraft.tipe==="E-Wallet"?"e-wallet":"bank"} bernama <b>{walletDraft.nama}</b> akan dibuat otomatis saat kamu menekan Import, dengan saldo mengikuti mutasi ini.
+          </div>}
         </div>
         <label style={{display:"block",cursor:"pointer"}}
           onDragOver={e=>{e.preventDefault();}} onDrop={e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)handleFile(f);}}>
@@ -6902,18 +6914,27 @@ Saldo amplop bertambah.`}]);
 
   // ── IMPORT MUTASI HANDLER ──────────────────────────────────────────────────
   const handleImportMutasi = (txRows, dompetId, importOptions={}) => {
-    if(!hasWallet(s.dompet,dompetId)){showToast(t("toast_walletNotFound"));return;}
-    const normalizedRows=txRows.map(normalizeIncomeTransaction);
-    const preview=reconcileImportedStatement(s.txs,s.dompet,normalizedRows,dompetId,importOptions);
+    // A wallet the user never created is only made once the import is confirmed,
+    // so cancelling out of the preview never leaves an empty wallet behind.
+    const draft=importOptions.createWallet;
+    const newWallet=draft&&!findWalletForProvider(s.dompet,importOptions.provider)
+      ? {...draft,id:Date.now(),icon:DOMPET_ICONS[draft.tipe]||"💳"}
+      : null;
+    const targetId=newWallet?newWallet.id:dompetId;
+    if(!newWallet&&!hasWallet(s.dompet,targetId)){showToast(t("toast_walletNotFound"));return;}
+    const walletsWithTarget=newWallet?[...s.dompet,newWallet]:s.dompet;
+    const normalizedRows=txRows.map(row=>normalizeIncomeTransaction({...row,dompetId:targetId}));
+    const preview=reconcileImportedStatement(s.txs,walletsWithTarget,normalizedRows,targetId,importOptions);
     const pairedPreview=pairImportedInternalTransfers(preview.transactions,preview.wallets);
     const uniqueRows={length:preview.importedCount};
     setS(prev => {
-      const result=reconcileImportedStatement(prev.txs,prev.dompet,normalizedRows,dompetId,importOptions);
+      const wallets=newWallet&&!hasWallet(prev.dompet,newWallet.id)?[...prev.dompet,newWallet]:prev.dompet;
+      const result=reconcileImportedStatement(prev.txs,wallets,normalizedRows,targetId,importOptions);
       const paired=pairImportedInternalTransfers(result.transactions,result.wallets);
       return {...prev,txs:paired.transactions,dompet:result.wallets};
     });
     showToast(uniqueRows.length
-      ? `✅ ${uniqueRows.length} transaksi diimport${pairedPreview.newPairCount?` · ${pairedPreview.newPairCount} transfer internal ditautkan`:""}!`
+      ? `✅ ${uniqueRows.length} transaksi diimport${newWallet?` · dompet ${newWallet.nama} dibuat`:""}${pairedPreview.newPairCount?` · ${pairedPreview.newPairCount} transfer internal ditautkan`:""}!`
       : "Semua transaksi di file ini sudah pernah diimport.");
     closeModal();
   };

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { detectFinancialProvider, parseStatementCSV } from "../src/bankImport.js";
+import { detectFinancialProvider, findWalletForProvider, parseStatementCSV, walletDraftForProvider } from "../src/bankImport.js";
 
 const cases = [
   ["BCA", "Tanggal,Keterangan,Cabang,Debit,Kredit,Saldo\n01/08/2026,QRIS KOPI,001,45000,0,955000", "pengeluaran", "45000"],
@@ -39,5 +39,50 @@ assert.equal(detectFinancialProvider("e-Statement Bank Syariah Indonesia BYOND")
 assert.equal(detectFinancialProvider("Dokumen tanpa identitas penyedia"), "Generic");
 assert.equal(detectFinancialProvider("LAPORAN TRANSAKSI FINANSIAL\nTransfer dari BANK CENTRAL ASIA"), "BRI", "Nama bank lawan transaksi tidak boleh mengalahkan identitas penerbit");
 assert.equal(detectFinancialProvider("Laporan Mutasi Rekening\nTransfer ke Mandiri"), "BNI", "Header penerbit harus diprioritaskan");
+
+// ── Dompet tujuan otomatis ────────────────────────────────────────────────
+const wallets = [
+  {id:1,tipe:"Bank",nama:"BCA"},
+  {id:2,tipe:"E-Wallet",nama:"GoPay"},
+  {id:3,tipe:"Tunai",nama:"Tunai"},
+];
+assert.equal(findWalletForProvider(wallets,"BCA")?.id,1,"Mutasi BCA harus mengarah ke dompet BCA");
+assert.equal(findWalletForProvider(wallets,"GoPay")?.id,2,"Mutasi GoPay harus mengarah ke dompet GoPay");
+assert.equal(findWalletForProvider(wallets,"BRI"),null,"Dompet BRI belum ada, jangan mengarah ke dompet lain");
+assert.equal(findWalletForProvider(wallets,"Generic"),null,"Format Auto tidak boleh memilih dompet sendiri");
+assert.equal(findWalletForProvider([],"BCA"),null,"Tanpa dompet sama sekali tetap aman");
+
+// Nama dompet lebih menentukan daripada jenisnya.
+assert.equal(findWalletForProvider([{id:9,tipe:"Bank",nama:"Rekening BRI Gaji"}],"BRI")?.id,9,
+  "Nama dompet yang memuat nama bank harus dikenali");
+assert.equal(findWalletForProvider([{id:9,tipe:"Bank",nama:"Dompet Utama"}],"BRI"),null,
+  "Dompet bernama umum tidak boleh diklaim sebagai dompet BRI");
+assert.equal(findWalletForProvider([{id:9,tipe:"Tunai",nama:"Tunai"}],"Dana"),null,
+  "Dompet tunai tidak boleh dikira dompet Dana");
+
+// Rancangan dompet baru: bank vs e-wallet, dan saldo selalu mulai nol.
+assert.deepEqual(walletDraftForProvider("BRI"),{tipe:"Bank",nama:"BRI",norek:"",saldo:"0"});
+assert.deepEqual(walletDraftForProvider("GoPay"),{tipe:"E-Wallet",nama:"GoPay",norek:"",saldo:"0"});
+assert.equal(walletDraftForProvider("ShopeePay").tipe,"E-Wallet");
+assert.equal(walletDraftForProvider("Permata").tipe,"Bank");
+assert.equal(walletDraftForProvider("Generic"),null,"Format Auto tidak boleh membuat dompet");
+assert.equal(walletDraftForProvider(""),null);
+
+// "Dana" ambigu: dompet tabungan bernama "Dana Darurat" bukan e-wallet Dana.
+assert.equal(findWalletForProvider([{id:5,tipe:"Bank",nama:"Dana Darurat"}],"Dana"),null,
+  "Dompet tabungan bernama Dana Darurat tidak boleh dikira e-wallet Dana");
+assert.equal(findWalletForProvider([{id:5,tipe:"E-Wallet",nama:"Dana"}],"Dana")?.id,5,
+  "Dompet bernama persis Dana harus dikenali");
+
+// Nama dompet yang lebih deskriptif tetap dikenali.
+[["Tabungan BCA","BCA"],["BNI Taplus","BNI"],["Livin Mandiri","Mandiri"],["OCTO CIMB","CIMB"],
+ ["Rekening BTN","BTN"],["Shopee Pay","ShopeePay"],["BSI Byond","BSI"]].forEach(([nama,provider]) => {
+  assert.equal(findWalletForProvider([{id:7,nama}],provider)?.id,7,`Dompet "${nama}" harus cocok dengan ${provider}`);
+});
+
+// Dompet yang sudah ada harus dipakai, bukan dibuat ganda.
+["BCA","GoPay"].forEach(provider => {
+  assert.ok(findWalletForProvider(wallets,provider),`Dompet ${provider} sudah ada sehingga tidak perlu dibuat lagi`);
+});
 
 console.log("Bank and e-wallet import tests passed");

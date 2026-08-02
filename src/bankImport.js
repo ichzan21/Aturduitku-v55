@@ -167,6 +167,54 @@ export const detectFinancialProvider = text => {
   return PROVIDERS.find(([, pattern]) => pattern.test(source))?.[0] || "Generic";
 };
 
+// Wallet defaults per provider, so a statement can open a matching wallet
+// without asking the user to fill a form they did not come here for.
+const PROVIDER_WALLET_KIND = {
+  OVO:"E-Wallet", GoPay:"E-Wallet", Dana:"E-Wallet", ShopeePay:"E-Wallet",
+};
+
+// Wallet names are short labels ("BCA", "Rekening BRI Gaji"), not statement
+// prose, so they need their own patterns: the document detector deliberately
+// requires phrases like "Bank Central Asia" that a wallet name never carries.
+const WALLET_NAME_PATTERNS = [
+  ["BCA", /\bbca\b/i],
+  ["Mandiri", /\bmandiri\b|\blivin\b/i],
+  ["BNI", /\bbni\b|\bwondr\b|\btaplus\b/i],
+  ["BRI", /\bbri\b|\bbrimo\b|\bsimpedes\b|\bbritama\b/i],
+  ["CIMB", /\bcimb\b|\bniaga\b|\bocto\b/i],
+  ["Jenius", /\bjenius\b|\bbtpn\b/i],
+  ["OVO", /\bovo\b/i],
+  ["GoPay", /\bgopay\b|\bgojek\b/i],
+  ["ShopeePay", /shopee\s*pay|\bspay\b|\bshopee\b/i],
+  ["BSI", /\bbsi\b|syariah\s+indonesia|\bbyond\b/i],
+  ["Permata", /\bpermata\b/i],
+  ["BTN", /\bbtn\b/i],
+];
+
+// "Dana" is left out of the patterns above on purpose: a wallet called
+// "Dana Darurat" is savings, not the e-wallet, so it is matched by exact name.
+const walletNameProvider = name => {
+  const text = String(name || "").trim();
+  if (!text) return "";
+  const exact = PROVIDERS.find(([label]) => label.toLowerCase() === text.toLowerCase());
+  if (exact) return exact[0];
+  return WALLET_NAME_PATTERNS.find(([, pattern]) => pattern.test(text))?.[0] || "";
+};
+
+// The wallet a statement from this provider belongs to.
+export const findWalletForProvider = (wallets, provider) => {
+  if (!provider || provider === "Generic") return null;
+  return (wallets || []).find(wallet => walletNameProvider(wallet?.nama) === provider) || null;
+};
+
+// Draft for a wallet that does not exist yet. Balance starts at zero: the
+// import applies the statement's own transactions and closing balance.
+export const walletDraftForProvider = provider => {
+  if (!provider || provider === "Generic") return null;
+  const tipe = PROVIDER_WALLET_KIND[provider] || "Bank";
+  return { tipe, nama:provider, norek:"", saldo:"0" };
+};
+
 export const parseStatementCSV = (text, provider = "Generic") => {
   const rawLines = String(text || "").replace(/^\uFEFF/, "").split(/\r?\n/).filter(line => line.trim());
   if (!rawLines.length) return [];
