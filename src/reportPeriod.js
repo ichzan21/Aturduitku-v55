@@ -109,3 +109,111 @@ export const buildReportActivity = (transactions = [], mode, anchor, numberValue
   }
   return result;
 };
+
+const REPORT_PDF_TEMPLATES = {
+  daily: {
+    titleId:"Laporan Keuangan Harian",
+    titleEn:"Daily Financial Report",
+    badgeId:"LAPORAN HARIAN",
+    badgeEn:"DAILY REPORT",
+    activityTitleId:"Arus Kas Harian",
+    activityTitleEn:"Daily Cashflow",
+    activitySubtitleId:"Pemasukan, pengeluaran, dan dana masa depan pada hari terpilih",
+    activitySubtitleEn:"Income, expenses, and future funds for the selected day",
+    transactionLimit:200,
+    filenameLabel:"Harian",
+  },
+  weekly: {
+    titleId:"Laporan Keuangan Mingguan",
+    titleEn:"Weekly Financial Report",
+    badgeId:"LAPORAN MINGGUAN",
+    badgeEn:"WEEKLY REPORT",
+    activityTitleId:"Arus Kas 7 Hari",
+    activityTitleEn:"7-Day Cashflow",
+    activitySubtitleId:"Pergerakan uang dari Senin sampai Minggu",
+    activitySubtitleEn:"Money movement from Monday through Sunday",
+    transactionLimit:400,
+    filenameLabel:"Mingguan",
+  },
+  monthly: {
+    titleId:"Laporan Keuangan Bulanan",
+    titleEn:"Monthly Financial Report",
+    badgeId:"LAPORAN BULANAN",
+    badgeEn:"MONTHLY REPORT",
+    activityTitleId:"Arus Kas Harian",
+    activityTitleEn:"Daily Cashflow",
+    activitySubtitleId:"Pola pemasukan dan pengeluaran setiap tanggal dalam bulan terpilih",
+    activitySubtitleEn:"Income and expense pattern for each day in the selected month",
+    transactionLimit:800,
+    filenameLabel:"Bulanan",
+  },
+  yearly: {
+    titleId:"Laporan Keuangan Tahunan",
+    titleEn:"Annual Financial Report",
+    badgeId:"LAPORAN TAHUNAN",
+    badgeEn:"ANNUAL REPORT",
+    activityTitleId:"Tren 12 Bulan",
+    activityTitleEn:"12-Month Trend",
+    activitySubtitleId:"Perbandingan pemasukan dan pengeluaran Januari sampai Desember",
+    activitySubtitleEn:"Income and expense comparison from January through December",
+    transactionLimit:1500,
+    filenameLabel:"Tahunan",
+  },
+};
+
+export const getReportPdfTemplate = (mode = "monthly", locale = "id-ID") => {
+  const key = REPORT_PDF_TEMPLATES[mode] ? mode : "monthly";
+  const template = REPORT_PDF_TEMPLATES[key];
+  const isEnglish = String(locale).toLowerCase().startsWith("en");
+  return {
+    mode:key,
+    title:isEnglish ? template.titleEn : template.titleId,
+    badge:isEnglish ? template.badgeEn : template.badgeId,
+    activityTitle:isEnglish ? template.activityTitleEn : template.activityTitleId,
+    activitySubtitle:isEnglish ? template.activitySubtitleEn : template.activitySubtitleId,
+    transactionLimit:template.transactionLimit,
+    filenameLabel:template.filenameLabel,
+  };
+};
+
+export const buildReportCashflowActivity = (transactions = [], mode, anchor, numberValue = Number, locale = "id-ID") => {
+  const { start, end } = getReportPeriodRange(mode, anchor);
+  const grouped = new Map();
+  const add = (key, field, amount) => {
+    const current = grouped.get(key) || { income:0, expense:0, future:0 };
+    current[field] += Number(amount || 0);
+    grouped.set(key, current);
+  };
+
+  transactions.forEach(transaction => {
+    const dateKey = toDateKey(transaction?.tgl);
+    if (!dateKey || dateKey < start || dateKey > end) return;
+    const bucketKey = mode === "yearly" ? dateKey.slice(0, 7) : dateKey;
+    if (transaction?.tipe === "pemasukan") add(bucketKey, "income", numberValue(transaction?.jml));
+    else if (transaction?.tipe === "pengeluaran") add(bucketKey, "expense", numberValue(transaction?.jml));
+    else if (["tabungan", "investasi"].includes(transaction?.tipe)) add(bucketKey, "future", numberValue(transaction?.jml));
+  });
+
+  if (mode === "yearly") {
+    const year = Number(start.slice(0, 4));
+    return Array.from({ length:12 }, (_, month) => {
+      const key = `${year}-${pad(month + 1)}`;
+      return {
+        label:new Date(year, month, 1).toLocaleDateString(locale, { month:"short" }),
+        ...(grouped.get(key) || { income:0, expense:0, future:0 }),
+      };
+    });
+  }
+
+  const result = [];
+  for (let key = start; key <= end; key = addDays(key, 1)) {
+    const date = fromDateKey(key);
+    const label = mode === "daily"
+      ? date.toLocaleDateString(locale, { day:"numeric", month:"short" })
+      : mode === "weekly"
+        ? date.toLocaleDateString(locale, { weekday:"short" })
+        : String(date.getDate());
+    result.push({ label, ...(grouped.get(key) || { income:0, expense:0, future:0 }) });
+  }
+  return result;
+};

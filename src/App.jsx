@@ -13,7 +13,8 @@ import { detectFinancialProvider as detectBank, findWalletForProvider, parseStat
 import { EXPENSE_CATEGORY_RULES, resolveExpenseCategory } from "./transactionCategory.js";
 import { inferDirectTransactionAction, normalizeAiTransactionAction, parseConversationalMoney } from "./aiIntent.js";
 import { buildAiFallbackAnswer, buildAiQuestionGuidance } from "./aiConversation.js";
-import { buildReportActivity, filterTransactionsByPeriod, formatReportPeriod, getReportPeriodRange, shiftReportAnchor, summarizeTransactions } from "./reportPeriod.js";
+import { buildReportActivity, buildReportCashflowActivity, filterTransactionsByPeriod, formatReportPeriod, getReportPdfTemplate, getReportPeriodRange, shiftReportAnchor, summarizeTransactions } from "./reportPeriod.js";
+import { filterTransactionsForList } from "./transactionList.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -3643,14 +3644,11 @@ export default function App(){
   const prevIn=N(s.prevPemasukan),prevOut=N(s.prevPengeluaran);
   const changePct=(cur,prev)=>prev>0?((cur-prev)/prev*100).toFixed(1):null;
 
-  const filtTx=useMemo(()=>{
-    let list=[...s.txs].sort((a,b)=>new Date(b.tgl)-new Date(a.tgl));
-    if(txSearch)list=list.filter(t=>t.ket?.toLowerCase().includes(txSearch.toLowerCase()));
-    if(txFilt.dompet)list=list.filter(t=>String(t.dompetId)===String(txFilt.dompet));
-    if(txFilt.tipe==="transfer_internal") list=list.filter(t=>["transfer_internal_keluar","transfer_internal_masuk"].includes(t.tipe));
-    else if(txFilt.tipe)list=list.filter(t=>t.tipe===txFilt.tipe);
-    return list;
-  },[s.txs,txSearch,txFilt]); // eslint-disable-line react-hooks/exhaustive-deps
+  const filtTx=useMemo(()=>filterTransactionsForList(s.txs,{
+    search:txSearch,
+    walletId:txFilt.dompet,
+    type:txFilt.tipe,
+  }),[s.txs,txSearch,txFilt]);
 
   const filteredTxSummary=useMemo(()=>summarizeTransactions(filtTx,N),[filtTx]);
 
@@ -5248,6 +5246,7 @@ Saldo amplop bertambah.`}]);
       const pad  = n => String(n).padStart(2,"0");
       const tsmp = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
       const isEN = lang==="en";
+      const pdfTemplate = getReportPdfTemplate(reportPeriod,isEN?"en-US":"id-ID");
 
       // ── Strip emoji from strings going into PDF ──────────────────────────
       const clean = str => String(str||"").replace(/[\u{1F000}-\u{1FFFF}]/gu,"").replace(/[\u2600-\u27BF]/g,"").replace(/\s{2,}/g," ").trim();
@@ -5305,6 +5304,7 @@ Saldo amplop bertambah.`}]);
 
       // ── Transaction data ─────────────────────────────────────────────────
       const txM     = reportTransactions;
+      const cashflowActivity = buildReportCashflowActivity(txM,reportPeriod,reportAnchor,Num,isEN?"en-US":"id-ID");
       const totalIn  = txM.filter(tx=>tx.tipe==="pemasukan").reduce((a,tx)=>a+Num(tx.jml),0);
       const totalOut = txM.filter(tx=>tx.tipe==="pengeluaran").reduce((a,tx)=>a+Num(tx.jml),0);
       const totalSav = txM.filter(tx=>tx.tipe==="tabungan"||tx.tipe==="investasi").reduce((a,tx)=>a+Num(tx.jml),0);
@@ -5393,7 +5393,7 @@ Saldo amplop bertambah.`}]);
 
       // App name + subtitle
       tc(C.white); ft("bold",22); txt("AturDuitku",ML,17);
-      tc(C.white); ft("normal",8.5); txt(isEN?"Personal Finance Report":"Laporan Keuangan Personal",ML,24);
+      tc(C.white); ft("normal",8.5); txt(pdfTemplate.title,ML,24);
       // Thin rule
       dc([200,180,255]); lw(0.3); ln(ML,27,W-56,27);
       // Name + period
@@ -5403,7 +5403,7 @@ Saldo amplop bertambah.`}]);
       txt(`${isEN?"Generated":"Dibuat"}: ${tsmp}`,ML,44.5);
 
       // Right badges
-      tc(C.white); ft("bold",7.5); txt(isEN?"OFFICIAL REPORT":"LAPORAN RESMI", W-26,14,{align:"center"});
+      tc(C.white); ft("bold",7.5); txt(pdfTemplate.badge, W-26,14,{align:"center"});
       dc([200,180,255]); lw(0.2); ln(W-48,17,W-4,17);
       ft("normal",8); txt(bulanLabel,W-26,24,{align:"center"});
       ft("normal",6.5); txt(tsmp.split(" ")[0],W-26,30,{align:"center"});
@@ -5510,10 +5510,10 @@ Saldo amplop bertambah.`}]);
       // ─────────────────────────────────────────────────────────────────────
       newPage(); y=6;
       y=secTitle(isEN?"Transaction History":"Riwayat Transaksi",
-                 `${bulanLabel}  |  ${txM.length} ${isEN?"transactions":"transaksi"}  |  Max 60 ${isEN?"shown":"ditampilkan"}`, y);
+                 `${bulanLabel}  |  ${txM.length} ${isEN?"transactions":"transaksi"}  |  ${Math.min(txM.length,pdfTemplate.transactionLimit)} ${isEN?"shown":"ditampilkan"}`, y);
 
       const TIPE_LBL  = {pemasukan:"[+]", pengeluaran:"[-]", tabungan:"[S]", investasi:"[I]", alokasi_amplop:"[A]", pengembalian_amplop:"[R]", penyesuaian:"[K]", transfer:"[T]", transfer_internal_keluar:"[TI]", transfer_internal_masuk:"[TI]"};
-      const txRows = txM.slice(0,60).map(tx=>{
+      const txRows = txM.slice(0,pdfTemplate.transactionLimit).map(tx=>{
         const dompet   = clean(findWallet(s.dompet,tx.dompetId)?.nama||"-");
         const katB     = s.budgets.find(b=>b.id===Number(tx.katId));
         const isInternal = ["transfer_internal_keluar","transfer_internal_masuk"].includes(tx.tipe);
@@ -5556,7 +5556,7 @@ Saldo amplop bertambah.`}]);
         tableLineColor:C.line,tableLineWidth:0.25,
         didParseCell:(d)=>{
           if(d.section!=="body") return;
-          const totIdx=txM.slice(0,60).length;
+          const totIdx=txM.slice(0,pdfTemplate.transactionLimit).length;
           if(d.row.index===totIdx){
             d.cell.styles.fillColor=C.dark; d.cell.styles.textColor=C.white; d.cell.styles.fontStyle="bold"; return;
           }
@@ -5653,69 +5653,50 @@ Saldo amplop bertambah.`}]);
         y+=16;
       }
 
-      // ── 6-month bar chart ─────────────────────────────────────────────────
+      // Period-specific cashflow chart
       if(y>H-80){newPage();y=6;}
 
-      const MONTHS_FULL = isEN
-        ?["January","February","March","April","May","June","July","August","September","October","November","December"]
-        :["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-      const MSHORT = isEN
-        ?["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-        :["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
-      const reportAnchorDate=new Date(`${reportAnchor}T12:00:00`);
-      const mIdx=reportAnchorDate.getMonth();
-      const yr=reportAnchorDate.getFullYear();
+      y=secTitle(pdfTemplate.activityTitle,pdfTemplate.activitySubtitle,y);
 
-      const trendData=[];
-      for(let i=5;i>=0;i--){
-        let mi=mIdx-i,yi=yr;
-        if(mi<0){mi+=12;yi--;}
-        const mn=MONTHS_FULL[mi];
-        const mTx=s.txs.filter(tx=>tx.bulan===mn&&tx.tahun===String(yi));
-        trendData.push({
-          l:MSHORT[mi],
-          inc:mTx.filter(t=>t.tipe==="pemasukan").reduce((a,t)=>a+Num(t.jml),0),
-          exp:mTx.filter(t=>t.tipe==="pengeluaran").reduce((a,t)=>a+Num(t.jml),0),
-        });
-      }
+      const maxT=Math.max(...cashflowActivity.map(item=>Math.max(item.income,item.expense,item.future)),1);
+      const cH=38,cX=ML+18,cW=CT-18,colW=cW/Math.max(cashflowActivity.length,1);
+      const bW2=Math.max(.7,Math.min(3,colW*.24));
+      const chartY=y+7;
 
-      y=secTitle(isEN?"6-Month Trend":"Tren 6 Bulan",
-                 isEN?"Income vs Expenses – last 6 months":"Perbandingan pemasukan vs pengeluaran 6 bulan terakhir",y);
-
-      const maxT=Math.max(...trendData.map(m=>Math.max(m.inc,m.exp)),1);
-      const cH=38,cX=ML+18,cW=CT-18,colW=cW/6,bW2=colW*0.33;
+      fc(C.green); rx(ML,y+1,6,3);
+      tc(C.dark); ft("normal",6.5); txt(isEN?"Income":"Masuk",ML+8,y+4);
+      fc(C.red); rx(ML+33,y+1,6,3);
+      txt(isEN?"Expense":"Keluar",ML+41,y+4);
+      fc(C.purple); rx(ML+68,y+1,6,3);
+      txt(isEN?"Future funds":"Dana masa depan",ML+76,y+4);
 
       // Y-axis gridlines + labels
       dc(C.line); lw(0.25);
       [0.25,0.5,0.75,1].forEach(p=>{
-        const gy=y+cH*(1-p);
+        const gy=chartY+cH*(1-p);
         ln(cX,gy,cX+cW,gy);
         tc(C.gray); ft("normal",5.5);
         txt(idrs(maxT*p),cX-2,gy+1.5,{align:"right"});
       });
       // Baseline
-      dc(C.line); lw(0.6); ln(cX,y+cH,cX+cW,y+cH);
+      dc(C.line); lw(0.6); ln(cX,chartY+cH,cX+cW,chartY+cH);
 
-      trendData.forEach((m,i)=>{
-        const gx=cX+i*colW+colW*0.06;
-        const hI=m.inc>0?(m.inc/maxT)*cH:0;
-        const hE=m.exp>0?(m.exp/maxT)*cH:0;
-        if(hI>0){fc(C.green); rr(gx,y+cH-hI,bW2,Math.max(hI,1),1);}
-        if(hE>0){fc(C.red);   rr(gx+bW2+1,y+cH-hE,bW2,Math.max(hE,1),1);}
-        // Month label
-        tc(C.dark); ft("bold",6);
-        // Bold if current month
-        const isCur=(i===5);
-        if(isCur){fc(C.purpleBg);rr(gx-1,y+cH+2,colW*0.7,5,1);}
-        txt(m.l,gx+bW2,y+cH+5.5,{align:"center"});
+      cashflowActivity.forEach((item,i)=>{
+        const gx=cX+i*colW+Math.max(.2,(colW-(bW2*3+1.2))/2);
+        const hI=item.income>0?(item.income/maxT)*cH:0;
+        const hE=item.expense>0?(item.expense/maxT)*cH:0;
+        const hF=item.future>0?(item.future/maxT)*cH:0;
+        if(hI>0){fc(C.green); rr(gx,chartY+cH-hI,bW2,Math.max(hI,1),.5);}
+        if(hE>0){fc(C.red); rr(gx+bW2+.6,chartY+cH-hE,bW2,Math.max(hE,1),.5);}
+        if(hF>0){fc(C.purple); rr(gx+(bW2+.6)*2,chartY+cH-hF,bW2,Math.max(hF,1),.5);}
+        const showLabel=cashflowActivity.length<=14||i===0||i===cashflowActivity.length-1||i%5===0;
+        if(showLabel){
+          tc(C.dark); ft("bold",5.5);
+          txt(clean(item.label),gx+bW2,chartY+cH+5.5,{align:"center"});
+        }
       });
 
-      // Legend
-      fc(C.green); rx(W-54,y+1.5,8,3.5);
-      tc(C.dark); ft("normal",7); txt(isEN?"Income":"Masuk",W-44,y+5);
-      fc(C.red);   rx(W-54,y+7,8,3.5);
-      txt(isEN?"Expense":"Keluar",W-44,y+10.5);
-      y+=cH+12;
+      y=chartY+cH+12;
 
       // ─────────────────────────────────────────────────────────────────────
       // PAGE 4  –  BUDGET PERFORMANCE + HEALTH SCORE
@@ -5930,7 +5911,7 @@ Saldo amplop bertambah.`}]);
 
       // ── Final footer + save ───────────────────────────────────────────────
       addFooter();
-      doc.save(`AturDuitku_${bulanLabel.replace(/\s+/g,"_")}.pdf`);
+      doc.save(`AturDuitku_${pdfTemplate.filenameLabel}_${bulanLabel.replace(/\s+/g,"_")}.pdf`);
       showToast(t("toast_pdfOk"));
 
     } catch(err) {

@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import {
   buildReportActivity,
+  buildReportCashflowActivity,
   filterTransactionsByPeriod,
   formatReportPeriod,
+  getReportPdfTemplate,
   getReportPeriodRange,
   shiftReportAnchor,
   summarizeTransactions,
 } from "../src/reportPeriod.js";
+import { filterTransactionsForList } from "../src/transactionList.js";
 
 const txs = [
   { id:1, tgl:"2026-07-31", tipe:"pengeluaran", jml:"10000" },
@@ -43,5 +46,35 @@ assert.equal(shiftReportAnchor("2026-01-31", "monthly", 1), "2026-02-28");
 assert.equal(shiftReportAnchor("2026-08-03", "weekly", -1), "2026-07-27");
 assert.match(formatReportPeriod("monthly", "2026-08-03"), /Agustus 2026/i);
 assert.deepEqual(buildReportActivity(txs, "weekly", "2026-08-05").map(item => item.value), [25000, 0, 0, 0, 0, 0, 0]);
+
+const visibleTransactions = filterTransactionsForList(txs, { type:"pengeluaran" });
+assert.equal(visibleTransactions.length, 5);
+assert.deepEqual(summarizeTransactions(visibleTransactions), {
+  income:0,
+  expense:1204999,
+  saving:0,
+  investment:0,
+  future:0,
+  net:-1204999,
+});
+assert.equal(filterTransactionsForList(txs, { type:"transfer_internal" }).length, 1);
+assert.equal(filterTransactionsForList(txs, { search:"", walletId:"missing" }).length, 0);
+
+assert.equal(getReportPdfTemplate("daily").badge, "LAPORAN HARIAN");
+assert.equal(getReportPdfTemplate("weekly", "en-US").title, "Weekly Financial Report");
+assert.equal(getReportPdfTemplate("yearly").mode, "yearly");
+assert.deepEqual(buildReportCashflowActivity(txs, "weekly", "2026-08-05").map(item => ({
+  income:item.income,
+  expense:item.expense,
+  future:item.future,
+})), [
+  { income:0, expense:25000, future:50000 },
+  { income:0, expense:0, future:0 },
+  { income:0, expense:0, future:0 },
+  { income:0, expense:0, future:0 },
+  { income:0, expense:0, future:0 },
+  { income:0, expense:0, future:0 },
+  { income:0, expense:0, future:75000 },
+]);
 
 console.log("report-period tests passed");
