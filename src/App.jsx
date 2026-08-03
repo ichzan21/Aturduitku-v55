@@ -13,9 +13,11 @@ import { detectFinancialProvider as detectBank, findWalletForProvider, parseStat
 import { EXPENSE_CATEGORY_RULES, resolveExpenseCategory } from "./transactionCategory.js";
 import { inferDirectTransactionAction, normalizeAiTransactionAction, parseConversationalMoney } from "./aiIntent.js";
 import { buildAiFallbackAnswer, buildAiQuestionGuidance } from "./aiConversation.js";
+import { buildReportActivity, filterTransactionsByPeriod, formatReportPeriod, getReportPeriodRange, shiftReportAnchor, summarizeTransactions } from "./reportPeriod.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
+const PeriodBarChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.PeriodBarChart })));
 const DonutChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DonutChart })));
 const AdminMonitoringPanelLazy = React.lazy(() => import("./AdminMonitoringPanel.jsx"));
 
@@ -3459,6 +3461,8 @@ export default function App(){
   const [txSearch,setTxSearch]=useState("");
   const [txFilt,setTxFilt]=useState({dompet:"",tipe:"",sub:""});
   const [txPage,setTxPage]=useState(1);
+  const [reportPeriod,setReportPeriod]=useState("monthly");
+  const [reportAnchor,setReportAnchor]=useState(()=>today());
   const TX_PER_PAGE=30;
   const [recurringForm,setRecurringForm]=useState({nama:"",tipe:"pengeluaran",jml:"",katId:1,dompetId:1,hari:"1",aktif:true});
   const [amplopForm,setAmplopForm]=useState({nama:"",icon:"✉️",warna:"#8B5CF6",dompetId:1,katId:1,alokasi:""});
@@ -3647,6 +3651,64 @@ export default function App(){
     else if(txFilt.tipe)list=list.filter(t=>t.tipe===txFilt.tipe);
     return list;
   },[s.txs,txSearch,txFilt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filteredTxSummary=useMemo(()=>summarizeTransactions(filtTx,N),[filtTx]);
+
+  const reportRange=useMemo(()=>getReportPeriodRange(reportPeriod,reportAnchor),[reportPeriod,reportAnchor]);
+  const reportDays=Math.max(1,Math.round((new Date(`${reportRange.end}T00:00:00`)-new Date(`${reportRange.start}T00:00:00`))/86400000)+1);
+  const reportPeriodLabel=useMemo(()=>formatReportPeriod(reportPeriod,reportAnchor,lang==="en"?"en-US":"id-ID"),[reportPeriod,reportAnchor,lang]);
+  const reportTransactions=useMemo(()=>filterTransactionsByPeriod(s.txs,reportPeriod,reportAnchor),[s.txs,reportPeriod,reportAnchor]);
+  const reportTotals=useMemo(()=>summarizeTransactions(reportTransactions,N),[reportTransactions]);
+  const reportDailyExpense=reportTotals.expense/reportDays;
+  const reportActivityData=useMemo(()=>buildReportActivity(reportTransactions,reportPeriod,reportAnchor,N,lang==="en"?"en-US":"id-ID"),[reportTransactions,reportPeriod,reportAnchor,lang]);
+  const reportSpendByKat=useMemo(()=>{
+    const grouped={};
+    reportTransactions.filter(tx=>["pengeluaran","tabungan","investasi"].includes(tx.tipe)&&tx.katId).forEach(tx=>{
+      grouped[tx.katId]=(grouped[tx.katId]||0)+N(tx.jml);
+    });
+    return grouped;
+  },[reportTransactions]);
+  const reportExpenseData=useMemo(()=>{
+    const grouped=new Map();
+    reportTransactions.filter(tx=>tx.tipe==="pengeluaran").forEach(tx=>{
+      const budget=s.budgets.find(item=>item.id===Number(tx.katId));
+      const name=String(tx.customKat||"").trim()||budget?.kat||(lang==="en"?"Other":"Lainnya");
+      grouped.set(name,(grouped.get(name)||0)+N(tx.jml));
+    });
+    return [...grouped.entries()].map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);
+  },[reportTransactions,s.budgets,lang]);
+  const reportIncomeCategoryData=useMemo(()=>{
+    const grouped=new Map();
+    reportTransactions.filter(tx=>tx.tipe==="pemasukan").forEach(tx=>{
+      const name=incomeCategoryLabel(tx);
+      grouped.set(name,(grouped.get(name)||0)+N(tx.jml));
+    });
+    return [...grouped.entries()].map(([name,value])=>({name,value,percent:reportTotals.income>0?value/reportTotals.income*100:0})).sort((a,b)=>b.value-a.value);
+  },[reportTransactions,reportTotals.income]);
+  const reportIncomePieData=reportIncomeCategoryData.map(item=>({name:item.name,value:item.value}));
+  const reportBudgetScale=useMemo(()=>{
+    if(reportPeriod==="yearly") return 12;
+    if(reportPeriod==="monthly") return 1;
+    const anchorDate=new Date(`${reportAnchor}T00:00:00`);
+    const daysInMonth=new Date(anchorDate.getFullYear(),anchorDate.getMonth()+1,0).getDate();
+    return reportPeriod==="weekly"?7/daysInMonth:1/daysInMonth;
+  },[reportPeriod,reportAnchor]);
+  const reportBudgetTotal=totalBudget*reportBudgetScale;
+  const reportBudgetUsed=Object.values(reportSpendByKat).reduce((sum,value)=>sum+N(value),0);
+  const reportSavingRate=reportTotals.income>0?reportTotals.future/reportTotals.income*100:0;
+  const reportExpenseMonthlyEquivalent=reportPeriod==="daily"?reportTotals.expense*30:reportPeriod==="weekly"?reportTotals.expense*30/7:reportPeriod==="yearly"?reportTotals.expense/12:reportTotals.expense;
+  const reportRunway=reportExpenseMonthlyEquivalent>0?totalSaldo/reportExpenseMonthlyEquivalent:0;
+  const reportSavingScore=Math.min(reportSavingRate/20*100,100);
+  const reportBudgetScore=reportBudgetTotal>0?Math.max(0,100-Math.max(0,(reportBudgetUsed-reportBudgetTotal)/reportBudgetTotal*100)):reportBudgetUsed===0?100:80;
+  const reportRunwayScore=Math.min(reportRunway/6*100,100);
+  const reportHealthScore=Math.round((reportSavingScore+reportBudgetScore+reportRunwayScore)/3);
+  const reportAdvice=useMemo(()=>s.budgets.map(b=>{
+    const alloc=(N(b.alokasi)+b.sub.reduce((sum,item)=>sum+N(item.alokasi),0))*reportBudgetScale;
+    const spend=reportSpendByKat[b.id]||0;
+    if(alloc>0&&spend>alloc) return {kat:b.kat,icon:b.icon,type:"over",msg:`Pengeluaran ${b.kat} melebihi alokasi periode sebesar ${IDR(spend-alloc)}.`};
+    if(alloc>0&&spend>0&&spend<alloc*.3) return {kat:b.kat,icon:b.icon,type:"under",msg:`Alokasi ${b.kat} baru terpakai ${PCT(spend/alloc*100)} pada periode ini.`};
+    return null;
+  }).filter(Boolean),[s.budgets,reportBudgetScale,reportSpendByKat]);
 
   useEffect(()=>setTxPage(1),[txSearch,txFilt.dompet,txFilt.tipe]);
 
@@ -3989,23 +4051,26 @@ export default function App(){
     return list;
   },[s.budgets,spendByKat,daysPassed]);
   const reportNarrative=useMemo(()=>{
-    const topName=topKat[0]?.[0] || "belum ada kategori dominan";
-    const topValue=topKat[0]?.[1] || 0;
-    const budgetPct=totalBudget>0 ? totalBudgetUsed/totalBudget*100 : 0;
-    const title = txBulan.length
-      ? `Bulan ini kamu paling banyak keluar di ${topName}`
+    const topExpense=reportExpenseData[0];
+    const topName=topExpense?.name || "belum ada kategori dominan";
+    const topValue=topExpense?.value || 0;
+    const budgetPct=reportBudgetTotal>0 ? reportBudgetUsed/reportBudgetTotal*100 : 0;
+    const days=Math.max(1,Math.round((new Date(`${reportRange.end}T00:00:00`)-new Date(`${reportRange.start}T00:00:00`))/86400000)+1);
+    const average=reportTotals.expense/days;
+    const title = reportTransactions.length
+      ? `Pengeluaran terbesar periode ini ada di ${topName}`
       : "Laporan akan hidup setelah transaksi pertama";
-    const body = txBulan.length
-      ? `Rata-rata pengeluaran harian sekitar ${IDRs(dailyAvg)}. Kalau pola ini berlanjut, estimasi pengeluaran bulan ini menjadi ${IDRs(prediksiOut)} dan sisa akhir bulan ${prediksiSisa>=0?"masih aman":"perlu dijaga"} di ${IDRs(prediksiSisa)}.`
+    const body = reportTransactions.length
+      ? `Pada ${reportPeriodLabel}, pemasukan ${IDRs(reportTotals.income)}, pengeluaran ${IDRs(reportTotals.expense)}, dan rata-rata pengeluaran harian ${IDRs(average)}. Cashflow periode ini ${reportTotals.net>=0?"surplus":"defisit"} ${IDRs(Math.abs(reportTotals.net))}.`
       : "Catat pemasukan, pengeluaran, atau tabungan pertama supaya AturDuitku bisa membaca pola uangmu dengan lebih akurat.";
     const points = [
-      totalIn>0 ? `Saving rate kamu ${PCT(savRate)}${savRate>=20?", sudah masuk zona sehat.":", target sehatnya minimal 20%."}` : "Pemasukan bulan ini belum tercatat, jadi rasio laporan belum lengkap.",
-      topValue>0 ? `${topName} menyerap ${IDRs(topValue)} bulan ini. Ini kategori pertama yang paling layak dicek.` : "Belum ada kategori pengeluaran yang bisa dianalisis.",
-      totalBudget>0 ? `Budget terpakai ${PCT(budgetPct)} dari total alokasi.` : "Budget dasar belum diisi, jadi batas belanja belum terlihat.",
+      reportTotals.income>0 ? `Saving rate periode ini ${PCT(reportSavingRate)}${reportSavingRate>=20?", sudah masuk zona sehat.":", target sehatnya minimal 20%."}` : "Pemasukan pada periode ini belum tercatat, jadi rasio laporan belum lengkap.",
+      topValue>0 ? `${topName} menyerap ${IDRs(topValue)} pada periode ini. Ini kategori pertama yang paling layak dicek.` : "Belum ada kategori pengeluaran yang bisa dianalisis.",
+      reportBudgetTotal>0 ? `Budget ekuivalen periode terpakai ${PCT(budgetPct)} dari alokasi.` : "Budget dasar belum diisi, jadi batas belanja belum terlihat.",
     ];
-    const tone = prediksiSisa<0 || budgetPct>100 ? "danger" : savRate>=20 && netCash>=0 ? "good" : "warn";
+    const tone = reportTotals.net<0 || budgetPct>100 ? "danger" : reportSavingRate>=20 && reportTotals.net>=0 ? "good" : "warn";
     return {title,body,points,tone};
-  },[txBulan.length,topKat,totalBudget,totalBudgetUsed,totalOut,totalIn,dailyAvg,prediksiOut,prediksiSisa,savRate,netCash]);
+  },[reportExpenseData,reportBudgetTotal,reportBudgetUsed,reportRange,reportTotals,reportTransactions.length,reportPeriodLabel,reportSavingRate]);
 
   // Amplop computed
   const amplopTotal=useMemo(()=>s.amplop.reduce((a,b)=>a+N(b.alokasi),0),[s.amplop]);
@@ -5094,14 +5159,15 @@ Saldo amplop bertambah.`}]);
     if(isNearBottom || aiLoading){ el.scrollTop = el.scrollHeight; }
   },[aiMsgs.length, aiLoading]);
 
-    const exportCSV = () => {
+    const exportCSV = (scope="all") => {
     const headers = ["ID", "Tanggal", "Tipe", "Keterangan", "Jumlah (Rp)", "Dompet", "Kategori", "Subkategori"];
     const csvCell = value => {
       let clean=String(value??"").replace(/\r?\n/g," ");
       if(/^[=+\-@]/.test(clean)) clean=`'${clean}`;
       return `"${clean.replace(/"/g,'""')}"`;
     };
-    const rows = s.txs.map(t => {
+    const sourceTransactions=scope==="report"?reportTransactions:s.txs;
+    const rows = sourceTransactions.map(t => {
       const d = findWallet(s.dompet,t.dompetId)?.nama || "";
       const isInternalTransfer=["transfer_internal_keluar","transfer_internal_masuk"].includes(t.tipe);
       const isIncome = t.tipe==="pemasukan" || t.tipe==="pemasukan_transfer";
@@ -5114,7 +5180,7 @@ Saldo amplop bertambah.`}]);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `AturDuitku_Export_${today()}.csv`;
+    a.download = scope==="report"?`AturDuitku_${reportPeriodLabel.replace(/\s+/g,"_")}.csv`:`AturDuitku_Export_${today()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     showToast("✅ Berhasil di-export ke CSV!");
@@ -5189,7 +5255,7 @@ Saldo amplop bertambah.`}]);
       // ── Translate month name for EN mode ────────────────────────────────
       const MONTHS_ID = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
       const MONTHS_EN_PDF = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-      const bulanLabel = isEN ? (MONTHS_EN_PDF[MONTHS_ID.indexOf(s.bulan)] || s.bulan) : s.bulan;
+      const bulanLabel = clean(reportPeriodLabel);
 
       // ── Color palette (RGB arrays) ───────────────────────────────────────
       const C = {
@@ -5238,8 +5304,7 @@ Saldo amplop bertambah.`}]);
       const pctn = (v,t) => t>0?((v/t)*100).toFixed(1)+"%":"0%";
 
       // ── Transaction data ─────────────────────────────────────────────────
-      const exportMonthKey=`${s.tahun}-${String(MONTHS.indexOf(s.bulan)+1).padStart(2,"0")}`;
-      const txM     = s.txs.filter(tx=>tx.tgl?.startsWith(exportMonthKey));
+      const txM     = reportTransactions;
       const totalIn  = txM.filter(tx=>tx.tipe==="pemasukan").reduce((a,tx)=>a+Num(tx.jml),0);
       const totalOut = txM.filter(tx=>tx.tipe==="pengeluaran").reduce((a,tx)=>a+Num(tx.jml),0);
       const totalSav = txM.filter(tx=>tx.tipe==="tabungan"||tx.tipe==="investasi").reduce((a,tx)=>a+Num(tx.jml),0);
@@ -5258,7 +5323,7 @@ Saldo amplop bertambah.`}]);
       });
 
       // ── Budget helpers ────────────────────────────────────────────────────
-      const budgetAlloc = s.budgets.reduce((a,b)=>a+Num(b.alokasi)+b.sub.reduce((x,sb)=>x+Num(sb.alokasi),0),0);
+      const budgetAlloc = s.budgets.reduce((a,b)=>a+Num(b.alokasi)+b.sub.reduce((x,sb)=>x+Num(sb.alokasi),0),0)*reportBudgetScale;
       const budgetUsed  = Object.values(katSpend).reduce((a,v)=>a+Num(v),0);
       const budgetPct   = budgetAlloc>0?(budgetUsed/budgetAlloc*100):0;
 
@@ -5281,7 +5346,7 @@ Saldo amplop bertambah.`}]);
         tc(C.purple); ft("bold",6.5); txt("AturDuitku",ML,H-2.8);
         tc(C.gray);   ft("normal",6);
         txt(isEN?"Personal Finance Report":"Laporan Keuangan Personal", ML+21,H-2.8);
-        txt(`${bulanLabel} ${s.tahun}`, W/2,H-2.8,{align:"center"});
+        txt(bulanLabel, W/2,H-2.8,{align:"center"});
         txt(`${isEN?"Page":"Hal"} ${pageNum}`, W-MR,H-2.8,{align:"right"});
       };
 
@@ -5334,20 +5399,20 @@ Saldo amplop bertambah.`}]);
       // Name + period
       tc(C.white); ft("bold",9.5); txt(clean(s.name)||"Pengguna",ML,33);
       tc([210,200,240]); ft("normal",7.5);
-      txt(`${isEN?"Period":"Periode"}: ${bulanLabel} ${s.tahun}`,ML,39);
+      txt(`${isEN?"Period":"Periode"}: ${bulanLabel}`,ML,39);
       txt(`${isEN?"Generated":"Dibuat"}: ${tsmp}`,ML,44.5);
 
       // Right badges
       tc(C.white); ft("bold",7.5); txt(isEN?"OFFICIAL REPORT":"LAPORAN RESMI", W-26,14,{align:"center"});
       dc([200,180,255]); lw(0.2); ln(W-48,17,W-4,17);
-      ft("normal",8); txt(`${bulanLabel} ${s.tahun}`,W-26,24,{align:"center"});
+      ft("normal",8); txt(bulanLabel,W-26,24,{align:"center"});
       ft("normal",6.5); txt(tsmp.split(" ")[0],W-26,30,{align:"center"});
 
       y=52;
 
       // ── Summary section ──────────────────────────────────────────────────
       y=secTitle(isEN?"Financial Summary":"Ringkasan Keuangan",
-                 `${isEN?"Period":"Periode"}: ${bulanLabel} ${s.tahun} | ${txM.length} ${isEN?"transactions":"transaksi"}`, y);
+                 `${isEN?"Period":"Periode"}: ${bulanLabel} | ${txM.length} ${isEN?"transactions":"transaksi"}`, y);
 
       // 4 stat cards
       const cw4=(CT-9)/4, ch4=24;
@@ -5386,7 +5451,7 @@ Saldo amplop bertambah.`}]);
       tc(C.white); ft("normal",5); txt("/100",ML+14.5,y+13.5,{align:"center"});
       // Label
       tc(C.dark); ft("bold",10.5); txt(scoreLabel,ML+28,y+8.5);
-      tc(C.gray);  ft("normal",7); txt(`${isEN?"Financial Health Score":"Skor Kesehatan Keuangan"} - ${bulanLabel} ${s.tahun}`,ML+28,y+13.5);
+      tc(C.gray);  ft("normal",7); txt(`${isEN?"Financial Health Score":"Skor Kesehatan Keuangan"} - ${bulanLabel}`,ML+28,y+13.5);
       // Mini progress
       progBar(ML+112,y+5.5,74,3.5,score,scoreRGB);
       tc(C.gray); ft("bold",5.5); txt(score+"%",W-MR-1,y+9,{align:"right"});
@@ -5445,7 +5510,7 @@ Saldo amplop bertambah.`}]);
       // ─────────────────────────────────────────────────────────────────────
       newPage(); y=6;
       y=secTitle(isEN?"Transaction History":"Riwayat Transaksi",
-                 `${bulanLabel} ${s.tahun}  |  ${txM.length} ${isEN?"transactions":"transaksi"}  |  Max 60 ${isEN?"shown":"ditampilkan"}`, y);
+                 `${bulanLabel}  |  ${txM.length} ${isEN?"transactions":"transaksi"}  |  Max 60 ${isEN?"shown":"ditampilkan"}`, y);
 
       const TIPE_LBL  = {pemasukan:"[+]", pengeluaran:"[-]", tabungan:"[S]", investasi:"[I]", alokasi_amplop:"[A]", pengembalian_amplop:"[R]", penyesuaian:"[K]", transfer:"[T]", transfer_internal_keluar:"[TI]", transfer_internal_masuk:"[TI]"};
       const txRows = txM.slice(0,60).map(tx=>{
@@ -5543,7 +5608,7 @@ Saldo amplop bertambah.`}]);
         y+=incomeData.length*(incomeBarHeight+incomeBarGap)+8;
       }else{
         tc(C.gray);ft("normal",8.5);
-        txt(isEN?"No income data this period":"Belum ada pemasukan bulan ini",ML,y+8);
+        txt(isEN?"No income data this period":"Belum ada pemasukan pada periode ini",ML,y+8);
         y+=16;
       }
       if(y>H-100){newPage();y=6;}
@@ -5584,7 +5649,7 @@ Saldo amplop bertambah.`}]);
         y+=katData.length*(bH+bGap)+8;
       } else {
         tc(C.gray); ft("normal",8.5);
-        txt(isEN?"No spending data this period":"Belum ada pengeluaran bulan ini",ML,y+8);
+        txt(isEN?"No spending data this period":"Belum ada pengeluaran pada periode ini",ML,y+8);
         y+=16;
       }
 
@@ -5597,8 +5662,9 @@ Saldo amplop bertambah.`}]);
       const MSHORT = isEN
         ?["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
         :["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
-      const mIdx=MONTHS_FULL.indexOf(s.bulan);
-      const yr=parseInt(s.tahun);
+      const reportAnchorDate=new Date(`${reportAnchor}T12:00:00`);
+      const mIdx=reportAnchorDate.getMonth();
+      const yr=reportAnchorDate.getFullYear();
 
       const trendData=[];
       for(let i=5;i>=0;i--){
@@ -5658,11 +5724,11 @@ Saldo amplop bertambah.`}]);
 
       // ── Budget performance table ──────────────────────────────────────────
       y=secTitle(isEN?"Budget Performance":"Performa Anggaran",
-                 isEN?"Actual vs allocated per category":"Realisasi vs alokasi per kategori bulan ini",y);
+                 isEN?"Actual vs allocated per category":"Realisasi vs alokasi per kategori pada periode ini",y);
 
       const budgetRows=s.budgets
         .map(b=>{
-          const alloc=Num(b.alokasi)+b.sub.reduce((x,sb)=>x+Num(sb.alokasi),0);
+          const alloc=(Num(b.alokasi)+b.sub.reduce((x,sb)=>x+Num(sb.alokasi),0))*reportBudgetScale;
           const real=katSpend[b.id]||0;
           const sisa=alloc-real;
           const p=alloc>0?(real/alloc*100):0;
@@ -5728,7 +5794,7 @@ Saldo amplop bertambah.`}]);
       // ── Health score ──────────────────────────────────────────────────────
       if(y>H-80){newPage();y=6;}
       y=secTitle(isEN?"Financial Health":"Kesehatan Keuangan",
-                 isEN?"Key indicators - "+bulanLabel+" "+s.tahun:"Indikator utama - "+bulanLabel+" "+s.tahun,y);
+                 isEN?"Key indicators - "+bulanLabel:"Indikator utama - "+bulanLabel,y);
 
       // Hero score box
       fc(C.purpleBg); rr(ML,y,CT,28,3);
@@ -5740,7 +5806,7 @@ Saldo amplop bertambah.`}]);
       tc(C.white); ft("normal",5.5); txt("/100",ML+16,y+21,{align:"center"});
       // Label + description
       tc(C.dark); ft("bold",15); txt(scoreLabel,ML+31,y+13);
-      tc(C.gray); ft("normal",8); txt(isEN?`Financial Health - ${bulanLabel} ${s.tahun}`:`Skor Kesehatan Keuangan - ${bulanLabel} ${s.tahun}`,ML+31,y+19.5);
+      tc(C.gray); ft("normal",8); txt(isEN?`Financial Health - ${bulanLabel}`:`Skor Kesehatan Keuangan - ${bulanLabel}`,ML+31,y+19.5);
       progBar(ML+31,y+23,CT-35,3.5,score,scoreRGB);
       tc(C.gray); ft("bold",6); txt(score+"%",W-MR-1,y+26.5,{align:"right"});
       y+=34;
@@ -5864,7 +5930,7 @@ Saldo amplop bertambah.`}]);
 
       // ── Final footer + save ───────────────────────────────────────────────
       addFooter();
-      doc.save(`AturDuitku_${bulanLabel}_${s.tahun}.pdf`);
+      doc.save(`AturDuitku_${bulanLabel.replace(/\s+/g,"_")}.pdf`);
       showToast(t("toast_pdfOk"));
 
     } catch(err) {
@@ -5884,8 +5950,7 @@ Saldo amplop bertambah.`}]);
       const idr = n => "Rp "+Math.round(Math.abs(n||0)).toLocaleString("id-ID");
       const pct = (v,t) => t>0?((v/t)*100).toFixed(1)+"%":"0%";
 
-      const exportMonthKey=`${s.tahun}-${String(MONTHS.indexOf(s.bulan)+1).padStart(2,"0")}`;
-      const txM = s.txs.filter(tx=>tx.tgl?.startsWith(exportMonthKey));
+      const txM = reportTransactions;
       const totalIn  = txM.filter(tx=>tx.tipe==="pemasukan").reduce((a,tx)=>a+Num(tx.jml),0);
       const totalOut = txM.filter(tx=>tx.tipe==="pengeluaran").reduce((a,tx)=>a+Num(tx.jml),0);
       const totalSav = txM.filter(tx=>tx.tipe==="tabungan"||tx.tipe==="investasi").reduce((a,tx)=>a+Num(tx.jml),0);
@@ -5941,7 +6006,7 @@ Saldo amplop bertambah.`}]);
         {v:"", s:hdr(purpleDk)},{v:"", s:hdr(purpleDk)},{v:"", s:hdr(purpleDk)},
       ]);
       pad1([
-        {v:(isEN?"Period":"Periode")+": "+s.bulan+" "+s.tahun, s:hdr(purple,"FFFFFF",false,10)},
+        {v:(isEN?"Period":"Periode")+": "+reportPeriodLabel, s:hdr(purple,"FFFFFF",false,10)},
         {v:(isEN?"Name":"Nama")+": "+(s.name||"-"), s:hdr(purple,"FFFFFF",false,10)},
         {v:(isEN?"Generated":"Dibuat")+": "+new Date().toLocaleDateString("id-ID"), s:hdr(purple,"FFFFFF",false,10)},
         {v:"", s:hdr(purple)},
@@ -5950,7 +6015,7 @@ Saldo amplop bertambah.`}]);
 
       // Summary header
       pad1([
-        {v:isEN?"MONTHLY SUMMARY":"RINGKASAN BULANAN", s:hdr(purple)},
+        {v:isEN?"PERIOD SUMMARY":"RINGKASAN PERIODE", s:hdr(purple)},
         {v:"", s:hdr(purple)},{v:isEN?"AMOUNT":"JUMLAH", s:hdr(purple)},{v:isEN?"NOTE":"KETERANGAN", s:hdr(purple)},
       ]);
       const summaryRows = [
@@ -5965,7 +6030,7 @@ Saldo amplop bertambah.`}]);
           {v:icon+" "+label, s:cell(bg,fg,true,"left")},
           {v:"", s:cell(bg)},
           {v:val, s:cell(bg,fg,true,"right")},
-          {v:isEN?"This month":"Bulan ini", s:cell(bg,gray,false,"center")},
+          {v:reportPeriodLabel, s:cell(bg,gray,false,"center")},
         ]);
       });
       pad1([{v:"",s:cell()},{v:"",s:cell()},{v:"",s:cell()},{v:"",s:cell()}]);
@@ -6079,7 +6144,7 @@ Saldo amplop bertambah.`}]);
       s.budgets.filter(b=>Num(b.alokasi)>0).forEach((b,idx) => {
         const bg = idx%2===0?white:grayLt;
         const spent = katSpend[b.kat]||0;
-        const alloc = Num(b.alokasi)+(b.sub||[]).reduce((sum,sb)=>sum+Num(sb.alokasi),0);
+        const alloc = (Num(b.alokasi)+(b.sub||[]).reduce((sum,sb)=>sum+Num(sb.alokasi),0))*reportBudgetScale;
         const sisa  = alloc-spent;
         const p     = alloc>0?Math.round(spent/alloc*100):0;
         const status= p>=100?(isEN?"Over Budget":"Melewati")
@@ -6132,7 +6197,7 @@ Saldo amplop bertambah.`}]);
       appendDataSheet(isEN?"Debt & Receivables":"Utang & Piutang",[isEN?"Name":"Nama",isEN?"Type":"Tipe",isEN?"Principal":"Nilai",isEN?"Paid":"Terbayar",isEN?"Remaining":"Sisa",isEN?"Due":"Jatuh Tempo",isEN?"Status":"Status"],(s.utang||[]).map(u=>{const paid=(u.cicilan||[]).reduce((sum,c)=>sum+Num(c.jml),0);return[u.nama,u.tipe||"utang",Num(u.jml),paid,Math.max(Num(u.jml)-paid,0),u.tempo||"",u.lunas?"Lunas":"Aktif"]}),[28,16,18,18,18,16,14]);
 
       // ── Save ─────────────────────────────────────────────────────────────────
-      const fname = `AturDuitku_${s.bulan}_${s.tahun}.xlsx`;
+      const fname = `AturDuitku_${reportPeriodLabel.replace(/\s+/g,"_")}.xlsx`;
       XLSX.writeFile(wb, fname, {bookType:"xlsx", type:"binary", cellStyles:true});
       showToast("✅ "+(isEN?"Exported to Excel/Sheets!":"Berhasil export ke Google Sheets!"));
     } catch(err) {
@@ -8099,7 +8164,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="investasi">Investasi</option><option value="alokasi_amplop">Alokasi Amplop</option><option value="pengembalian_amplop">Pengembalian Amplop</option><option value="penyesuaian">Koreksi saldo</option><option value="transfer">Transfer</option><option value="transfer_internal">Transfer Internal</option>
                 </select>
                 {(txSearch||txFilt.dompet||txFilt.tipe)&&<Btn onClick={()=>{setTxSearch("");setTxFilt({dompet:"",tipe:"",sub:""});setTxPage(1);}} ch="Reset" c={T.err} outline style={{padding:"7px 12px",fontSize:12}}/>}
-                <Btn onClick={exportCSV} ch="Export" c="#16A34A" outline style={{padding:"7px 12px",fontSize:12}}/>
+                <Btn onClick={()=>exportCSV()} ch="Export" c="#16A34A" outline style={{padding:"7px 12px",fontSize:12}}/>
                 <Btn onClick={()=>setModal({type:"importMutasi"})} ch="Import Mutasi" c={T.accent} style={{padding:"7px 12px",fontSize:12}}/>
               </div>
             </>} style={{marginBottom:16}}/>
@@ -8135,15 +8200,15 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             </>} style={{marginBottom:16}}/>}
 
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:16}}>
-              {[{l:t("incomeLabel"),v:IDR(totalIn),vc:T.ok,bg:T.okBg},{l:t("expenseLabel"),v:IDR(totalOut),vc:T.err,bg:T.errBg},{l:"Tabungan & Investasi",v:IDR(totalFuture),vc:T.info,bg:T.infoBg},{l:"Net",v:IDR(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg}].map((x,i)=>(
+              {[{l:t("incomeLabel"),value:filteredTxSummary.income,vc:T.ok,bg:T.okBg},{l:t("expenseLabel"),value:filteredTxSummary.expense,vc:T.err,bg:T.errBg},{l:"Tabungan & Investasi",value:filteredTxSummary.future,vc:T.info,bg:T.infoBg},{l:"Net",value:filteredTxSummary.net,vc:filteredTxSummary.net>=0?T.ok:T.err,bg:filteredTxSummary.net>=0?T.okBg:T.errBg}].map((x,i)=>(
                 <div key={x.l} className="stagger-in" style={{background:x.bg,borderRadius:12,padding:"13px 16px",transition:"background .3s",animationDelay:`${i*55}ms`}}>
                   <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{x.l}</div>
-                  <div style={{fontWeight:800,fontSize:15,color:x.vc}}><AnimatedAmount value={[totalIn,totalOut,totalFuture,netCash][i]}/></div>
+                  <div style={{fontWeight:800,fontSize:15,color:x.vc}}><AnimatedAmount value={x.value}/></div>
                 </div>
               ))}
             </div>
             <Card ch={<>
-              <Sec t={`${filtTx.length} ${t("txCount")}`} right={<div style={{fontSize:12,color:T.muted}}>{s.bulan} {s.tahun}</div>}/>
+              <Sec t={`${filtTx.length} ${t("txCount")}`} right={<div style={{fontSize:12,color:T.muted}}>{txSearch||txFilt.dompet||txFilt.tipe?"Sesuai filter":"Semua periode"}</div>}/>
               {filtTx.length?<>
                 {filtTx.slice(0,txPage*TX_PER_PAGE).map(t=>renderTxItem(t))}
                 {filtTx.length>txPage*TX_PER_PAGE&&(
@@ -8885,11 +8950,33 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               LAPORAN
           ══════════════════════════════════════════════════════════ */}
           {page==="laporan"&&<>
-            
+            <Card ch={<>
+              <Sec t="Periode laporan" sub="Semua angka, diagram, dan ekspor mengikuti periode yang dipilih."/>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,minmax(0,1fr))":"repeat(4,minmax(120px,1fr))",gap:8,marginBottom:12}}>
+                {[
+                  ["daily","Harian"],
+                  ["weekly","Mingguan"],
+                  ["monthly","Bulanan"],
+                  ["yearly","Tahunan"],
+                ].map(([value,label])=><button key={value} onClick={()=>setReportPeriod(value)} aria-pressed={reportPeriod===value} style={{height:42,borderRadius:10,border:`1.5px solid ${reportPeriod===value?T.accent:T.border}`,background:reportPeriod===value?T.accentBg:T.cardAlt,color:reportPeriod===value?T.accent:T.sub,fontFamily:"inherit",fontSize:12,fontWeight:900,cursor:"pointer",touchAction:"manipulation"}}>{label}</button>)}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"42px minmax(0,1fr) 42px":"42px minmax(240px,1fr) 160px 42px",gap:8,alignItems:"center"}}>
+                <button onClick={()=>setReportAnchor(value=>shiftReportAnchor(value,reportPeriod,-1))} aria-label="Periode sebelumnya" title="Periode sebelumnya" style={{height:42,borderRadius:10,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:20,fontWeight:900,cursor:"pointer",touchAction:"manipulation"}}>‹</button>
+                <div style={{height:42,borderRadius:10,border:`1px solid ${T.border}`,background:T.cardAlt,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 12px",fontSize:12,fontWeight:900,color:T.text,textAlign:"center",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={reportPeriodLabel}>{reportPeriodLabel}</div>
+                {!isMobile&&<input type="date" value={reportAnchor} onChange={event=>setReportAnchor(event.target.value||today())} aria-label="Tanggal acuan laporan" style={{...IS,height:42,padding:"0 10px",fontSize:11}}/>}
+                <button onClick={()=>setReportAnchor(value=>shiftReportAnchor(value,reportPeriod,1))} aria-label="Periode berikutnya" title="Periode berikutnya" style={{height:42,borderRadius:10,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:20,fontWeight:900,cursor:"pointer",touchAction:"manipulation"}}>›</button>
+              </div>
+              {isMobile&&<input type="date" value={reportAnchor} onChange={event=>setReportAnchor(event.target.value||today())} aria-label="Tanggal acuan laporan" style={{...IS,height:42,padding:"0 10px",fontSize:12,marginTop:8}}/>}
+              <div style={{display:"flex",justifyContent:"space-between",gap:10,flexWrap:"wrap",marginTop:10,fontSize:10,color:T.muted}}>
+                <span>{reportTransactions.length} transaksi · {reportRange.start} sampai {reportRange.end}</span>
+                <button onClick={()=>setReportAnchor(today())} style={{border:"none",background:"transparent",padding:0,color:T.accent,fontFamily:"inherit",fontSize:10,fontWeight:900,cursor:"pointer"}}>Ke periode sekarang</button>
+              </div>
+            </>} style={{marginBottom:18}}/>
+
             <div style={{marginBottom:18, display:"flex", justifyContent:"flex-end", gap:8, flexWrap:"wrap"}}>
               <Btn onClick={()=>setModal({type:"yearReview"})} ch={t("yearReviewBtn")} c={T.accentSoft} outline style={{padding:"7px 14px",fontSize:12}}/>
               <Btn onClick={()=>setModal({type:"kalkulator"})} ch={t("loanCalc")} c={T.accentSoft} outline style={{padding:"7px 14px",fontSize:12}}/>
-              <Btn onClick={exportCSV} ch={t("exportCSV")} c="#16A34A" outline style={{padding:"7px 14px",fontSize:12}}/>
+              <Btn onClick={()=>exportCSV("report")} ch={t("exportCSV")} c="#16A34A" outline style={{padding:"7px 14px",fontSize:12}}/>
               <Btn onClick={exportSheets} ch={t("exportSheets")} c="#0F9D58" style={{padding:"7px 14px",fontSize:12}}/>
               <Btn onClick={exportPDF} ch={t("exportPDF")} c="#5B21B6" style={{padding:"7px 14px",fontSize:12}}/>
             </div>
@@ -8907,20 +8994,20 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   </div>)}
                 </div>
               </div>
-              <Btn onClick={()=>{setAiOpen(true);setTimeout(()=>handleAiSend("Jelaskan laporan bulan ini dengan bahasa yang sederhana dan beri 3 langkah terbaik untuk saya"),0);}} ch="Tanya Dokter" c={reportNarrative.tone==="danger"?T.err:reportNarrative.tone==="good"?T.ok:T.accent} style={{padding:"10px 14px",fontSize:12,width:isMobile?"100%":"auto"}}/>
+              <Btn onClick={()=>{setAiOpen(true);setTimeout(()=>handleAiSend(`Jelaskan laporan periode ${reportPeriodLabel} dengan bahasa yang sederhana dan beri 3 langkah terbaik untuk saya`),0);}} ch="Tanya Dokter" c={reportNarrative.tone==="danger"?T.err:reportNarrative.tone==="good"?T.ok:T.accent} style={{padding:"10px 14px",fontSize:12,width:isMobile?"100%":"auto"}}/>
             </div>} style={{marginBottom:18,padding:isMobile?14:"16px 18px"}}/>
 
             {/* Komparasi Bulanan */}
-            <KomparasiBulanan txs={s.txs} budgets={s.budgets} T={T} isMobile={isMobile}/>
+            {reportPeriod==="monthly"&&<KomparasiBulanan txs={s.txs} budgets={s.budgets} T={T} isMobile={isMobile}/>}
 
             <Card ch={<>
               <Sec t={t("healthScore")} sub="Dihitung dari rasio tabungan, disiplin anggaran, dan dana darurat"/>
               <div style={{display:"flex",gap:24,alignItems:"center",flexWrap:"wrap"}}>
-                <CircleGauge value={skorTotal} c={getC(skorTotal)} label="SKOR" size={120}/>
+                <CircleGauge value={reportHealthScore} c={getC(reportHealthScore)} label="SKOR" size={120}/>
                 <div style={{flex:1,minWidth:200}}>
-                  <div style={{fontSize:20,fontWeight:900,color:getC(skorTotal),marginBottom:4}}>{getLabel(skorTotal)}</div>
-                  <div style={{fontSize:12,color:T.sub,marginBottom:14}}>{t("monthlyScore")} {s.bulan} {s.tahun}</div>
-                  {[{l:t("savingRatioLabel"),v:skorTabungan,c:"#22C55E",hint:`${PCT(savRate)} dari ideal 20%`},{l:"Disiplin Anggaran",v:skorDisiplin,c:T.accent,hint:`${totalBudget>0?PCT(totalBudgetUsed/totalBudget*100):"N/A"} terpakai dari budget`},{l:"Keamanan & Runway",v:skorRunway,c:"#F59E0B",hint:`${runwayReal} bulan dari ideal 6`}].map(x=>(
+                  <div style={{fontSize:20,fontWeight:900,color:getC(reportHealthScore),marginBottom:4}}>{getLabel(reportHealthScore)}</div>
+                  <div style={{fontSize:12,color:T.sub,marginBottom:14}}>Skor periode {reportPeriodLabel}</div>
+                  {[{l:t("savingRatioLabel"),v:reportSavingScore,c:"#22C55E",hint:`${PCT(reportSavingRate)} dari ideal 20%`},{l:"Disiplin Anggaran",v:reportBudgetScore,c:T.accent,hint:`${reportBudgetTotal>0?PCT(reportBudgetUsed/reportBudgetTotal*100):"N/A"} terpakai dari budget ekuivalen`},{l:"Keamanan & Runway",v:reportRunwayScore,c:"#F59E0B",hint:`${reportRunway.toFixed(1)} bulan dari ideal 6`}].map(x=>(
                     <div key={x.l} style={{marginBottom:10}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                         <span style={{fontSize:12,color:T.text,fontWeight:600}}>{x.l}</span>
@@ -8934,7 +9021,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             </>} style={{marginBottom:18}}/>
 
             {/* Trend 6 bulan */}
-            <Card ch={<>
+            {reportPeriod==="monthly"&&<Card ch={<>
               <Sec t={t("trend6mo")} right={
                 <div style={{display:"flex",gap:10,fontSize:10}}>
                   <span style={{color:"#22C55E",fontWeight:700}}>IN</span>
@@ -8945,19 +9032,19 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <Suspense fallback={<ChartFallback height={isMobile?160:200}/>}>
                 <TrendChartLazy trendData={trendData} isMobile={isMobile} T={T} idrs={IDRs}/>
               </Suspense>
-            </>} style={{marginBottom:18}}/>
+            </>} style={{marginBottom:18}}/>}
 
             {/* Summary */}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:18}}>
               {[
-                {l:"Tabungan & Investasi",v:IDR(totalFuture),sub:`Rasio: ${PCT(savRate)}`,vc:T.info,bg:T.infoBg},
-                {l:"+ "+t("incomeLabel"),v:IDR(totalIn),sub:prevIn>0?`${changePct(totalIn,prevIn)>0?"+":""}${changePct(totalIn,prevIn)}% vs lalu`:null,vc:T.ok,bg:T.okBg,trend:changePct(totalIn,prevIn)},
-                {l:"- "+t("expenseLabel"),v:IDR(totalOut),sub:prevOut>0?`${changePct(totalOut,prevOut)>0?"+":""}${changePct(totalOut,prevOut)}% vs lalu`:null,vc:T.err,bg:T.errBg,trend:changePct(totalOut,prevOut)},
-                {l:"Net Cashflow",v:IDR(netCash),vc:netCash>=0?T.ok:T.err,bg:netCash>=0?T.okBg:T.errBg},
+                {l:"Tabungan & Investasi",value:reportTotals.future,sub:`Rasio: ${PCT(reportSavingRate)}`,vc:T.info,bg:T.infoBg},
+                {l:"+ "+t("incomeLabel"),value:reportTotals.income,vc:T.ok,bg:T.okBg},
+                {l:"- "+t("expenseLabel"),value:reportTotals.expense,vc:T.err,bg:T.errBg},
+                {l:"Net Cashflow",value:reportTotals.net,vc:reportTotals.net>=0?T.ok:T.err,bg:reportTotals.net>=0?T.okBg:T.errBg},
               ].map((x,i)=>(
                 <div key={x.l} className="stagger-in" style={{background:x.bg,borderRadius:12,padding:"14px 16px",transition:"background .3s",animationDelay:`${i*55}ms`}}>
                   <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{x.l}</div>
-                  <div style={{fontWeight:800,fontSize:16,color:x.vc,marginBottom:2}}><AnimatedAmount value={[totalFuture,totalIn,totalOut,netCash][i]}/></div>
+                  <div style={{fontWeight:800,fontSize:16,color:x.vc,marginBottom:2}}><AnimatedAmount value={x.value}/></div>
                   {x.sub&&<div style={{fontSize:10,color:x.trend>0?T.ok:x.trend<0?T.err:T.muted}}>{x.sub}</div>}
                 </div>
               ))}
@@ -8968,12 +9055,12 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 t={lang==="en"?"Income Sources":"Sumber Pemasukan"}
                 sub={lang==="en"?"Automatically grouped from your income transactions":"Otomatis dikelompokkan dari transaksi pemasukan"}
               />
-              {incomeCategoryData.length?(
+              {reportIncomeCategoryData.length?(
                 <div style={{display:"grid",gridTemplateColumns:isReportCompact?"1fr":"minmax(280px,.8fr) minmax(360px,1.2fr)",gap:isReportCompact?12:24,alignItems:"center"}}>
                   <div style={{position:"relative",minWidth:0}}>
                     <Suspense fallback={<ChartFallback height={isReportCompact?210:240}/>}>
                       <DonutChartLazy
-                        pieData={incomePieData}
+                        pieData={reportIncomePieData}
                         pieColors={PIE_C}
                         T={T}
                         idr={IDR}
@@ -8986,11 +9073,11 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     </Suspense>
                     <div style={{position:"absolute",left:"50%",top:"50%",transform:"translate(-50%,-50%)",textAlign:"center",pointerEvents:"none",maxWidth:110}}>
                       <div style={{fontSize:9,color:T.muted,fontWeight:800,textTransform:"uppercase",letterSpacing:.8,marginBottom:3}}>{lang==="en"?"Total":"Total"}</div>
-                      <div style={{fontSize:isReportCompact?14:16,fontWeight:950,color:T.ok,whiteSpace:"nowrap"}}><AnimatedAmount value={totalIn} compact/></div>
+                      <div style={{fontSize:isReportCompact?14:16,fontWeight:950,color:T.ok,whiteSpace:"nowrap"}}><AnimatedAmount value={reportTotals.income} compact/></div>
                     </div>
                   </div>
                   <div style={{display:"grid",gap:8,maxHeight:isReportCompact?360:250,overflowY:"auto",paddingRight:3}}>
-                    {incomeCategoryData.map((item,i)=>(
+                    {reportIncomeCategoryData.map((item,i)=>(
                       <div key={`${item.name}-${i}`} style={{background:T.cardAlt,border:`1px solid ${T.borderLight}`,borderRadius:12,padding:"10px 12px",minWidth:0}}>
                         <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"center",marginBottom:7}}>
                           <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
@@ -9026,14 +9113,14 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:18,marginBottom:18}}>
               <Card ch={<>
                 <Sec t={t("spendDetail")}/>
-                {pieData.length?<Suspense fallback={<ChartFallback height={isReportCompact?180:200}/>}>
-                  <DonutChartLazy pieData={pieData} pieColors={PIE_C} T={T} idr={IDR} height={isReportCompact?180:200} outerRadius={isReportCompact?64:80} innerRadius={isReportCompact?38:40} showLabel isMobile={isReportCompact}/>
+                {reportExpenseData.length?<Suspense fallback={<ChartFallback height={isReportCompact?180:200}/> }>
+                  <DonutChartLazy pieData={reportExpenseData} pieColors={PIE_C} T={T} idr={IDR} height={isReportCompact?180:200} outerRadius={isReportCompact?64:80} innerRadius={isReportCompact?38:40} showLabel isMobile={isReportCompact}/>
                 </Suspense>:<LaunchEmpty icon="📊" title="Belum ada distribusi pengeluaran" desc="Tambahkan beberapa transaksi pengeluaran di bulan ini supaya kategori belanja, pola spending, dan insight laporan mulai terbentuk." actionLabel="Tambah transaksi" onAction={()=>setModal({type:"tx"})} secondaryLabel="Buka transaksi" onSecondary={()=>setPage("trans")} style={{padding:"28px 16px"}}/>}
               </>}/>
               <Card ch={<>
-                <Sec t={t("dailyExpense")} sub={s.bulan}/>
+                <Sec t="Aktivitas pengeluaran" sub={reportPeriodLabel}/>
                 <Suspense fallback={<ChartFallback height={isReportCompact?180:130}/>}>
-                  <DailyChartLazy txBulan={txBulan} bulan={s.bulan} tahun={s.tahun} months={MONTHS} T={T} idr={IDR} n={N} isMobile={isReportCompact}/>
+                  <PeriodBarChartLazy data={reportActivityData} T={T} idr={IDR} isMobile={isReportCompact}/>
                 </Suspense>
               </>}/>
             </div>
@@ -9044,8 +9131,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               {isReportCompact?(
                 <div style={{display:"grid",gap:10}}>
                   {s.budgets.map(b=>{
-                    const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
-                    const spend=spendByKat[b.id]||0;const pct=alloc>0?spend/alloc*100:0;const over=alloc>0&&spend>alloc;
+                    const alloc=(N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0))*reportBudgetScale;
+                    const spend=reportSpendByKat[b.id]||0;const pct=alloc>0?spend/alloc*100:0;const over=alloc>0&&spend>alloc;
                     return(
                       <div key={b.id} style={{background:T.cardAlt,border:`1px solid ${over?T.errBorder:T.border}`,borderRadius:16,padding:12,boxShadow:"0 8px 18px rgba(88,28,135,.05)",overflow:"hidden"}}>
                         <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",marginBottom:10}}>
@@ -9082,8 +9169,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   {(lang==="en"?["Category","Allocation","Actual","Progress","% Used"]:["Kategori","Alokasi","Realisasi","Progress","% Terpakai"]).map(h=><span key={h} style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,whiteSpace:"nowrap"}}>{h}</span>)}
                 </div>
                 {s.budgets.map(b=>{
-                const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
-                const spend=spendByKat[b.id]||0;const pct=alloc>0?spend/alloc*100:0;const over=alloc>0&&spend>alloc;
+                const alloc=(N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0))*reportBudgetScale;
+                const spend=reportSpendByKat[b.id]||0;const pct=alloc>0?spend/alloc*100:0;const over=alloc>0&&spend>alloc;
                 return(
                   <div key={b.id} style={{display:"grid",gridTemplateColumns:"minmax(160px,1fr) 110px 110px minmax(150px,1fr) 78px",padding:"9px 0",borderBottom:`1px solid ${T.borderLight}`,gap:10,alignItems:"center"}}>
                     <span style={{fontSize:12,display:"flex",gap:6,alignItems:"center",color:T.text,minWidth:0}}><span style={{flexShrink:0}}>{uiIcon(b.icon)}</span><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.kat}</span></span>
@@ -9100,23 +9187,23 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             {/* Prediksi + Saran */}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:18}}>
               <Card ch={<>
-                <Sec t={t("prediction")}/>
+                <Sec t="Ritme periode" sub={reportPeriodLabel}/>
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:16}}>
                   <div style={{background:T.errBg,borderRadius:10,padding:"12px 14px"}}>
-                    <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>{t("prediksiPengeluaran")}</div>
-                    <div style={{fontWeight:800,color:T.err,fontSize:16}}>{IDR(prediksiOut)}</div>
-                    <div style={{fontSize:10,color:T.muted,marginTop:2}}>Avg harian: {IDRs(dailyAvg)}</div>
+                    <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>Rata-rata pengeluaran harian</div>
+                    <div style={{fontWeight:800,color:T.err,fontSize:16}}>{IDR(reportDailyExpense)}</div>
+                    <div style={{fontSize:10,color:T.muted,marginTop:2}}>{reportDays} hari dalam periode</div>
                   </div>
-                  <div style={{background:prediksiSisa>=0?T.okBg:T.errBg,borderRadius:10,padding:"12px 14px"}}>
-                    <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>{t("prediksiSisa")}</div>
-                    <div style={{fontWeight:800,color:prediksiSisa>=0?T.ok:T.err,fontSize:16}}>{IDR(prediksiSisa)}</div>
-                    <div style={{fontSize:10,color:T.muted,marginTop:2}}>{prediksiSisa>=0?t("predSafe"):t("predDeficit")}</div>
+                  <div style={{background:reportTotals.net>=0?T.okBg:T.errBg,borderRadius:10,padding:"12px 14px"}}>
+                    <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>Cashflow bersih periode</div>
+                    <div style={{fontWeight:800,color:reportTotals.net>=0?T.ok:T.err,fontSize:16}}>{IDR(reportTotals.net)}</div>
+                    <div style={{fontSize:10,color:T.muted,marginTop:2}}>{reportTotals.net>=0?t("predSafe"):t("predDeficit")}</div>
                   </div>
                 </div>
               </>}/>
               <Card ch={<>
                 <Sec t={t("tipPerCat")}/>
-                {saranList.length?saranList.map((saran,i)=>(
+                {reportAdvice.length?reportAdvice.map((saran,i)=>(
                   <div key={i} style={{background:saran.type==="over"?T.errBg:T.warnBg,border:`1px solid ${saran.type==="over"?T.errBorder:T.warnBorder}`,borderRadius:10,padding:"10px 12px",marginBottom:8}}>
                     <div style={{fontSize:13,marginBottom:3,color:T.text}}>{uiIcon(saran.icon)} <strong>{saran.kat}</strong></div>
                     <div style={{fontSize:12,color:saran.type==="over"?T.err:T.warn}}>{saran.msg}</div>

@@ -81,6 +81,22 @@ export const DailyChart = ({ txBulan, bulan, tahun, months, T, idr, n, isMobile=
   );
 };
 
+export const PeriodBarChart = ({ data, T, idr, isMobile=false }) => (
+  <ResponsiveContainer width="100%" height={isMobile ? 190 : 150}>
+    <BarChart data={data} margin={isMobile ? { top:10, right:4, bottom:2, left:4 } : { top:8, right:8, bottom:0, left:0 }}>
+      <CartesianGrid strokeDasharray="3 3" stroke={T.borderLight} vertical={false}/>
+      <XAxis dataKey="label" interval={data.length > 16 ? 3 : 0} tick={{ fontSize:9, fill:T.muted }} axisLine={false} tickLine={false}/>
+      <YAxis hide/>
+      <Tooltip
+        cursor={{ fill:T.accentBg, opacity:.35 }}
+        formatter={value => [idr(value), "Pengeluaran"]}
+        contentStyle={{ borderRadius:10, fontSize:11, background:T.card, border:`1px solid ${T.border}`, color:T.text }}
+      />
+      <Bar dataKey="value" fill="#6366F1" radius={[5, 5, 0, 0]} minPointSize={2}/>
+    </BarChart>
+  </ResponsiveContainer>
+);
+
 export const DonutChart = ({ pieData, pieColors, T, idr, height=160, outerRadius=64, innerRadius=34, showLabel=false, isMobile=false }) => (
   <ResponsiveContainer width="100%" height={height}>
     <PieChart>
