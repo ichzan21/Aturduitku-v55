@@ -17,12 +17,19 @@ export const isExpectedAiLatency = (type, route, durationMs) =>
   Number(durationMs) < 20000;
 
 const PDF_MOBILE_COMPATIBILITY_FIXED_AT = Date.parse("2026-08-02T13:15:00.000Z");
+const GOAL_LANGUAGE_SCOPE_FIXED_AT = Date.parse("2026-08-05T12:25:00.000Z");
 
 export const knownIncidentResolution = (type, message, event = {}) => {
   if (type === "window_error" && /(?:can't find variable|is not defined):?\s*setBln/i.test(String(message || ""))) {
     return "Navigasi Bulan ini sudah diperbaiki pada rilis terbaru.";
   }
   const createdAt = Date.parse(event.createdAt || "");
+  const isGoalLanguageScopeFailure =
+    ["react_boundary", "window_error"].includes(type) &&
+    /(?:can't find variable:?[\s]*)?lang is not defined|can't find variable:?[\s]*lang/i.test(String(message || ""));
+  if (isGoalLanguageScopeFailure && Number.isFinite(createdAt) && createdAt <= GOAL_LANGUAGE_SCOPE_FIXED_AT) {
+    return "Bahasa pada kartu Goals sudah diperbaiki dan diuji pada rilis terbaru.";
+  }
   const isPdfCompatibilityFailure = /undefined is not a function.*(?:of|iterator)|PDF_RUNTIME_UNAVAILABLE/i.test(String(message || ""));
   const predatesPdfCompatibilityFix = Number.isFinite(createdAt) && createdAt <= PDF_MOBILE_COMPATIBILITY_FIXED_AT;
   const legacyPdfFailureWithoutTimestamp = isPdfCompatibilityFailure && !Number.isFinite(createdAt);

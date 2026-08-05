@@ -11,6 +11,15 @@ import {
 assert.equal(classifyMonitoringEvent("api_timeout", "Permintaan melewati batas waktu 20000 ms"), "operational");
 assert.equal(classifyMonitoringEvent("api_network_error", "Load failed"), "operational");
 assert.equal(classifyMonitoringEvent("performance_long_task", "UI sibuk"), "performance");
+assert.match(
+  knownIncidentResolution("react_boundary", "lang is not defined", { createdAt:"2026-08-05T08:22:00.000Z" }),
+  /Goals/,
+);
+assert.equal(
+  knownIncidentResolution("react_boundary", "lang is not defined", { createdAt:"2026-08-05T13:00:00.000Z" }),
+  "",
+  "Insiden baru setelah rilis harus tetap aktif",
+);
 assert.equal(classifyMonitoringEvent("window_error", "Script error."), "ignored");
 assert.equal(classifyMonitoringEvent("api_server_error", "Firebase unavailable"), "incident");
 assert.equal(isSevereMonitoringEvent({ type:"api_timeout", message:"Request timed out" }), false);
