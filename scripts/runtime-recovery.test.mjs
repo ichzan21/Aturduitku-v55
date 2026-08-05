@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { afterFirstPaint, classifyRuntimeFailure, getRuntimeErrorMessage, isRecoverableStorageFailure } from "../src/runtimeRecovery.js";
+
+const appSource = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+assert.match(appSource, /const GoalCard=\(\{[^}]*lang="id"[^}]*\}\)=>\{/,
+  "GoalCard harus memiliki fallback bahasa agar tidak memicu react_boundary");
+assert.match(appSource, /<GoalCard[^>]*lang=\{lang\}/,
+  "Pilihan bahasa aplikasi harus diteruskan ke GoalCard");
 
 assert.equal(classifyRuntimeFailure(new Error("Failed to connect to MetaMask")).kind, "ignored");
 assert.equal(classifyRuntimeFailure("Script error.").kind, "ignored");

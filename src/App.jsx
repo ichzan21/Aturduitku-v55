@@ -1426,7 +1426,7 @@ const UtangCard=({u,dompetList,onDelete,onCicilan})=>{
 };
 
 // ─── GOAL CARD ────────────────────────────────────────────────────────────────
-const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai})=>{
+const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai,lang="id"})=>{
   const T=useT();
   const [inp,setInp]=useState("");const [showCalc,setShowCalc]=useState(false);
   const [dompetId, setDompetId]=useState(dompetList[0]?.id || 1);
@@ -8449,7 +8449,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               ))}
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
-              {s.goals.map(g=><GoalCard key={g.id} g={g} dompetList={s.dompet} onDelete={()=>confirmDelete({title:"Hapus goal?",msg:`Goal "${g.nama}" dan riwayat tabungannya akan dihapus dari daftar.`,toastMsg:"Goal dihapus",onConfirm:()=>setS(p=>({...p,goals:p.goals.filter(x=>x.id!==g.id)}))})} onTambah={tambahGoalDana} onSelesai={id=>setS(p=>({...p,goals:p.goals.map(x=>x.id!==id?x:{...x,selesai:true})}))}/>)}
+              {s.goals.map(g=><GoalCard key={g.id} g={g} dompetList={s.dompet} lang={lang} onDelete={()=>confirmDelete({title:"Hapus goal?",msg:`Goal "${g.nama}" dan riwayat tabungannya akan dihapus dari daftar.`,toastMsg:"Goal dihapus",onConfirm:()=>setS(p=>({...p,goals:p.goals.filter(x=>x.id!==g.id)}))})} onTambah={tambahGoalDana} onSelesai={id=>setS(p=>({...p,goals:p.goals.map(x=>x.id!==id?x:{...x,selesai:true})}))}/>)}
               {!s.goals.length&&<div style={{gridColumn:"1/-1"}}><LaunchEmpty
                 icon="🎯"
                 title={t("noGoal")}
