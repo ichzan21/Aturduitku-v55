@@ -1,6 +1,7 @@
 const browserExtensionNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
 const opaqueScriptError = /^script error\.?$/i;
 const storageDisconnect = /connection to indexed database server lost|indexeddb.*(?:connection|database).*(?:lost|closed|closing)|database connection is closing/i;
+const serviceWorkerLifecycleFailure = /failed to (?:update|register) a serviceworker|serviceworker.*(?:unknown error|fetching the script)|failed to fetch.*(?:\/sw\.js|service worker)/i;
 
 export const getRuntimeErrorMessage = (reason) => {
   if (reason instanceof Error) return reason.message || reason.name;
@@ -10,12 +11,13 @@ export const getRuntimeErrorMessage = (reason) => {
 
 export const classifyRuntimeFailure = (reason) => {
   const message = getRuntimeErrorMessage(reason);
-  if (browserExtensionNoise.test(message) || opaqueScriptError.test(message)) return { kind:"ignored", message };
+  if (browserExtensionNoise.test(message) || opaqueScriptError.test(message) || serviceWorkerLifecycleFailure.test(message)) return { kind:"ignored", message };
   if (storageDisconnect.test(message)) return { kind:"storage_disconnect", message };
   return { kind:"incident", message };
 };
 
 export const isRecoverableStorageFailure = (value) => storageDisconnect.test(getRuntimeErrorMessage(value));
+export const isServiceWorkerLifecycleFailure = (value) => serviceWorkerLifecycleFailure.test(getRuntimeErrorMessage(value));
 
 // Defers start-up work until the first frame is on screen, but never waits
 // longer than the fallback: a hidden tab (background tab, restored session,

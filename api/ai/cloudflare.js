@@ -68,8 +68,9 @@ export default async function handler(req, res) {
 
     if (!cfRes.ok || data.success === false) {
       const cfMessage = data.errors?.[0]?.message || data.error || data.message;
+      const monitoringType = [408, 504].includes(cfRes.status) ? "api_timeout" : cfRes.status === 429 ? "ai_rate_limit" : "api_server_error";
       await recordMonitoringEvent(getAdminDb(), {
-        type:cfRes.status === 429 ? "ai_rate_limit" : "api_server_error",
+        type:monitoringType,
         route:"/api/ai/cloudflare",
         message:`Cloudflare AI response ${cfRes.status || 502}`,
         durationMs:Date.now() - aiStartedAt,

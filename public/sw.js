@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aturduitku-v24-safe-edit-sync';
+const CACHE_NAME = 'aturduitku-v25-safe-lifecycle';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

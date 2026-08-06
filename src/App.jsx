@@ -15,6 +15,7 @@ import { inferDirectTransactionAction, normalizeAiTransactionAction, parseConver
 import { buildAiFallbackAnswer, buildAiQuestionGuidance } from "./aiConversation.js";
 import { buildReportActivity, buildReportCashflowActivity, filterTransactionsByPeriod, formatReportPeriod, getReportPdfTemplate, getReportPeriodRange, shiftReportAnchor, summarizeTransactions } from "./reportPeriod.js";
 import { filterTransactionsForList } from "./transactionList.js";
+import { EMAIL_VERIFICATION_COOLDOWN_MS, EMAIL_VERIFICATION_RATE_LIMIT_COOLDOWN_MS, formatEmailVerificationCooldown, getEmailVerificationCooldownSeconds, isEmailVerificationRateLimitError } from "./emailVerification.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -1009,9 +1010,9 @@ const useDismissAnimation=(onClose,duration=260)=>{
   };
   return [closing,close];
 };
-const Btn=({onClick,ch,c,outline,style={}})=>{
+const Btn=({onClick,ch,c,outline,disabled=false,style={}})=>{
   const T=useT();const bc=c||T.accent;
-  return <button onClick={onClick} className="btn-go" style={{padding:"9px 18px",borderRadius:10,border:outline?`1.5px solid ${bc}`:"none",cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit",background:outline?"transparent":bc,color:outline?bc:"white",...style}}>{ch}</button>;
+  return <button onClick={onClick} disabled={disabled} className="btn-go" style={{padding:"9px 18px",borderRadius:10,border:outline?`1.5px solid ${bc}`:"none",cursor:disabled?"not-allowed":"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit",background:outline?"transparent":bc,color:outline?bc:"white",opacity:disabled?0.62:1,...style}}>{ch}</button>;
 };
 const LaunchEmpty=({title,desc,actionLabel,onAction,secondaryLabel,onSecondary,icon="✨",kicker="Mulai dari sini",style={}})=>{
   const T=useT();
@@ -2478,7 +2479,8 @@ function ImportMutasiBank({ dompet, budgets=[], onImport, onClose, T, lang="id" 
   };
 
   const handleFile = (e) => {
-    const file = e.target.files?.[0] || e;
+    const file = e?.target?.files?.[0] || e?.currentTarget?.files?.[0] || (typeof File !== "undefined" && e instanceof File ? e : null);
+    if (!file) { setError("File belum dipilih. Silakan pilih ulang e-Statement atau CSV."); return; }
     processFile(file);
   };
 
@@ -2683,6 +2685,9 @@ export default function App(){
   const [googleAuthError,setGoogleAuthError]=useState("");
   const [authForm,setAuthForm]=useState({name:"",email:"",password:""});
   const [showPassword,setShowPassword]=useState(false);
+  const [verificationBusy,setVerificationBusy]=useState(false);
+  const [verificationCooldownUntil,setVerificationCooldownUntil]=useState(0);
+  const [verificationCooldownSeconds,setVerificationCooldownSeconds]=useState(0);
   const [adminUsers,setAdminUsers]=useState([]);
   const [adminStats,setAdminStats]=useState({total:0,pending_review:0,approved:0,rejected:0});
   const [adminLoading,setAdminLoading]=useState(false);
@@ -2708,6 +2713,21 @@ export default function App(){
   const [blurSaldo,setBlurSaldo]=useState(()=>{try{return localStorage.getItem("aturduitku_blur")==="1";}catch(e){return false;}});
   const [simpleMode,setSimpleMode]=useState(()=>{try{return localStorage.getItem("aturduitku_simple_mode")==="1";}catch(e){return false;}});
   const [tourDismissed,setTourDismissed]=useState(()=>{try{return localStorage.getItem("aturduitku_tour_done")==="1";}catch(e){return false;}});
+
+  useEffect(()=>{
+    if(!fireUser?.uid){setVerificationCooldownUntil(0);return;}
+    try{
+      const stored=Number(localStorage.getItem(`aturduitku_verify_email_until:${fireUser.uid}`)||0);
+      setVerificationCooldownUntil(stored>Date.now()?stored:0);
+    }catch{setVerificationCooldownUntil(0);}
+  },[fireUser?.uid]);
+  useEffect(()=>{
+    const refresh=()=>setVerificationCooldownSeconds(getEmailVerificationCooldownSeconds(verificationCooldownUntil));
+    refresh();
+    if(!verificationCooldownUntil||verificationCooldownUntil<=Date.now())return;
+    const timer=setInterval(refresh,1000);
+    return()=>clearInterval(timer);
+  },[verificationCooldownUntil]);
 
   const [page,setPageState]=useState("home");
   const pageRef=useRef("home");
@@ -6830,13 +6850,30 @@ Saldo amplop bertambah.`}]);
     }
   };
   const handleVerifyEmail=async()=>{
+    if(verificationBusy)return;
+    if(verificationCooldownSeconds>0){
+      showToast(`Tunggu ${formatEmailVerificationCooldown(verificationCooldownSeconds)} sebelum mengirim ulang.`);
+      return;
+    }
+    const applyVerificationCooldown=(duration)=>{
+      const until=Date.now()+duration;
+      setVerificationCooldownUntil(until);
+      try{if(fireUser?.uid)localStorage.setItem(`aturduitku_verify_email_until:${fireUser.uid}`,String(until));}catch{}
+    };
+    setVerificationBusy(true);
     try{
       await sendVerificationEmail();
+      applyVerificationCooldown(EMAIL_VERIFICATION_COOLDOWN_MS);
       showToast("Email verifikasi sudah dikirim. Cek inbox atau spam.");
     }catch(error){
-      reportClientError(error,{type:"email_verification",component:"settings"});
-      showToast("Email verifikasi belum dapat dikirim. Coba lagi sebentar.");
-    }
+      if(isEmailVerificationRateLimitError(error)){
+        applyVerificationCooldown(EMAIL_VERIFICATION_RATE_LIMIT_COOLDOWN_MS);
+        showToast("Permintaan terlalu sering. Tunggu sekitar 15 menit lalu coba lagi.");
+      }else{
+        reportClientError(error,{type:"email_verification",component:"settings"});
+        showToast("Email verifikasi belum dapat dikirim. Coba lagi sebentar.");
+      }
+    }finally{setVerificationBusy(false);}
   };
 
   // Show loading screen while checking auth
@@ -9375,7 +9412,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     </div>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8}}>
-                    {!fireUser?.emailVerified&&<Btn onClick={handleVerifyEmail} ch="Kirim verifikasi" c={T.accent} outline style={{padding:"10px 12px",fontSize:12}}/>}
+                    {!fireUser?.emailVerified&&<Btn onClick={handleVerifyEmail} disabled={verificationBusy||verificationCooldownSeconds>0} ch={verificationBusy?"Mengirim...":verificationCooldownSeconds>0?`Kirim lagi ${formatEmailVerificationCooldown(verificationCooldownSeconds)}`:"Kirim verifikasi"} c={T.accent} outline style={{padding:"10px 12px",fontSize:12}}/>}
                     {hasPasswordLogin&&<Btn onClick={handleResetPassword} ch="Reset password" c={T.info} outline style={{padding:"10px 12px",fontSize:12}}/>}
                   </div>
                   {!hasPasswordLogin&&<div style={{fontSize:10,color:T.muted,lineHeight:1.55,marginTop:9}}>Akun ini masuk lewat Google, jadi password dikelola langsung oleh Google.</div>}
