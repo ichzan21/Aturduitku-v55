@@ -7,6 +7,7 @@ import {
   knownIncidentResolution,
   sortMonitoringEvents,
 } from "../api/_lib/monitoringPolicy.js";
+import { buildUserCapacityAlert } from "../api/_lib/monitoringAlerts.js";
 
 assert.equal(classifyMonitoringEvent("api_timeout", "Permintaan melewati batas waktu 20000 ms"), "operational");
 assert.equal(classifyMonitoringEvent("api_network_error", "Load failed"), "operational");
@@ -82,5 +83,17 @@ assert.deepEqual(
   ["incident-new", "incident-old", "warning-new"],
   "Insiden aktif harus tampil paling atas",
 );
+
+const capacityAt257 = buildUserCapacityAlert(257);
+assert.equal(capacityAt257.severity, "recovery", "Milestone user bukan insiden kapasitas");
+assert.equal(capacityAt257.key, "user_capacity_275", "Bucket notifikasi lama dipertahankan agar tidak terkirim ganda");
+assert.match(capacityAt257.lines.join(" "), /kapasitas AturDuitku saat ini masih aman/i);
+assert.match(capacityAt257.lines.join(" "), /Milestone berikutnya: 275 user/);
+assert.match(capacityAt257.action, /di atas 70%/);
+assert.match(capacityAt257.action, /throttle\/timeout nyata/);
+assert.doesNotMatch(capacityAt257.title, /perlu ditinjau/i);
+
+const capacityAtMilestone = buildUserCapacityAlert(275);
+assert.match(capacityAtMilestone.lines.join(" "), /Milestone berikutnya: 300 user/);
 
 console.log("Monitoring policy tests passed");

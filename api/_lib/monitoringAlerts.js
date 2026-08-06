@@ -114,6 +114,24 @@ export async function recordMonitoringEvent(db, event) {
   return evaluateMonitoringAlerts(db);
 }
 
+export function buildUserCapacityAlert(totalUsers) {
+  const total = Math.max(0, Math.floor(Number(totalUsers) || 0));
+  const notificationBucket = Math.max(25, Math.ceil(total / 25) * 25);
+  const nextMilestone = notificationBucket > total ? notificationBucket : notificationBucket + 25;
+  return {
+    key:`user_capacity_${notificationBucket}`,
+    severity:"recovery",
+    title:"Pertumbuhan user tetap aman",
+    lines:[
+      `Total akun saat ini: ${total}.`,
+      "Dari jumlah akun, kapasitas AturDuitku saat ini masih aman.",
+      `Milestone berikutnya: ${nextMilestone} user.`,
+      "Belum perlu pindah server atau upgrade hanya karena jumlah akun bertambah.",
+    ],
+    action:"Pantau Vercel Usage, Firebase Usage, dan Cloudflare Analytics. Pertimbangkan upgrade hanya jika CPU atau usage konsisten di atas 70%, request mendekati kuota, atau muncul throttle/timeout nyata.",
+  };
+}
+
 export async function evaluateUserGrowth(db) {
   const snapshot = await db.collection("users").get();
   const now = Date.now();
@@ -130,12 +148,8 @@ export async function evaluateUserGrowth(db) {
     alerted = result.sent;
   }
   if (users.length >= 80) {
-    const milestone = Math.ceil(users.length / 25) * 25;
-    const result = await notifyOnce(db, `user_capacity_${milestone}`, {
-      severity:"warning", title:"Kapasitas user perlu ditinjau",
-      lines:[`Total akun sudah mencapai ${users.length}.`, `Milestone berikutnya: ${milestone} user.`, "Ini bukan berarti server gagal, tetapi waktunya memeriksa usage dan kuota aktual."],
-      action:"Buka Vercel Usage, Firebase Usage, dan Cloudflare Analytics sebelum menambah promosi besar.",
-    });
+    const capacityAlert = buildUserCapacityAlert(users.length);
+    const result = await notifyOnce(db, capacityAlert.key, capacityAlert);
     alerted = alerted || result.sent;
   }
   return { total:users.length, hour, day, alerted };
