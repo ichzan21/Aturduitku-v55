@@ -2953,8 +2953,8 @@ export default function App(){
     let disposed=false;
     const timer=setTimeout(async()=>{
       try{
-        const result=await authedJson("/api/users/backup", {
-          method:"POST",
+        const result=await authedJson("/api/users/data?backup=1", {
+          method:"GET",
           timeoutMs:30000,
           suppressNetworkMonitoring:true,
         });

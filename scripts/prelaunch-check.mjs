@@ -66,7 +66,13 @@ function jsFiles(directory) {
   });
 }
 
-for (const file of [...jsFiles("api"), ...jsFiles("scripts")]) {
+const apiFiles = jsFiles("api");
+const apiRoutes = apiFiles.filter(file => !file.includes(`${join("api", "_lib")}`));
+if (apiRoutes.length > 12) {
+  failures.push(`Route API ${apiRoutes.length}/12: melebihi kapasitas deployment Vercel saat ini`);
+}
+
+for (const file of [...apiFiles, ...jsFiles("scripts")]) {
   const checked = spawnSync(process.execPath, ["--check", file], { encoding:"utf8" });
   if (checked.status !== 0) failures.push(`Syntax backend gagal: ${file}`);
 }
@@ -82,4 +88,5 @@ console.log("- Google/email auth dan custom auth handler tersedia");
 console.log("- AI, Telegram approval, sinkronisasi, monitoring, dan backup tersedia");
 console.log("- Edit transaksi reversibel dan konflik antarperangkat terlindungi");
 console.log("- Undo transaksi dan monitoring privat admin tersedia");
+console.log(`- Route API ${apiRoutes.length}/12 masih dalam kapasitas deployment`);
 console.log("- Syntax seluruh route backend valid");

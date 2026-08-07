@@ -2,7 +2,7 @@ import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { requireApprovedUser } from "../_lib/auth.js";
 import { assertDataVersion, isMutationReplay } from "../_lib/dataVersion.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
-import { getCloudDataPayload } from "../_lib/userCloudData.js";
+import { buildCloudDataPayload, getCloudDataPayload } from "../_lib/userCloudData.js";
 
 export default async function handler(req, res) {
   const security = secureApi(req, res, { methods: ["GET", "POST"] });
@@ -16,7 +16,10 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       const snap = await ref.get();
       const data = snap.exists ? snap.data() : {};
-      const cloud = getCloudDataPayload(data);
+      const shouldBackup = String(req.query?.backup || "") === "1";
+      const cloud = shouldBackup
+        ? await buildCloudDataPayload(ref, data)
+        : getCloudDataPayload(data);
       return res.status(200).json({
         ok: true,
         ...cloud,
