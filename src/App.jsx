@@ -6,7 +6,7 @@ import { reportClientError } from "./monitoring.js";
 import { applyTransactionToWallets, confirmInternalTransferPair, displayNumber, findWallet, hasWallet, internalTransferPairsForReview, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, unlinkInternalTransferPair, walletDeltasForTransaction } from "./financeLedger.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
-import { afterFirstPaint } from "./runtimeRecovery.js";
+import { afterFirstPaint, classifyRuntimeFailure, scheduleModuleLoadRecovery } from "./runtimeRecovery.js";
 import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "./incomeCategory.js";
 import { extractPdfStatement, parsePdfStatementLines, validatePdfStatement } from "./pdfStatement.js";
 import { detectFinancialProvider as detectBank, findWalletForProvider, parseStatementCSV as parseBankCSV, walletDraftForProvider } from "./bankImport.js";
@@ -30,7 +30,10 @@ export class ErrorBoundary extends React.Component {
   static getDerivedStateFromError(error) { return { hasError: true, error }; }
   componentDidCatch(err, info) {
     console.error("AturDuitku Error:", err, info);
-    reportClientError(err, { type:"react_boundary", component:info?.componentStack }).catch(()=>{});
+    const runtimeFailure=classifyRuntimeFailure(err);
+    const type=runtimeFailure.kind==="module_load"?"asset_load_recovery":"react_boundary";
+    reportClientError(err, { type, component:info?.componentStack }).catch(()=>{});
+    if(runtimeFailure.kind==="module_load") scheduleModuleLoadRecovery();
   }
   render() {
     if (this.state.hasError) {
@@ -2940,6 +2943,30 @@ export default function App(){
     }
     return {profile,cloudData};
   };
+
+  const backupRequestedDayRef=useRef("");
+  useEffect(()=>{
+    if(!fireUser||!isApproved||!cloudReady)return;
+    const today=new Date().toISOString().slice(0,10);
+    if(String(syncMeta.lastBackupAt||"").slice(0,10)===today||backupRequestedDayRef.current===today)return;
+    backupRequestedDayRef.current=today;
+    let disposed=false;
+    const timer=setTimeout(async()=>{
+      try{
+        const result=await authedJson("/api/users/backup", {
+          method:"POST",
+          timeoutMs:30000,
+          suppressNetworkMonitoring:true,
+        });
+        if(!disposed&&result?.lastBackupAt){
+          setSyncMeta(meta=>({...meta,lastBackupAt:result.lastBackupAt}));
+        }
+      }catch(error){
+        console.warn("Background account backup deferred:",error?.message||error);
+      }
+    },3500);
+    return()=>{disposed=true;clearTimeout(timer);};
+  },[fireUser?.uid,isApproved,cloudReady,syncMeta.lastBackupAt]);
 
   useEffect(()=>{
     if(!fireUser||!cloudReady||performanceReportedRef.current)return;

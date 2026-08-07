@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aturduitku-v25-safe-lifecycle';
+const CACHE_NAME = 'aturduitku-v26-fresh-assets';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -48,20 +48,18 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
-  // Stale-while-revalidate for built assets: instant PWA taps/launch, still updates in background.
+  // Network-first keeps the current HTML and hashed chunks on the same deployment.
+  // Cached assets remain available when the device is genuinely offline.
   const isAsset = e.request.url.match(/\.(html|js|css|jsx)$/);
   if (isAsset) {
     e.respondWith(
-      caches.match(e.request).then(cached => {
-        const fresh = fetch(e.request, { cache: 'no-store' }).then(res => {
+      fetch(e.request, { cache: 'no-store' }).then(res => {
           if (res.ok) {
             const clone = res.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
           }
           return res;
-        }).catch(() => cached);
-        return cached || fresh;
-      })
+        }).catch(() => caches.match(e.request))
     );
     return;
   }

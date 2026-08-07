@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { afterFirstPaint, classifyRuntimeFailure, getRuntimeErrorMessage, isRecoverableStorageFailure, isServiceWorkerLifecycleFailure } from "../src/runtimeRecovery.js";
+import { afterFirstPaint, classifyRuntimeFailure, getRuntimeErrorMessage, isModuleLoadFailure, isRecoverableStorageFailure, isServiceWorkerLifecycleFailure, scheduleModuleLoadRecovery } from "../src/runtimeRecovery.js";
+import { getCloudDataPayload } from "../api/_lib/userCloudData.js";
 
 const appSource = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+const mainSource = await readFile(new URL("../src/main.jsx", import.meta.url), "utf8");
+const serviceWorkerSource = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
 assert.match(appSource, /const GoalCard=\(\{[^}]*lang="id"[^}]*\}\)=>\{/,
   "GoalCard harus memiliki fallback bahasa agar tidak memicu react_boundary");
 assert.match(appSource, /<GoalCard[^>]*lang=\{lang\}/,
@@ -16,9 +19,15 @@ const serviceWorkerFailure = "Failed to update a ServiceWorker for scope ('https
 assert.equal(classifyRuntimeFailure(new Error(serviceWorkerFailure)).kind, "ignored");
 assert.equal(isServiceWorkerLifecycleFailure(serviceWorkerFailure), true);
 assert.equal(classifyRuntimeFailure(new Error("Unexpected application failure")).kind, "incident");
+assert.equal(classifyRuntimeFailure(new Error("Importing a module script failed.")).kind, "module_load");
+assert.equal(isModuleLoadFailure("Failed to fetch dynamically imported module"), true);
 assert.equal(isRecoverableStorageFailure("IndexedDB database connection closed"), true);
 assert.equal(getRuntimeErrorMessage({ message:"Pesan aman" }), "Pesan aman");
 assert.match(appSource, /e\?\.target\?\.files\?\.\[0\]/, "Pemilih file harus aman saat event tidak lengkap");
+assert.match(mainSource, /type:'asset_load_recovery'/, "Kegagalan chunk harus masuk jalur pemulihan, bukan crash biasa");
+assert.match(serviceWorkerSource, /aturduitku-v26-fresh-assets/, "Cache PWA harus berganti versi setelah strategi aset diperbaiki");
+assert.match(serviceWorkerSource, /fetch\(e\.request, \{ cache: 'no-store' \}\)[\s\S]*catch\(\(\) => caches\.match\(e\.request\)\)/,
+  "Aset build harus network-first dengan fallback offline");
 
 // Tab yang terlihat: start-up menunggu frame pertama seperti sebelumnya.
 const visibleWindow = {
@@ -58,5 +67,23 @@ assert.equal(resolveCount,1,"Start-up tidak boleh dipicu dua kali");
 
 // Lingkungan tanpa window (build/SSR) langsung selesai.
 await afterFirstPaint(null,5000);
+
+const recoveryCalls = [];
+const recoveryWindow = {
+  sessionStorage:{ getItem:()=>null, setItem:(key,value)=>recoveryCalls.push(["session",key,value]) },
+  caches:{ keys:async()=>["aturduitku-old","other-app"], delete:async key=>recoveryCalls.push(["cache",key]) },
+  navigator:{ serviceWorker:{ getRegistration:async()=>({ update:async()=>recoveryCalls.push(["sw-update"]) }) } },
+  setTimeout:callback=>callback(),
+  location:{ reload:()=>recoveryCalls.push(["reload"]) },
+};
+assert.equal(scheduleModuleLoadRecovery(recoveryWindow,0),true);
+await new Promise(resolve=>setTimeout(resolve,20));
+assert.ok(recoveryCalls.some(([type,key])=>type==="cache"&&key==="aturduitku-old"));
+assert.ok(!recoveryCalls.some(([type,key])=>type==="cache"&&key==="other-app"));
+assert.ok(recoveryCalls.some(([type])=>type==="reload"));
+
+assert.deepEqual(getCloudDataPayload({data:{wallets:[]},onboarded:true,dataVersion:7,updatedAt:"now",lastBackupAt:"backup"}), {
+  data:{wallets:[]},onboarded:true,version:7,updatedAt:"now",lastBackupAt:"backup",
+});
 
 console.log("Runtime recovery tests passed");

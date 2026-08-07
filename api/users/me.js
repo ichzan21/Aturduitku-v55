@@ -3,7 +3,7 @@ import { getAdminEmails, requireUser } from "../_lib/auth.js";
 import { sendNewUserApprovalMessage } from "../_lib/telegram.js";
 import { evaluateUserGrowth } from "../_lib/monitoringAlerts.js";
 import { secureApi } from "../_lib/httpSecurity.js";
-import { buildCloudDataPayload } from "../_lib/userCloudData.js";
+import { getCloudDataPayload } from "../_lib/userCloudData.js";
 
 function buildApproval(existing, isAdminEmail) {
   const approvalStatus = existing?.approvalStatus || (isAdminEmail ? "approved" : "pending_review");
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
 
     await ref.set(patch, { merge: true });
     const includeData = String(req.query?.includeData || "") === "1";
-    const cloud = includeData ? await buildCloudDataPayload(ref, { ...existing, ...patch }, now) : null;
+    const cloud = includeData ? getCloudDataPayload({ ...existing, ...patch }) : null;
 
     if (!snap.exists) {
       await evaluateUserGrowth(db).catch((growthError) => {

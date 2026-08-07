@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App, { ErrorBoundary } from './App.jsx'
 import { reportClientError } from './monitoring.js'
-import { classifyRuntimeFailure } from './runtimeRecovery.js'
+import { classifyRuntimeFailure, scheduleModuleLoadRecovery } from './runtimeRecovery.js'
 
 const STORAGE_RECOVERY_KEY = 'aturduitku_storage_recovery_at'
 let storageRecoveryScheduled = false
@@ -44,6 +44,12 @@ function handleRuntimeFailure(reason, type, event) {
       component:'firebase_auth_persistence',
     })
     scheduleStorageRecovery()
+    return
+  }
+  if (classification.kind === 'module_load') {
+    event?.preventDefault?.()
+    reportClientError(reason, { type:'asset_load_recovery', component:'runtime_asset_loader' })
+    scheduleModuleLoadRecovery()
     return
   }
   reportClientError(reason, { type })

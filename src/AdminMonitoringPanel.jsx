@@ -132,6 +132,9 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
                   </div>
                   <div style={{fontSize:9,fontWeight:800,color,marginTop:3}}>{label}</div>
                   <div style={{fontSize:10,color:T.sub,marginTop:3,overflowWrap:"anywhere"}}>{event.message || "Tanpa detail"}</div>
+                  {(event.route||event.component||event.durationMs>0)&&<div style={{fontSize:9,color:T.muted,marginTop:4,overflowWrap:"anywhere"}}>
+                    {[event.route&&`Rute: ${event.route}`,event.component&&`Bagian: ${event.component}`,event.durationMs>0&&`Durasi: ${event.durationMs} ms`].filter(Boolean).join(" | ")}
+                  </div>}
                   {event.appVersion && <div style={{fontSize:9,color:T.muted,marginTop:4}}>Versi: {event.appVersion}</div>}
                   {unresolvedIncident && (
                     <button

@@ -1,3 +1,13 @@
+export function getCloudDataPayload(data = {}, lastBackupAt = data.lastBackupAt || null) {
+  return {
+    data: data.data || null,
+    onboarded: Boolean(data.onboarded),
+    version: Number(data.dataVersion) || 0,
+    updatedAt: data.updatedAt || null,
+    lastBackupAt,
+  };
+}
+
 export async function buildCloudDataPayload(ref, data = {}, now = new Date().toISOString()) {
   const backupKey = now.slice(0, 10);
   const lastBackupKey = String(data.lastBackupAt || "").slice(0, 10);
@@ -20,11 +30,5 @@ export async function buildCloudDataPayload(ref, data = {}, now = new Date().toI
     }
   }
 
-  return {
-    data: data.data || null,
-    onboarded: Boolean(data.onboarded),
-    version: Number(data.dataVersion) || 0,
-    updatedAt: data.updatedAt || null,
-    lastBackupAt,
-  };
+  return getCloudDataPayload(data, lastBackupAt);
 }

@@ -1,5 +1,5 @@
 export const PERFORMANCE_TYPES = new Set(["api_slow", "performance_slow", "performance_long_task"]);
-export const OPERATIONAL_TYPES = new Set(["sync_conflict", "api_network_error", "api_timeout", "ai_rate_limit", "storage_connection_lost"]);
+export const OPERATIONAL_TYPES = new Set(["sync_conflict", "api_network_error", "api_timeout", "ai_rate_limit", "storage_connection_lost", "asset_load_recovery"]);
 
 const browserNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
 const recoverableStorageFailure = /connection to indexed database server lost|indexeddb.*(?:connection|database).*(?:lost|closed|closing)|database connection is closing/i;
@@ -21,12 +21,16 @@ export const isExpectedAiLatency = (type, route, durationMs) =>
 const PDF_MOBILE_COMPATIBILITY_FIXED_AT = Date.parse("2026-08-02T13:15:00.000Z");
 const GOAL_LANGUAGE_SCOPE_FIXED_AT = Date.parse("2026-08-05T12:25:00.000Z");
 const ACCOUNT_AND_PWA_RECOVERY_FIXED_AT = Date.parse("2026-08-06T11:30:00.000Z");
+const MODULE_LOAD_RECOVERY_FIXED_AT = Date.parse("2026-08-07T16:40:00.000Z");
 
 export const knownIncidentResolution = (type, message, event = {}) => {
   if (type === "window_error" && /(?:can't find variable|is not defined):?\s*setBln/i.test(String(message || ""))) {
     return "Navigasi Bulan ini sudah diperbaiki pada rilis terbaru.";
   }
   const createdAt = Date.parse(event.createdAt || "");
+  if (type === "react_boundary" && /importing a module script failed|failed to fetch dynamically imported module|chunkloaderror/i.test(String(message || "")) && Number.isFinite(createdAt) && createdAt <= MODULE_LOAD_RECOVERY_FIXED_AT) {
+    return "Cache aset deployment lama kini dibersihkan otomatis lalu aplikasi dimuat ulang satu kali.";
+  }
   const predatesAccountAndPwaRecovery = Number.isFinite(createdAt) && createdAt <= ACCOUNT_AND_PWA_RECOVERY_FIXED_AT;
   if (type === "email_verification" && /auth\/too-many-requests|too many requests/i.test(String(message || "")) && predatesAccountAndPwaRecovery) {
     return "Pengiriman verifikasi email kini dilindungi cooldown dan pesan tunggu yang jelas.";

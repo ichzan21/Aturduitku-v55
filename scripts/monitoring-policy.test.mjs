@@ -10,6 +10,7 @@ import {
 import { buildUserCapacityAlert } from "../api/_lib/monitoringAlerts.js";
 
 assert.equal(classifyMonitoringEvent("api_timeout", "Permintaan melewati batas waktu 20000 ms"), "operational");
+assert.equal(classifyMonitoringEvent("asset_load_recovery", "Importing a module script failed."), "operational");
 assert.equal(classifyMonitoringEvent("api_network_error", "Load failed"), "operational");
 assert.equal(classifyMonitoringEvent("api_server_error", "Cloudflare AI response 408"), "operational");
 assert.equal(classifyMonitoringEvent("ai_rate_limit", "AI rate limit reached"), "operational");
@@ -17,6 +18,10 @@ assert.equal(classifyMonitoringEvent("performance_long_task", "UI sibuk"), "perf
 assert.match(
   knownIncidentResolution("react_boundary", "lang is not defined", { createdAt:"2026-08-05T08:22:00.000Z" }),
   /Goals/,
+);
+assert.match(
+  knownIncidentResolution("react_boundary", "Importing a module script failed.", { createdAt:"2026-08-07T03:44:00.000Z" }),
+  /Cache aset deployment lama/,
 );
 assert.equal(
   knownIncidentResolution("react_boundary", "lang is not defined", { createdAt:"2026-08-05T13:00:00.000Z" }),
