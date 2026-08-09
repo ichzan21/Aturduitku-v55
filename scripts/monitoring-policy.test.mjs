@@ -8,10 +8,20 @@ import {
   sortMonitoringEvents,
 } from "../api/_lib/monitoringPolicy.js";
 import { buildUserCapacityAlert } from "../api/_lib/monitoringAlerts.js";
+import { fetchAdminMonitoring, monitoringFailureContext } from "../src/adminMonitoringRequest.js";
 
 assert.equal(classifyMonitoringEvent("api_timeout", "Permintaan melewati batas waktu 20000 ms"), "operational");
 assert.equal(classifyMonitoringEvent("asset_load_recovery", "Importing a module script failed."), "operational");
 assert.equal(classifyMonitoringEvent("api_network_error", "Load failed"), "operational");
+assert.match(
+  knownIncidentResolution("admin_monitoring", "Failed to fetch", { createdAt:"2026-08-09T15:39:00.000Z" }),
+  /tidak lagi mencatat satu gangguan jaringan dua kali/,
+);
+assert.equal(
+  knownIncidentResolution("admin_monitoring", "Failed to fetch", { createdAt:"2026-08-09T16:00:00.000Z" }),
+  "",
+  "Kegagalan panel admin baru setelah rilis tetap harus diperiksa",
+);
 assert.equal(classifyMonitoringEvent("api_server_error", "Cloudflare AI response 408"), "operational");
 assert.equal(classifyMonitoringEvent("ai_rate_limit", "AI rate limit reached"), "operational");
 assert.equal(classifyMonitoringEvent("performance_long_task", "UI sibuk"), "performance");
@@ -97,6 +107,36 @@ assert.match(capacityAt257.lines.join(" "), /Milestone berikutnya: 275 user/);
 assert.match(capacityAt257.action, /di atas 70%/);
 assert.match(capacityAt257.action, /throttle\/timeout nyata/);
 assert.doesNotMatch(capacityAt257.title, /perlu ditinjau/i);
+
+let monitoringAttempts = 0;
+const recoveredMonitoring = await fetchAdminMonitoring(async (route, options) => {
+  monitoringAttempts += 1;
+  assert.equal(route, "/api/admin/monitoring");
+  assert.equal(options.suppressMonitoring, true);
+  if (monitoringAttempts < 3) {
+    const error = new Error("Failed to fetch");
+    error.code = "API_NETWORK_ERROR";
+    error.monitorable = true;
+    throw error;
+  }
+  return { ok:true };
+}, { attempts:3, retryDelayMs:0 });
+assert.deepEqual(recoveredMonitoring, { ok:true });
+assert.equal(monitoringAttempts, 3, "Panel monitoring harus mencoba kembali gangguan jaringan sesaat");
+
+let forbiddenAttempts = 0;
+await assert.rejects(
+  fetchAdminMonitoring(async () => {
+    forbiddenAttempts += 1;
+    const error = new Error("Akses ditolak");
+    error.status = 403;
+    throw error;
+  }, { attempts:3, retryDelayMs:0 }),
+  /Akses ditolak/,
+);
+assert.equal(forbiddenAttempts, 1, "Kesalahan otorisasi tidak boleh diulang");
+assert.equal(monitoringFailureContext({ status:403, message:"Akses ditolak" }), null);
+assert.equal(monitoringFailureContext({ code:"API_NETWORK_ERROR", message:"Failed to fetch" }).type, "api_network_error");
 
 const capacityAtMilestone = buildUserCapacityAlert(275);
 assert.match(capacityAtMilestone.lines.join(" "), /Milestone berikutnya: 300 user/);

@@ -2874,7 +2874,7 @@ export default function App(){
     let requestWasHidden=document.hidden;
     const trackHidden=()=>{if(document.hidden)requestWasHidden=true;};
     document.addEventListener("visibilitychange",trackHidden);
-    const { timeoutMs, suppressNetworkMonitoring=false, ...fetchOptions } = options;
+    const { timeoutMs, suppressNetworkMonitoring=false, suppressMonitoring=false, ...fetchOptions } = options;
     const controller = new AbortController();
     const requestTimeout=timeoutMs||12000;
     const timeout = setTimeout(()=>controller.abort(), requestTimeout);
@@ -2897,7 +2897,7 @@ export default function App(){
       requestError.code=didTimeout?"API_TIMEOUT":"API_NETWORK_ERROR";
       requestError.monitorable=!requestWasHidden;
       requestError.durationMs=Math.min(requestTimeout,Math.round(performance.now()-requestStartedAt));
-      if(requestError.monitorable&&!suppressNetworkMonitoring){
+      if(requestError.monitorable&&!suppressNetworkMonitoring&&!suppressMonitoring){
         reportClientError(requestError,{type:didTimeout?"api_timeout":"api_network_error",component:"authedJson",route:url,durationMs:requestError.durationMs});
       }
       throw requestError;
@@ -2912,15 +2912,15 @@ export default function App(){
       error.status = resp.status;
       error.code = data.code;
       error.details = data;
-      if(resp.status===429){
+      if(resp.status===429&&!suppressMonitoring){
         reportClientError(error,{type:"api_rate_limit",component:"authedJson",route:url,durationMs:requestDuration});
-      }else if(resp.status>=500){
+      }else if(resp.status>=500&&!suppressMonitoring){
         reportClientError(error,{type:"api_server_error",component:"authedJson",route:url,durationMs:requestDuration});
       }
       throw error;
     }
     const slowThreshold=url.startsWith("/api/ai/")?20000:8000;
-    if(!requestWasHidden&&requestDuration>=slowThreshold){
+    if(!requestWasHidden&&!suppressMonitoring&&requestDuration>=slowThreshold){
       reportClientError(new Error(`API lambat: ${requestDuration} ms`),{type:"api_slow",component:"authedJson",route:url,durationMs:requestDuration});
     }
     return data;

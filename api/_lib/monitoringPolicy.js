@@ -22,12 +22,16 @@ const PDF_MOBILE_COMPATIBILITY_FIXED_AT = Date.parse("2026-08-02T13:15:00.000Z")
 const GOAL_LANGUAGE_SCOPE_FIXED_AT = Date.parse("2026-08-05T12:25:00.000Z");
 const ACCOUNT_AND_PWA_RECOVERY_FIXED_AT = Date.parse("2026-08-06T11:30:00.000Z");
 const MODULE_LOAD_RECOVERY_FIXED_AT = Date.parse("2026-08-07T16:40:00.000Z");
+const ADMIN_MONITORING_RETRY_FIXED_AT = Date.parse("2026-08-09T15:45:00.000Z");
 
 export const knownIncidentResolution = (type, message, event = {}) => {
   if (type === "window_error" && /(?:can't find variable|is not defined):?\s*setBln/i.test(String(message || ""))) {
     return "Navigasi Bulan ini sudah diperbaiki pada rilis terbaru.";
   }
   const createdAt = Date.parse(event.createdAt || "");
+  if (type === "admin_monitoring" && /failed to fetch|load failed|networkerror|koneksi ke server terputus/i.test(String(message || "")) && Number.isFinite(createdAt) && createdAt <= ADMIN_MONITORING_RETRY_FIXED_AT) {
+    return "Permintaan monitoring kini memakai retry dan tidak lagi mencatat satu gangguan jaringan dua kali.";
+  }
   if (type === "react_boundary" && /importing a module script failed|failed to fetch dynamically imported module|chunkloaderror/i.test(String(message || "")) && Number.isFinite(createdAt) && createdAt <= MODULE_LOAD_RECOVERY_FIXED_AT) {
     return "Cache aset deployment lama kini dibersihkan otomatis lalu aplikasi dimuat ulang satu kali.";
   }

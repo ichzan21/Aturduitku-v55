@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { fetchAdminMonitoring, monitoringFailureContext } from "./adminMonitoringRequest.js";
 
 const statusLabel = (value) => value ? "Aktif" : "Belum dikonfigurasi";
 
@@ -15,10 +16,11 @@ export default function AdminMonitoringPanel({ authedJson, theme: T, isMobile, r
     setLoading(true);
     setError("");
     try {
-      setData(await authedJson("/api/admin/monitoring", { method:"GET" }));
+      setData(await fetchAdminMonitoring(authedJson));
     } catch (requestError) {
       setError(requestError.message || "Monitoring belum dapat dimuat");
-      reportError?.(requestError, { type:"admin_monitoring", component:"AdminMonitoringPanel" });
+      const context = monitoringFailureContext(requestError);
+      if (context) reportError?.(requestError, context);
     } finally {
       setLoading(false);
     }
