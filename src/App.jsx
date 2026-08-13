@@ -14,7 +14,7 @@ import { EXPENSE_CATEGORY_RULES, resolveExpenseCategory } from "./transactionCat
 import { inferDirectTransactionAction, normalizeAiTransactionAction, parseConversationalMoney } from "./aiIntent.js";
 import { buildAiFallbackAnswer, buildAiQuestionGuidance } from "./aiConversation.js";
 import { buildReportActivity, buildReportCashflowActivity, filterTransactionsByPeriod, formatReportPeriod, getReportPdfTemplate, getReportPeriodRange, shiftReportAnchor, summarizeTransactions } from "./reportPeriod.js";
-import { filterTransactionsForList } from "./transactionList.js";
+import { compareTransactionsNewestFirst, filterTransactionsForList } from "./transactionList.js";
 import { EMAIL_VERIFICATION_COOLDOWN_MS, EMAIL_VERIFICATION_RATE_LIMIT_COOLDOWN_MS, formatEmailVerificationCooldown, getEmailVerificationCooldownSeconds, isEmailVerificationRateLimitError } from "./emailVerification.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
@@ -6122,7 +6122,7 @@ Saldo amplop bertambah.`}]);
         {v:isEN?"WALLET":"DOMPET", s:hdr(purple)},
         {v:isEN?"AMOUNT":"JUMLAH", s:hdr(purple)},
       ]);
-      const sorted = [...txM].sort((a,b)=>new Date(b.tgl)-new Date(a.tgl));
+      const sorted = [...txM].sort(compareTransactionsNewestFirst);
       sorted.forEach((tx,idx) => {
         const bg = idx%2===0?white:grayLt;
         const isInternal = ["transfer_internal_keluar","transfer_internal_masuk"].includes(tx.tipe);
@@ -6557,7 +6557,15 @@ Saldo amplop bertambah.`}]);
   const addBulk=()=>{
     const valid=bulkRows.filter(r=>r.tgl&&N(r.jml)>0);
     if(!valid.length){showToast("⚠️ Minimal satu baris terisi!");return;}
-    const newTxs=valid.map((r,i)=>normalizeIncomeTransaction({...r,id:Date.now()+i,jml:pN(r.jml),ket:r.ket||""}));
+    const batchStartedAt=Date.now();
+    const newTxs=valid.map((r,i)=>normalizeIncomeTransaction({
+      ...r,
+      id:batchStartedAt+i,
+      entryOrder:batchStartedAt+i,
+      createdAt:new Date(batchStartedAt+i).toISOString(),
+      jml:pN(r.jml),
+      ket:r.ket||"",
+    }));
     let simulatedWallets=s.dompet;
     for(const tx of newTxs){
       const error=transactionValidationError(simulatedWallets,tx);
@@ -7484,7 +7492,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{fontSize:12,color:T.muted,marginBottom:16}}>Masukkan beberapa transaksi sekaligus dengan format yang rapi. Cocok untuk input histori harian atau pindahan catatan lama.</div>
               <div style={{overflowX:"auto",border:`1px solid ${T.border}`,borderRadius:12,background:T.cardAlt}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-                  <thead><tr style={{background:T.cardAlt}}>{(lang==="en"?[t("txHead1"),t("amount"),t("type"),"Wallet",t("txHead2"),""]:["Tanggal","Jumlah","Tipe","Dompet","Keterangan",""]).map(h=><th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,borderBottom:`1px solid ${T.border}`}}>{h}</th>)}</tr></thead>
+                  <thead><tr style={{background:T.cardAlt}}>{(lang==="en"?[t("txHead1"),t("amount"),t("type"),"Wallet",t("txHead2"),"Order",""]:["Tanggal","Jumlah","Tipe","Dompet","Keterangan","Urutan",""]).map((h,index)=><th key={`${h}-${index}`} style={{padding:"6px 8px",textAlign:"left",fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,borderBottom:`1px solid ${T.border}`}}>{h}</th>)}</tr></thead>
                   <tbody>{bulkRows.map((r,i)=>(
                     <tr key={i}>
                       <td style={{padding:4}}><input type="date" value={r.tgl} onChange={e=>{const n=[...bulkRows];n[i]={...n[i],tgl:e.target.value};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:120}}/></td>
@@ -7492,6 +7500,10 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       <td style={{padding:4}}><select value={r.tipe} onChange={e=>{const n=[...bulkRows];n[i]={...n[i],tipe:e.target.value};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:110}}>{["pengeluaran","pemasukan","tabungan"].map(t=><option key={t}>{t}</option>)}</select></td>
                       <td style={{padding:4}}><select value={r.dompetId} onChange={e=>{const n=[...bulkRows];n[i]={...n[i],dompetId:e.target.value};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:90}}>{s.dompet.map(d=><option key={d.id} value={d.id}>{d.nama}</option>)}</select></td>
                       <td style={{padding:4}}><input placeholder={t("txDescPlaceholder")} value={r.ket} onChange={e=>{const n=[...bulkRows];n[i]={...n[i],ket:e.target.value};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:140}}/></td>
+                      <td style={{padding:4}}><div style={{display:"flex",gap:4}}>
+                        <button type="button" title="Pindahkan ke atas" aria-label={`Pindahkan baris ${i+1} ke atas`} disabled={i===0} onClick={()=>setBulkRows(rows=>{const n=[...rows];[n[i-1],n[i]]=[n[i],n[i-1]];return n;})} style={{width:30,height:30,borderRadius:7,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontWeight:900,cursor:i===0?"not-allowed":"pointer",opacity:i===0?.35:1}}>↑</button>
+                        <button type="button" title="Pindahkan ke bawah" aria-label={`Pindahkan baris ${i+1} ke bawah`} disabled={i===bulkRows.length-1} onClick={()=>setBulkRows(rows=>{const n=[...rows];[n[i],n[i+1]]=[n[i+1],n[i]];return n;})} style={{width:30,height:30,borderRadius:7,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontWeight:900,cursor:i===bulkRows.length-1?"not-allowed":"pointer",opacity:i===bulkRows.length-1?.35:1}}>↓</button>
+                      </div></td>
                       <td style={{padding:4}}><Del onClick={()=>setBulkRows(bulkRows.filter((_,j)=>j!==i))}/></td>
                     </tr>
                   ))}</tbody>
@@ -7518,7 +7530,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
             {modal.type==="walletHistory"&&(()=>{
               const wallet=findWallet(s.dompet,modal.walletId);
-              const rows=s.txs.filter(tx=>sameId(tx.dompetId,modal.walletId)||sameId(tx.dompetTo,modal.walletId)).sort((a,b)=>`${b.tgl||""}-${b.id}`.localeCompare(`${a.tgl||""}-${a.id}`));
+              const rows=s.txs.filter(tx=>sameId(tx.dompetId,modal.walletId)||sameId(tx.dompetTo,modal.walletId)).sort(compareTransactionsNewestFirst);
               return <>
                 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
                   <span style={{width:44,height:44,borderRadius:14,background:T.accentBg,display:"grid",placeItems:"center",fontSize:22}}>{uiIcon(wallet?.icon||"WALLET")}</span>
@@ -8073,7 +8085,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <Card ch={<>
                 <Sec t={t("recentTx")} right={<button onClick={()=>setPage("trans")} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Lihat semua</button>}/>
                 {txBulan.length
-                  ? [...txBulan].sort((a,b)=>new Date(b.tgl)-new Date(a.tgl)).slice(0,6).map(t=>renderTxItem(t))
+                  ? [...txBulan].sort(compareTransactionsNewestFirst).slice(0,6).map(t=>renderTxItem(t))
                   : <LaunchEmpty
                       icon="🧾"
                       title="Belum ada transaksi bulan ini"

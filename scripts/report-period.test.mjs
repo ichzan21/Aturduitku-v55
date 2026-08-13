@@ -9,7 +9,7 @@ import {
   shiftReportAnchor,
   summarizeTransactions,
 } from "../src/reportPeriod.js";
-import { filterTransactionsForList } from "../src/transactionList.js";
+import { compareTransactionsNewestFirst, filterTransactionsForList } from "../src/transactionList.js";
 
 const txs = [
   { id:1, tgl:"2026-07-31", tipe:"pengeluaran", jml:"10000" },
@@ -59,6 +59,28 @@ assert.deepEqual(summarizeTransactions(visibleTransactions), {
 });
 assert.equal(filterTransactionsForList(txs, { type:"transfer_internal" }).length, 1);
 assert.equal(filterTransactionsForList(txs, { search:"", walletId:"missing" }).length, 0);
+
+const bulkSameDate = [
+  { id:100, entryOrder:100, tgl:"2026-07-30", ket:"Ganti senar" },
+  { id:101, entryOrder:101, tgl:"2026-07-30", ket:"Parkir" },
+  { id:102, entryOrder:102, tgl:"2026-07-31", ket:"Infaq Jumat" },
+  { id:103, entryOrder:103, tgl:"2026-07-31", ket:"Beli air" },
+  { id:104, entryOrder:104, tgl:"2026-07-31", ket:"Beli sate" },
+  { id:105, entryOrder:105, tgl:"2026-07-31", ket:"Biaya SMS" },
+];
+assert.deepEqual(
+  [...bulkSameDate].sort(compareTransactionsNewestFirst).map(tx=>tx.ket),
+  ["Biaya SMS", "Beli sate", "Beli air", "Infaq Jumat", "Parkir", "Ganti senar"],
+  "Input massal harus berurutan tanggal terbaru lalu baris input terbaru",
+);
+assert.deepEqual(
+  filterTransactionsForList([
+    { id:200, tgl:"2026-08-03", ket:"Baris lama" },
+    { id:201, tgl:"2026-08-03", ket:"Baris baru" },
+  ]).map(tx=>tx.ket),
+  ["Baris baru", "Baris lama"],
+  "Data lama tanpa entryOrder harus tetap stabil berdasarkan ID",
+);
 
 assert.equal(getReportPdfTemplate("daily").badge, "LAPORAN HARIAN");
 assert.equal(getReportPdfTemplate("weekly", "en-US").title, "Weekly Financial Report");
