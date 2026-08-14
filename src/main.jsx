@@ -52,6 +52,18 @@ function handleRuntimeFailure(reason, type, event) {
     scheduleModuleLoadRecovery()
     return
   }
+  if (classification.kind === 'request_failure') {
+    event?.preventDefault?.()
+    if (!reason?.monitoringReported) {
+      reportClientError(reason, {
+        type:classification.code === 'API_TIMEOUT' ? 'api_timeout' : 'api_network_error',
+        component:'runtime_request_guard',
+        route:reason?.route || window.location.pathname,
+        durationMs:reason?.durationMs,
+      })
+    }
+    return
+  }
   reportClientError(reason, { type })
 }
 

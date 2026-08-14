@@ -2895,9 +2895,11 @@ export default function App(){
         ? `Permintaan melewati batas waktu ${requestTimeout} ms`
         : error?.message||"Koneksi ke server terputus");
       requestError.code=didTimeout?"API_TIMEOUT":"API_NETWORK_ERROR";
+      requestError.route=url;
       requestError.monitorable=!requestWasHidden;
       requestError.durationMs=Math.min(requestTimeout,Math.round(performance.now()-requestStartedAt));
       if(requestError.monitorable&&!suppressNetworkMonitoring&&!suppressMonitoring){
+        requestError.monitoringReported=true;
         reportClientError(requestError,{type:didTimeout?"api_timeout":"api_network_error",component:"authedJson",route:url,durationMs:requestError.durationMs});
       }
       throw requestError;
@@ -7040,7 +7042,7 @@ Saldo amplop bertambah.`}]);
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          <button onClick={async()=>{setAccessLoading(true);try{await loadAccessProfile();}finally{setAccessLoading(false);}}} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.08)",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{accessLoading?"Mengecek...":"Cek status lagi"}</button>
+          <button onClick={async()=>{setAccessLoading(true);try{await loadAccessProfile();}catch(error){showToast(error?.code==="API_TIMEOUT"?"Koneksi sedang lambat. Coba cek status lagi sebentar lagi.":"Status akun belum dapat diperiksa. Periksa koneksi lalu coba lagi.");}finally{setAccessLoading(false);}}} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.08)",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{accessLoading?"Mengecek...":"Cek status lagi"}</button>
           <button onClick={handleSignOut} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(252,165,165,.35)",background:"rgba(127,29,29,.22)",color:"#FCA5A5",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Keluar</button>
         </div>
       </div>

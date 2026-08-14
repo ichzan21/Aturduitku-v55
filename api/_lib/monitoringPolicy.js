@@ -5,6 +5,7 @@ const browserNoise = /failed to connect to metamask|metamask|chrome-extension:\/
 const recoverableStorageFailure = /connection to indexed database server lost|indexeddb.*(?:connection|database).*(?:lost|closed|closing)|database connection is closing/i;
 const serviceWorkerLifecycleFailure = /failed to (?:update|register) a serviceworker|serviceworker.*(?:unknown error|fetching the script)|failed to fetch.*(?:\/sw\.js|service worker)/i;
 const upstreamAiTimeout = /cloudflare ai response (?:408|504)/i;
+const handledRequestFailure = /permintaan melewati batas waktu \d+ ms|failed to fetch|load failed|networkerror|koneksi ke server terputus/i;
 
 export const isOpaqueScriptError = (type, message) =>
   type === "window_error" && /^script error\.?$/i.test(String(message || ""));
@@ -76,6 +77,7 @@ export const isRecoverableStorageEvent = (message) =>
 export const classifyMonitoringEvent = (type, message, storedCategory = "") => {
   if (isIgnoredMonitoringEvent(type, message)) return "ignored";
   if (storedCategory === "performance" || PERFORMANCE_TYPES.has(type)) return "performance";
+  if (type === "unhandled_rejection" && handledRequestFailure.test(String(message || ""))) return "operational";
   if (storedCategory === "operational" || OPERATIONAL_TYPES.has(type) || upstreamAiTimeout.test(String(message || "")) || isRecoverableStorageEvent(message)) return "operational";
   return "incident";
 };
@@ -83,6 +85,7 @@ export const classifyMonitoringEvent = (type, message, storedCategory = "") => {
 export const isSevereMonitoringEvent = (event = {}) =>
   ["react_boundary", "window_error", "unhandled_rejection", "api_server_error"].includes(event.type) &&
   !isIgnoredMonitoringEvent(event.type, event.message) &&
+  !(event.type === "unhandled_rejection" && handledRequestFailure.test(String(event.message || ""))) &&
   !isRecoverableStorageEvent(event.message);
 
 export const isNetworkFailureType = (type) =>

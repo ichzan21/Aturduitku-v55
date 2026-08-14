@@ -19,7 +19,11 @@ const serviceWorkerFailure = "Failed to update a ServiceWorker for scope ('https
 assert.equal(classifyRuntimeFailure(new Error(serviceWorkerFailure)).kind, "ignored");
 assert.equal(isServiceWorkerLifecycleFailure(serviceWorkerFailure), true);
 assert.equal(classifyRuntimeFailure(new Error("Unexpected application failure")).kind, "incident");
+const timeoutError = new Error("Permintaan melewati batas waktu 12000 ms");
+timeoutError.code = "API_TIMEOUT";
+assert.deepEqual(classifyRuntimeFailure(timeoutError), { kind:"request_failure", message:"Permintaan melewati batas waktu 12000 ms", code:"API_TIMEOUT" });
 assert.equal(classifyRuntimeFailure(new Error("Importing a module script failed.")).kind, "module_load");
+assert.equal(classifyRuntimeFailure(new Error("Failed to fetch dynamically imported module")).kind, "module_load");
 assert.equal(isModuleLoadFailure("Failed to fetch dynamically imported module"), true);
 assert.equal(isRecoverableStorageFailure("IndexedDB database connection closed"), true);
 assert.equal(getRuntimeErrorMessage({ message:"Pesan aman" }), "Pesan aman");

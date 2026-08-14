@@ -3,6 +3,7 @@ const opaqueScriptError = /^script error\.?$/i;
 const storageDisconnect = /connection to indexed database server lost|indexeddb.*(?:connection|database).*(?:lost|closed|closing)|database connection is closing/i;
 const serviceWorkerLifecycleFailure = /failed to (?:update|register) a serviceworker|serviceworker.*(?:unknown error|fetching the script)|failed to fetch.*(?:\/sw\.js|service worker)/i;
 const moduleLoadFailure = /importing a module script failed|failed to fetch dynamically imported module|error loading dynamically imported module|loading (?:css )?chunk [^ ]+ failed|chunkloaderror/i;
+const requestFailure = /permintaan melewati batas waktu \d+ ms|failed to fetch|load failed|networkerror|koneksi ke server terputus/i;
 const MODULE_RECOVERY_KEY = "aturduitku_module_recovery_at";
 let moduleRecoveryScheduled = false;
 
@@ -14,8 +15,12 @@ export const getRuntimeErrorMessage = (reason) => {
 
 export const classifyRuntimeFailure = (reason) => {
   const message = getRuntimeErrorMessage(reason);
+  const code = String(reason?.code || "").toUpperCase();
   if (browserExtensionNoise.test(message) || opaqueScriptError.test(message) || serviceWorkerLifecycleFailure.test(message)) return { kind:"ignored", message };
   if (moduleLoadFailure.test(message)) return { kind:"module_load", message };
+  if (["API_TIMEOUT", "API_NETWORK_ERROR"].includes(code) || requestFailure.test(message)) {
+    return { kind:"request_failure", message, code:code || (/batas waktu/i.test(message) ? "API_TIMEOUT" : "API_NETWORK_ERROR") };
+  }
   if (storageDisconnect.test(message)) return { kind:"storage_disconnect", message };
   return { kind:"incident", message };
 };

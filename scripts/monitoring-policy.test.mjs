@@ -11,6 +11,7 @@ import { buildUserCapacityAlert } from "../api/_lib/monitoringAlerts.js";
 import { fetchAdminMonitoring, monitoringFailureContext } from "../src/adminMonitoringRequest.js";
 
 assert.equal(classifyMonitoringEvent("api_timeout", "Permintaan melewati batas waktu 20000 ms"), "operational");
+assert.equal(classifyMonitoringEvent("unhandled_rejection", "Permintaan melewati batas waktu 12000 ms", "incident"), "operational");
 assert.equal(classifyMonitoringEvent("asset_load_recovery", "Importing a module script failed."), "operational");
 assert.equal(classifyMonitoringEvent("api_network_error", "Load failed"), "operational");
 assert.match(
@@ -64,6 +65,7 @@ assert.match(
 assert.equal(classifyMonitoringEvent("window_error", "Script error."), "ignored");
 assert.equal(classifyMonitoringEvent("api_server_error", "Firebase unavailable"), "incident");
 assert.equal(isSevereMonitoringEvent({ type:"api_timeout", message:"Request timed out" }), false);
+assert.equal(isSevereMonitoringEvent({ type:"unhandled_rejection", message:"Permintaan melewati batas waktu 12000 ms" }), false);
 assert.equal(isSevereMonitoringEvent({ type:"api_server_error", message:"Firebase unavailable" }), true);
 assert.equal(isNetworkFailureType("api_timeout"), true);
 assert.equal(isExpectedAiLatency("api_slow", "/api/ai/cloudflare", 10597), true, "Latensi AI di bawah ambang baru bukan gangguan produksi");
