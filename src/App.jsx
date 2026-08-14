@@ -14,7 +14,7 @@ import { EXPENSE_CATEGORY_RULES, resolveExpenseCategory } from "./transactionCat
 import { inferDirectTransactionAction, normalizeAiTransactionAction, parseConversationalMoney } from "./aiIntent.js";
 import { buildAiFallbackAnswer, buildAiQuestionGuidance } from "./aiConversation.js";
 import { buildReportActivity, buildReportCashflowActivity, filterTransactionsByPeriod, formatReportPeriod, getReportPdfTemplate, getReportPeriodRange, shiftReportAnchor, summarizeTransactions } from "./reportPeriod.js";
-import { compareTransactionsNewestFirst, filterTransactionsForList } from "./transactionList.js";
+import { compareTransactionsNewestFirst, filterTransactionsForList, getHighestExpenseDay } from "./transactionList.js";
 import { EMAIL_VERIFICATION_COOLDOWN_MS, EMAIL_VERIFICATION_RATE_LIMIT_COOLDOWN_MS, formatEmailVerificationCooldown, getEmailVerificationCooldownSeconds, isEmailVerificationRateLimitError } from "./emailVerification.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
@@ -3509,7 +3509,7 @@ export default function App(){
   const [asetForm,setAsetForm]=useState({nama:"",nilai:"",ket:"",beliDariDompet:false,dompetId:1});
   const [sfForm,setSfForm]=useState({name:s.name,targetDana:s.targetDana,prevPemasukan:s.prevPemasukan,prevPengeluaran:s.prevPengeluaran});
   const [txSearch,setTxSearch]=useState("");
-  const [txFilt,setTxFilt]=useState({dompet:"",tipe:"",sub:""});
+  const [txFilt,setTxFilt]=useState({dompet:"",tipe:"",sub:"",startDate:"",endDate:""});
   const [txPage,setTxPage]=useState(1);
   const [reportPeriod,setReportPeriod]=useState("monthly");
   const [reportAnchor,setReportAnchor]=useState(()=>today());
@@ -3697,9 +3697,27 @@ export default function App(){
     search:txSearch,
     walletId:txFilt.dompet,
     type:txFilt.tipe,
+    startDate:txFilt.startDate,
+    endDate:txFilt.endDate,
   }),[s.txs,txSearch,txFilt]);
 
   const filteredTxSummary=useMemo(()=>summarizeTransactions(filtTx,N),[filtTx]);
+  const highestExpenseDay=useMemo(()=>getHighestExpenseDay(filtTx,N),[filtTx]);
+  const txHasFilter=Boolean(txSearch||txFilt.dompet||txFilt.tipe||txFilt.startDate||txFilt.endDate);
+  const txPeriodLabel=useMemo(()=>{
+    if(!txFilt.startDate&&!txFilt.endDate) return lang==="en"?"All dates":"Semua tanggal";
+    const format=value=>value?new Date(`${value}T00:00:00`).toLocaleDateString(lang==="en"?"en-US":"id-ID",{day:"numeric",month:"short",year:"numeric"}):"...";
+    if(txFilt.startDate&&txFilt.startDate===txFilt.endDate) return format(txFilt.startDate);
+    return `${format(txFilt.startDate)} - ${format(txFilt.endDate)}`;
+  },[txFilt.startDate,txFilt.endDate,lang]);
+  const setTxDatePreset=preset=>{
+    const current=today();
+    if(preset==="today") setTxFilt(f=>({...f,startDate:current,endDate:current}));
+    else if(preset==="week") setTxFilt(f=>({...f,startDate:dateAdd(current,-6),endDate:current}));
+    else if(preset==="month") setTxFilt(f=>({...f,startDate:`${current.slice(0,7)}-01`,endDate:current}));
+    else setTxFilt(f=>({...f,startDate:"",endDate:""}));
+    setTxPage(1);
+  };
 
   const reportRange=useMemo(()=>getReportPeriodRange(reportPeriod,reportAnchor),[reportPeriod,reportAnchor]);
   const reportDays=Math.max(1,Math.round((new Date(`${reportRange.end}T00:00:00`)-new Date(`${reportRange.start}T00:00:00`))/86400000)+1);
@@ -3757,7 +3775,7 @@ export default function App(){
     return null;
   }).filter(Boolean),[s.budgets,reportBudgetScale,reportSpendByKat]);
 
-  useEffect(()=>setTxPage(1),[txSearch,txFilt.dompet,txFilt.tipe]);
+  useEffect(()=>setTxPage(1),[txSearch,txFilt.dompet,txFilt.tipe,txFilt.startDate,txFilt.endDate]);
 
   const pieData=s.budgets.filter(b=>spendByKat[b.id]>0).map(b=>({name:b.icon+" "+b.kat,value:spendByKat[b.id]||0}));
   const incomeCategoryData=useMemo(()=>{
@@ -8222,9 +8240,19 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <select value={txFilt.tipe} onChange={e=>{setTxFilt(f=>({...f,tipe:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
                   <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="investasi">Investasi</option><option value="alokasi_amplop">Alokasi Amplop</option><option value="pengembalian_amplop">Pengembalian Amplop</option><option value="penyesuaian">Koreksi saldo</option><option value="transfer">Transfer</option><option value="transfer_internal">Transfer Internal</option>
                 </select>
-                {(txSearch||txFilt.dompet||txFilt.tipe)&&<Btn onClick={()=>{setTxSearch("");setTxFilt({dompet:"",tipe:"",sub:""});setTxPage(1);}} ch="Reset" c={T.err} outline style={{padding:"7px 12px",fontSize:12}}/>}
+                {txHasFilter&&<Btn onClick={()=>{setTxSearch("");setTxFilt({dompet:"",tipe:"",sub:"",startDate:"",endDate:""});setTxPage(1);}} ch="Reset" c={T.err} outline style={{padding:"7px 12px",fontSize:12}}/>}
                 <Btn onClick={()=>exportCSV()} ch="Export" c="#16A34A" outline style={{padding:"7px 12px",fontSize:12}}/>
                 <Btn onClick={()=>setModal({type:"importMutasi"})} ch="Import Mutasi" c={T.accent} style={{padding:"7px 12px",fontSize:12}}/>
+              </div>
+              <div style={{display:"flex",alignItems:"flex-end",gap:8,flexWrap:"wrap",marginTop:12,paddingTop:12,borderTop:`1px solid ${T.border}`}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,flex:isMobile?"1 1 100%":"0 1 330px",minWidth:isMobile?"100%":280}}>
+                  <label style={{fontSize:10,fontWeight:800,color:T.muted}}>DARI TANGGAL<input type="date" value={txFilt.startDate} max={txFilt.endDate||undefined} onChange={e=>setTxFilt(f=>({...f,startDate:e.target.value,endDate:f.endDate&&e.target.value>f.endDate?e.target.value:f.endDate}))} style={{...IS,marginTop:5,fontSize:12,padding:"8px 10px"}}/></label>
+                  <label style={{fontSize:10,fontWeight:800,color:T.muted}}>SAMPAI TANGGAL<input type="date" value={txFilt.endDate} min={txFilt.startDate||undefined} onChange={e=>setTxFilt(f=>({...f,endDate:e.target.value,startDate:f.startDate&&e.target.value<f.startDate?e.target.value:f.startDate}))} style={{...IS,marginTop:5,fontSize:12,padding:"8px 10px"}}/></label>
+                </div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                  {[["today",lang==="en"?"Today":"Hari ini"],["week",lang==="en"?"7 days":"7 hari"],["month",lang==="en"?"This month":"Bulan ini"],["all",lang==="en"?"All":"Semua"]].map(([key,label])=><button key={key} type="button" onClick={()=>setTxDatePreset(key)} style={{padding:"8px 11px",borderRadius:8,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>)}
+                </div>
+                <div style={{fontSize:11,color:T.muted,marginLeft:isMobile?0:"auto",paddingBottom:8}}>{txPeriodLabel}</div>
               </div>
             </>} style={{marginBottom:16}}/>
 
@@ -8266,8 +8294,12 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </div>
               ))}
             </div>
+            {highestExpenseDay&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",padding:"11px 14px",marginBottom:16,borderLeft:`4px solid ${T.warn}`,background:T.warnBg,borderRadius:8}}>
+              <div><div style={{fontSize:10,fontWeight:900,color:T.warn,textTransform:"uppercase",letterSpacing:.8}}>{lang==="en"?"Highest spending day":"Hari dengan pengeluaran terbesar"}</div><div style={{fontSize:12,color:T.sub,marginTop:3}}>{new Date(`${highestExpenseDay.date}T00:00:00`).toLocaleDateString(lang==="en"?"en-US":"id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"})} · {highestExpenseDay.count} transaksi</div></div>
+              <div style={{fontSize:16,fontWeight:900,color:T.err}}>{IDRs(highestExpenseDay.amount)}</div>
+            </div>}
             <Card ch={<>
-              <Sec t={`${filtTx.length} ${t("txCount")}`} right={<div style={{fontSize:12,color:T.muted}}>{txSearch||txFilt.dompet||txFilt.tipe?"Sesuai filter":"Semua periode"}</div>}/>
+              <Sec t={`${filtTx.length} ${t("txCount")}`} right={<div style={{fontSize:12,color:T.muted}}>{txHasFilter?txPeriodLabel:"Semua periode"}</div>}/>
               {filtTx.length?<>
                 {filtTx.slice(0,txPage*TX_PER_PAGE).map(t=>renderTxItem(t))}
                 {filtTx.length>txPage*TX_PER_PAGE&&(

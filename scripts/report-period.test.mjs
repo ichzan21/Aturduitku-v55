@@ -9,7 +9,7 @@ import {
   shiftReportAnchor,
   summarizeTransactions,
 } from "../src/reportPeriod.js";
-import { compareTransactionsNewestFirst, filterTransactionsForList } from "../src/transactionList.js";
+import { compareTransactionsNewestFirst, filterTransactionsForList, getHighestExpenseDay } from "../src/transactionList.js";
 
 const txs = [
   { id:1, tgl:"2026-07-31", tipe:"pengeluaran", jml:"10000" },
@@ -59,6 +59,21 @@ assert.deepEqual(summarizeTransactions(visibleTransactions), {
 });
 assert.equal(filterTransactionsForList(txs, { type:"transfer_internal" }).length, 1);
 assert.equal(filterTransactionsForList(txs, { search:"", walletId:"missing" }).length, 0);
+assert.deepEqual(
+  filterTransactionsForList(txs, { startDate:"2026-07-31", endDate:"2026-08-01" }).map(transaction=>transaction.id),
+  [2, 1],
+  "Filter tanggal harus inklusif pada tanggal mulai dan akhir",
+);
+assert.deepEqual(
+  getHighestExpenseDay([
+    { tgl:"2026-08-01", tipe:"pengeluaran", jml:20000 },
+    { tgl:"2026-08-01", tipe:"pengeluaran", jml:30000 },
+    { tgl:"2026-08-02", tipe:"pengeluaran", jml:40000 },
+    { tgl:"2026-08-02", tipe:"pemasukan", jml:999999 },
+  ]),
+  { date:"2026-08-01", amount:50000, count:2 },
+  "Insight harus memilih tanggal dengan total pengeluaran terbesar",
+);
 
 const bulkSameDate = [
   { id:100, entryOrder:100, tgl:"2026-07-30", ket:"Ganti senar" },
