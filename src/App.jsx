@@ -19,6 +19,7 @@ import { buildReportActivity, buildReportCashflowActivity, filterTransactionsByP
 import { compareTransactionsNewestFirst, filterTransactionsForList, getHighestExpenseDay, moveTransactionWithinDate } from "./transactionList.js";
 import { EMAIL_VERIFICATION_COOLDOWN_MS, EMAIL_VERIFICATION_RATE_LIMIT_COOLDOWN_MS, formatEmailVerificationCooldown, getEmailVerificationCooldownSeconds, isEmailVerificationRateLimitError } from "./emailVerification.js";
 import { resolveAccountOnboarded } from "./accountBootstrap.js";
+import { getDailyBudgetBreakdown } from "./dailyBudget.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -216,7 +217,7 @@ const TR = {
     income:"Pemasukan", expense:"Pengeluaran", saving:"Tabungan",
     transfer:"Transfer", totalBalance:"Total Saldo",
     netCashflow:"Net Cashflow", monthlyBudget:"Budget Bulanan",
-    dailyBudget:"Budget Harian Tersisa", remaining:"Sisa",
+    dailyBudget:"Batas Belanja Harian", remaining:"Sisa",
     allocation:"Alokasi", realization:"Realisasi", usage:"Terpakai",
     // Dompet
     wallet:"Dompet", account:"Rekening", accountNo:"No. Rekening",
@@ -556,7 +557,7 @@ const TR = {
     income:"Income", expense:"Expense", saving:"Saving",
     transfer:"Transfer", totalBalance:"Total Balance",
     netCashflow:"Net Cashflow", monthlyBudget:"Monthly Budget",
-    dailyBudget:"Daily Budget Remaining", remaining:"Remaining",
+    dailyBudget:"Daily Spending Limit", remaining:"Remaining",
     allocation:"Allocation", realization:"Spent", usage:"Usage",
     // Dompet
     wallet:"Wallet", account:"Account", accountNo:"Account No.",
@@ -3563,12 +3564,12 @@ export default function App(){
   const totalPiutang=s.utang.filter(u=>(u.tipe==="piutang"||u.tipe==="piutangBisnis")&&!u.lunas).reduce((a,b)=>a+remainingDebt(b),0);
   const netWorthTotal=totalAset+totalPiutang-totalUtangAktif;
   const runwayReal=totalOut>0?(totalSaldo/totalOut).toFixed(1):0;
-  const hariIni=new Date().getDate();const hariDlmBulan=new Date(yr,bulanIdx+1,0).getDate();const sisaHari=hariDlmBulan-hariIni;
   const totalBudget=s.budgets.reduce((a,b)=>a+N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0),0);
   const investasiBudgetId=s.budgets.find(b=>String(b.kat).toLowerCase()==="investasi")?.id||"";
   const spendByKat=useMemo(()=>{const m={};txBulan.filter(t=>["pengeluaran","tabungan","investasi"].includes(t.tipe)&&t.katId).forEach(t=>{m[t.katId]=(m[t.katId]||0)+N(t.jml);});return m;},[txBulan]);
   const totalBudgetUsed=Object.values(spendByKat).reduce((a,v)=>a+N(v),0);
-  const sisaAnggaran=totalBudget-totalBudgetUsed;const budgetHarian=sisaHari>0?Math.max(sisaAnggaran,0)/sisaHari:0;
+  const dailyBudgetBreakdown=getDailyBudgetBreakdown({year:yr,monthIndex:bulanIdx,totalBudget,totalUsed:totalBudgetUsed});
+  const {remainingBudget:sisaAnggaran,daysRemaining:sisaHari,dailyBudget:budgetHarian}=dailyBudgetBreakdown;
 
   const trendData=useMemo(()=>{
     const months=[];
@@ -7344,6 +7345,39 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             {/* Import Mutasi Bank Modal */}
             {modal.type==="importMutasi"&&<ImportMutasiBank dompet={s.dompet} budgets={s.budgets} onImport={handleImportMutasi} onClose={()=>closeModal()} T={T}/>}
 
+            {modal.type==="dailyBudgetInfo"&&<>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:14,marginBottom:16}}>
+                <div>
+                  <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",marginBottom:5}}>Transparansi perhitungan</div>
+                  <div style={{fontSize:20,fontWeight:950,color:T.text,letterSpacing:-.3}}>Cara hitung batas belanja harian</div>
+                </div>
+                <button type="button" onClick={()=>closeModal()} aria-label="Tutup rincian budget harian" style={{width:40,height:40,borderRadius:12,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.muted,fontWeight:900,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>X</button>
+              </div>
+              <div style={{background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:14,padding:"13px 14px",fontSize:12,color:T.info,lineHeight:1.6,marginBottom:14}}>
+                <strong>Bukan diambil dari dompet tertentu.</strong> Angka ini memakai seluruh budget bulanan yang kamu atur, dikurangi realisasi bulan ini, lalu dibagi jumlah hari yang masih tersisa termasuk hari ini.
+              </div>
+              <div style={{display:"grid",gap:8,marginBottom:14}}>
+                {[
+                  ["Total budget bulanan",IDR(totalBudget)],
+                  ["Sudah terpakai bulan ini",`- ${IDR(totalBudgetUsed)}`],
+                  ["Sisa budget",IDR(sisaAnggaran)],
+                  ["Hari yang masih dihitung",`${sisaHari} hari`],
+                ].map(([label,value],index)=><div key={label} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,padding:"11px 12px",borderRadius:11,background:index===2?T.okBg:T.cardAlt,border:`1px solid ${index===2?T.okBorder:T.border}`}}>
+                  <span style={{fontSize:12,color:T.muted,fontWeight:700}}>{label}</span>
+                  <span style={{fontSize:13,color:index===2?T.ok:T.text,fontWeight:900,textAlign:"right"}}>{value}</span>
+                </div>)}
+              </div>
+              <div style={{borderRadius:14,padding:"15px 16px",background:T.accentBg,border:`1px solid ${T.border}`,marginBottom:14}}>
+                <div style={{fontSize:11,color:T.muted,fontWeight:800,marginBottom:5}}>Sisa budget {IDRs(sisaAnggaran)} / {sisaHari||0} hari</div>
+                <div style={{fontSize:24,color:T.accent,fontWeight:950}}>{IDR(budgetHarian)} per hari</div>
+              </div>
+              <div style={{fontSize:11,color:T.muted,lineHeight:1.6,marginBottom:16}}>Total Saldo bisa berbeda karena saldo adalah uang di semua dompet. Budget adalah batas rencana belanja. Tabungan, dana goal, atau uang yang belum dialokasikan tidak otomatis menjadi batas belanja harian.</div>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:9}}>
+                <Btn onClick={()=>closeModal()} ch="Mengerti" c={T.muted} outline style={{width:"100%"}}/>
+                <Btn onClick={()=>closeModal(()=>setPage("budget"))} ch="Atur budget bulanan" c={T.accent} style={{width:"100%"}}/>
+              </div>
+            </>}
+
             {/* Kalkulator Cicilan */}
             {modal.type==="yearReview"&&<YearInReview s={s} T={T} lang={lang} onClose={()=>closeModal()}/>}
             {modal.type==="monthlyRecap"&&<>
@@ -7837,8 +7871,12 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{position:"absolute",right:80,bottom:-70,width:160,height:160,borderRadius:"50%",background:"rgba(255,255,255,.05)"}}/>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",position:"relative",flexWrap:"wrap",gap:12}}>
                 <div>
-                  <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>{t("dailyBudget")}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:5}}>
+                    <div style={{fontSize:10,opacity:.7,letterSpacing:2,textTransform:"uppercase"}}>{t("dailyBudget")}</div>
+                    <button type="button" onClick={()=>setModal({type:"dailyBudgetInfo"})} aria-label="Lihat cara hitung batas belanja harian" title="Lihat cara hitung" style={{width:24,height:24,borderRadius:999,border:"1px solid rgba(255,255,255,.38)",background:"rgba(255,255,255,.12)",color:"white",fontSize:12,fontWeight:900,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>i</button>
+                  </div>
                   <div style={{fontSize:isMobile?24:32,fontWeight:900,letterSpacing:-.5,marginBottom:2}}><AnimatedAmount value={budgetHarian}/></div>
+                  <div style={{fontSize:10,opacity:.72,marginBottom:10,maxWidth:290,lineHeight:1.45}}>{totalBudget>0?`${IDRs(sisaAnggaran)} sisa budget / ${sisaHari} hari`:(lang==="en"?"Set a monthly budget to calculate this limit":"Atur budget bulanan untuk menghitung batas ini")}</div>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
                     <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,.15)",borderRadius:10,padding:"6px 14px"}}>
                       <span style={{fontSize:13}}>🕐</span>
