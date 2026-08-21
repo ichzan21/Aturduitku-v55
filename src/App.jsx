@@ -5,6 +5,7 @@ import {
 } from "./firebase.js";
 import { reportClientError } from "./monitoring.js";
 import { applyTransactionToWallets, confirmInternalTransferPair, displayNumber, findWallet, hasWallet, internalTransferPairsForReview, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, unlinkInternalTransferPair, walletDeltasForTransaction } from "./financeLedger.js";
+import { findBudgetSourceWallet, normalizeBudgetSourceId } from "./budgetSource.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { uiIcon } from "./uiIcon.js";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
@@ -173,6 +174,7 @@ const normalizeEnvelopes = (items,budgets=[]) => (items||[]).map(amp=>{
 });
 const normalizeBudgets = budgets => (budgets||INIT_BUDGETS).map(b=>({
   ...b,
+  dompetId:normalizeBudgetSourceId(b.dompetId),
   kelas:String(b.kat).toLowerCase()==="investasi"?"Investasi":b.kelas,
   sub:(b.sub||[]).map(sb=>({...sb,emoji:uiIcon(sb.emoji)})),
 }));
@@ -3534,7 +3536,7 @@ export default function App(){
     setAmplopIsiForm(form=>hasWallet(s.dompet,form.dompetId)?form:{...form,dompetId:firstId});
     setAsetForm(form=>hasWallet(s.dompet,form.dompetId)?form:{...form,dompetId:firstId});
   },[s.dompet]);
-  const [newKat,setNewKat]=useState({kat:"",icon:"📦",kelas:"Kebutuhan"});
+  const [newKat,setNewKat]=useState({kat:"",icon:"📦",kelas:"Kebutuhan",dompetId:""});
   const [showAddKat,setShowAddKat]=useState(false);
   const [newSub,setNewSub]=useState({katId:null,nama:"",emoji:"📌",alokasi:"",tempo:""});
   const [habitForm,setHabitForm]=useState({nama:"Catat pengeluaran",icon:"🧾",target:"1x per hari"});
@@ -8415,15 +8417,17 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </div>
               </div>
               {showAddKat&&<div style={{background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:12,padding:16,marginTop:10}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:10,marginBottom:12}}>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(0,1.4fr) minmax(150px,.8fr) minmax(190px,1fr)",gap:10,marginBottom:12}}>
                   <div><label style={LS}>{t("catName")}</label><input placeholder={t("catPlaceholder")} value={newKat.kat} onChange={e=>setNewKat(f=>({...f,kat:e.target.value}))} style={IS}/></div>
                   <div><label style={LS}>{t("catClass")}</label><select value={newKat.kelas} onChange={e=>setNewKat(f=>({...f,kelas:e.target.value}))} style={IS}><option>Kebutuhan</option><option>Keinginan</option><option>Investasi</option></select></div>
+                  <div><label style={LS}>{lang==="en"?"Funding wallet":"Dompet sumber"}</label><select value={newKat.dompetId} onChange={e=>setNewKat(f=>({...f,dompetId:e.target.value}))} style={IS}><option value="">{lang==="en"?"All wallets":"Semua dompet"}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>
                 </div>
+                <div style={{fontSize:10,color:T.sub,lineHeight:1.5,marginBottom:12}}>{lang==="en"?"This identifies the planned funding source. Wallet balances change only when a transaction is recorded.":"Ini hanya menandai asal dana yang direncanakan. Saldo dompet baru berubah saat transaksi dicatat."}</div>
                 <label style={LS}>Pilih ikon</label>
                 <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:10,background:T.card,borderRadius:8,border:`1.5px solid ${T.infoBorder}`,marginBottom:12}}>
                   {ICONS.slice(0,28).map(ico=><button key={ico} onClick={()=>setNewKat(f=>({...f,icon:ico}))} style={{width:34,height:34,borderRadius:7,border:`2px solid ${newKat.icon===ico?T.accent:"transparent"}`,background:newKat.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:17,fontFamily:"inherit"}}>{uiIcon(ico)}</button>)}
                 </div>
-                <Btn onClick={()=>{if(!newKat.kat.trim()){showToast(t("toast_fillName"));return;}setS(p=>({...p,budgets:[...p.budgets,{id:Date.now(),kat:newKat.kat,icon:newKat.icon,kelas:newKat.kelas,alokasi:"0",sub:[]}]}));setNewKat({kat:"",icon:"ETC",kelas:"Kebutuhan"});setShowAddKat(false);showToast("Kategori ditambahkan!");}} ch="Simpan kategori" style={{padding:"10px 20px"}}/>
+                <Btn onClick={()=>{if(!newKat.kat.trim()){showToast(t("toast_fillName"));return;}setS(p=>({...p,budgets:[...p.budgets,{id:Date.now(),kat:newKat.kat,icon:newKat.icon,kelas:newKat.kelas,dompetId:newKat.dompetId,alokasi:"0",sub:[]}]}));setNewKat({kat:"",icon:"ETC",kelas:"Kebutuhan",dompetId:""});setShowAddKat(false);showToast("Kategori ditambahkan!");}} ch="Simpan kategori" style={{padding:"10px 20px"}}/>
               </div>}
             </>} style={{marginBottom:20}}/>
 
@@ -8464,6 +8468,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       const over=alloc>0&&spend>alloc;
                       const statusColor=unallocated?"yellow":over?"red":pct>80?"yellow":"green";
                       const statusLabel=unallocated?"Perlu budget":over?t("overLabel"):pct>80?t("almostLabel"):t("safeLabel");
+                      const sourceWallet=findBudgetSourceWallet(s.dompet,b.dompetId);
                       return(
                         <div key={b.id} className="stagger-in" style={{background:T.card,borderRadius:13,padding:16,border:`1px solid ${over?T.errBorder:unallocated?T.warnBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s",animationDelay:`${Math.min(i,7)*45}ms`}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -8473,7 +8478,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                               <button onClick={()=>confirmDelete({title:"Hapus kategori budget?",msg:`Kategori "${b.kat}" beserta subkategori di dalamnya akan dihapus. Transaksi lama tetap tersimpan.`,toastMsg:"Kategori budget dihapus",onConfirm:()=>setS(p=>({...p,budgets:p.budgets.filter(x=>x.id!==b.id)}))})} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:11,fontWeight:800,padding:"2px 5px",borderRadius:4,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>Hapus</button>
                             </div>
                           </div>
-                          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:10}}>
+                          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(150px,1.1fr) 1fr 1fr",gap:8,marginBottom:10}}>
+                            <div><label style={LS}>{lang==="en"?"Funding wallet":"Dompet sumber"}</label><select aria-label={`${lang==="en"?"Funding wallet":"Dompet sumber"} ${b.kat}`} value={sourceWallet?String(b.dompetId):""} onChange={e=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,dompetId:e.target.value})}))} style={IS}><option value="">{lang==="en"?"All wallets":"Semua dompet"}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>
                             <div><label style={LS}>Alokasi</label><CurIn value={b.alokasi} onChange={v=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,alokasi:v})}))} /></div>
                             <div><label style={LS}>Realisasi</label>
                             <div style={{padding:"9px 12px",borderRadius:8,border:`1.5px dashed ${over?T.errBorder:unallocated?T.warnBorder:T.infoBorder}`,background:over?T.errBg:unallocated?T.warnBg:T.infoBg,color:over?T.err:unallocated?T.warn:T.info,fontWeight:700,fontSize:13}}>{IDRs(spend)||"Rp 0"}</div></div>

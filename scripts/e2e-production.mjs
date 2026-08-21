@@ -51,6 +51,17 @@ async function openTransactions(page, mobile) {
   await page.waitForTimeout(300);
 }
 
+async function openBudget(page, mobile) {
+  if (mobile) {
+    await page.getByRole("button", { name:/Budget/ }).last().click();
+  } else {
+    await page.getByText("Budget", { exact:true }).first().click();
+  }
+  const sourceSelectors = page.locator('select[aria-label^="Dompet sumber"], select[aria-label^="Funding wallet"]');
+  await sourceSelectors.first().waitFor({ state:"visible", timeout:15_000 });
+  if (await sourceSelectors.count() < 1) throw new Error("Pilihan dompet sumber budget tidak ditemukan");
+}
+
 async function waitForModalClose(page) {
   await page.locator(".modal-overlay").waitFor({ state:"detached", timeout:5_000 });
 }
@@ -86,7 +97,11 @@ async function smoke(viewport, name, mutate = false) {
   await searchInput.fill("");
   await page.screenshot({ path:`${artifacts}/${name}-transactions.png`, fullPage:true });
 
+  await openBudget(page, viewport.width < 900);
+  await page.screenshot({ path:`${artifacts}/${name}-budget.png`, fullPage:true });
+
   if (mutate) {
+    await openTransactions(page, false);
     await cleanupE2ETransactions(page);
     const note = `[E2E] fee proyek ${Date.now()}`;
     await page.getByRole("button", { name:/Tambah Transaksi|\+ Transaksi/i }).first().click();

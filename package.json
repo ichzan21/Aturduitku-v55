@@ -21,10 +21,11 @@
     "test:account-order": "node scripts/account-order.test.mjs",
     "test:ui-icon": "node scripts/ui-icon.test.mjs",
     "test:daily-budget": "node scripts/daily-budget.test.mjs",
+    "test:budget-source": "node scripts/budget-source.test.mjs",
     "test:e2e": "node scripts/e2e-production.mjs",
     "test:e2e:keyboard": "node scripts/e2e-keyboard-layout.mjs",
     "build": "npm run check:secrets && vite build",
-    "qa:release": "npm run test:ledger && npm run test:flows && npm run test:runtime && npm run test:email-verification && npm run test:viewport && npm run test:monitoring && npm run test:pdf && npm run test:bank-import && npm run test:categories && npm run test:ai-intent && npm run test:ai-conversation && npm run test:report-period && npm run test:account-order && npm run test:ui-icon && npm run test:daily-budget && npm run build && node scripts/prelaunch-check.mjs",
+    "qa:release": "npm run test:ledger && npm run test:flows && npm run test:runtime && npm run test:email-verification && npm run test:viewport && npm run test:monitoring && npm run test:pdf && npm run test:bank-import && npm run test:categories && npm run test:ai-intent && npm run test:ai-conversation && npm run test:report-period && npm run test:account-order && npm run test:ui-icon && npm run test:daily-budget && npm run test:budget-source && npm run build && node scripts/prelaunch-check.mjs",
     "qa:full": "npm run qa:release && npm run test:e2e",
     "preview": "vite preview"
   },
