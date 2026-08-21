@@ -55,7 +55,7 @@ export default async function handler(req, res) {
       const durationMs = Math.max(0, Math.round(Number(data.durationMs) || 0));
       const expectedAiLatency = isExpectedAiLatency(type, route, durationMs);
       const category = expectedAiLatency ? "ignored" : classifyMonitoringEvent(type, message, data.category);
-      const automaticResolution = knownIncidentResolution(type, message, { createdAt:data.createdAt });
+      const automaticResolution = knownIncidentResolution(type, message, { createdAt:data.createdAt, appVersion:data.appVersion });
       return {
         id: doc.id,
         type,

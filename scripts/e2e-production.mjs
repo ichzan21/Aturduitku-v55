@@ -74,6 +74,27 @@ async function openGoals(page, mobile) {
   if (await sourceSelectors.count() < 1) throw new Error("Pilihan dompet sumber Goal tidak ditemukan");
 }
 
+async function openEnvelope(page, mobile) {
+  if (mobile) {
+    await page.getByRole("button", { name:/Lainnya/ }).last().click();
+    await page.getByRole("button", { name:/Amplop/ }).last().click();
+  } else {
+    await page.getByText("Amplop", { exact:true }).first().click();
+  }
+  await page.getByText("TOTAL DANA AMPLOP", { exact:true }).waitFor({ state:"visible", timeout:15_000 });
+}
+
+async function assertNoHorizontalOverflow(page, name, section) {
+  const overflow = await page.evaluate(() => ({
+    viewport:document.documentElement.clientWidth,
+    document:document.documentElement.scrollWidth,
+    body:document.body.scrollWidth,
+  }));
+  if (overflow.document > overflow.viewport + 1 || overflow.body > overflow.viewport + 1) {
+    throw new Error(`${name}/${section}: overflow horizontal ${JSON.stringify(overflow)}`);
+  }
+}
+
 async function waitForModalClose(page) {
   await page.locator(".modal-overlay").waitFor({ state:"detached", timeout:5_000 });
 }
@@ -108,12 +129,19 @@ async function smoke(viewport, name, mutate = false) {
   await currentMonthButton.first().click();
   await searchInput.fill("");
   await page.screenshot({ path:`${artifacts}/${name}-transactions.png`, fullPage:true });
+  await assertNoHorizontalOverflow(page, name, "transactions");
 
   await openBudget(page, viewport.width < 900);
   await page.screenshot({ path:`${artifacts}/${name}-budget.png`, fullPage:true });
+  await assertNoHorizontalOverflow(page, name, "budget");
 
   await openGoals(page, viewport.width < 900);
   await page.screenshot({ path:`${artifacts}/${name}-goals.png`, fullPage:true });
+  await assertNoHorizontalOverflow(page, name, "goals");
+
+  await openEnvelope(page, viewport.width < 900);
+  await page.screenshot({ path:`${artifacts}/${name}-envelope.png`, fullPage:true });
+  await assertNoHorizontalOverflow(page, name, "envelope");
 
   if (mutate) {
     await openTransactions(page, false);

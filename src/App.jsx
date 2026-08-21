@@ -1335,7 +1335,7 @@ const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset,isMobile=false}
   const sisa=alokasi-terpakai;const pct=alokasi>0?Math.min(terpakai/alokasi*100,100):0;
   const isOver=terpakai>alokasi;
   return(
-    <div style={{background:T.card,borderRadius:14,padding:18,border:`1.5px solid ${isOver?T.errBorder:pct>80?T.warnBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s"}}>
+    <div className="feature-item-card envelope-card" style={{background:T.card,borderRadius:14,padding:18,border:`1.5px solid ${isOver?T.errBorder:pct>80?T.warnBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s",minWidth:0}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0,flex:1}}>
           <div style={{width:44,height:44,borderRadius:12,background:amp.warna||T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0,overflow:"hidden"}}>{uiIcon(amp.icon||"ENV")}</div>
@@ -1358,15 +1358,15 @@ const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset,isMobile=false}
         <span style={{fontWeight:700,color:isOver?T.err:pct>80?T.warn:T.ok}}>{pct.toFixed(0)}% terpakai</span>
         {isOver&&<span style={{color:T.err,fontWeight:700}}>⚠ Melebihi alokasi!</span>}
       </div>
-      {!showPakai&&!showIsi&&<div style={{display:"flex",gap:6}}>
+      {!showPakai&&!showIsi&&<div className="envelope-action-row" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr) auto",gap:6}}>
         <Btn onClick={()=>setShowPakai(true)} ch="💸 Pakai" c={T.err} outline style={{flex:1,padding:"8px 10px",fontSize:12}}/>
         <Btn onClick={()=>setShowIsi(true)} ch="➕ Isi" c={T.ok} outline style={{flex:1,padding:"8px 10px",fontSize:12}}/>
         <button onClick={onReset} title="Reset terpakai" style={{padding:"8px 10px",borderRadius:8,border:`1px solid ${T.border}`,background:T.cardAlt,cursor:"pointer",fontSize:14,fontFamily:"inherit",color:T.muted}}>🔄</button>
       </div>}
       {showPakai&&<div>
         <input placeholder="Keterangan belanja..." value={pakaiKet} onChange={e=>setPakaiKet(e.target.value)} style={{...{width:"100%",padding:"9px 12px",border:`1.5px solid ${T.inputBorder}`,borderRadius:9,fontSize:13,outline:"none",background:T.input,color:T.text,fontFamily:"inherit"},marginBottom:6}}/>
-        <div style={{display:"flex",gap:6}}>
-          <CurIn value={pakaiJml} onChange={setPakaiJml} placeholder="Jumlah..." style={{flex:1}}/>
+        <div className="envelope-submit-row" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto auto",gap:6}}>
+          <CurIn value={pakaiJml} onChange={setPakaiJml} placeholder="Jumlah..." style={{width:"100%",minWidth:0}}/>
           <Btn onClick={()=>{if(pakaiJml){onPakai(pakaiJml,pakaiKet);setPakaiJml("");setPakaiKet("");setShowPakai(false);}}} ch="✓" c={T.err} style={{padding:"8px 14px"}}/>
           <Btn onClick={()=>setShowPakai(false)} ch="✕" c={T.muted} outline style={{padding:"8px 14px"}}/>
         </div>
@@ -1376,8 +1376,8 @@ const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset,isMobile=false}
         <select value={isiDompetId} onChange={e=>setIsiDompetId(e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1.5px solid ${T.inputBorder}`,background:T.input,color:T.text,fontSize:12,outline:"none",marginBottom:6,fontFamily:"inherit"}}>
           {dompetList.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama} ({IDRs(N(d.saldo))})</option>)}
         </select>
-        <div style={{display:"flex",gap:6}}>
-          <CurIn value={isiJml} onChange={setIsiJml} placeholder="Jumlah..." style={{flex:1}}/>
+        <div className="envelope-submit-row" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto auto",gap:6}}>
+          <CurIn value={isiJml} onChange={setIsiJml} placeholder="Jumlah..." style={{width:"100%",minWidth:0}}/>
           <Btn onClick={()=>{if(isiJml){onIsi(isiJml,isiDompetId);setIsiJml("");setShowIsi(false);}}} ch="+ Isi" c={T.ok} style={{padding:"8px 12px"}}/>
           <Btn onClick={()=>setShowIsi(false)} ch="✕" c={T.muted} outline style={{padding:"8px 10px"}}/>
         </div>
@@ -1443,11 +1443,11 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai,onSourceChange,lang="i
   },[g.dompetId,dompetList]);
   const tg=N(g.target),km=N(g.kumpul),pct=tg>0?Math.min(km/tg*100,100):0;
   return(
-    <div style={{background:T.card,borderRadius:14,padding:18,border:`1.5px solid ${pct>=100?T.okBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s,border-color .3s"}}>
+    <div className="feature-item-card goal-card" style={{background:T.card,borderRadius:14,padding:18,border:`1.5px solid ${pct>=100?T.okBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s,border-color .3s",minWidth:0}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
-        <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
+        <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0,flex:1}}>
           <span style={{fontSize:28}}>{uiIcon(g.icon||"⭐")}</span>
-          <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{g.nama}</div><div style={{fontSize:11,color:T.muted}}>{g.deadline&&`🗓 ${g.deadline}`}</div></div>
+          <div style={{minWidth:0}}><div style={{fontWeight:800,fontSize:14,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.nama}</div><div style={{fontSize:11,color:T.muted}}>{g.deadline&&`🗓 ${g.deadline}`}</div></div>
         </div>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
           {pct>=100&&<Pill c="green" ch={"🎉 "+(lang==="en"?"Achieved!":"Tercapai!")}/>}
@@ -1465,13 +1465,13 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai,onSourceChange,lang="i
       </div>
       <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:5,marginBottom:12,padding:"10px 11px",borderRadius:10,background:T.cardAlt,border:`1px solid ${T.border}`}}>
         <div style={{fontSize:10,color:T.muted,lineHeight:1.45}}><strong style={{color:T.text}}>Dompet sumber</strong> untuk setoran Goal berikutnya</div>
-        <select className="goal-source-wallet" aria-label={`Dompet sumber Goal ${g.nama}`} value={dompetId} onChange={e=>{const next=e.target.value;setDompetId(next);onSourceChange?.(g.id,next);}} style={{width:"100%",padding:"9px 10px",borderRadius:8,border:`1.5px solid ${T.inputBorder}`,background:T.input,color:T.text,fontSize:12,outline:"none",fontFamily:"inherit"}}>
+        <select className="goal-source-wallet" aria-label={`Dompet sumber Goal ${g.nama}`} value={dompetId} onChange={e=>{const next=e.target.value;setDompetId(next);onSourceChange?.(g.id,next);}} style={{width:"100%",maxWidth:"100%",minWidth:0,padding:"9px 10px",borderRadius:8,border:`1.5px solid ${T.inputBorder}`,background:T.input,color:T.text,fontSize:12,outline:"none",fontFamily:"inherit"}}>
           {dompetList.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama} ({IDRs(N(d.saldo))})</option>)}
         </select>
       </div>
       {pct>=100
         ?<Btn onClick={()=>onSelesai(g.id)} ch={"✓ "+(lang==="en"?"Mark Done":"Selesai")} c="#16A34A" style={{width:"100%",padding:10}}/>
-        :<div className="goal-fund-row" style={{display:"flex",gap:8,alignItems:"center"}}>
+        :<div className="goal-fund-row" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,alignItems:"center",width:"100%"}}>
           <div className="goal-fund-input" style={{position:"relative",flex:1,minWidth:0}}>
             <CurIn value={inp} onChange={v=>setInp(v)} placeholder="Tambah dana..." style={{paddingRight:36}}/>
             <button onClick={()=>setShowCalc(true)} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14}}>🔢</button>
@@ -7271,7 +7271,7 @@ Saldo amplop bertambah.`}]);
         @media(prefers-reduced-motion:reduce){
           *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important;}
         }
-        @media(max-width:767px){
+@media(max-width:767px){
   .mobile-hide{display:none!important;}
   .mobile-2col{grid-template-columns:1fr 1fr!important;}
   .mobile-1col{grid-template-columns:1fr!important;}
@@ -7282,6 +7282,16 @@ Saldo amplop bertambah.`}]);
   .goal-fund-row{display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:6px!important;width:100%;}
   .goal-fund-input{min-width:0;width:100%;}
   .goal-fund-row>.btn-go{padding:8px 10px!important;white-space:nowrap;}
+}
+.feature-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;align-items:start;width:100%;}
+.feature-card-grid>*{min-width:0;}
+.feature-item-card{container-type:inline-size;max-width:100%;}
+.envelope-action-row>.btn-go,.envelope-submit-row>.btn-go{min-width:0;white-space:nowrap;}
+@container (max-width:340px){
+  .envelope-action-row{grid-template-columns:1fr 1fr!important;}
+  .envelope-action-row>button:last-child{grid-column:1/-1;width:100%;}
+  .envelope-submit-row{grid-template-columns:minmax(0,1fr) auto!important;}
+  .envelope-submit-row>button:last-child{grid-column:1/-1;width:100%;}
 }
 @media(max-width:374px){
   .bottom-nav-item{min-height:54px;padding-top:8px;}
@@ -8282,7 +8292,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <span>{s.dompet.length} akun aktif</span>
               </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(280px,1fr))",gap:14,marginBottom:20}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"minmax(0,1fr)":"repeat(auto-fit,minmax(min(100%,280px),1fr))",gap:14,marginBottom:20}}>
               {s.dompet.map((d,i)=>(
                 <div key={d.id} className="stagger-in" style={{background:T.card,borderRadius:14,padding:18,border:`1px solid ${T.border}`,boxShadow:T.shadow,transition:"background .3s",animationDelay:`${Math.min(i,7)*45}ms`}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
@@ -8481,7 +8491,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     </div>
                     <Pill c={isNeed?"blue":isInvest?"green":"yellow"} ch={`${cats.length} ${lang==="en"?"categories":"kategori"}`}/>
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14}}>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,300px),1fr))",gap:14}}>
                     {cats.map((b,i)=>{
                       const spend=spendByKat[b.id]||0;
                       const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
@@ -8629,7 +8639,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               style={{padding:"52px 20px",marginBottom:4}}
             />}
 
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
+            <div className="feature-card-grid">
               {s.amplop.map(amp=>(
                 <AmplopCard
                   key={amp.id}
@@ -8657,7 +8667,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </div>
               ))}
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
+            <div className="feature-card-grid">
               {s.goals.map(g=><GoalCard key={g.id} g={g} dompetList={s.dompet} lang={lang} onDelete={()=>confirmDelete({title:"Hapus goal?",msg:`Goal "${g.nama}" dan riwayat tabungannya akan dihapus dari daftar.`,toastMsg:"Goal dihapus",onConfirm:()=>setS(p=>({...p,goals:p.goals.filter(x=>x.id!==g.id)}))})} onTambah={tambahGoalDana} onSourceChange={(id,dompetId)=>setS(p=>({...p,goals:p.goals.map(x=>x.id!==id?x:{...x,dompetId})}))} onSelesai={id=>setS(p=>({...p,goals:p.goals.map(x=>x.id!==id?x:{...x,selesai:true})}))}/>)}
               {!s.goals.length&&<div style={{gridColumn:"1/-1"}}><LaunchEmpty
                 icon="🎯"
@@ -8916,7 +8926,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{fontSize:11,color:T.accent,fontWeight:900,letterSpacing:1.3,textTransform:"uppercase"}}>Quest belum selesai</div>
                 <div style={{fontSize:11,color:T.muted,fontWeight:800}}>{habitOpenToday.length} tersisa</div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14,marginBottom:18}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,280px),1fr))",gap:14,marginBottom:18}}>
                 {habitOpenToday.map(renderHabitCard)}
               </div>
             </>}
@@ -8926,7 +8936,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{fontSize:11,color:T.ok,fontWeight:900,letterSpacing:1.3,textTransform:"uppercase"}}>Selesai hari ini</div>
                 <div style={{fontSize:11,color:T.muted,fontWeight:800}}>Besok muncul lagi sebagai quest baru</div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14,marginBottom:18}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,280px),1fr))",gap:14,marginBottom:18}}>
                 {habitCompletedToday.map(renderHabitCard)}
               </div>
             </>}

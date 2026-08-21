@@ -91,6 +91,11 @@ assert.equal(
   "",
   "Regresi iterator PDF setelah rilis tidak boleh disembunyikan",
 );
+assert.match(
+  knownIncidentResolution("pdf_import_error", "undefined is not a function (near '...j of t...')", { createdAt:"2026-08-18T06:24:00.000Z", appVersion:"ccf1ee81c9e7" }),
+  /PDF Safari\/WebView sudah diperbaiki/,
+  "Insiden iterator dari build PDF lama harus ditutup walaupun baru tersinkron ke monitoring",
+);
 assert.deepEqual(
   sortMonitoringEvents([
     { id:"warning-new", category:"performance", resolved:true, createdAt:"2026-08-03T02:00:00.000Z" },

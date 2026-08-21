@@ -30,6 +30,7 @@ export const knownIncidentResolution = (type, message, event = {}) => {
     return "Navigasi Bulan ini sudah diperbaiki pada rilis terbaru.";
   }
   const createdAt = Date.parse(event.createdAt || "");
+  const appVersion = String(event.appVersion || "");
   if (type === "admin_monitoring" && /failed to fetch|load failed|networkerror|koneksi ke server terputus/i.test(String(message || "")) && Number.isFinite(createdAt) && createdAt <= ADMIN_MONITORING_RETRY_FIXED_AT) {
     return "Permintaan monitoring kini memakai retry dan tidak lagi mencatat satu gangguan jaringan dua kali.";
   }
@@ -56,9 +57,10 @@ export const knownIncidentResolution = (type, message, event = {}) => {
     return "Bahasa pada kartu Goals sudah diperbaiki dan diuji pada rilis terbaru.";
   }
   const isPdfCompatibilityFailure = /undefined is not a function.*(?:of|iterator)|PDF_RUNTIME_UNAVAILABLE/i.test(String(message || ""));
+  const isLegacyPdfIteratorBuild = /^ccf1ee81c9e7/i.test(appVersion);
   const predatesPdfCompatibilityFix = Number.isFinite(createdAt) && createdAt <= PDF_MOBILE_COMPATIBILITY_FIXED_AT;
   const legacyPdfFailureWithoutTimestamp = isPdfCompatibilityFailure && !Number.isFinite(createdAt);
-  if (type === "pdf_import_error" && (predatesPdfCompatibilityFix || legacyPdfFailureWithoutTimestamp)) {
+  if (type === "pdf_import_error" && (predatesPdfCompatibilityFix || legacyPdfFailureWithoutTimestamp || (isPdfCompatibilityFailure && isLegacyPdfIteratorBuild))) {
     return "Kompatibilitas pembaca PDF Safari/WebView sudah diperbaiki pada rilis terbaru.";
   }
   return "";
