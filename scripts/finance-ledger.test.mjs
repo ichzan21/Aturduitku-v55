@@ -37,6 +37,11 @@ assert.deepEqual(balances(wallets),{"22":84900,"bca-live":2810000});
 const envelopeSpend=applyTransactionToWallets(wallets,{tipe:"pengeluaran",jml:"50.000",dompetId:"bca-live",amplopId:9});
 assert.deepEqual(balances(envelopeSpend),balances(wallets),"Pemakaian amplop tidak boleh memotong dompet dua kali");
 
+const goalSpend=applyTransactionToWallets(wallets,{tipe:"pengeluaran",jml:"300.000",dompetId:"bca-live",goalSpendId:"liburan"});
+assert.deepEqual(balances(goalSpend),balances(wallets),"Pemakaian Goal tidak boleh memotong dompet dua kali");
+assert.equal(transactionValidationError([{id:"bca-live",saldo:"0"}],{tipe:"pengeluaran",jml:"300.000",dompetId:"bca-live",goalSpendId:"liburan"}),"",
+  "Pemakaian Goal divalidasi dari saldo Goal, bukan saldo dompet");
+
 assert.equal(transactionValidationError(base,{tipe:"pemasukan",jml:"0",dompetId:"bca-live"}),"invalid_amount");
 assert.equal(transactionValidationError(base,{tipe:"pengeluaran",jml:"900.000",dompetId:"bca-live"}),"insufficient_funds");
 assert.equal(transactionValidationError(base,{tipe:"transfer",jml:"1.000",dompetId:"22",dompetTo:22}),"same_wallet");

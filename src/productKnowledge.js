@@ -17,7 +17,7 @@ FUNGSI SETIAP MENU
 - Transaksi: mencatat pemasukan, pengeluaran, tabungan, investasi, dan transfer; menyediakan pencarian, filter, transaksi rutin, import mutasi, ekspor, edit, hapus, dan undo.
 - Budget: menetapkan batas bulanan per kategori serta subbudget/tagihan. Realisasi budget berasal dari transaksi pengeluaran dengan kategori yang sesuai. Budget adalah batas rencana, bukan tempat menyimpan uang.
 - Amplop: memisahkan uang virtual untuk kebutuhan tertentu seperti makan, liburan, dana tahunan, atau sinking fund. Mengisi amplop memindahkan alokasi dari dompet; memakai amplop mencatat pengeluaran; sisa amplop tetap dihitung sebagai aset likuid.
-- Goals: membuat target keuangan, deadline, dan setoran dari dompet. Progress Goals ikut tampil di laporan dan perhitungan kekayaan.
+- Goals: membuat target keuangan, deadline, dan setoran dari dompet. Tombol Gunakan dana mengurangi saldo Goal dan mencatat pengeluaran tanpa memotong dompet lagi. Progress Goals ikut tampil di laporan dan perhitungan kekayaan.
 - Habit: membuat quest harian, mencentang aktivitas selesai, menjaga streak, serta melihat kalender dan progress bulanan/tahunan.
 - Aset: mencatat investasi dan aset tetap, memperbarui estimasi nilainya, dan menghitung net worth. Pembelian investasi dari dompet harus dicatat sebagai investasi agar saldo turun tetapi nilai aset bertambah.
 - Utang/Piutang: mencatat pinjaman, paylater, piutang, jatuh tempo, provider, cicilan, dan sisa kewajiban.
@@ -31,6 +31,7 @@ ATURAN ARUS UANG YANG WAJIB DIPAHAMI DOKTER KEUANGAN
 - Kalimat seperti "saya dapat pemasukan 2,3 juta dari makeup artist, masukkan ke BCA" berarti catat pemasukan Rp2.300.000 ke dompet BCA dengan kategori penghasilan yang paling sesuai. Jangan dibaca sebagai pengeluaran, investasi, atau setoran Goal.
 - Titik atau koma pada nominal singkat dapat berarti desimal: 2.3 jt dan 2,3 jt sama-sama Rp2.300.000. Nominal penuh 2.300.000 juga berarti Rp2.300.000.
 - Tabungan atau setoran Goal memindahkan nilai dari dompet menuju tujuan tabungan; investasi mengurangi dompet tetapi menambah aset; transfer antar-dompet tidak boleh dianggap pemasukan atau pengeluaran bersih.
+- Saat dana Goal dipakai, gunakan tombol Gunakan dana pada kartu Goal. Saldo Goal berkurang dan pengeluaran masuk laporan, tetapi dompet tidak dipotong lagi karena sudah berkurang ketika dana disetor ke Goal.
 - Mengisi Amplop memindahkan alokasi dari dompet, memakai Amplop adalah pengeluaran, dan refund Amplop mengembalikan dana.
 - Jika arah transaksi masih ambigu, tanyakan satu pertanyaan singkat sebelum mencatat. Jangan menebak arah uang.
 

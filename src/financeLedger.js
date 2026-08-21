@@ -39,7 +39,9 @@ export const walletDeltasForTransaction = transaction => {
   } else if (tx.tipe === "pemasukan" || tx.tipe === "pengembalian_amplop") {
     add(tx.dompetId, amount);
   } else if (tx.tipe === "pengeluaran") {
-    if (!tx.amplopId) add(tx.dompetId, -amount);
+    // Dana Amplop dan Goal sudah keluar dari dompet saat dialokasikan. Saat
+    // dipakai, transaksi tetap masuk laporan pengeluaran tanpa debit kedua.
+    if (!tx.amplopId && !tx.goalSpendId) add(tx.dompetId, -amount);
   } else if (["tabungan", "investasi", "alokasi_amplop"].includes(tx.tipe)) {
     add(tx.dompetId, -amount);
   } else if (tx.tipe === "penyesuaian") {
@@ -81,7 +83,7 @@ export const transactionValidationError = (wallets, transaction, options = {}) =
     if (sameId(tx.dompetId, tx.dompetTo)) return "same_wallet";
     if (options.requireFunds !== false && moneyNumber(source?.saldo) < amount + fee) return "insufficient_funds";
   } else if (["pengeluaran", "tabungan", "investasi", "alokasi_amplop"].includes(tx.tipe)) {
-    if (!tx.amplopId && options.requireFunds !== false && moneyNumber(source?.saldo) < amount) {
+    if (!tx.amplopId && !tx.goalSpendId && options.requireFunds !== false && moneyNumber(source?.saldo) < amount) {
       return "insufficient_funds";
     }
   }
