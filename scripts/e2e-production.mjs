@@ -81,7 +81,24 @@ async function openEnvelope(page, mobile) {
   } else {
     await page.getByText("Amplop", { exact:true }).first().click();
   }
-  await page.getByText("TOTAL DANA AMPLOP", { exact:true }).waitFor({ state:"visible", timeout:15_000 });
+  await page.getByRole("button", { name:/Buat Amplop|Create Envelope/i }).first().waitFor({ state:"visible", timeout:15_000 });
+}
+
+async function waitForPageSettled(page, expectedTitle) {
+  const title = page.getByTestId("page-title");
+  await title.waitFor({ state:"visible", timeout:15_000 });
+  await page.waitForTimeout(450);
+  const titleState = await title.evaluate((element) => ({
+    text:element.textContent?.trim(),
+    clientWidth:element.clientWidth,
+    scrollWidth:element.scrollWidth,
+  }));
+  if (expectedTitle && titleState.text !== expectedTitle) {
+    throw new Error(`Judul halaman tidak sesuai: ${JSON.stringify(titleState)}`);
+  }
+  if (titleState.scrollWidth > titleState.clientWidth + 1) {
+    throw new Error(`Judul halaman terpotong: ${JSON.stringify(titleState)}`);
+  }
 }
 
 async function assertNoHorizontalOverflow(page, name, section) {
@@ -132,14 +149,17 @@ async function smoke(viewport, name, mutate = false) {
   await assertNoHorizontalOverflow(page, name, "transactions");
 
   await openBudget(page, viewport.width < 900);
+  await waitForPageSettled(page, "Budget");
   await page.screenshot({ path:`${artifacts}/${name}-budget.png`, fullPage:true });
   await assertNoHorizontalOverflow(page, name, "budget");
 
   await openGoals(page, viewport.width < 900);
+  await waitForPageSettled(page, "Goals");
   await page.screenshot({ path:`${artifacts}/${name}-goals.png`, fullPage:true });
   await assertNoHorizontalOverflow(page, name, "goals");
 
   await openEnvelope(page, viewport.width < 900);
+  await waitForPageSettled(page, "Amplop");
   await page.screenshot({ path:`${artifacts}/${name}-envelope.png`, fullPage:true });
   await assertNoHorizontalOverflow(page, name, "envelope");
 

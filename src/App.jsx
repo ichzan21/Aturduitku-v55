@@ -7158,6 +7158,11 @@ Saldo amplop bertambah.`}]);
         button:focus-visible,a:focus-visible,[role="button"]:focus-visible{outline:3px solid ${T.accentPop};outline-offset:2px;}
         button,[role="button"],.nav-item,.icon-action,.btn-go,.quick-action-item,.bottom-nav-item{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
         .topbar-safe{box-shadow:0 8px 28px rgba(31,20,70,.06);}
+        @media (min-width:900px) and (max-width:1180px){
+          .topbar-safe{padding-left:16px!important;padding-right:16px!important;}
+          .topbar-greeting,.topbar-sync{display:none!important;}
+          .topbar-title{max-width:none!important;}
+        }
         .icon-action{transition:transform .22s cubic-bezier(.34,1.45,.5,1),box-shadow .15s,background .15s;-webkit-tap-highlight-color:transparent;}
         .icon-action:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(139,92,246,.14);}
         .icon-action:active{transform:scale(.9);}
@@ -7771,7 +7776,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             <div style={{minWidth:0}}>
               <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
                 <img className="cat-mascot" src="/icon-192.png" alt="" style={{width:isMobile?24:28,height:isMobile?24:28,borderRadius:8,objectFit:"cover",flexShrink:0,boxShadow:`0 4px 12px ${T.accentPop}`}}/>
-                <div style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"38vw":"none"}}>{page==="admin"?"Admin":((lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",habit:"Habit",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings",admin:"Admin"}:{admin:"Admin",habit:"Habit"})[page]||navItems.find(n=>n.id===page)?.label||"")}</div>
+                <div className="topbar-title" data-testid="page-title" style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"38vw":"none"}}>{page==="admin"?"Admin":((lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",habit:"Habit",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings",admin:"Admin"}:{admin:"Admin",habit:"Habit"})[page]||navItems.find(n=>n.id===page)?.label||"")}</div>
               </div>
               {!isMobile&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>{hariShort}{tzZone.zone?` • ${tzZone.zone}`:""}</div>}
             </div>
@@ -7805,7 +7810,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               {dark?"☀️":"🌙"}
             </button>
 
-            {!isMobile&&<div style={{textAlign:"right",fontSize:12}}>
+            {!isMobile&&<div className="topbar-greeting" style={{textAlign:"right",fontSize:12}}>
               <div style={{fontWeight:700,color:T.text,marginBottom:2}}>{t(greetingWord)}, {s.name}! {greetingEmoji}</div>
               <div style={{fontSize:11,color:T.sub,display:"flex",alignItems:"center",gap:4,justifyContent:"flex-end"}}>
                 <span>{hariShort}</span>
@@ -7813,7 +7818,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               </div>
             </div>}
             {/* Sync status */}
-            {fireUser&&!isMobile&&<div title={isOnline?"Sinkron aktif":"Koneksi offline"} style={{fontSize:10,color:!isOnline?T.warn:syncStatus==="error"?T.err:syncStatus==="saving"?T.warn:T.ok,fontWeight:900,flexShrink:0,background:!isOnline?T.warnBg:syncStatus==="error"?T.errBg:syncStatus==="saving"?T.warnBg:T.okBg,border:`1px solid ${!isOnline?T.warnBorder:syncStatus==="error"?T.errBorder:syncStatus==="saving"?T.warnBorder:T.okBorder}`,borderRadius:999,padding:"6px 9px",whiteSpace:"nowrap"}}>
+            {fireUser&&!isMobile&&<div className="topbar-sync" title={isOnline?"Sinkron aktif":"Koneksi offline"} style={{fontSize:10,color:!isOnline?T.warn:syncStatus==="error"?T.err:syncStatus==="saving"?T.warn:T.ok,fontWeight:900,flexShrink:0,background:!isOnline?T.warnBg:syncStatus==="error"?T.errBg:syncStatus==="saving"?T.warnBg:T.okBg,border:`1px solid ${!isOnline?T.warnBorder:syncStatus==="error"?T.errBorder:syncStatus==="saving"?T.warnBorder:T.okBorder}`,borderRadius:999,padding:"6px 9px",whiteSpace:"nowrap"}}>
               {!isOnline?"Offline":syncStatus==="saving"?"Menyimpan":syncStatus==="error"?"Sync error":"Tersimpan"}
             </div>}
             {/* Google avatar + logout */}
