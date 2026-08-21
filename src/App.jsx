@@ -1465,7 +1465,7 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onSelesai,onSourceChange,lang="i
       </div>
       <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:5,marginBottom:12,padding:"10px 11px",borderRadius:10,background:T.cardAlt,border:`1px solid ${T.border}`}}>
         <div style={{fontSize:10,color:T.muted,lineHeight:1.45}}><strong style={{color:T.text}}>Dompet sumber</strong> untuk setoran Goal berikutnya</div>
-        <select className="goal-fund-wallet" aria-label={`Dompet sumber Goal ${g.nama}`} value={dompetId} onChange={e=>{const next=e.target.value;setDompetId(next);onSourceChange?.(g.id,next);}} style={{width:"100%",padding:"9px 10px",borderRadius:8,border:`1.5px solid ${T.inputBorder}`,background:T.input,color:T.text,fontSize:12,outline:"none",fontFamily:"inherit"}}>
+        <select className="goal-source-wallet" aria-label={`Dompet sumber Goal ${g.nama}`} value={dompetId} onChange={e=>{const next=e.target.value;setDompetId(next);onSourceChange?.(g.id,next);}} style={{width:"100%",padding:"9px 10px",borderRadius:8,border:`1.5px solid ${T.inputBorder}`,background:T.input,color:T.text,fontSize:12,outline:"none",fontFamily:"inherit"}}>
           {dompetList.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama} ({IDRs(N(d.saldo))})</option>)}
         </select>
       </div>
@@ -7279,9 +7279,8 @@ Saldo amplop bertambah.`}]);
   .btn-go:hover,.fab:hover,.ai-float-btn:hover{transform:none;}
   .page-in{animation:mobilePageIn .24s cubic-bezier(.22,1,.36,1) both;}
   input,select,textarea{min-height:40px;}
-  .goal-fund-row{display:grid!important;grid-template-columns:minmax(0,1fr) 56px auto;gap:6px!important;width:100%;}
+  .goal-fund-row{display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:6px!important;width:100%;}
   .goal-fund-input{min-width:0;width:100%;}
-  .goal-fund-wallet{width:56px!important;}
   .goal-fund-row>.btn-go{padding:8px 10px!important;white-space:nowrap;}
 }
 @media(max-width:374px){
