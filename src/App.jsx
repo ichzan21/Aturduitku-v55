@@ -3568,8 +3568,14 @@ export default function App(){
   const investasiBudgetId=s.budgets.find(b=>String(b.kat).toLowerCase()==="investasi")?.id||"";
   const spendByKat=useMemo(()=>{const m={};txBulan.filter(t=>["pengeluaran","tabungan","investasi"].includes(t.tipe)&&t.katId).forEach(t=>{m[t.katId]=(m[t.katId]||0)+N(t.jml);});return m;},[txBulan]);
   const totalBudgetUsed=Object.values(spendByKat).reduce((a,v)=>a+N(v),0);
-  const dailyBudgetBreakdown=getDailyBudgetBreakdown({year:yr,monthIndex:bulanIdx,totalBudget,totalUsed:totalBudgetUsed});
-  const {remainingBudget:sisaAnggaran,daysRemaining:sisaHari,dailyBudget:budgetHarian}=dailyBudgetBreakdown;
+  const dailyBudgetBreakdown=getDailyBudgetBreakdown({year:yr,monthIndex:bulanIdx,totalBudget,totalUsed:totalBudgetUsed,now});
+  const {
+    remainingBudget:sisaAnggaran,
+    currentDay:hariIni,
+    daysInMonth:hariDlmBulan,
+    daysRemaining:sisaHari,
+    dailyBudget:budgetHarian,
+  }=dailyBudgetBreakdown;
 
   const trendData=useMemo(()=>{
     const months=[];

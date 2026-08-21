@@ -21,6 +21,8 @@ export function getDailyBudgetBreakdown({ year, monthIndex, totalBudget, totalUs
     totalBudget: budget,
     totalUsed: used,
     remainingBudget,
+    currentDay: now.getDate(),
+    daysInMonth,
     daysRemaining,
     dailyBudget: daysRemaining > 0 ? remainingBudget / daysRemaining : 0,
   };

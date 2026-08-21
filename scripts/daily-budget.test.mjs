@@ -9,6 +9,8 @@ const current = getDailyBudgetBreakdown({
   now: new Date(2026, 7, 21, 12),
 });
 assert.equal(current.remainingBudget, 1_550_000);
+assert.equal(current.currentDay, 21);
+assert.equal(current.daysInMonth, 31);
 assert.equal(current.daysRemaining, 11, "today must be included in the daily allowance");
 assert.equal(current.dailyBudget, 1_550_000 / 11);
 

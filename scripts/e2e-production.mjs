@@ -17,6 +17,11 @@ const browser = await chromium.launch({ channel:"chrome", headless:true });
 
 async function login(page) {
   await page.goto(baseURL, { waitUntil:"domcontentloaded", timeout:45_000 });
+  const rootFailure = page.getByText("Ada yang tidak beres. Coba muat ulang halaman.", { exact:true });
+  if (await rootFailure.isVisible().catch(() => false)) {
+    const detail = await page.locator("details").innerText().catch(() => "Detail error tidak tersedia");
+    throw new Error(`Root aplikasi masuk ErrorBoundary: ${detail}`);
+  }
   await page.getByPlaceholder("Email").fill(email);
   await page.getByPlaceholder("Password").fill(password);
   await page.getByRole("button", { name:"Masuk dengan Email" }).click();
@@ -25,6 +30,15 @@ async function login(page) {
   if (await dismissTour.isVisible().catch(() => false)) await dismissTour.click();
   const dismissInstall = page.getByRole("button", { name:"Nanti", exact:true });
   if (await dismissInstall.isVisible().catch(() => false)) await dismissInstall.click();
+
+  // Regression: akun lama yang membuka domain utama harus memulihkan sesi dan
+  // data cloud, bukan kembali ke login/onboarding atau jatuh ke ErrorBoundary.
+  await page.goto(baseURL, { waitUntil:"domcontentloaded", timeout:45_000 });
+  await page.getByText("Home", { exact:true }).first().waitFor({ state:"visible", timeout:45_000 });
+  if (await rootFailure.isVisible().catch(() => false)) {
+    const detail = await page.locator("details").innerText().catch(() => "Detail error tidak tersedia");
+    throw new Error(`Pemulihan sesi dari root gagal: ${detail}`);
+  }
 }
 
 async function openTransactions(page, mobile) {
