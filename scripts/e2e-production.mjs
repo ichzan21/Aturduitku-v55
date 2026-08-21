@@ -62,6 +62,18 @@ async function openBudget(page, mobile) {
   if (await sourceSelectors.count() < 1) throw new Error("Pilihan dompet sumber budget tidak ditemukan");
 }
 
+async function openGoals(page, mobile) {
+  if (mobile) {
+    await page.getByRole("button", { name:/Lainnya/ }).last().click();
+    await page.getByRole("button", { name:/Goals/ }).last().click();
+  } else {
+    await page.getByText("Goals", { exact:true }).first().click();
+  }
+  const sourceSelectors = page.locator('select[aria-label^="Dompet sumber Goal"]');
+  await sourceSelectors.first().waitFor({ state:"visible", timeout:15_000 });
+  if (await sourceSelectors.count() < 1) throw new Error("Pilihan dompet sumber Goal tidak ditemukan");
+}
+
 async function waitForModalClose(page) {
   await page.locator(".modal-overlay").waitFor({ state:"detached", timeout:5_000 });
 }
@@ -99,6 +111,9 @@ async function smoke(viewport, name, mutate = false) {
 
   await openBudget(page, viewport.width < 900);
   await page.screenshot({ path:`${artifacts}/${name}-budget.png`, fullPage:true });
+
+  await openGoals(page, viewport.width < 900);
+  await page.screenshot({ path:`${artifacts}/${name}-goals.png`, fullPage:true });
 
   if (mutate) {
     await openTransactions(page, false);
