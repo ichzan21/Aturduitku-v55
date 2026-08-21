@@ -29,7 +29,7 @@ assert.equal(isRecoverableStorageFailure("IndexedDB database connection closed")
 assert.equal(getRuntimeErrorMessage({ message:"Pesan aman" }), "Pesan aman");
 assert.match(appSource, /e\?\.target\?\.files\?\.\[0\]/, "Pemilih file harus aman saat event tidak lengkap");
 assert.match(mainSource, /type:'asset_load_recovery'/, "Kegagalan chunk harus masuk jalur pemulihan, bukan crash biasa");
-assert.match(serviceWorkerSource, /aturduitku-v26-fresh-assets/, "Cache PWA harus berganti versi setelah strategi aset diperbaiki");
+assert.match(serviceWorkerSource, /aturduitku-v27-landscape-session/, "Cache PWA harus berganti versi setelah dukungan landscape dan sesi diperbaiki");
 assert.match(serviceWorkerSource, /fetch\(e\.request, \{ cache: 'no-store' \}\)[\s\S]*catch\(\(\) => caches\.match\(e\.request\)\)/,
   "Aset build harus network-first dengan fallback offline");
 

@@ -1,4 +1,5 @@
 import React, { Suspense, useState, useEffect, useMemo, useRef, createContext, useContext } from "react";
+import { createPortal } from "react-dom";
 import {
   getCurrentIdToken, onAuthChange, sendResetPassword, sendVerificationEmail, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
 } from "./firebase.js";
@@ -14,8 +15,9 @@ import { EXPENSE_CATEGORY_RULES, resolveExpenseCategory } from "./transactionCat
 import { inferDirectTransactionAction, normalizeAiTransactionAction, parseConversationalMoney } from "./aiIntent.js";
 import { buildAiFallbackAnswer, buildAiQuestionGuidance } from "./aiConversation.js";
 import { buildReportActivity, buildReportCashflowActivity, filterTransactionsByPeriod, formatReportPeriod, getReportPdfTemplate, getReportPeriodRange, shiftReportAnchor, summarizeTransactions } from "./reportPeriod.js";
-import { compareTransactionsNewestFirst, filterTransactionsForList, getHighestExpenseDay } from "./transactionList.js";
+import { compareTransactionsNewestFirst, filterTransactionsForList, getHighestExpenseDay, moveTransactionWithinDate } from "./transactionList.js";
 import { EMAIL_VERIFICATION_COOLDOWN_MS, EMAIL_VERIFICATION_RATE_LIMIT_COOLDOWN_MS, formatEmailVerificationCooldown, getEmailVerificationCooldownSeconds, isEmailVerificationRateLimitError } from "./emailVerification.js";
+import { resolveAccountOnboarded } from "./accountBootstrap.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -1055,6 +1057,7 @@ const Calculator=({value,onChange,onClose})=>{
   const T=useT();
   const [disp,setDisp]=useState(value||"0");
   const [closing,close]=useDismissAnimation(onClose,240);
+  const compact=typeof window!=="undefined"&&window.matchMedia("(max-width: 899px)").matches;
   const press=k=>{
     if(k==="C"){setDisp("0");return;}
     if(k==="⌫"){setDisp(p=>p.length>1?p.slice(0,-1):"0");return;}
@@ -1063,9 +1066,9 @@ const Calculator=({value,onChange,onClose})=>{
     setDisp(p=>p==="0"?k:p+k);
   };
   const keys=["7","8","9","⌫","4","5","6","C","1","2","3","","0",".",""," ✓"];
-  return(
-    <div className={`sidebar-overlay ${closing?"closing":""}`} style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:9999}} onClick={()=>close()}>
-      <div className={`sheet-in ${closing?"closing":""}`} style={{cursor:"pointer",background:T.card,borderRadius:"24px 24px 0 0",padding:"22px 22px calc(env(safe-area-inset-bottom, 0px) + 22px)",width:"100%",maxWidth:380,maxHeight:"min(520px, calc(var(--app-height, 100dvh) - 18px))",overflowY:"auto",boxShadow:T.shadowMd}} onClick={e=>e.stopPropagation()}>
+  const content=(
+    <div className={`sidebar-overlay ${closing?"closing":""}`} style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:compact?"flex-end":"center",justifyContent:"center",zIndex:9999,padding:compact?0:20}} onClick={()=>close()}>
+      <div className={`sheet-in ${closing?"closing":""}`} style={{cursor:"pointer",background:T.card,borderRadius:compact?"24px 24px 0 0":20,padding:"22px 22px calc(env(safe-area-inset-bottom, 0px) + 22px)",width:"100%",maxWidth:380,maxHeight:"min(520px, calc(var(--app-height, 100dvh) - 18px))",overflowY:"auto",boxShadow:T.shadowMd}} onClick={e=>e.stopPropagation()}>
         <div style={{textAlign:"right",fontSize:28,fontWeight:900,color:T.text,marginBottom:14,padding:"6px 12px",background:T.cardAlt,borderRadius:10}}>{fmtN(disp)||"0"}</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
           {keys.map((k,i)=>(
@@ -1077,6 +1080,7 @@ const Calculator=({value,onChange,onClose})=>{
       </div>
     </div>
   );
+  return typeof document!=="undefined"?createPortal(content,document.body):content;
 };
 
 // ─── KALKULATOR FINANSIAL (NEW) ────────────────────────────────────────────────
@@ -3824,8 +3828,9 @@ export default function App(){
         localStorage.setItem("aturduitku_data",JSON.stringify(merged));
         localStorage.setItem(LOCAL_OWNER_KEY, user.uid);
       }catch(e){}
-      setOnboarded(Boolean(cloudData.onboarded));
-      try{localStorage.setItem("aturduitku_onboarded",cloudData.onboarded?"1":"0");}catch(e){}
+      const restoredOnboarded=resolveAccountOnboarded(cloudData);
+      setOnboarded(restoredOnboarded);
+      try{localStorage.setItem("aturduitku_onboarded",restoredOnboarded?"1":"0");}catch(e){}
       return true;
     }
     return false;
@@ -6821,7 +6826,25 @@ Saldo amplop bertambah.`}]);
     showToast(`${pairIds.length} transfer internal ditandai sudah dicek.`);
   };
 
-  const renderTxItem=t=>{
+  const transactionOrderMeta=useMemo(()=>{
+    const grouped=new Map();
+    filterTransactionsForList(s.txs).forEach(transaction=>{
+      const date=String(transaction.tgl||"").slice(0,10);
+      if(!grouped.has(date)) grouped.set(date,[]);
+      grouped.get(date).push(transaction);
+    });
+    const meta=new Map();
+    grouped.forEach(rows=>rows.forEach((transaction,index)=>meta.set(String(transaction.id),{
+      canMoveUp:index>0,
+      canMoveDown:index<rows.length-1,
+    })));
+    return meta;
+  },[s.txs]);
+  const moveSavedTransaction=(transactionId,direction)=>{
+    setS(previous=>({...previous,txs:moveTransactionWithinDate(previous.txs,transactionId,direction)}));
+    showToast(direction==="up"?"Transaksi digeser ke atas.":"Transaksi digeser ke bawah.");
+  };
+  const renderTxItem=(t,{showOrderControls=false}={})=>{
     const dompet=findWallet(s.dompet,t.dompetId);
     const kat=s.budgets.find(b=>b.id===t.katId);
     const isInternalTransfer=["transfer_internal_keluar","transfer_internal_masuk"].includes(t.tipe);
@@ -6847,6 +6870,10 @@ Saldo amplop bertambah.`}]);
             {isInternalTransfer?"↔ ":isIn||isEnvelopeRefund?"+":t.tipe==="penyesuaian"?(N(t.adjustmentDelta)>=0?"+":"-"):t.tipe==="alokasi_amplop"?"→":t.tipe==="transfer"?"→":"-"}{IDRs(N(t.jml))}
           </span>
           {isInternalTransfer&&t.internalTransferPairId&&<button type="button" onClick={()=>unlinkInternalTransfer(t)} title="Bukan transfer antar dompet saya" aria-label="Lepas tautan transfer internal" style={{width:30,height:30,borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:13,fontWeight:900,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>⛓</button>}
+          {showOrderControls&&(transactionOrderMeta.get(String(t.id))?.canMoveUp||transactionOrderMeta.get(String(t.id))?.canMoveDown)&&<div aria-label="Atur urutan transaksi pada tanggal yang sama" style={{display:"grid",gridTemplateRows:"1fr 1fr",gap:2}}>
+            <button type="button" disabled={!transactionOrderMeta.get(String(t.id))?.canMoveUp} onClick={()=>moveSavedTransaction(t.id,"up")} title="Geser ke atas pada tanggal yang sama" aria-label="Geser transaksi ke atas" style={{width:28,height:22,borderRadius:7,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:13,fontWeight:900,cursor:transactionOrderMeta.get(String(t.id))?.canMoveUp?"pointer":"default",opacity:transactionOrderMeta.get(String(t.id))?.canMoveUp?1:.32,display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>↑</button>
+            <button type="button" disabled={!transactionOrderMeta.get(String(t.id))?.canMoveDown} onClick={()=>moveSavedTransaction(t.id,"down")} title="Geser ke bawah pada tanggal yang sama" aria-label="Geser transaksi ke bawah" style={{width:28,height:22,borderRadius:7,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:13,fontWeight:900,cursor:transactionOrderMeta.get(String(t.id))?.canMoveDown?"pointer":"default",opacity:transactionOrderMeta.get(String(t.id))?.canMoveDown?1:.32,display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>↓</button>
+          </div>}
           {t.locked?<span title="Catatan otomatis" style={{fontSize:11,color:T.muted,fontWeight:800}}>AUTO</span>:<>
             {canEditTransaction(t)&&<button type="button" onClick={()=>openEditTransaction(t)} title="Edit transaksi" aria-label="Edit transaksi" style={{width:30,height:30,borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:15,fontWeight:900,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>✎</button>}
             <Del onClick={()=>deleteTx(t)}/>
@@ -8301,7 +8328,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             <Card ch={<>
               <Sec t={`${filtTx.length} ${t("txCount")}`} right={<div style={{fontSize:12,color:T.muted}}>{txHasFilter?txPeriodLabel:"Semua periode"}</div>}/>
               {filtTx.length?<>
-                {filtTx.slice(0,txPage*TX_PER_PAGE).map(t=>renderTxItem(t))}
+                {filtTx.slice(0,txPage*TX_PER_PAGE).map(t=>renderTxItem(t,{showOrderControls:true}))}
                 {filtTx.length>txPage*TX_PER_PAGE&&(
                   <div style={{textAlign:"center",paddingTop:16}}>
                     <Btn onClick={()=>setTxPage(p=>p+1)} ch={`${t("loadMore")} (${filtTx.length-txPage*TX_PER_PAGE} tersisa)`} c={T.accent} outline style={{padding:"9px 20px",fontSize:12}}/>

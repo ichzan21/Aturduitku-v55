@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aturduitku-v26-fresh-assets';
+const CACHE_NAME = 'aturduitku-v27-landscape-session';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

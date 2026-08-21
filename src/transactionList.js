@@ -63,3 +63,32 @@ export const filterTransactionsForList = (transactions = [], filters = {}) => {
     })
     .sort(compareTransactionsNewestFirst);
 };
+
+export const moveTransactionWithinDate = (transactions = [], transactionId, direction) => {
+  const step = direction === "up" ? -1 : direction === "down" ? 1 : 0;
+  if (!step) return transactions;
+  const source = transactions.find(transaction => String(transaction?.id) === String(transactionId));
+  const date = transactionDateKey(source?.tgl);
+  if (!source || !date) return transactions;
+
+  const sameDate = transactions
+    .filter(transaction => transactionDateKey(transaction?.tgl) === date)
+    .sort(compareTransactionsNewestFirst);
+  const currentIndex = sameDate.findIndex(transaction => String(transaction?.id) === String(transactionId));
+  const targetIndex = currentIndex + step;
+  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= sameDate.length) return transactions;
+
+  const highestExistingOrder = sameDate.reduce((highest, transaction) => Math.max(highest, numericOrder(transaction?.entryOrder)), 0);
+  const anchor = Math.max(Date.now(), highestExistingOrder + sameDate.length + 1);
+  const orderById = new Map(sameDate.map((transaction, index) => [String(transaction.id), anchor - index]));
+  const current = sameDate[currentIndex];
+  const target = sameDate[targetIndex];
+  const currentOrder = orderById.get(String(current.id));
+  orderById.set(String(current.id), orderById.get(String(target.id)));
+  orderById.set(String(target.id), currentOrder);
+
+  return transactions.map(transaction => {
+    const nextOrder = orderById.get(String(transaction?.id));
+    return nextOrder === undefined ? transaction : { ...transaction, entryOrder:nextOrder };
+  });
+};
