@@ -6,6 +6,7 @@ import {
 import { reportClientError } from "./monitoring.js";
 import { applyTransactionToWallets, confirmInternalTransferPair, displayNumber, findWallet, hasWallet, internalTransferPairsForReview, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, unlinkInternalTransferPair, walletDeltasForTransaction } from "./financeLedger.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
+import { uiIcon } from "./uiIcon.js";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
 import { afterFirstPaint, classifyRuntimeFailure, scheduleModuleLoadRecovery } from "./runtimeRecovery.js";
 import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "./incomeCategory.js";
@@ -169,7 +170,11 @@ const normalizeEnvelopes = (items,budgets=[]) => (items||[]).map(amp=>{
   })||(budgets||[]).find(b=>String(b.kat).toLowerCase()==="lainnya");
   return {...amp,katId:matched?.id||""};
 });
-const normalizeBudgets = budgets => (budgets||INIT_BUDGETS).map(b=>String(b.kat).toLowerCase()==="investasi"?{...b,kelas:"Investasi"}:b);
+const normalizeBudgets = budgets => (budgets||INIT_BUDGETS).map(b=>({
+  ...b,
+  kelas:String(b.kat).toLowerCase()==="investasi"?"Investasi":b.kelas,
+  sub:(b.sub||[]).map(sb=>({...sb,emoji:uiIcon(sb.emoji)})),
+}));
 const dateKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const today= ()=>dateKey();
 const dateAdd=(key,days)=>{const [y,m,d]=String(key).split("-").map(Number);const dt=new Date(y,(m||1)-1,d||1);dt.setDate(dt.getDate()+days);return dateKey(dt);};
@@ -951,19 +956,6 @@ const NAV=[
 ];
 
 // ─── REUSABLE COMPONENTS ──────────────────────────────────────────────────────
-const ICON_CODE_MAP={
-  BANK:"🏦",PAY:"💳",CASH:"💵",
-  FOOD:"🍽️",MOVE:"🚗",BILL:"🧾",HEAL:"🏥",SHOP:"🛍️",FUN:"🎮",EDU:"🎓",INV:"📈",ETC:"📦",
-  ENV:"✉️",FOD:"🍽️",MOV:"🚗",SHP:"🛍️",IDEA:"💡",HLT:"🏥",TRP:"✈️",HOME:"🏠",STYL:"👕",
-  WORK:"💼",MUS:"🎵",CAFE:"☕",GIFT:"🎁",FIT:"🏋️",PLNT:"🌱",STDY:"📚",PHN:"📱",CARE:"🧴",PIN:"📌",
-  AIRPLANE:"✈️",PLANE:"✈️",TRAVEL:"✈️",TRANSPORT:"🚗",SHOPPING:"🛍️",HEALTH:"🏥",EDUCATION:"🎓",ENVELOPE:"✉️",
-  GOAL:"🎯",ASSET:"💎",DEBT:"💸",ADM:"🛡️",HM:"🏠",WL:"👛",TX:"🧾",BG:"📊",GL:"🎯",AS:"💎",UT:"💸",RP:"📈",ST:"⚙️",
-};
-const uiIcon=(icon)=>{
-  const raw=String(icon||"").trim();
-  return ICON_CODE_MAP[raw]||(/^[A-Z][A-Z0-9_-]{1,20}$/.test(raw)?"✨":raw);
-};
-
 const Card=({ch,style={},lift})=>{
   const T=useT();
   return <div className={lift?"card-lift":""} style={{width:"100%",minWidth:0,maxWidth:"100%",background:T.card,borderRadius:16,padding:"18px 20px",boxShadow:T.shadow,border:`1.5px solid ${T.border}`,transition:"background .3s,border-color .3s,box-shadow .3s",...style}}>{ch}</div>;
@@ -5010,7 +5002,7 @@ CONTOH GAYA:
           if(!budget) aiDone(`⚠️ Kategori budget "${parsed.kat}" tidak ditemukan.`);
           else if(!alokasi) aiDone("⚠️ Nominal subbudget belum jelas.");
           else {
-            setS(p=>({...p,budgets:p.budgets.map(b=>b.id===budget.id?{...b,sub:[...(b.sub||[]),{nama:parsed.nama||"Subbudget",emoji:parsed.emoji||"PIN",alokasi:String(alokasi),tempo:parsed.tempo||null}]}:b)}));
+            setS(p=>({...p,budgets:p.budgets.map(b=>b.id===budget.id?{...b,sub:[...(b.sub||[]),{nama:parsed.nama||"Subbudget",emoji:uiIcon(parsed.emoji),alokasi:String(alokasi),tempo:parsed.tempo||null}]}:b)}));
             aiDone(`🧾 **Subbudget ditambahkan!**\n\n${budget.kat} > ${parsed.nama}\nRp ${aiMoney(alokasi)}${parsed.tempo?`\nJatuh tempo tgl ${parsed.tempo}`:""}`);
             showToast("Subbudget ditambahkan via AI");
           }
@@ -8452,7 +8444,15 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                             const bill={...sb,kat:b.kat,katId:b.id,subIndex:si,billRef,paid};
                             return <div key={si} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:paid?T.okBg:T.cardAlt,borderRadius:8,marginBottom:4,border:`1px solid ${paid?T.okBorder:T.borderLight}`}}>
                               <div style={{display:"flex",gap:7,alignItems:"center"}}>
-                                <span style={{fontSize:14}}>{sb.emoji}</span>
+                                <select
+                                  aria-label={`Ubah ikon ${sb.nama}`}
+                                  title="Ubah ikon"
+                                  value={uiIcon(sb.emoji)}
+                                  onChange={e=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:x.sub.map((item,j)=>j===si?{...item,emoji:e.target.value}:item)})}))}
+                                  style={{width:44,height:44,flex:"0 0 44px",borderRadius:9,border:`1px solid ${T.border}`,background:T.card,color:T.text,fontSize:18,textAlign:"center",cursor:"pointer",fontFamily:"inherit"}}
+                                >
+                                  {[uiIcon(sb.emoji),...ICONS].filter((icon,index,all)=>all.indexOf(icon)===index).map(icon=><option key={icon} value={icon}>{icon}</option>)}
+                                </select>
                                 <div><div style={{fontSize:12,fontWeight:600,color:T.text}}>{sb.nama}</div>{sb.tempo&&<div style={{fontSize:10,color:T.muted}}>Tagihan tgl {sb.tempo}</div>}</div>
                               </div>
                               <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -8476,11 +8476,11 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                                 <div><label style={{...LS,fontSize:9}}>Jatuh Tempo (tgl)</label><input type="number" min="1" max="31" placeholder="tgl" value={newSub.tempo} onChange={e=>setNewSub(f=>({...f,tempo:e.target.value}))} style={{...IS,fontSize:11,padding:"6px 9px"}}/></div>
                               </div>
                               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr auto",gap:8}}>
-                                <Btn onClick={()=>{if(!newSub.nama){showToast("Isi nama dulu");return;}setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:[...x.sub,{nama:newSub.nama,emoji:newSub.emoji,alokasi:newSub.alokasi||"0",tempo:newSub.tempo||null}]})}));setNewSub({katId:null,nama:"",emoji:"PIN",alokasi:"",tempo:""});showToast("Subkategori ditambahkan!");}} ch="Simpan" c="#0369A1" style={{fontSize:11,padding:"6px 12px"}}/>
-                                <Btn onClick={()=>setNewSub({katId:null,nama:"",emoji:"PIN",alokasi:"",tempo:""})} ch="Batal" c={T.muted} outline style={{fontSize:11,padding:"6px 12px"}}/>
+                                <Btn onClick={()=>{if(!newSub.nama){showToast("Isi nama dulu");return;}setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:[...x.sub,{nama:newSub.nama,emoji:uiIcon(newSub.emoji),alokasi:newSub.alokasi||"0",tempo:newSub.tempo||null}]})}));setNewSub({katId:null,nama:"",emoji:"📌",alokasi:"",tempo:""});showToast("Subkategori ditambahkan!");}} ch="Simpan" c="#0369A1" style={{fontSize:11,padding:"6px 12px"}}/>
+                                <Btn onClick={()=>setNewSub({katId:null,nama:"",emoji:"📌",alokasi:"",tempo:""})} ch="Batal" c={T.muted} outline style={{fontSize:11,padding:"6px 12px"}}/>
                               </div>
                             </div>
-                            :<button onClick={()=>setNewSub({katId:b.id,nama:"",emoji:"PIN",alokasi:"",tempo:""})} style={{width:"100%",padding:7,borderRadius:8,border:`1.5px dashed ${T.infoBorder}`,background:T.infoBg,color:T.info,fontWeight:600,fontSize:11,cursor:"pointer",fontFamily:"inherit",marginTop:6}}>+ Tambah Subkategori</button>
+                            :<button onClick={()=>setNewSub({katId:b.id,nama:"",emoji:"📌",alokasi:"",tempo:""})} style={{width:"100%",minHeight:44,padding:7,borderRadius:8,border:`1.5px dashed ${T.infoBorder}`,background:T.infoBg,color:T.info,fontWeight:600,fontSize:11,cursor:"pointer",fontFamily:"inherit",marginTop:6}}>+ Tambah Subkategori</button>
                           }
                         </div>
                       );
