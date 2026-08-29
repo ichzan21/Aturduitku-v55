@@ -19,5 +19,6 @@ assert.match(appSource,/const gunakanGoalDana=/,"Goal harus menyediakan alur pen
 assert.match(appSource,/goalSpendId:currentGoal\.id/,"Transaksi penggunaan harus tertaut ke Goal");
 assert.match(appSource,/onGunakan=\{gunakanGoalDana\}/,"Kartu Goal harus menerima aksi penggunaan dana");
 assert.match(appSource,/Dompet tidak dipotong lagi/,"UI harus menjelaskan pencegahan debit ganda");
+assert.match(appSource,/Cash flow dan budget juga tidak terpengaruh/,"UI harus menjelaskan pemisahan dari budget");
 
 console.log("Goal source wallet tests passed.");

@@ -1,4 +1,5 @@
 import React from "react";
+import { isCashflowExpense } from "./cashflowClassification.js";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
@@ -55,7 +56,7 @@ export const DailyChart = ({ txBulan, bulan, tahun, months, T, idr, n, isMobile=
   const data = [];
   for (let d = 1; d <= daysInMonth; d++) {
     const key = `${yr}-${String(mIdx + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    const val = txBulan.filter(t => t.tipe === "pengeluaran" && t.tgl === key).reduce((a, b) => a + n(b.jml), 0);
+    const val = txBulan.filter(t => isCashflowExpense(t) && t.tgl === key).reduce((a, b) => a + n(b.jml), 0);
     data.push({ d:String(d), val });
   }
   const todayNum = isCurrentMonth ? now.getDate() : -1;

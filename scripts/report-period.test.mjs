@@ -36,6 +36,7 @@ assert.equal(filterTransactionsByPeriod(txs, "yearly", "2026-08-03").length, 8);
 assert.deepEqual(summarizeTransactions(filterTransactionsByPeriod(txs, "monthly", "2026-08-03")), {
   income:500000,
   expense:175000,
+  goalUsage:0,
   saving:50000,
   investment:75000,
   future:125000,
@@ -52,12 +53,34 @@ assert.equal(visibleTransactions.length, 5);
 assert.deepEqual(summarizeTransactions(visibleTransactions), {
   income:0,
   expense:1204999,
+  goalUsage:0,
   saving:0,
   investment:0,
   future:0,
   net:-1204999,
 });
 assert.equal(filterTransactionsForList(txs, { type:"transfer_internal" }).length, 1);
+
+const goalUsageTransactions = [
+  { id:"income", tgl:"2026-08-03", tipe:"pemasukan", jml:500000 },
+  { id:"wallet-expense", tgl:"2026-08-03", tipe:"pengeluaran", jml:100000 },
+  { id:"goal-usage", tgl:"2026-08-03", tipe:"pengeluaran", jml:250000, goalSpendId:"liburan" },
+];
+assert.deepEqual(summarizeTransactions(goalUsageTransactions), {
+  income:500000,
+  expense:100000,
+  goalUsage:250000,
+  saving:0,
+  investment:0,
+  future:0,
+  net:400000,
+}, "Penggunaan dana Goal harus dicatat terpisah tanpa membebani cash flow");
+assert.deepEqual(buildReportActivity(goalUsageTransactions, "daily", "2026-08-03"), [{ label:"3 Agu", value:100000 }],
+  "Grafik aktivitas hanya menghitung pengeluaran yang benar-benar keluar dari cash flow");
+assert.deepEqual(buildReportCashflowActivity(goalUsageTransactions, "daily", "2026-08-03"), [{ label:"3 Agu", income:500000, expense:100000, future:0 }],
+  "Grafik cash flow harus mengecualikan penggunaan dana Goal");
+assert.deepEqual(getHighestExpenseDay(goalUsageTransactions), { date:"2026-08-03", amount:100000, count:1 },
+  "Hari pengeluaran terbesar tidak boleh terseret penggunaan dana Goal");
 assert.equal(filterTransactionsForList(txs, { search:"", walletId:"missing" }).length, 0);
 assert.deepEqual(
   filterTransactionsForList(txs, { startDate:"2026-07-31", endDate:"2026-08-01" }).map(transaction=>transaction.id),

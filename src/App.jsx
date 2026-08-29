@@ -22,6 +22,7 @@ import { compareTransactionsNewestFirst, filterTransactionsForList, getHighestEx
 import { EMAIL_VERIFICATION_COOLDOWN_MS, EMAIL_VERIFICATION_RATE_LIMIT_COOLDOWN_MS, formatEmailVerificationCooldown, getEmailVerificationCooldownSeconds, isEmailVerificationRateLimitError } from "./emailVerification.js";
 import { resolveAccountOnboarded } from "./accountBootstrap.js";
 import { getDailyBudgetBreakdown } from "./dailyBudget.js";
+import { isCashflowExpense, isGoalFundUsage, sumGoalFundUsage } from "./cashflowClassification.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -1151,7 +1152,7 @@ const CalendarView=({txs,bulan,tahun,liveDay,liveMonth,liveYear})=>{
   const daysInMonth=new Date(yr,mIdx+1,0).getDate();
   const firstDay=new Date(yr,mIdx,1).getDay();
   const byDay={};
-  txs.filter(t=>t.tipe==="pengeluaran"&&t.tgl&&t.tgl.startsWith(`${yr}-${String(mIdx+1).padStart(2,"0")}`))
+  txs.filter(t=>isCashflowExpense(t)&&t.tgl&&t.tgl.startsWith(`${yr}-${String(mIdx+1).padStart(2,"0")}`))
     .forEach(t=>{const d=Number(t.tgl.slice(8,10));byDay[d]=(byDay[d]||0)+N(t.jml);});
   const cells=[];
   for(let i=0;i<firstDay;i++)cells.push(null);
@@ -1304,7 +1305,7 @@ const DailyChart=({txBulan,bulan,tahun})=>{
   const data=[];
   for(let d=1;d<=daysInMonth;d++){
     const key=`${yr}-${String(mIdx+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    const val=txBulan.filter(t=>t.tipe==="pengeluaran"&&t.tgl===key).reduce((a,b)=>a+N(b.jml),0);
+    const val=txBulan.filter(t=>isCashflowExpense(t)&&t.tgl===key).reduce((a,b)=>a+N(b.jml),0);
     data.push({d:String(d),val});
   }
   const todayNum=isCurrentMonth?now_.getDate():-1;
@@ -1487,7 +1488,7 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onGunakan,onSelesai,onSourceChan
       {showUse&&<div className="goal-use-panel" style={{display:"grid",gap:8,padding:11,borderRadius:11,background:T.cardAlt,border:`1px solid ${T.border}`}}>
         <div>
           <div style={{fontSize:11,fontWeight:800,color:T.text}}>{lang==="en"?"Use saved Goal funds":"Gunakan dana yang sudah terkumpul"}</div>
-          <div style={{fontSize:10,color:T.muted,lineHeight:1.45,marginTop:2}}>{lang==="en"?"Reduces this Goal and records an expense. Your wallet will not be charged again.":"Saldo Goal berkurang dan pengeluaran tercatat. Dompet tidak dipotong lagi."}</div>
+          <div style={{fontSize:10,color:T.muted,lineHeight:1.45,marginTop:2}}>{lang==="en"?"Records Goal usage separately. Your wallet will not be charged again, and it will not affect cash flow or budget.":"Penggunaan Goal tercatat terpisah. Dompet tidak dipotong lagi. Cash flow dan budget juga tidak terpengaruh."}</div>
         </div>
         <input aria-label={lang==="en"?"Goal fund usage":"Dana Goal dipakai untuk"} value={useDescription} onChange={event=>setUseDescription(event.target.value)} placeholder={lang==="en"?"What is it used for?":"Dipakai untuk apa?"} style={{width:"100%",minWidth:0,padding:"9px 10px",borderRadius:8,border:`1.5px solid ${T.inputBorder}`,background:T.input,color:T.text,fontFamily:"inherit",boxSizing:"border-box"}}/>
         <CurIn value={useAmount} onChange={setUseAmount} placeholder={lang==="en"?"Amount used":"Jumlah yang dipakai"}/>
@@ -1861,11 +1862,11 @@ function KomparasiBulanan({ txs, budgets, T, isMobile }) {
     if (!m) return null;
     const t = txs.filter(x=>x.bulan===m.bulan&&x.tahun===m.tahun);
     const masuk = t.filter(x=>x.tipe==="pemasukan").reduce((a,x)=>a+N(x.jml),0);
-    const keluar = t.filter(x=>x.tipe==="pengeluaran").reduce((a,x)=>a+N(x.jml),0);
+    const keluar = t.filter(isCashflowExpense).reduce((a,x)=>a+N(x.jml),0);
     const tabung = t.filter(x=>x.tipe==="tabungan").reduce((a,x)=>a+N(x.jml),0);
     const net = masuk - keluar - tabung;
     const spendKat = {};
-    t.filter(x=>x.tipe==="pengeluaran").forEach(x=>{spendKat[x.katId]=(spendKat[x.katId]||0)+N(x.jml);});
+    t.filter(isCashflowExpense).forEach(x=>{spendKat[x.katId]=(spendKat[x.katId]||0)+N(x.jml);});
     return {masuk,keluar,tabung,net,spendKat,txCount:t.length};
   };
 
@@ -2178,7 +2179,7 @@ function YearInReview({ s, T, lang, onClose }) {
   // Filter transactions for the year
   const txYear = s.txs.filter(tx => (tx.tgl||"").startsWith(year));
   const totalIn  = txYear.filter(t=>t.tipe==="pemasukan").reduce((a,b)=>a+N(b.jml),0);
-  const totalOut = txYear.filter(t=>t.tipe==="pengeluaran").reduce((a,b)=>a+N(b.jml),0);
+  const totalOut = txYear.filter(isCashflowExpense).reduce((a,b)=>a+N(b.jml),0);
   const totalSav = txYear.filter(t=>t.tipe==="tabungan"||t.tipe==="investasi").reduce((a,b)=>a+N(b.jml),0);
   const netCash  = totalIn - totalOut - totalSav;
   const totalTx  = txYear.length;
@@ -2190,7 +2191,7 @@ function YearInReview({ s, T, lang, onClose }) {
     const prefix = `${year}-${m}`;
     const mTx = txYear.filter(t=>(t.tgl||"").startsWith(prefix));
     const inc = mTx.filter(t=>t.tipe==="pemasukan").reduce((a,b)=>a+N(b.jml),0);
-    const exp = mTx.filter(t=>t.tipe==="pengeluaran").reduce((a,b)=>a+N(b.jml),0);
+    const exp = mTx.filter(isCashflowExpense).reduce((a,b)=>a+N(b.jml),0);
     const sav = mTx.filter(t=>t.tipe==="tabungan"||t.tipe==="investasi").reduce((a,b)=>a+N(b.jml),0);
     return {month:MONTHS_L[mi],fullMonth:MONTHS_FULL[mi],inc,exp,sav,net:inc-exp-sav,count:mTx.length};
   });
@@ -2203,7 +2204,7 @@ function YearInReview({ s, T, lang, onClose }) {
 
   // Top spending categories
   const catSpend = {};
-  txYear.filter(t=>t.tipe==="pengeluaran"&&t.katId).forEach(t=>{
+  txYear.filter(t=>isCashflowExpense(t)&&t.katId).forEach(t=>{
     const b = s.budgets.find(b=>b.id===t.katId);
     const nm = String(t.customKat||"").trim()||b?.kat||"Lainnya";
     const ico = b?.icon||"📦";
@@ -3395,7 +3396,7 @@ export default function App(){
       });
       // 2. Budget hampir habis (>85%)
       const spendKatLocal={};
-      txBulan.filter(t=>t.tipe==="pengeluaran").forEach(t=>{spendKatLocal[t.katId]=(spendKatLocal[t.katId]||0)+N(t.jml);});
+      txBulan.filter(isCashflowExpense).forEach(t=>{spendKatLocal[t.katId]=(spendKatLocal[t.katId]||0)+N(t.jml);});
       s.budgets.forEach(b=>{
         const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
         const spend=spendKatLocal[b.id]||0;
@@ -3581,7 +3582,8 @@ export default function App(){
   const txBulan=useMemo(()=>s.txs.filter(t=>t.tgl&&t.tgl.startsWith(`${yr}-${String(bulanIdx+1).padStart(2,"0")}`)),[s.txs,yr,bulanIdx]);
   const internalTransferReview=useMemo(()=>internalTransferPairsForReview(s.txs,s.dompet),[s.txs,s.dompet]);
   const totalIn=useMemo(()=>txBulan.filter(t=>t.tipe==="pemasukan").reduce((a,b)=>a+N(b.jml),0),[txBulan]);
-  const totalOut=useMemo(()=>txBulan.filter(t=>t.tipe==="pengeluaran").reduce((a,b)=>a+N(b.jml),0),[txBulan]);
+  const totalOut=useMemo(()=>txBulan.filter(isCashflowExpense).reduce((a,b)=>a+N(b.jml),0),[txBulan]);
+  const totalGoalUsage=useMemo(()=>sumGoalFundUsage(txBulan,N),[txBulan]);
   const totalTabung=useMemo(()=>txBulan.filter(t=>t.tipe==="tabungan").reduce((a,b)=>a+N(b.jml),0),[txBulan]);
   const totalInvest=useMemo(()=>txBulan.filter(t=>t.tipe==="investasi").reduce((a,b)=>a+N(b.jml),0),[txBulan]);
   const totalFuture=totalTabung+totalInvest;
@@ -3599,7 +3601,7 @@ export default function App(){
   const runwayReal=totalOut>0?(totalSaldo/totalOut).toFixed(1):0;
   const totalBudget=s.budgets.reduce((a,b)=>a+N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0),0);
   const investasiBudgetId=s.budgets.find(b=>String(b.kat).toLowerCase()==="investasi")?.id||"";
-  const spendByKat=useMemo(()=>{const m={};txBulan.filter(t=>["pengeluaran","tabungan","investasi"].includes(t.tipe)&&t.katId).forEach(t=>{m[t.katId]=(m[t.katId]||0)+N(t.jml);});return m;},[txBulan]);
+  const spendByKat=useMemo(()=>{const m={};txBulan.filter(t=>(isCashflowExpense(t)||["tabungan","investasi"].includes(t.tipe))&&t.katId).forEach(t=>{m[t.katId]=(m[t.katId]||0)+N(t.jml);});return m;},[txBulan]);
   const totalBudgetUsed=Object.values(spendByKat).reduce((a,v)=>a+N(v),0);
   const dailyBudgetBreakdown=getDailyBudgetBreakdown({year:yr,monthIndex:bulanIdx,totalBudget,totalUsed:totalBudgetUsed,now});
   const {
@@ -3617,7 +3619,7 @@ export default function App(){
       const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
       const label=MSHORT[d.getMonth()];
       const masuk=s.txs.filter(t=>t.tipe==="pemasukan"&&t.tgl?.startsWith(key)).reduce((a,b)=>a+N(b.jml),0);
-      const keluar=s.txs.filter(t=>t.tipe==="pengeluaran"&&t.tgl?.startsWith(key)).reduce((a,b)=>a+N(b.jml),0);
+      const keluar=s.txs.filter(t=>isCashflowExpense(t)&&t.tgl?.startsWith(key)).reduce((a,b)=>a+N(b.jml),0);
       const tabung=s.txs.filter(t=>t.tipe==="tabungan"&&t.tgl?.startsWith(key)).reduce((a,b)=>a+N(b.jml),0);
       const investasi=s.txs.filter(t=>t.tipe==="investasi"&&t.tgl?.startsWith(key)).reduce((a,b)=>a+N(b.jml),0);
       months.push({label,masuk,keluar,tabung:tabung+investasi,net:masuk-keluar-tabung-investasi});
@@ -3681,7 +3683,7 @@ export default function App(){
     const label=score>=80?"Sehat":score>=60?"Terkendali":score>=40?"Perlu dijaga":"Berisiko";
     return {list,total,dueSoon,overdue,nearest,ratio,score,label};
   },[s.utang,totalIn]);
-  const topKat=useMemo(()=>{const m={};txBulan.filter(t=>t.tipe==="pengeluaran").forEach(t=>{const b=s.budgets.find(b=>b.id===Number(t.katId));const nm=String(t.customKat||"").trim()||b?.kat||(lang==="en"?"Other":"Lainnya");m[nm]=(m[nm]||0)+N(t.jml);});return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,5);},[txBulan,s.budgets,lang]);
+  const topKat=useMemo(()=>{const m={};txBulan.filter(isCashflowExpense).forEach(t=>{const b=s.budgets.find(b=>b.id===Number(t.katId));const nm=String(t.customKat||"").trim()||b?.kat||(lang==="en"?"Other":"Lainnya");m[nm]=(m[nm]||0)+N(t.jml);});return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,5);},[txBulan,s.budgets,lang]);
 
   const skorTabungan=Math.min(savRate/20*100,100);
   const skorDisiplin=totalBudget>0?Math.max(0,100-Math.max(0,(totalBudgetUsed-totalBudget)/totalBudget*100)):totalBudgetUsed===0?100:80;
@@ -3764,14 +3766,14 @@ export default function App(){
   const reportActivityData=useMemo(()=>buildReportActivity(reportTransactions,reportPeriod,reportAnchor,N,lang==="en"?"en-US":"id-ID"),[reportTransactions,reportPeriod,reportAnchor,lang]);
   const reportSpendByKat=useMemo(()=>{
     const grouped={};
-    reportTransactions.filter(tx=>["pengeluaran","tabungan","investasi"].includes(tx.tipe)&&tx.katId).forEach(tx=>{
+    reportTransactions.filter(tx=>(isCashflowExpense(tx)||["tabungan","investasi"].includes(tx.tipe))&&tx.katId).forEach(tx=>{
       grouped[tx.katId]=(grouped[tx.katId]||0)+N(tx.jml);
     });
     return grouped;
   },[reportTransactions]);
   const reportExpenseData=useMemo(()=>{
     const grouped=new Map();
-    reportTransactions.filter(tx=>tx.tipe==="pengeluaran").forEach(tx=>{
+    reportTransactions.filter(isCashflowExpense).forEach(tx=>{
       const budget=s.budgets.find(item=>item.id===Number(tx.katId));
       const name=String(tx.customKat||"").trim()||budget?.kat||(lang==="en"?"Other":"Lainnya");
       grouped.set(name,(grouped.get(name)||0)+N(tx.jml));
@@ -3980,10 +3982,10 @@ export default function App(){
     const start=dateAdd(end,-6);
     const weekTx=s.txs.filter(tx=>tx.tgl&&tx.tgl>=start&&tx.tgl<=end);
     const income=weekTx.filter(tx=>tx.tipe==="pemasukan").reduce((a,tx)=>a+N(tx.jml),0);
-    const expense=weekTx.filter(tx=>tx.tipe==="pengeluaran").reduce((a,tx)=>a+N(tx.jml),0);
+    const expense=weekTx.filter(isCashflowExpense).reduce((a,tx)=>a+N(tx.jml),0);
     const saving=weekTx.filter(tx=>tx.tipe==="tabungan"||tx.tipe==="investasi").reduce((a,tx)=>a+N(tx.jml),0);
     const byCat={};
-    weekTx.filter(tx=>tx.tipe==="pengeluaran").forEach(tx=>{
+    weekTx.filter(isCashflowExpense).forEach(tx=>{
       const b=s.budgets.find(x=>x.id===Number(tx.katId));
       const name=b?.kat||"Lainnya";
       byCat[name]=(byCat[name]||0)+N(tx.jml);
@@ -4508,12 +4510,13 @@ export default function App(){
     const totalSaldo = s.dompet.reduce((a,d)=>a+N(d.saldo),0);
     const txBulan = s.txs.filter(t=>t.bulan===s.bulan&&t.tahun===s.tahun);
     const totalIn = txBulan.filter(t=>t.tipe==="pemasukan").reduce((a,t)=>a+Number(t.jml),0);
-    const totalOut = txBulan.filter(t=>t.tipe==="pengeluaran").reduce((a,t)=>a+Number(t.jml),0);
+    const totalOut = txBulan.filter(isCashflowExpense).reduce((a,t)=>a+Number(t.jml),0);
+    const totalGoalUsage = sumGoalFundUsage(txBulan,Number);
     const savingRate = totalIn>0 ? ((totalIn-totalOut)/totalIn*100).toFixed(1) : 0;
 
     // Budget analysis
     const budgetAnalysis = s.budgets.map(b=>{
-      const spent = txBulan.filter(t=>t.tipe==="pengeluaran"&&t.katId===b.id).reduce((a,t)=>a+Number(t.jml),0);
+      const spent = txBulan.filter(t=>isCashflowExpense(t)&&t.katId===b.id).reduce((a,t)=>a+Number(t.jml),0);
       const alloc = Number(b.alokasi||0)+b.sub.reduce((a,x)=>a+Number(x.alokasi||0),0);
       const pct = alloc>0 ? Math.round(spent/alloc*100) : 0;
       const status = pct>=100?"LEWATI":pct>=85?"HAMPIR":pct>=50?"WASPADA":"AMAN";
@@ -4522,7 +4525,7 @@ export default function App(){
 
     // Top spending categories
     const spendByKat = {};
-    txBulan.filter(t=>t.tipe==="pengeluaran").forEach(t=>{
+    txBulan.filter(isCashflowExpense).forEach(t=>{
       const kat = String(t.customKat||"").trim()||s.budgets.find(b=>b.id===t.katId)?.kat||"Lainnya";
       spendByKat[kat] = (spendByKat[kat]||0)+Number(t.jml);
     });
@@ -4653,6 +4656,7 @@ ${ATURDUITKU_PRODUCT_KNOWLEDGE}
 - Dompet: ${s.dompet.map(d=>d.nama+" (Rp "+N(d.saldo).toLocaleString("id-ID")+")").join(", ")}
 - Pemasukan: Rp ${totalIn.toLocaleString("id-ID")}
 - Pengeluaran: Rp ${totalOut.toLocaleString("id-ID")}
+- Penggunaan dana Goal: Rp ${totalGoalUsage.toLocaleString("id-ID")} (terpisah, tidak masuk cash flow atau budget)
 - Net Cash: Rp ${(totalIn-totalOut).toLocaleString("id-ID")} ${totalIn>totalOut?"(surplus ✅)":"(defisit ⚠️)"}
 - Saving Rate: ${savingRate}% ${Number(savingRate)>=20?"✅ bagus!":Number(savingRate)>=10?"🟡 bisa lebih baik":"⚠️ perlu ditingkatkan"}
 - Top pengeluaran: ${topSpend||"belum ada"}
@@ -5431,14 +5435,15 @@ Saldo amplop bertambah.`}]);
       const txM     = reportTransactions;
       const cashflowActivity = buildReportCashflowActivity(txM,reportPeriod,reportAnchor,Num,isEN?"en-US":"id-ID");
       const totalIn  = txM.filter(tx=>tx.tipe==="pemasukan").reduce((a,tx)=>a+Num(tx.jml),0);
-      const totalOut = txM.filter(tx=>tx.tipe==="pengeluaran").reduce((a,tx)=>a+Num(tx.jml),0);
+      const totalOut = txM.filter(isCashflowExpense).reduce((a,tx)=>a+Num(tx.jml),0);
+      const totalGoalUsage = sumGoalFundUsage(txM,Num);
       const totalSav = txM.filter(tx=>tx.tipe==="tabungan"||tx.tipe==="investasi").reduce((a,tx)=>a+Num(tx.jml),0);
       const netCash  = totalIn-totalOut-totalSav;
       const totalBal = s.dompet.reduce((a,d)=>a+Num(d.saldo),0);
 
       // Kateg spend (match by Number ID)
       const katSpend = {};
-      txM.filter(tx=>["pengeluaran","tabungan","investasi"].includes(tx.tipe)&&tx.katId).forEach(tx=>{
+      txM.filter(tx=>(isCashflowExpense(tx)||["tabungan","investasi"].includes(tx.tipe))&&tx.katId).forEach(tx=>{
         const kid=Number(tx.katId); katSpend[kid]=(katSpend[kid]||0)+Num(tx.jml);
       });
       const katIncome = {};
@@ -5566,6 +5571,15 @@ Saldo amplop bertambah.`}]);
       });
       y+=ch4+6;
 
+      if(totalGoalUsage>0){
+        fc(C.purpleLt); rr(ML,y,CT,11,2);
+        dc(C.purple); lw(0.35); rr(ML,y,CT,11,2,"D");
+        tc(C.purpleDk); ft("bold",7.5); txt(isEN?"GOAL FUND USAGE":"PENGGUNAAN DANA GOAL",ML+4,y+4.5);
+        tc(C.gray); ft("normal",6.3); txt(isEN?"Recorded separately, excluded from cash flow and budget.":"Tercatat terpisah, tidak masuk cash flow maupun budget.",ML+4,y+8);
+        tc(C.purple); ft("bold",9); txt(idr(totalGoalUsage),W-MR-4,y+6.7,{align:"right"});
+        y+=15;
+      }
+
       // Score bar
       fc(C.purpleBg); rr(ML,y,CT,16,2.5);
       dc(C.purpleLt); lw(0.5); rr(ML,y,CT,16,2.5,"D");
@@ -5642,8 +5656,9 @@ Saldo amplop bertambah.`}]);
         const dompet   = clean(findWallet(s.dompet,tx.dompetId)?.nama||"-");
         const katB     = s.budgets.find(b=>b.id===Number(tx.katId));
         const isInternal = ["transfer_internal_keluar","transfer_internal_masuk"].includes(tx.tipe);
-        const katLabel = clean(isInternal?(isEN?"Internal Transfer":"Transfer Internal"):tx.tipe==="pemasukan"?incomeCategoryLabel(tx):(String(tx.customKat||"").trim()||katB?.kat||(isEN?"Other":"Lainnya")));
-        const tlbl     = TIPE_LBL[tx.tipe]||"[?]";
+        const isGoalUsage = isGoalFundUsage(tx);
+        const katLabel = clean(isGoalUsage?(isEN?"Goal Fund Usage":"Penggunaan Goal"):isInternal?(isEN?"Internal Transfer":"Transfer Internal"):tx.tipe==="pemasukan"?incomeCategoryLabel(tx):(String(tx.customKat||"").trim()||katB?.kat||(isEN?"Other":"Lainnya")));
+        const tlbl     = isGoalUsage?"[G]":TIPE_LBL[tx.tipe]||"[?]";
         const debit    = ["pengeluaran","tabungan","investasi","alokasi_amplop","transfer_internal_keluar"].includes(tx.tipe)||(tx.tipe==="penyesuaian"&&Num(tx.adjustmentDelta)<0)?idr(Num(tx.jml)):"";
         const kredit   = ["pemasukan","transfer_internal_masuk"].includes(tx.tipe)||(tx.tipe==="penyesuaian"&&Num(tx.adjustmentDelta)>0)?idr(Num(tx.jml)):"";
         return [tx.tgl||"-", tlbl, clean(tx.ket||"-").slice(0,34), katLabel.slice(0,18), dompet.slice(0,14), debit, kredit];
@@ -5687,11 +5702,13 @@ Saldo amplop bertambah.`}]);
           }
           const tx=txM[d.row.index]; if(!tx) return;
           if(d.column.index===6&&tx.tipe==="pemasukan")  d.cell.styles.textColor=C.green;
-          if(d.column.index===5&&tx.tipe==="pengeluaran")d.cell.styles.textColor=C.red;
+          if(d.column.index===5&&isGoalFundUsage(tx))d.cell.styles.textColor=C.purple;
+          else if(d.column.index===5&&tx.tipe==="pengeluaran")d.cell.styles.textColor=C.red;
           if(d.column.index===5&&tx.tipe==="tabungan")   d.cell.styles.textColor=C.purple;
           if((d.column.index===5&&tx.tipe==="transfer_internal_keluar")||(d.column.index===6&&tx.tipe==="transfer_internal_masuk")) d.cell.styles.textColor=C.purple;
           if(d.column.index===1){
             if(tx.tipe==="pemasukan")   d.cell.styles.textColor=C.green;
+            else if(isGoalFundUsage(tx)) d.cell.styles.textColor=C.purple;
             else if(tx.tipe==="pengeluaran") d.cell.styles.textColor=C.red;
             else if(tx.tipe==="tabungan")    d.cell.styles.textColor=C.purple;
             else d.cell.styles.textColor=C.blue;
@@ -6058,12 +6075,13 @@ Saldo amplop bertambah.`}]);
 
       const txM = reportTransactions;
       const totalIn  = txM.filter(tx=>tx.tipe==="pemasukan").reduce((a,tx)=>a+Num(tx.jml),0);
-      const totalOut = txM.filter(tx=>tx.tipe==="pengeluaran").reduce((a,tx)=>a+Num(tx.jml),0);
+      const totalOut = txM.filter(isCashflowExpense).reduce((a,tx)=>a+Num(tx.jml),0);
+      const totalGoalUsage = sumGoalFundUsage(txM,Num);
       const totalSav = txM.filter(tx=>tx.tipe==="tabungan"||tx.tipe==="investasi").reduce((a,tx)=>a+Num(tx.jml),0);
       const netCash  = totalIn-totalOut-totalSav;
       const totalBal = s.dompet.reduce((a,d)=>a+Num(d.saldo),0);
       const katSpend = {};
-      txM.filter(tx=>["pengeluaran","tabungan","investasi"].includes(tx.tipe)&&tx.katId).forEach(tx=>{
+      txM.filter(tx=>(isCashflowExpense(tx)||["tabungan","investasi"].includes(tx.tipe))&&tx.katId).forEach(tx=>{
         const b=s.budgets.find(b=>b.id===Number(tx.katId));
         const nm=String(tx.customKat||"").trim()||b?.kat||(isEN?"Other":"Lainnya");
         katSpend[nm]=(katSpend[nm]||0)+Num(tx.jml);
@@ -6124,7 +6142,9 @@ Saldo amplop bertambah.`}]);
         {v:isEN?"PERIOD SUMMARY":"RINGKASAN PERIODE", s:hdr(purple)},
         {v:"", s:hdr(purple)},{v:isEN?"AMOUNT":"JUMLAH", s:hdr(purple)},{v:isEN?"NOTE":"KETERANGAN", s:hdr(purple)},
       ]);
+      const goalUsageLabel = isEN?"Goal Fund Usage":"Penggunaan Dana Goal";
       const summaryRows = [
+        [goalUsageLabel, idr(totalGoalUsage), purpleLt, purple, "Goal"],
         [isEN?"Total Income":"Total Pemasukan", idr(totalIn), greenLt, green, "💰"],
         [isEN?"Total Expenses":"Total Pengeluaran", idr(totalOut), redLt, red, "💸"],
         [isEN?"Savings & Investments":"Tabungan & Investasi", idr(totalSav), amberLt, amber, "🏦"],
@@ -6136,7 +6156,7 @@ Saldo amplop bertambah.`}]);
           {v:icon+" "+label, s:cell(bg,fg,true,"left")},
           {v:"", s:cell(bg)},
           {v:val, s:cell(bg,fg,true,"right")},
-          {v:reportPeriodLabel, s:cell(bg,gray,false,"center")},
+          {v:label===goalUsageLabel?(isEN?"Excluded from cash flow & budget":"Tidak masuk cash flow & budget"):reportPeriodLabel, s:cell(bg,gray,false,"center")},
         ]);
       });
       pad1([{v:"",s:cell()},{v:"",s:cell()},{v:"",s:cell()},{v:"",s:cell()}]);
@@ -6820,7 +6840,7 @@ Saldo amplop bertambah.`}]);
         txs:[spendTx,...previous.txs],
       };
     });
-    showToast("Dana Goal digunakan dan pengeluaran sudah dicatat.");
+    showToast("Dana Goal digunakan. Tercatat terpisah dari cash flow dan budget.");
     return true;
   };
 
@@ -7484,6 +7504,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   ["Total budget bulanan",IDR(totalBudget)],
                   ["Sudah terpakai bulan ini",`- ${IDR(totalBudgetUsed)}`],
                   ["Sisa budget",IDR(sisaAnggaran)],
+                  ...(totalGoalUsage>0?[["Penggunaan dana Goal",`${IDR(totalGoalUsage)} (terpisah, tidak mengurangi budget)`]]:[]),
                   ["Hari yang masih dihitung",`${sisaHari} hari`],
                 ].map(([label,value],index)=><div key={label} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,padding:"11px 12px",borderRadius:11,background:index===2?T.okBg:T.cardAlt,border:`1px solid ${index===2?T.okBorder:T.border}`}}>
                   <span style={{fontSize:12,color:T.muted,fontWeight:700}}>{label}</span>
@@ -8479,6 +8500,13 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </div>
               ))}
             </div>
+            {reportTotals.goalUsage>0&&<div style={{display:"flex",alignItems:isMobile?"flex-start":"center",justifyContent:"space-between",gap:12,flexDirection:isMobile?"column":"row",marginTop:-6,marginBottom:18,padding:"12px 14px",borderRadius:10,background:T.infoBg,border:`1px solid ${T.infoBorder}`}}>
+              <div>
+                <div style={{fontSize:12,fontWeight:900,color:T.info}}>Penggunaan dana Goal</div>
+                <div style={{fontSize:11,color:T.muted,lineHeight:1.5,marginTop:2}}>Tercatat di riwayat, tetapi tidak masuk pengeluaran, cash flow, maupun realisasi budget periode ini.</div>
+              </div>
+              <div style={{fontSize:16,fontWeight:950,color:T.info,whiteSpace:"nowrap"}}><AnimatedAmount value={reportTotals.goalUsage}/></div>
+            </div>}
             {highestExpenseDay&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",padding:"11px 14px",marginBottom:16,borderLeft:`4px solid ${T.warn}`,background:T.warnBg,borderRadius:8}}>
               <div><div style={{fontSize:10,fontWeight:900,color:T.warn,textTransform:"uppercase",letterSpacing:.8}}>{lang==="en"?"Highest spending day":"Hari dengan pengeluaran terbesar"}</div><div style={{fontSize:12,color:T.sub,marginTop:3}}>{new Date(`${highestExpenseDay.date}T00:00:00`).toLocaleDateString(lang==="en"?"en-US":"id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"})} · {highestExpenseDay.count} transaksi</div></div>
               <div style={{fontSize:16,fontWeight:900,color:T.err}}>{IDRs(highestExpenseDay.amount)}</div>

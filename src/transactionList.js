@@ -1,3 +1,5 @@
+import { isCashflowExpense } from "./cashflowClassification.js";
+
 const normalizedText = value => String(value || "").trim().toLowerCase();
 
 const numericOrder = value => {
@@ -27,7 +29,7 @@ const transactionDateKey = value => String(value || "").slice(0, 10);
 export const getHighestExpenseDay = (transactions = [], numberValue = Number) => {
   const grouped = new Map();
   transactions.forEach(transaction => {
-    if (transaction?.tipe !== "pengeluaran") return;
+    if (!isCashflowExpense(transaction)) return;
     const date = transactionDateKey(transaction?.tgl);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
     const current = grouped.get(date) || { date, amount:0, count:0 };

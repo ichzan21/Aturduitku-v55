@@ -1,3 +1,5 @@
+import { isCashflowExpense, sumGoalFundUsage } from "./cashflowClassification.js";
+
 const pad = value => String(value).padStart(2, "0");
 
 export const toDateKey = value => {
@@ -50,11 +52,14 @@ export const summarizeTransactions = (transactions = [], numberValue = Number) =
     .filter(transaction => types.includes(transaction?.tipe))
     .reduce((total, transaction) => total + Number(numberValue(transaction?.jml) || 0), 0);
   const income = sum(["pemasukan"]);
-  const expense = sum(["pengeluaran"]);
+  const expense = transactions
+    .filter(isCashflowExpense)
+    .reduce((total, transaction) => total + Number(numberValue(transaction?.jml) || 0), 0);
+  const goalUsage = sumGoalFundUsage(transactions, numberValue);
   const saving = sum(["tabungan"]);
   const investment = sum(["investasi"]);
   const future = saving + investment;
-  return { income, expense, saving, investment, future, net:income - expense - future };
+  return { income, expense, goalUsage, saving, investment, future, net:income - expense - future };
 };
 
 export const shiftReportAnchor = (anchor, mode, direction) => {
@@ -83,7 +88,7 @@ export const formatReportPeriod = (mode, anchor, locale = "id-ID") => {
 export const buildReportActivity = (transactions = [], mode, anchor, numberValue = Number, locale = "id-ID") => {
   const { start, end } = getReportPeriodRange(mode, anchor);
   const expenseByDay = new Map();
-  transactions.filter(transaction => transaction?.tipe === "pengeluaran").forEach(transaction => {
+  transactions.filter(isCashflowExpense).forEach(transaction => {
     const key = toDateKey(transaction.tgl);
     expenseByDay.set(key, (expenseByDay.get(key) || 0) + Number(numberValue(transaction.jml) || 0));
   });
@@ -190,7 +195,7 @@ export const buildReportCashflowActivity = (transactions = [], mode, anchor, num
     if (!dateKey || dateKey < start || dateKey > end) return;
     const bucketKey = mode === "yearly" ? dateKey.slice(0, 7) : dateKey;
     if (transaction?.tipe === "pemasukan") add(bucketKey, "income", numberValue(transaction?.jml));
-    else if (transaction?.tipe === "pengeluaran") add(bucketKey, "expense", numberValue(transaction?.jml));
+    else if (isCashflowExpense(transaction)) add(bucketKey, "expense", numberValue(transaction?.jml));
     else if (["tabungan", "investasi"].includes(transaction?.tipe)) add(bucketKey, "future", numberValue(transaction?.jml));
   });
 
