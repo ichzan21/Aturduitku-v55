@@ -23,6 +23,7 @@ import { EMAIL_VERIFICATION_COOLDOWN_MS, EMAIL_VERIFICATION_RATE_LIMIT_COOLDOWN_
 import { resolveAccountOnboarded } from "./accountBootstrap.js";
 import { getDailyBudgetBreakdown } from "./dailyBudget.js";
 import { isCashflowExpense, isGoalFundUsage, sumGoalFundUsage } from "./cashflowClassification.js";
+import { formatCompactRupiah } from "./moneyFormat.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -105,7 +106,7 @@ const DARK = {
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const IDR  = v=>"Rp "+Math.round(Number(v||0)).toLocaleString("id-ID");
-const IDRs = v=>{const n=Number(v||0),a=Math.abs(n);if(a>=1e9)return(n<0?"-":"")+"Rp "+(a/1e9).toFixed(1)+"M";if(a>=1e6)return(n<0?"-":"")+"Rp "+(a/1e6).toFixed(1)+"jt";if(a>=1e3)return(n<0?"-":"")+"Rp "+(a/1e3).toFixed(0)+"rb";return"Rp "+Math.round(n).toLocaleString("id-ID");};
+const IDRs = formatCompactRupiah;
 const fmtN = v=>{const n=String(v).replace(/\D/g,"");return n?n.replace(/\B(?=(\d{3})+(?!\d))/g,"."):"";};
 const pN   = v=>String(v).replace(/\./g,"");
 const N    = displayNumber;
