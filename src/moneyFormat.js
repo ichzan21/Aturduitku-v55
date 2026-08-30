@@ -5,7 +5,8 @@ const compactPart = (value, suffix) => {
 };
 
 export const formatCompactRupiah = value => {
-  const number = Number(value || 0);
+  const parsed = Number(value);
+  const number = Number.isFinite(parsed) ? parsed : 0;
   const absolute = Math.abs(number);
   const sign = number < 0 ? "-" : "";
   if (absolute >= 1e9) return `${sign}Rp ${compactPart(absolute / 1e9, "M")}`;

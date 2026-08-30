@@ -2173,7 +2173,7 @@ function YearInReview({ s, T, lang, onClose }) {
     ? ["January","February","March","April","May","June","July","August","September","October","November","December"]
     : ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
   const IDR = n => "Rp " + Math.abs(Math.round(n||0)).toLocaleString("id-ID");
-  const IDRs = n => { const abs=Math.abs(Math.round(n||0)); return (n<0?"-":"")+"Rp "+(abs>=1e9?(abs/1e9).toFixed(1)+"M":abs>=1e6?(abs/1e6).toFixed(1)+"jt":abs.toLocaleString("id-ID")); };
+  const IDRs = formatCompactRupiah;
   const N = displayNumber;
   const year = s.tahun || String(new Date().getFullYear());
 
@@ -5423,13 +5423,7 @@ Saldo amplop bertambah.`}]);
       const Num = displayNumber;
       const idr = n => "Rp "+Math.round(Math.abs(n||0)).toLocaleString("id-ID");
       const idrc = n => (n<0?"-":"")+"Rp "+Math.round(Math.abs(n||0)).toLocaleString("id-ID");
-      const idrs = n => {
-        const a=Math.round(Math.abs(n||0));
-        if(a>=1e9) return (n<0?"-":"")+"Rp "+(a/1e9).toFixed(1)+"M";
-        if(a>=1e6) return (n<0?"-":"")+"Rp "+(a/1e6).toFixed(1)+"jt";
-        if(a>=1e3) return (n<0?"-":"")+"Rp "+(a/1e3).toFixed(0)+"rb";
-        return "Rp "+a.toLocaleString("id-ID");
-      };
+      const idrs = formatCompactRupiah;
       const pctn = (v,t) => t>0?((v/t)*100).toFixed(1)+"%":"0%";
 
       // ── Transaction data ─────────────────────────────────────────────────
