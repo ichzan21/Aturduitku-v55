@@ -23,7 +23,7 @@ import { EMAIL_VERIFICATION_COOLDOWN_MS, EMAIL_VERIFICATION_RATE_LIMIT_COOLDOWN_
 import { resolveAccountOnboarded } from "./accountBootstrap.js";
 import { getDailyBudgetBreakdown } from "./dailyBudget.js";
 import { isCashflowExpense, isGoalFundUsage, sumGoalFundUsage } from "./cashflowClassification.js";
-import { formatCompactRupiah } from "./moneyFormat.js";
+import { formatCompactRupiah, formatRupiah } from "./moneyFormat.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -6980,8 +6980,8 @@ Saldo amplop bertambah.`}]);
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-          <span style={{fontWeight:700,fontSize:13,color:txColor}}>
-            {isInternalTransfer?"↔ ":isIn||isEnvelopeRefund?"+":t.tipe==="penyesuaian"?(N(t.adjustmentDelta)>=0?"+":"-"):t.tipe==="alokasi_amplop"?"→":t.tipe==="transfer"?"→":"-"}{IDRs(N(t.jml))}
+          <span style={{fontWeight:700,fontSize:isMobile?12:13,color:txColor,textAlign:"right",lineHeight:1.2,maxWidth:isMobile?104:160,whiteSpace:"normal",overflowWrap:"anywhere"}}>
+            {isInternalTransfer?"↔ ":isIn||isEnvelopeRefund?"+":t.tipe==="penyesuaian"?(N(t.adjustmentDelta)>=0?"+":"-"):t.tipe==="alokasi_amplop"?"→":t.tipe==="transfer"?"→":"-"}{formatRupiah(N(t.jml))}
           </span>
           {isInternalTransfer&&t.internalTransferPairId&&<button type="button" onClick={()=>unlinkInternalTransfer(t)} title="Bukan transfer antar dompet saya" aria-label="Lepas tautan transfer internal" style={{width:30,height:30,borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:13,fontWeight:900,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>⛓</button>}
           {showOrderControls&&(transactionOrderMeta.get(String(t.id))?.canMoveUp||transactionOrderMeta.get(String(t.id))?.canMoveDown)&&<div aria-label="Atur urutan transaksi pada tanggal yang sama" style={{display:"grid",gridTemplateRows:"1fr 1fr",gap:2}}>
