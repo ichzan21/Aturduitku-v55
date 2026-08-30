@@ -1423,7 +1423,7 @@ const UtangCard=({u,dompetList,onDelete,onCicilan})=>{
           <button onClick={()=>setShowCalc(true)} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14}}>🔢</button>
         </div>
         <select value={dompetId} onChange={e=>setDompetId(e.target.value)} style={{width:80, padding:"8px", borderRadius:8, border:`1.5px solid ${T.inputBorder}`, background:T.input, color:T.text, fontSize:12, outline:"none"}}>
-           {dompetList.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)}</option>)}
+           {dompetList.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}
         </select>
         {showCalc&&<Calculator value={inp} onChange={v=>{setInp(v);setShowCalc(false);}} onClose={()=>setShowCalc(false)}/>}
         <Btn onClick={()=>{if(inp){onCicilan(u.id,inp,dompetId);setInp("");}}} ch="+ Bayar" c="#16A34A" style={{padding:"8px 12px",fontSize:12,whiteSpace:"nowrap"}}/>
@@ -6779,10 +6779,13 @@ Saldo amplop bertambah.`}]);
     if(N(jml)<=0){showToast("⚠️ Nominal cicilan harus lebih dari nol.");return;}
     const targetDompet = findWallet(s.dompet,dompetId);
     if(!targetDompet) { showToast(t("toast_walletNotFound")); return; }
-    if(N(targetDompet.saldo) < N(jml)) { showToast("⚠️ Saldo dompet tidak cukup!"); return; }
+    const isReceivable = ["piutang","piutangBisnis"].includes(s.utang.find(x=>x.id===uid)?.tipe);
+    if(!isReceivable && N(targetDompet.saldo) < N(jml)) { showToast("⚠️ Saldo dompet tidak cukup!"); return; }
     
     setS(p=>{
-      const paymentTx={id:Date.now(), tipe:"pengeluaran", tgl:today(), ket:`Bayar Utang/Cicilan: ${p.utang.find(x=>x.id===uid)?.nama}`, jml:pN(jml), dompetId,bulan:p.bulan,tahun:p.tahun};
+      const debt=p.utang.find(x=>x.id===uid);
+      const receivesPayment=["piutang","piutangBisnis"].includes(debt?.tipe);
+      const paymentTx={id:Date.now(), tipe:receivesPayment?"pemasukan":"pengeluaran", tgl:today(), ket:`${receivesPayment?"Terima Piutang/Cicilan":"Bayar Utang/Cicilan"}: ${debt?.nama}`, jml:pN(jml), dompetId,bulan:p.bulan,tahun:p.tahun,katId:""};
       return {...p,
         utang:p.utang.map(u=>{if(u.id!==uid)return u;const nc=[...u.cicilan,{tgl:today(),jml}];const tc=nc.reduce((a,b)=>a+N(b.jml),0);return{...u,cicilan:nc,lunas:tc>=N(u.jml)};}),
         dompet:applyTransactionToWallets(p.dompet,paymentTx),
