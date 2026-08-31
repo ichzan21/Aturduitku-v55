@@ -72,6 +72,12 @@ async function openGoals(page, mobile) {
   const sourceSelectors = page.locator('select[aria-label^="Dompet sumber Goal"]');
   await sourceSelectors.first().waitFor({ state:"visible", timeout:15_000 });
   if (await sourceSelectors.count() < 1) throw new Error("Pilihan dompet sumber Goal tidak ditemukan");
+  const historyButton = page.getByRole("button", { name:/Riwayat saldo|Balance history/i }).first();
+  if (await historyButton.count() > 0) {
+    await historyButton.click();
+    await page.getByText(/Saldo sekarang|Current balance/i).waitFor({ state:"visible", timeout:10_000 });
+    await page.getByRole("button", { name:"Tutup", exact:true }).last().click();
+  }
 }
 
 async function openEnvelope(page, mobile) {
