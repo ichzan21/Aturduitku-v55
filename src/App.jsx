@@ -24,6 +24,7 @@ import { resolveAccountOnboarded } from "./accountBootstrap.js";
 import { getDailyBudgetBreakdown } from "./dailyBudget.js";
 import { isCashflowExpense, isGoalFundUsage, sumGoalFundUsage } from "./cashflowClassification.js";
 import { formatCompactRupiah, formatRupiah } from "./moneyFormat.js";
+import { buildGoalHistoryTimeline } from "./goalHistory.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -1438,7 +1439,7 @@ const UtangCard=({u,dompetList,goals=[],onDelete,onCicilan})=>{
 };
 
 // ─── GOAL CARD ────────────────────────────────────────────────────────────────
-const GoalCard=({g,dompetList,onDelete,onTambah,onGunakan,onSelesai,onSourceChange,lang="id"})=>{
+const GoalCard=({g,dompetList,onDelete,onTambah,onGunakan,onSelesai,onSourceChange,onHistory,lang="id"})=>{
   const T=useT();
   const [inp,setInp]=useState("");const [showCalc,setShowCalc]=useState(false);
   const [showUse,setShowUse]=useState(false);
@@ -1488,6 +1489,7 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onGunakan,onSelesai,onSourceChan
         {pct>=100&&<Btn onClick={()=>onSelesai(g.id)} ch={"✓ "+(lang==="en"?"Mark Done":"Selesai")} c="#16A34A" style={{width:"100%",padding:10}}/>}
         {km>0&&<Btn onClick={()=>setShowUse(true)} ch={lang==="en"?"Use funds":"Gunakan dana"} outline style={{width:"100%",padding:10}}/>}
       </div>}
+      <Btn onClick={()=>onHistory?.(g.id)} ch={lang==="en"?"Balance history":"Riwayat saldo"} c={T.info} outline style={{width:"100%",padding:10,marginTop:8}}/>
       {showUse&&<div className="goal-use-panel" style={{display:"grid",gap:8,padding:11,borderRadius:11,background:T.cardAlt,border:`1px solid ${T.border}`}}>
         <div>
           <div style={{fontSize:11,fontWeight:800,color:T.text}}>{lang==="en"?"Use saved Goal funds":"Gunakan dana yang sudah terkumpul"}</div>
@@ -6696,7 +6698,7 @@ Saldo amplop bertambah.`}]);
       const sourceTx=isReceivable&&utForm.sourceType==="wallet"
         ? {id:id+1,tipe:"piutang_keluar",tgl:utForm.tgl,ket:`Pinjamkan: ${utForm.nama}`,jml:pN(utForm.jml),dompetId:utForm.sourceId,piutangId:id,bulan:p.bulan,tahun:p.tahun}
         : null;
-      return {...p,utang:[debt,...p.utang],goals:isReceivable&&utForm.sourceType==="goal"?p.goals.map(g=>sameId(g.id,utForm.sourceId)?{...g,kumpul:String(Math.max(N(g.kumpul)-amount,0)),history:[...(g.history||[]),{tgl:utForm.tgl,jml:String(-amount),ket:`Dipinjamkan: ${utForm.nama}` }]}:g):p.goals,dompet:sourceTx?applyTransactionToWallets(p.dompet,sourceTx):p.dompet,txs:sourceTx?[sourceTx,...p.txs]:p.txs};
+      return {...p,utang:[debt,...p.utang],goals:isReceivable&&utForm.sourceType==="goal"?p.goals.map(g=>sameId(g.id,utForm.sourceId)?{...g,kumpul:String(Math.max(N(g.kumpul)-amount,0)),history:[...(g.history||[]),{tgl:utForm.tgl,jml:String(-amount),tipe:"piutang_keluar",ket:`Dipinjamkan: ${utForm.nama}`}]}:g):p.goals,dompet:sourceTx?applyTransactionToWallets(p.dompet,sourceTx):p.dompet,txs:sourceTx?[sourceTx,...p.txs]:p.txs};
     });
     setUtForm({tipe:"utang",tgl:today(),provider:"",nama:"",jml:"",tempo:"",ket:"",sourceType:"wallet",sourceId:s.dompet[0]?.id||""});
     showToast(t("toast_noteOk"));
@@ -6808,7 +6810,7 @@ Saldo amplop bertambah.`}]);
       const paymentTx={id:Date.now(), tipe:receivesPayment?(destinationType==="goal"?"piutang_masuk_goal":"piutang_masuk"):"pengeluaran", tgl:today(), ket:`${receivesPayment?"Terima Piutang/Cicilan":"Bayar Utang/Cicilan"}: ${debt?.nama}`, jml:pN(jml), dompetId:destinationType==="wallet"?destinationId:"",bulan:p.bulan,tahun:p.tahun,katId:"",piutangId:receivesPayment?debt?.id:"",goalId:receivesPayment&&destinationType==="goal"?destinationId:""};
       return {...p,
         utang:p.utang.map(u=>{if(u.id!==uid)return u;const nc=[...u.cicilan,{tgl:today(),jml}];const tc=nc.reduce((a,b)=>a+N(b.jml),0);return{...u,cicilan:nc,lunas:tc>=N(u.jml)};}),
-        goals:receivesPayment&&destinationType==="goal"?p.goals.map(g=>sameId(g.id,destinationId)?{...g,kumpul:String(N(g.kumpul)+N(jml)),history:[...(g.history||[]),{tgl:today(),jml:String(N(jml)),ket:`Pengembalian piutang: ${debt?.nama}`}]}:g):p.goals,
+        goals:receivesPayment&&destinationType==="goal"?p.goals.map(g=>sameId(g.id,destinationId)?{...g,kumpul:String(N(g.kumpul)+N(jml)),history:[...(g.history||[]),{tgl:today(),jml:String(N(jml)),tipe:"pengembalian_piutang",ket:`Pengembalian piutang: ${debt?.nama}`,txId:paymentTx.id}]}:g):p.goals,
         dompet:destinationType==="wallet"?applyTransactionToWallets(p.dompet,paymentTx):p.dompet,
         txs:[paymentTx, ...p.txs]
       };
@@ -7776,6 +7778,35 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </div>
                 <div style={{maxHeight:isMobile?"58svh":440,overflowY:"auto",borderTop:`1px solid ${T.border}`}}>
                   {rows.length?rows.map(renderTxItem):<LaunchEmpty icon="🧾" title="Belum ada perubahan saldo" desc="Transaksi yang memakai dompet ini akan muncul di sini." style={{padding:"30px 12px"}}/>}
+                </div>
+                <Btn onClick={()=>closeModal()} ch="Tutup" c={T.muted} outline style={{width:"100%",marginTop:14,padding:"10px"}}/>
+              </>;
+            })()}
+
+            {modal.type==="goalHistory"&&(()=>{
+              const goal=s.goals.find(item=>sameId(item.id,modal.goalId));
+              const rows=buildGoalHistoryTimeline(goal,N);
+              const historyLabel=entry=>{
+                if(entry.tipe==="penggunaan") return lang==="en"?"Funds used":"Dana digunakan";
+                if(entry.tipe==="piutang_keluar"||String(entry.ket||"").startsWith("Dipinjamkan")) return lang==="en"?"Lent from Goal":"Dipinjamkan dari Goal";
+                if(entry.tipe==="pengembalian_piutang"||String(entry.ket||"").startsWith("Pengembalian")) return lang==="en"?"Receivable returned":"Pengembalian piutang";
+                return lang==="en"?"Added to Goal":"Setoran ke Goal";
+              };
+              return <>
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+                  <span style={{width:44,height:44,borderRadius:14,background:T.infoBg,display:"grid",placeItems:"center",fontSize:22}}>{uiIcon(goal?.icon||"GOAL")}</span>
+                  <div style={{minWidth:0}}><div style={{fontSize:17,fontWeight:900,color:T.text}}>{goal?.nama||"Riwayat Goal"}</div><div style={{fontSize:11,color:T.muted}}>Saldo sekarang {IDRs(N(goal?.kumpul))} · {rows.length} perubahan</div></div>
+                </div>
+                <div style={{maxHeight:isMobile?"58svh":440,overflowY:"auto",borderTop:`1px solid ${T.border}`}}>
+                  {rows.length?rows.map((entry,index)=>{
+                    const incoming=entry.delta>=0;
+                    const wallet=findWallet(s.dompet,entry.dompetId);
+                    return <div key={`${entry.txId||entry.tgl||"entry"}-${entry.index}-${index}`} style={{display:"grid",gridTemplateColumns:"32px minmax(0,1fr) auto",gap:10,alignItems:"start",padding:"12px 2px",borderBottom:`1px solid ${T.border}`}}>
+                      <span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:incoming?T.okBg:T.errBg,color:incoming?T.ok:T.err,fontWeight:900}}>{incoming?"+":"-"}</span>
+                      <div style={{minWidth:0}}><div style={{fontSize:12,fontWeight:900,color:T.text}}>{historyLabel(entry)}</div><div style={{fontSize:10,color:T.muted,marginTop:3,whiteSpace:"normal",overflowWrap:"anywhere"}}>{entry.tgl||"Tanggal tidak tersedia"}{entry.ket?` · ${entry.ket}`:""}{wallet?` · ${wallet.nama}`:""}</div><div style={{fontSize:10,color:T.muted,marginTop:3}}>Saldo setelah: <strong style={{color:T.text}}>{IDRs(entry.balanceAfter)}</strong></div></div>
+                      <div style={{fontSize:12,fontWeight:900,color:incoming?T.ok:T.err,whiteSpace:"nowrap"}}>{incoming?"+":"-"}{IDRs(Math.abs(entry.delta))}</div>
+                    </div>;
+                  }):<LaunchEmpty icon="GOAL" title="Belum ada perubahan saldo" desc="Setoran, penggunaan, peminjaman, dan pengembalian dana Goal akan muncul di sini." style={{padding:"30px 12px"}}/>}
                 </div>
                 <Btn onClick={()=>closeModal()} ch="Tutup" c={T.muted} outline style={{width:"100%",marginTop:14,padding:"10px"}}/>
               </>;
@@ -8805,7 +8836,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               ))}
             </div>
             <div className="feature-card-grid">
-              {s.goals.map(g=><GoalCard key={g.id} g={g} dompetList={s.dompet} lang={lang} onDelete={()=>confirmDelete({title:"Hapus goal?",msg:`Goal "${g.nama}" dan riwayat tabungannya akan dihapus dari daftar.`,toastMsg:"Goal dihapus",onConfirm:()=>setS(p=>({...p,goals:p.goals.filter(x=>x.id!==g.id)}))})} onTambah={tambahGoalDana} onGunakan={gunakanGoalDana} onSourceChange={(id,dompetId)=>setS(p=>({...p,goals:p.goals.map(x=>x.id!==id?x:{...x,dompetId})}))} onSelesai={id=>setS(p=>({...p,goals:p.goals.map(x=>x.id!==id?x:{...x,selesai:true})}))}/>)}
+              {s.goals.map(g=><GoalCard key={g.id} g={g} dompetList={s.dompet} lang={lang} onDelete={()=>confirmDelete({title:"Hapus goal?",msg:`Goal "${g.nama}" dan riwayat tabungannya akan dihapus dari daftar.`,toastMsg:"Goal dihapus",onConfirm:()=>setS(p=>({...p,goals:p.goals.filter(x=>x.id!==g.id)}))})} onTambah={tambahGoalDana} onGunakan={gunakanGoalDana} onHistory={id=>setModal({type:"goalHistory",goalId:id})} onSourceChange={(id,dompetId)=>setS(p=>({...p,goals:p.goals.map(x=>x.id!==id?x:{...x,dompetId})}))} onSelesai={id=>setS(p=>({...p,goals:p.goals.map(x=>x.id!==id?x:{...x,selesai:true})}))}/>)}
               {!s.goals.length&&<div style={{gridColumn:"1/-1"}}><LaunchEmpty
                 icon="🎯"
                 title={t("noGoal")}
