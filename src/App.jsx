@@ -3531,7 +3531,7 @@ export default function App(){
   // Forms
   const [txForm,setTxForm]=useState({tipe:"pengeluaran",tgl:today(),ket:"",jml:"",katId:1,customKat:"",subKat:"",dompetId:1,dompetTo:2,biaya:"",goalId:""});
   const [bulkRows,setBulkRows]=useState([{tgl:today(),jml:"",tipe:"pengeluaran",dompetId:1,katId:"",ket:""}]);
-  const [utForm,setUtForm]=useState({tipe:"utang",tgl:today(),provider:"",nama:"",jml:"",tempo:"",ket:""});
+  const [utForm,setUtForm]=useState({tipe:"utang",tgl:today(),provider:"",nama:"",jml:"",tempo:"",ket:"",sourceType:"wallet",sourceId:s.dompet[0]?.id||""});
   const [goalForm,setGoalForm]=useState({nama:"",target:"",kumpul:"",deadline:"",icon:"⭐"});
   const [dompetForm,setDompetForm]=useState({tipe:"Bank",nama:"",norek:"",saldo:""});
   const [goalSourceId,setGoalSourceId]=useState(()=>s.dompet[0]?.id||"");
@@ -6679,8 +6679,24 @@ Saldo amplop bertambah.`}]);
   const addUt=()=>{
     if(!utForm.tgl||!utForm.nama||!utForm.jml){showToast("⚠️ Isi semua field!");return;}
     const provider=utForm.provider==="Lainnya"?"":(utForm.provider||detectDebtProvider(utForm.nama));
-    setS(p=>({...p,utang:[{...utForm,provider,id:Date.now(),lunas:false,cicilan:[]},...p.utang]}));
-    setUtForm({tipe:"utang",tgl:today(),provider:"",nama:"",jml:"",tempo:"",ket:""});
+    const isReceivable=["piutang","piutangBisnis"].includes(utForm.tipe);
+    const amount=N(utForm.jml);
+    const sourceWallet=findWallet(s.dompet,utForm.sourceId);
+    const sourceGoal=s.goals.find(g=>sameId(g.id,utForm.sourceId));
+    if(isReceivable&&!utForm.sourceId){showToast("Pilih sumber dana piutang.");return;}
+    if(isReceivable&&utForm.sourceType==="wallet"&&!sourceWallet){showToast("Pilih dompet sumber piutang.");return;}
+    if(isReceivable&&utForm.sourceType==="goal"&&!sourceGoal){showToast("Pilih Goal sumber piutang.");return;}
+    if(isReceivable&&utForm.sourceType==="wallet"&&N(sourceWallet.saldo)<amount){showToast("⚠️ Saldo dompet sumber tidak cukup.");return;}
+    if(isReceivable&&utForm.sourceType==="goal"&&N(sourceGoal.kumpul)<amount){showToast("⚠️ Dana Goal tidak cukup.");return;}
+    setS(p=>{
+      const id=Date.now();
+      const debt={...utForm,provider,id,lunas:false,cicilan:[],sourceType:isReceivable?utForm.sourceType:"",sourceId:isReceivable?utForm.sourceId:""};
+      const sourceTx=isReceivable&&utForm.sourceType==="wallet"
+        ? {id:id+1,tipe:"piutang_keluar",tgl:utForm.tgl,ket:`Pinjamkan: ${utForm.nama}`,jml:pN(utForm.jml),dompetId:utForm.sourceId,piutangId:id,bulan:p.bulan,tahun:p.tahun}
+        : null;
+      return {...p,utang:[debt,...p.utang],goals:isReceivable&&utForm.sourceType==="goal"?p.goals.map(g=>sameId(g.id,utForm.sourceId)?{...g,kumpul:String(Math.max(N(g.kumpul)-amount,0)),history:[...(g.history||[]),{tgl:utForm.tgl,jml:String(-amount),ket:`Dipinjamkan: ${utForm.nama}` }]}:g):p.goals,dompet:sourceTx?applyTransactionToWallets(p.dompet,sourceTx):p.dompet,txs:sourceTx?[sourceTx,...p.txs]:p.txs};
+    });
+    setUtForm({tipe:"utang",tgl:today(),provider:"",nama:"",jml:"",tempo:"",ket:"",sourceType:"wallet",sourceId:s.dompet[0]?.id||""});
     showToast(t("toast_noteOk"));
   };
 
@@ -6785,7 +6801,7 @@ Saldo amplop bertambah.`}]);
     setS(p=>{
       const debt=p.utang.find(x=>x.id===uid);
       const receivesPayment=["piutang","piutangBisnis"].includes(debt?.tipe);
-      const paymentTx={id:Date.now(), tipe:receivesPayment?"pemasukan":"pengeluaran", tgl:today(), ket:`${receivesPayment?"Terima Piutang/Cicilan":"Bayar Utang/Cicilan"}: ${debt?.nama}`, jml:pN(jml), dompetId,bulan:p.bulan,tahun:p.tahun,katId:""};
+      const paymentTx={id:Date.now(), tipe:receivesPayment?"piutang_masuk":"pengeluaran", tgl:today(), ket:`${receivesPayment?"Terima Piutang/Cicilan":"Bayar Utang/Cicilan"}: ${debt?.nama}`, jml:pN(jml), dompetId,bulan:p.bulan,tahun:p.tahun,katId:"",piutangId:receivesPayment?debt?.id:""};
       return {...p,
         utang:p.utang.map(u=>{if(u.id!==uid)return u;const nc=[...u.cicilan,{tgl:today(),jml}];const tc=nc.reduce((a,b)=>a+N(b.jml),0);return{...u,cicilan:nc,lunas:tc>=N(u.jml)};}),
         dompet:applyTransactionToWallets(p.dompet,paymentTx),
@@ -6965,12 +6981,14 @@ Saldo amplop bertambah.`}]);
     const spentGoal=t.goalSpendId?s.goals.find(goal=>sameId(goal.id,t.goalSpendId)):null;
     const kat=s.budgets.find(b=>b.id===t.katId);
     const isInternalTransfer=["transfer_internal_keluar","transfer_internal_masuk"].includes(t.tipe);
-    const isIn=t.tipe==="pemasukan"||t.tipe==="pemasukan_transfer"||t.tipe==="transfer_internal_masuk";
+    const isReceivableOut=t.tipe==="piutang_keluar";
+    const isReceivableIn=t.tipe==="piutang_masuk";
+    const isIn=t.tipe==="pemasukan"||t.tipe==="pemasukan_transfer"||t.tipe==="transfer_internal_masuk"||isReceivableIn;
     const txKatLabel=isInternalTransfer?"Transfer internal":t.internalTransferFeeFor?"Biaya transfer internal":isIn?incomeCategoryLabel(t):(String(t.customKat||"").trim()||kat?.kat);
     const isEnvelopeRefund=t.tipe==="pengembalian_amplop";
-    const txColor=isInternalTransfer?T.accent:t.tipe==="pemasukan"||isEnvelopeRefund?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="investasi"?T.ok:t.tipe==="penyesuaian"?T.warn:t.tipe==="alokasi_amplop"?T.accent:t.tipe==="transfer"?T.accent:T.err;
-    const txBg=isInternalTransfer?T.accentBg:t.tipe==="pemasukan"||isEnvelopeRefund?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer")?T.accentBg:T.errBg;
-    const txIcon=isInternalTransfer?"↔️":isIn?"📈":isEnvelopeRefund?"↩️":t.tipe==="tabungan"?"🏦":t.tipe==="investasi"?"💎":t.tipe==="penyesuaian"?"BAL":t.tipe==="alokasi_amplop"?"✉️":t.tipe==="transfer"?"↔️":kat?uiIcon(kat.icon):"📉";
+    const txColor=isInternalTransfer?T.accent:t.tipe==="pemasukan"||isEnvelopeRefund||isReceivableIn?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="investasi"?T.ok:t.tipe==="penyesuaian"?T.warn:t.tipe==="alokasi_amplop"||isReceivableOut?T.accent:t.tipe==="transfer"?T.accent:T.err;
+    const txBg=isInternalTransfer?T.accentBg:t.tipe==="pemasukan"||isEnvelopeRefund||isReceivableIn?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer"||isReceivableOut)?T.accentBg:T.errBg;
+    const txIcon=isInternalTransfer?"↔️":isIn?"📈":isEnvelopeRefund?"↩️":isReceivableOut?"🤝":t.tipe==="tabungan"?"🏦":t.tipe==="investasi"?"💎":t.tipe==="penyesuaian"?"BAL":t.tipe==="alokasi_amplop"?"✉️":t.tipe==="transfer"?"↔️":kat?uiIcon(kat.icon):"📉";
     return(
       <div key={t.id} className={txMotion&&sameId(txMotion.id,t.id)?(txMotion.type==="out"?"tx-row-out":"tx-row-new"):"tx-row-in"} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
@@ -6984,7 +7002,7 @@ Saldo amplop bertambah.`}]);
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
           <span style={{fontWeight:700,fontSize:isMobile?12:13,color:txColor,textAlign:"right",lineHeight:1.2,maxWidth:isMobile?104:160,whiteSpace:"normal",overflowWrap:"anywhere"}}>
-            {isInternalTransfer?"↔ ":isIn||isEnvelopeRefund?"+":t.tipe==="penyesuaian"?(N(t.adjustmentDelta)>=0?"+":"-"):t.tipe==="alokasi_amplop"?"→":t.tipe==="transfer"?"→":"-"}{formatRupiah(N(t.jml))}
+            {isInternalTransfer?"↔ ":isIn||isEnvelopeRefund?"+":isReceivableOut?"-":t.tipe==="penyesuaian"?(N(t.adjustmentDelta)>=0?"+":"-"):t.tipe==="alokasi_amplop"?"→":t.tipe==="transfer"?"→":"-"}{formatRupiah(N(t.jml))}
           </span>
           {isInternalTransfer&&t.internalTransferPairId&&<button type="button" onClick={()=>unlinkInternalTransfer(t)} title="Bukan transfer antar dompet saya" aria-label="Lepas tautan transfer internal" style={{width:30,height:30,borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:13,fontWeight:900,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>⛓</button>}
           {showOrderControls&&(transactionOrderMeta.get(String(t.id))?.canMoveUp||transactionOrderMeta.get(String(t.id))?.canMoveDown)&&<div aria-label="Atur urutan transaksi pada tanggal yang sama" style={{display:"grid",gridTemplateRows:"1fr 1fr",gap:2}}>
@@ -9162,6 +9180,19 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <CurIn value={utForm.jml} onChange={v=>setUtForm(f=>({...f,jml:v}))} placeholder="0" style={{paddingRight:40}}/>
                   <button onClick={()=>openCalc("utjml",utForm.jml,v=>setUtForm(f=>({...f,jml:v})))} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:12,fontWeight:800,color:T.accent}} title="Kalkulator" aria-label="Kalkulator">🧮</button>
                 </div>
+                {(["piutang","piutangBisnis"].includes(utForm.tipe))&&<>
+                  <label style={LS}>Sumber dana yang dipinjamkan</label>
+                  <select value={`${utForm.sourceType}:${utForm.sourceId}`} onChange={e=>{const [sourceType,...rest]=e.target.value.split(":");setUtForm(f=>({...f,sourceType,sourceId:rest.join(":")}));}} style={{...IS,marginBottom:10}}>
+                    <option value="">Pilih dompet atau Goal</option>
+                    <optgroup label="Dompet">
+                      {s.dompet.map(d=><option key={`wallet:${d.id}`} value={`wallet:${d.id}`}>{uiIcon(d.icon)} {d.nama} · saldo {IDR(N(d.saldo))}</option>)}
+                    </optgroup>
+                    {(s.goals||[]).filter(g=>N(g.kumpul)>0).length>0&&<optgroup label="Goal">
+                      {(s.goals||[]).filter(g=>N(g.kumpul)>0).map(g=><option key={`goal:${g.id}`} value={`goal:${g.id}`}>{uiIcon(g.icon||"GOAL")} {g.nama} · tersedia {IDR(N(g.kumpul))}</option>)}
+                    </optgroup>}
+                  </select>
+                  <div style={{fontSize:10,color:T.muted,marginTop:-5,marginBottom:10}}>Piutang mengurangi sumber dana saat dicatat. Saat dibayar, saldo dompet penerima bertambah.</div>
+                </>}
                 <label style={LS}>Jatuh Tempo</label><input type="date" value={utForm.tempo} onChange={e=>setUtForm(f=>({...f,tempo:e.target.value}))} style={{...IS,marginBottom:10}}/>
                 <label style={LS}>Keterangan</label><input placeholder={t("ketOpsional")} value={utForm.ket} onChange={e=>setUtForm(f=>({...f,ket:e.target.value}))} style={{...IS,marginBottom:14}}/>
                 <Btn onClick={addUt} ch={t("saveNote")} style={{width:"100%",padding:11}}/>

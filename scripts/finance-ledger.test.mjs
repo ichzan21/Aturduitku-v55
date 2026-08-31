@@ -32,6 +32,10 @@ const receivablePayment=applyTransactionToWallets(wallets,{tipe:"pemasukan",jml:
 assert.equal(balances(receivablePayment)["bca-live"],3027500,"Pembayaran piutang harus menambah saldo dompet");
 const debtPayment=applyTransactionToWallets(wallets,{tipe:"pengeluaran",jml:"217.500",dompetId:"bca-live"});
 assert.equal(balances(debtPayment)["bca-live"],2592500,"Pembayaran utang harus mengurangi saldo dompet");
+const loanedOut=applyTransactionToWallets(wallets,{tipe:"piutang_keluar",jml:"217.500",dompetId:"bca-live"});
+assert.equal(balances(loanedOut)["bca-live"],2592500,"Piutang dari dompet harus mengurangi saldo dompet");
+const loanedBack=applyTransactionToWallets(loanedOut,{tipe:"piutang_masuk",jml:"217.500",dompetId:"bca-live"});
+assert.equal(balances(loanedBack)["bca-live"],2810000,"Pelunasan piutang harus mengembalikan saldo dompet");
 
 wallets=applyTransactionToWallets(wallets,{tipe:"transfer",jml:"100.000",biaya:"2.500",dompetId:"bca-live",dompetTo:"22"});
 assert.deepEqual(balances(wallets),{"22":184900,"bca-live":2707500});

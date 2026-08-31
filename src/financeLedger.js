@@ -38,6 +38,10 @@ export const walletDeltasForTransaction = transaction => {
     add(tx.dompetId, amount);
   } else if (tx.tipe === "pemasukan" || tx.tipe === "pengembalian_amplop") {
     add(tx.dompetId, amount);
+  } else if (tx.tipe === "piutang_keluar") {
+    add(tx.dompetId, -amount);
+  } else if (tx.tipe === "piutang_masuk") {
+    add(tx.dompetId, amount);
   } else if (tx.tipe === "pengeluaran") {
     // Dana Amplop dan Goal sudah keluar dari dompet saat dialokasikan. Saat
     // dipakai, transaksi tetap masuk laporan pengeluaran tanpa debit kedua.
