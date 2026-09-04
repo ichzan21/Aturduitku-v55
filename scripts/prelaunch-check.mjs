@@ -12,6 +12,7 @@ const requiredFiles = [
   "api/telegram/webhook.js",
   "api/monitoring/client-error.js",
   "api/admin/monitoring.js",
+  "api/admin/users.js",
   "api/maintenance/backup.js",
 ];
 

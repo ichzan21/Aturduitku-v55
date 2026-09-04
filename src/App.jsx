@@ -2729,6 +2729,9 @@ export default function App(){
   const [adminFilter,setAdminFilter]=useState("all");
   const [adminQuery,setAdminQuery]=useState("");
   const [adminPage,setAdminPage]=useState(1);
+  const [adminPasswordForm,setAdminPasswordForm]=useState({password:"",confirm:""});
+  const [adminPasswordBusy,setAdminPasswordBusy]=useState(false);
+  const [showAdminPassword,setShowAdminPassword]=useState(false);
   const [syncStatus,setSyncStatus]=useState("idle"); // idle | saving | saved | error | conflict
   const [syncMeta,setSyncMeta]=useState({updatedAt:null,lastBackupAt:null});
   const [syncConflict,setSyncConflict]=useState(null);
@@ -3114,6 +3117,36 @@ export default function App(){
       showToast(`⚠️ ${e.message || "Gagal update user"}`);
     }finally{
       setAdminLoading(false);
+    }
+  };
+
+  const openAdminPasswordModal = (user) => {
+    setAdminPasswordForm({password:"",confirm:""});
+    setShowAdminPassword(false);
+    setModal({type:"adminPassword",user});
+  };
+
+  const updateAdminPassword = async () => {
+    if(adminPasswordBusy)return;
+    const target=modal?.user;
+    const password=adminPasswordForm.password;
+    if(!target?.uid){showToast("User tujuan belum dipilih");return;}
+    if(password.length<8){showToast("Password minimal 8 karakter");return;}
+    if(password!==adminPasswordForm.confirm){showToast("Konfirmasi password tidak cocok");return;}
+    setAdminPasswordBusy(true);
+    try{
+      await authedJson("/api/admin/users",{
+        method:"POST",
+        body:JSON.stringify({action:"set_password",uid:target.uid,newPassword:password,confirmPassword:adminPasswordForm.confirm}),
+      });
+      showToast(`Password ${target.email||"user"} berhasil diperbarui`);
+      setAdminPasswordForm({password:"",confirm:""});
+      closeModal();
+      await loadAdminUsers();
+    }catch(error){
+      showToast(`⚠️ ${error.message||"Password user belum dapat diperbarui"}`);
+    }finally{
+      setAdminPasswordBusy(false);
     }
   };
 
@@ -7508,6 +7541,23 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           <div className={`modal-pop ${modalClosing?"closing":""}`} style={{cursor:"pointer",background:T.card,borderRadius:isMobile?"24px 24px 0 0":20,padding:isMobile?"20px max(18px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(18px, env(safe-area-inset-left))":"26px",width:"100%",maxWidth:isMobile?"100%":520,maxHeight:isMobile?"min(88svh, calc(var(--app-height, 100dvh) - 12px))":"min(92vh, calc(var(--app-height, 100dvh) - 32px))",overflowY:"auto",overflowX:"hidden",color:T.text,WebkitOverflowScrolling:"touch"}} onClick={e=>e.stopPropagation()}>
 
             {isMobile&&<div style={{width:40,height:4,borderRadius:99,background:"rgba(0,0,0,.15)",margin:"-8px auto 16px",flexShrink:0}}/>}
+            {modal.type==="adminPassword"&&<>
+              <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",marginBottom:5}}>Bantuan akses user</div>
+              <div style={{fontSize:18,fontWeight:900,color:T.text,marginBottom:4}}>Setel password baru</div>
+              <div style={{fontSize:12,color:T.muted,lineHeight:1.55,marginBottom:14}}>Untuk {modal.user?.displayName||"user"} ({modal.user?.email||"email tidak tersedia"}). Password lama akan langsung diganti.</div>
+              <div style={{fontSize:11,color:T.warn,background:T.warnBg,border:`1px solid ${T.warnBorder}`,borderRadius:10,padding:"10px 11px",lineHeight:1.5,marginBottom:14}}>Buat password sementara minimal 8 karakter, sampaikan melalui kanal pribadi, lalu minta user menggantinya setelah berhasil masuk.</div>
+              <label style={LS}>Password baru</label>
+              <div style={{position:"relative",marginBottom:10}}>
+                <input type={showAdminPassword?"text":"password"} autoComplete="new-password" value={adminPasswordForm.password} onChange={e=>setAdminPasswordForm(f=>({...f,password:e.target.value}))} placeholder="Minimal 8 karakter" style={{...IS,paddingRight:72}}/>
+                <button type="button" onClick={()=>setShowAdminPassword(v=>!v)} style={{position:"absolute",right:6,top:6,bottom:6,padding:"0 9px",borderRadius:8,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.sub,fontSize:10,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>{showAdminPassword?"Sembunyikan":"Lihat"}</button>
+              </div>
+              <label style={LS}>Ulangi password baru</label>
+              <input type={showAdminPassword?"text":"password"} autoComplete="new-password" value={adminPasswordForm.confirm} onChange={e=>setAdminPasswordForm(f=>({...f,confirm:e.target.value}))} placeholder="Ketik ulang password" style={{...IS,marginBottom:14}}/>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8}}>
+                <Btn onClick={updateAdminPassword} disabled={adminPasswordBusy} ch={adminPasswordBusy?"Menyimpan...":"Simpan password"} c={T.accent} style={{width:"100%",padding:12}}/>
+                <Btn onClick={()=>closeModal()} ch="Batal" c={T.muted} outline style={{width:"100%",padding:12}}/>
+              </div>
+            </>}
             {/* Import Mutasi Bank Modal */}
             {modal.type==="importMutasi"&&<ImportMutasiBank dompet={s.dompet} budgets={s.budgets} onImport={handleImportMutasi} onClose={()=>closeModal()} T={T}/>}
 
@@ -10033,6 +10083,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       {user.approvalStatus!=="approved"&&<Btn onClick={()=>updateAdminApproval(user.uid,"approved")} ch="Aktifkan" c={T.ok} style={{padding:"9px 16px",fontSize:12}}/>}
                       {user.approvalStatus!=="rejected"&&<Btn onClick={()=>updateAdminApproval(user.uid,"rejected")} ch="Tolak" c={T.err} outline style={{padding:"9px 16px",fontSize:12}}/>}
                       {user.approvalStatus!=="pending_review"&&<Btn onClick={()=>updateAdminApproval(user.uid,"pending_review")} ch="Jadikan menunggu" c={T.warn} outline style={{padding:"9px 16px",fontSize:12}}/>}
+                      {user.role!=="admin"&&<Btn onClick={()=>openAdminPasswordModal(user)} ch="Setel password" c={T.info} outline style={{padding:"9px 16px",fontSize:12}}/>}
                     </div>
                     <details style={{marginTop:12,paddingTop:10,borderTop:`1px solid ${T.border}`}}>
                       <summary style={{fontSize:11,fontWeight:800,color:T.muted,cursor:"pointer",userSelect:"none"}}>Detail akun</summary>
@@ -10045,6 +10096,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                         {user.orderId&&<span>Order ID: {user.orderId}</span>}
                         {user.reviewedAt&&<span>Diproses: {new Date(user.reviewedAt).toLocaleString("id-ID")}</span>}
                         {user.reviewedBy&&<span>Oleh: {user.reviewedBy}</span>}
+                        {user.passwordUpdatedAt&&<span>Password dibantu: {new Date(user.passwordUpdatedAt).toLocaleString("id-ID")}</span>}
                       </div>
                     </details>
                   </div>

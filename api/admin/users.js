@@ -1,8 +1,11 @@
-import { getAdminDb } from "../_lib/firebaseAdmin.js";
-import { requireAdmin } from "../_lib/auth.js";
+import { getAdminAuth, getAdminDb } from "../_lib/firebaseAdmin.js";
+import { getAdminEmails, requireAdmin } from "../_lib/auth.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
+import { consumeRateLimit } from "../_lib/rateLimit.js";
 
 const ALLOWED_STATUSES = ["pending_review", "approved", "rejected"];
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 128;
 
 function sortUsers(users) {
   return users.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
@@ -11,7 +14,7 @@ function sortUsers(users) {
 const ADMIN_FIELDS = [
   "email", "displayName", "photoURL", "role", "approvalStatus", "authProvider",
   "buyerEmail", "orderId", "createdAt", "lastLoginAt", "lastSeenAt",
-  "reviewedAt", "reviewedBy", "approvedAt", "approvedBy", "adminNotes",
+  "reviewedAt", "reviewedBy", "approvedAt", "approvedBy", "adminNotes", "passwordUpdatedAt", "passwordUpdatedBy",
 ];
 
 function toAdminUser(doc) {
@@ -49,6 +52,42 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       assertJsonSize(req.body, 24_000);
+      if (req.body?.action === "set_password") {
+        await consumeRateLimit(db, `admin_password_${admin.uid}`, {
+          windowMs: 15 * 60 * 1000,
+          windowLimit: 10,
+          dailyLimit: 30,
+        });
+        const uid = String(req.body?.uid || "").trim();
+        const newPassword = typeof req.body?.newPassword === "string" ? req.body.newPassword : "";
+        const confirmPassword = typeof req.body?.confirmPassword === "string" ? req.body.confirmPassword : "";
+        if (!/^[A-Za-z0-9_-]{20,}$/.test(uid)) return res.status(400).json({ error: "ID user tidak valid" });
+        if (newPassword.length < MIN_PASSWORD_LENGTH || newPassword.length > MAX_PASSWORD_LENGTH) {
+          return res.status(400).json({ error: `Password harus ${MIN_PASSWORD_LENGTH}-${MAX_PASSWORD_LENGTH} karakter` });
+        }
+        if (newPassword !== confirmPassword) return res.status(400).json({ error: "Konfirmasi password tidak cocok" });
+
+        const auth = getAdminAuth();
+        const target = await auth.getUser(uid);
+        const targetEmail = String(target.email || "").trim().toLowerCase();
+        if (target.customClaims?.admin === true || getAdminEmails().includes(targetEmail)) {
+          return res.status(403).json({ error: "Password akun admin tidak dapat diubah dari panel user" });
+        }
+        await auth.updateUser(uid, { password: newPassword });
+        const now = new Date().toISOString();
+        await Promise.all([
+          db.collection("users").doc(uid).set({ passwordUpdatedAt: now, passwordUpdatedBy: admin.email || admin.uid }, { merge: true }),
+          db.collection("_admin_audit_logs").add({
+            action: "set_user_password",
+            targetUid: uid,
+            targetEmail,
+            adminUid: admin.uid,
+            adminEmail: admin.email || "",
+            createdAt: now,
+          }),
+        ]);
+        return res.status(200).json({ ok: true });
+      }
       const { uid, approvalStatus, adminNotes = "", buyerEmail, orderId } = req.body || {};
       if (!uid || !ALLOWED_STATUSES.includes(approvalStatus)) {
         return res.status(400).json({ error: "Invalid uid or approvalStatus" });
