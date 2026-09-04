@@ -4,6 +4,9 @@ export const OPERATIONAL_TYPES = new Set(["sync_conflict", "api_network_error", 
 const browserNoise = /failed to connect to metamask|metamask|chrome-extension:\/\/|moz-extension:\/\//i;
 const recoverableStorageFailure = /connection to indexed database server lost|indexeddb.*(?:connection|database).*(?:lost|closed|closing)|database connection is closing/i;
 const serviceWorkerLifecycleFailure = /failed to (?:update|register) a serviceworker|serviceworker.*(?:unknown error|fetching the script)|failed to fetch.*(?:\/sw\.js|service worker)/i;
+// M_ID tidak pernah digunakan oleh source atau bundle AturDuitku. Ini adalah
+// error global dari script eksternal/browser dan tidak boleh menjadi insiden app.
+const externalMidNoise = /cannot read properties of undefined \(reading ['"]M_ID['"]\)/i;
 const upstreamAiTimeout = /cloudflare ai response (?:408|504)/i;
 const handledRequestFailure = /permintaan melewati batas waktu \d+ ms|failed to fetch|load failed|networkerror|koneksi ke server terputus/i;
 
@@ -11,7 +14,7 @@ export const isOpaqueScriptError = (type, message) =>
   type === "window_error" && /^script error\.?$/i.test(String(message || ""));
 
 export const isIgnoredMonitoringEvent = (type, message) =>
-  browserNoise.test(String(message || "")) || serviceWorkerLifecycleFailure.test(String(message || "")) || isOpaqueScriptError(type, message);
+  browserNoise.test(String(message || "")) || serviceWorkerLifecycleFailure.test(String(message || "")) || externalMidNoise.test(String(message || "")) || isOpaqueScriptError(type, message);
 
 export const isExpectedAiLatency = (type, route, durationMs) =>
   type === "api_slow" &&

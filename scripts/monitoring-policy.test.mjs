@@ -63,6 +63,8 @@ assert.match(
   /Pemilih file/,
 );
 assert.equal(classifyMonitoringEvent("window_error", "Script error."), "ignored");
+assert.equal(classifyMonitoringEvent("unhandled_rejection", "Cannot read properties of undefined (reading 'M_ID')"), "ignored", "Error M_ID dari script eksternal tidak boleh menjadi insiden aplikasi");
+assert.equal(classifyMonitoringEvent("window_error", "Cannot read properties of undefined (reading 'M_ID')"), "ignored");
 assert.equal(classifyMonitoringEvent("api_server_error", "Firebase unavailable"), "incident");
 assert.equal(isSevereMonitoringEvent({ type:"api_timeout", message:"Request timed out" }), false);
 assert.equal(isSevereMonitoringEvent({ type:"unhandled_rejection", message:"Permintaan melewati batas waktu 12000 ms" }), false);
