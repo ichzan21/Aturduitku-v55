@@ -60,11 +60,11 @@ async function openBudget(page, mobile) {
   const sourceSelectors = page.locator('select[aria-label^="Dompet sumber"], select[aria-label^="Funding wallet"]');
   await sourceSelectors.first().waitFor({ state:"visible", timeout:15_000 });
   if (await sourceSelectors.count() < 1) throw new Error("Pilihan dompet sumber budget tidak ditemukan");
-  const realizationDetails = page.getByRole("button", { name:/transaksi.*Lihat rincian/i }).first();
+  const realizationDetails = page.locator('button[aria-controls^="budget-realization-"]').first();
   await realizationDetails.waitFor({ state:"visible", timeout:10_000 });
   await realizationDetails.click();
   await page.getByText("Transaksi pembentuk realisasi", { exact:true }).first().waitFor({ state:"visible", timeout:10_000 });
-  await page.getByRole("button", { name:/transaksi.*Tutup rincian/i }).first().click();
+  await realizationDetails.click();
 }
 
 async function openGoals(page, mobile) {
