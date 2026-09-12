@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aturduitku-v27-landscape-session';
+const CACHE_NAME = 'aturduitku-v28-valid-assets';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -54,10 +54,24 @@ self.addEventListener('fetch', e => {
   if (isAsset) {
     e.respondWith(
       fetch(e.request, { cache: 'no-store' }).then(res => {
-          if (res.ok) {
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+          const path = new URL(e.request.url).pathname;
+          const contentType = String(res.headers.get('content-type') || '').toLowerCase();
+          const expectsScript = /\.(?:js|jsx)$/.test(path);
+          const expectsStyle = /\.css$/.test(path);
+          const validType = expectsScript
+            ? /javascript|ecmascript/.test(contentType)
+            : expectsStyle
+              ? contentType.includes('text/css')
+              : contentType.includes('text/html');
+          if (!res.ok || !validType) {
+            return caches.match(e.request).then(cached => cached || new Response('', {
+              status: 503,
+              statusText: 'Asset version expired',
+              headers: { 'Content-Type': expectsStyle ? 'text/css' : 'application/javascript' },
+            }));
           }
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
           return res;
         }).catch(() => caches.match(e.request))
     );

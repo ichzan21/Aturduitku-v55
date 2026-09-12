@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   applyTransactionToWallets,
   replaceTransactionInWallets,
@@ -8,6 +9,7 @@ import { incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } 
 
 const balances = wallets => Object.fromEntries(wallets.map(wallet => [String(wallet.id), Number(wallet.saldo)]));
 const base = [{ id:"utama", saldo:"1000000" }, { id:2, saldo:"500000" }];
+const appSource = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
 
 const income = { id:1, tipe:"pemasukan", jml:"500000", dompetId:"utama" };
 const expense = { id:2, tipe:"pengeluaran", jml:"200000", dompetId:"utama" };
@@ -57,5 +59,14 @@ assert.equal(normalizeIncomeTransaction({tipe:"pemasukan",ket:"Fee proyek",katId
 assert.equal(normalizeIncomeTransaction({tipe:"pemasukan",ket:"Fee proyek",katId:1}).incomeCategoryAuto, true, "Pemasukan hasil impor harus tetap dapat dikategorikan ulang otomatis");
 assert.equal(incomeCategoryLabel({tipe:"pemasukan",ket:"Fee proyek",katId:"Gaji"}), "Freelance", "Data lama dengan kategori default harus dianalisis ulang");
 assert.equal(incomeCategoryLabel({tipe:"pemasukan",ket:"Fee proyek",katId:"Lainnya",customKat:"Royalti"}), "Royalti", "Kategori manual user harus tetap dipertahankan");
+
+assert.match(appSource, /tipe:"transfer",jml:pN\(jml\),katId:"",customKat:"",subKat:"",goalId:""/,
+  "Transfer baru tidak boleh mewarisi kategori pengeluaran dari form sebelumnya");
+assert.match(appSource, /const txKatLabel=isTransfer\?"Transfer antar dompet"/,
+  "Transfer lama harus selalu tampil sebagai transfer antar dompet, bukan kategori pengeluaran");
+assert.match(appSource, /Transaksi pembentuk realisasi/,
+  "Realisasi budget harus dapat dibuka untuk melihat transaksi penyusunnya");
+assert.match(appSource, /aria-expanded=\{sameId\(expandedBudgetId,b\.id\)\}/,
+  "Kontrol rincian realisasi budget harus menyampaikan status buka-tutup secara aksesibel");
 
 console.log("Financial user flow tests passed");

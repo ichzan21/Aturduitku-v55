@@ -2,7 +2,7 @@ import React, { Suspense, useState, useEffect, useMemo, useRef, createContext, u
 import { createPortal } from "react-dom";
 import {
   getCurrentIdToken, onAuthChange, sendResetPassword, sendVerificationEmail, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
-} from "./firebase.js";
+} from "./firebaseClient.js";
 import { reportClientError } from "./monitoring.js";
 import { applyTransactionToWallets, confirmInternalTransferPair, displayNumber, findWallet, hasWallet, internalTransferPairsForReview, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, unlinkInternalTransferPair, walletDeltasForTransaction } from "./financeLedger.js";
 import { findBudgetSourceWallet, normalizeBudgetSourceId } from "./budgetSource.js";
@@ -3206,7 +3206,7 @@ export default function App(){
       try{
         await afterFirstPaint();
         if(disposed) return;
-        unsub = onAuthChange(async(user)=>{
+        const nextUnsub = await onAuthChange(async(user)=>{
           if(disposed) return;
           cloudSaveSequenceRef.current+=1;
           cloudVersionRef.current=0;
@@ -3266,6 +3266,8 @@ export default function App(){
           setAccessLoading(false);
           setFireLoading(false);
         });
+        if(disposed) nextUnsub();
+        else unsub=nextUnsub;
       }catch(e){
         console.warn("Firebase auth init failed:",e);
         if(disposed) return;
@@ -3608,6 +3610,7 @@ export default function App(){
   },[s.dompet]);
   const [newKat,setNewKat]=useState({kat:"",icon:"📦",kelas:"Kebutuhan",dompetId:""});
   const [showAddKat,setShowAddKat]=useState(false);
+  const [expandedBudgetId,setExpandedBudgetId]=useState(null);
   const [newSub,setNewSub]=useState({katId:null,nama:"",emoji:"📌",alokasi:"",tempo:""});
   const [habitForm,setHabitForm]=useState({nama:"Catat pengeluaran",icon:"🧾",target:"1x per hari"});
   const [habitCelebrate,setHabitCelebrate]=useState(false);
@@ -6632,7 +6635,7 @@ Saldo amplop bertambah.`}]);
       if(!isEditing&&N(sumber.saldo)<jmlNum+N(biaya)){showToast(`⚠️ ${t("toast_notEnough")} (${sumber.nama}: ${IDR(N(sumber.saldo))})`  );return;}
       if(sameId(dompetId,dompetTo)){showToast(t("toast_sameDompet"));return;}
       if(!hasWallet(s.dompet,dompetTo)){showToast(t("toast_walletNotFound"));return;}
-      const savedTx={...txForm,id,tipe:"transfer",jml:pN(jml)};
+      const savedTx={...txForm,id,tipe:"transfer",jml:pN(jml),katId:"",customKat:"",subKat:"",goalId:""};
       if(commitEditedTransaction(savedTx)!==null) return;
       setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",biaya:""}));
@@ -7018,13 +7021,22 @@ Saldo amplop bertambah.`}]);
   };
   const renderTxItem=(t,{showOrderControls=false}={})=>{
     const dompet=findWallet(s.dompet,t.dompetId);
+    const destinationWallet=t.tipe==="transfer"?findWallet(s.dompet,t.dompetTo):null;
     const spentGoal=t.goalSpendId?s.goals.find(goal=>sameId(goal.id,t.goalSpendId)):null;
     const kat=s.budgets.find(b=>b.id===t.katId);
     const isInternalTransfer=["transfer_internal_keluar","transfer_internal_masuk"].includes(t.tipe);
+    const isTransfer=t.tipe==="transfer";
     const isReceivableOut=t.tipe==="piutang_keluar";
     const isReceivableIn=t.tipe==="piutang_masuk"||t.tipe==="piutang_masuk_goal";
     const isIn=t.tipe==="pemasukan"||t.tipe==="pemasukan_transfer"||t.tipe==="transfer_internal_masuk"||isReceivableIn;
-    const txKatLabel=isInternalTransfer?"Transfer internal":t.internalTransferFeeFor?"Biaya transfer internal":isIn?incomeCategoryLabel(t):(String(t.customKat||"").trim()||kat?.kat);
+    const txKatLabel=isTransfer?"Transfer antar dompet":isInternalTransfer?"Transfer internal":t.internalTransferFeeFor?"Biaya transfer internal":isIn?incomeCategoryLabel(t):(String(t.customKat||"").trim()||kat?.kat);
+    const walletLabel=isTransfer
+      ? `${dompet?`${uiIcon(dompet.icon)} ${dompet.nama}`:"Dompet asal"} → ${destinationWallet?`${uiIcon(destinationWallet.icon)} ${destinationWallet.nama}`:"Dompet tujuan"}`
+      : spentGoal
+        ? `Goal: ${spentGoal.nama}`
+        : dompet
+          ? `${uiIcon(dompet.icon)} ${dompet.nama}`
+          : "";
     const isEnvelopeRefund=t.tipe==="pengembalian_amplop";
     const txColor=isInternalTransfer?T.accent:t.tipe==="pemasukan"||isEnvelopeRefund||isReceivableIn?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="investasi"?T.ok:t.tipe==="penyesuaian"?T.warn:t.tipe==="alokasi_amplop"||isReceivableOut?T.accent:t.tipe==="transfer"?T.accent:T.err;
     const txBg=isInternalTransfer?T.accentBg:t.tipe==="pemasukan"||isEnvelopeRefund||isReceivableIn?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer"||isReceivableOut)?T.accentBg:T.errBg;
@@ -7037,7 +7049,7 @@ Saldo amplop bertambah.`}]);
           </div>
           <div style={{minWidth:0}}>
             <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.ket||t.tipe}</div>
-            <div style={{fontSize:11,color:T.muted}}>{t.tgl}{spentGoal?` · Goal: ${spentGoal.nama}`:dompet&&` · ${uiIcon(dompet.icon)} ${dompet.nama}`}{txKatLabel&&` · ${txKatLabel}`}{t.subKat&&` › ${t.subKat}`}</div>
+            <div style={{fontSize:11,color:T.muted,lineHeight:1.45,overflowWrap:"anywhere"}}>{t.tgl}{walletLabel&&` · ${walletLabel}`}{txKatLabel&&` · ${txKatLabel}`}{!isTransfer&&t.subKat&&` › ${t.subKat}`}</div>
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
@@ -8712,6 +8724,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,300px),1fr))",gap:14}}>
                     {cats.map((b,i)=>{
                       const spend=spendByKat[b.id]||0;
+                      const realizationRows=txBulan
+                        .filter(tx=>(isCashflowExpense(tx)||["tabungan","investasi"].includes(tx.tipe))&&sameId(tx.katId,b.id))
+                        .sort(compareTransactionsNewestFirst);
                       const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
                       const pct=alloc>0?spend/alloc*100:0;
                       const unallocated=alloc<=0&&spend>0;
@@ -8732,12 +8747,36 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                             <div><label style={LS}>{lang==="en"?"Funding wallet":"Dompet sumber"}</label><select aria-label={`${lang==="en"?"Funding wallet":"Dompet sumber"} ${b.kat}`} value={sourceWallet?String(b.dompetId):""} onChange={e=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,dompetId:e.target.value})}))} style={IS}><option value="">{lang==="en"?"All wallets":"Semua dompet"}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>
                             <div><label style={LS}>Alokasi</label><CurIn value={b.alokasi} onChange={v=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,alokasi:v})}))} /></div>
                             <div><label style={LS}>Realisasi</label>
-                            <div style={{padding:"9px 12px",borderRadius:8,border:`1.5px dashed ${over?T.errBorder:unallocated?T.warnBorder:T.infoBorder}`,background:over?T.errBg:unallocated?T.warnBg:T.infoBg,color:over?T.err:unallocated?T.warn:T.info,fontWeight:700,fontSize:13}}>{IDRs(spend)||"Rp 0"}</div></div>
+                            <button type="button" aria-expanded={sameId(expandedBudgetId,b.id)} aria-controls={`budget-realization-${b.id}`} onClick={()=>setExpandedBudgetId(current=>sameId(current,b.id)?null:b.id)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1.5px dashed ${over?T.errBorder:unallocated?T.warnBorder:T.infoBorder}`,background:over?T.errBg:unallocated?T.warnBg:T.infoBg,color:over?T.err:unallocated?T.warn:T.info,textAlign:"left",cursor:"pointer",fontFamily:"inherit"}}>
+                              <span style={{display:"block",fontWeight:800,fontSize:13}}>{IDRs(spend)||"Rp 0"}</span>
+                              <span style={{display:"block",fontSize:9,fontWeight:800,marginTop:2,opacity:.78}}>{realizationRows.length} transaksi · {sameId(expandedBudgetId,b.id)?"Tutup rincian":"Lihat rincian"}</span>
+                            </button></div>
                           </div>
                           <PBar pct={pct} c={over?"#EF4444":pct>80?"#F59E0B":"#22C55E"} h={5}/>
                           <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.muted,marginTop:3,marginBottom:b.sub.length?10:0}}>
                             <span>{unallocated?"Belum ada alokasi":`${pct.toFixed(0)}% terpakai`}</span><span>Sisa: {IDR(Math.max(alloc-spend,0))}</span>
                           </div>
+                          {sameId(expandedBudgetId,b.id)&&<div id={`budget-realization-${b.id}`} style={{borderTop:`1px solid ${T.border}`,paddingTop:10,marginTop:10,marginBottom:b.sub.length?10:0}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,marginBottom:8}}>
+                              <div>
+                                <div style={{fontSize:11,fontWeight:900,color:T.text}}>Transaksi pembentuk realisasi</div>
+                                <div style={{fontSize:9,color:T.muted,lineHeight:1.45,marginTop:2}}>Berdasarkan kategori {b.kat} pada {MONTHS_L[s.bulan]} {s.tahun}. Dompet sumber adalah penanda rencana; realisasi mengikuti kategori transaksi.</div>
+                              </div>
+                              <span style={{fontSize:11,fontWeight:900,color:T.accent,whiteSpace:"nowrap"}}>{IDRs(spend)||"Rp 0"}</span>
+                            </div>
+                            {realizationRows.length?<div style={{maxHeight:260,overflowY:"auto",overscrollBehavior:"contain"}}>
+                              {realizationRows.map(tx=>{
+                                const wallet=findWallet(s.dompet,tx.dompetId);
+                                return <div key={tx.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.borderLight}`}}>
+                                  <div style={{minWidth:0}}>
+                                    <div style={{fontSize:11,fontWeight:750,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tx.ket||"Transaksi tanpa keterangan"}</div>
+                                    <div style={{fontSize:9,color:T.muted,marginTop:2}}>{tx.tgl}{wallet?` · ${uiIcon(wallet.icon)} ${wallet.nama}`:""}{tx.subKat?` · ${tx.subKat}`:""}</div>
+                                  </div>
+                                  <span style={{fontSize:11,fontWeight:900,color:T.err,whiteSpace:"nowrap"}}>-{IDRs(N(tx.jml))}</span>
+                                </div>;
+                              })}
+                            </div>:<div style={{padding:"13px 10px",background:T.cardAlt,borderRadius:9,fontSize:10,color:T.muted,textAlign:"center"}}>Belum ada transaksi yang masuk ke realisasi kategori ini.</div>}
+                          </div>}
                           {b.sub.map((sb,si)=>{
                             const billRef=`${b.id}:${si}`;
                             const paid=txBulan.some(tx=>tx.billRef===billRef);

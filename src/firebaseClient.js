@@ -38,3 +38,18 @@ export const getCurrentIdToken = async () => {
   const firebase = await loadFirebase();
   return firebase.getCurrentIdToken();
 };
+
+export const sendResetPassword = async (email) => {
+  const firebase = await loadFirebase();
+  return firebase.sendResetPassword(email);
+};
+
+export const sendVerificationEmail = async () => {
+  const firebase = await loadFirebase();
+  return firebase.sendVerificationEmail();
+};
+
+export const waitForAuthUser = async (timeoutMs) => {
+  const firebase = await loadFirebase();
+  return firebase.waitForAuthUser(timeoutMs);
+};

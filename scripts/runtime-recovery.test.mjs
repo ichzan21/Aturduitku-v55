@@ -5,6 +5,7 @@ import { getCloudDataPayload } from "../api/_lib/userCloudData.js";
 
 const appSource = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
 const mainSource = await readFile(new URL("../src/main.jsx", import.meta.url), "utf8");
+const monitoringSource = await readFile(new URL("../src/monitoring.js", import.meta.url), "utf8");
 const serviceWorkerSource = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
 assert.match(appSource, /const GoalCard=\(\{[^}]*lang="id"[^}]*\}\)=>\{/,
   "GoalCard harus memiliki fallback bahasa agar tidak memicu react_boundary");
@@ -24,14 +25,20 @@ timeoutError.code = "API_TIMEOUT";
 assert.deepEqual(classifyRuntimeFailure(timeoutError), { kind:"request_failure", message:"Permintaan melewati batas waktu 12000 ms", code:"API_TIMEOUT" });
 assert.equal(classifyRuntimeFailure(new Error("Importing a module script failed.")).kind, "module_load");
 assert.equal(classifyRuntimeFailure(new Error("Failed to fetch dynamically imported module")).kind, "module_load");
+assert.equal(classifyRuntimeFailure(new Error("'text/html' is not a valid JavaScript MIME type.")).kind, "module_load");
 assert.equal(isModuleLoadFailure("Failed to fetch dynamically imported module"), true);
 assert.equal(isRecoverableStorageFailure("IndexedDB database connection closed"), true);
 assert.equal(getRuntimeErrorMessage({ message:"Pesan aman" }), "Pesan aman");
 assert.match(appSource, /e\?\.target\?\.files\?\.\[0\]/, "Pemilih file harus aman saat event tidak lengkap");
 assert.match(mainSource, /type:'asset_load_recovery'/, "Kegagalan chunk harus masuk jalur pemulihan, bukan crash biasa");
-assert.match(serviceWorkerSource, /aturduitku-v27-landscape-session/, "Cache PWA harus berganti versi setelah dukungan landscape dan sesi diperbaiki");
+assert.match(serviceWorkerSource, /aturduitku-v28-valid-assets/, "Cache PWA harus berganti versi setelah validasi aset diperbaiki");
 assert.match(serviceWorkerSource, /fetch\(e\.request, \{ cache: 'no-store' \}\)[\s\S]*catch\(\(\) => caches\.match\(e\.request\)\)/,
   "Aset build harus network-first dengan fallback offline");
+assert.match(serviceWorkerSource, /javascript\|ecmascript[\s\S]*Asset version expired/,
+  "Service worker harus menolak HTML yang menyamar sebagai chunk JavaScript lama");
+assert.match(appSource, /from "\.\/firebaseClient\.js"/, "Firebase harus dimuat dinamis agar layar awal tidak menunggu seluruh SDK");
+assert.match(monitoringSource, /from "\.\/firebaseClient\.js"/, "Monitoring tidak boleh menarik Firebase ke bundle awal");
+assert.match(appSource, /const nextUnsub = await onAuthChange/, "Listener auth dinamis harus ditunggu sebelum unsubscribe disimpan");
 
 // Tab yang terlihat: start-up menunggu frame pertama seperti sebelumnya.
 const visibleWindow = {

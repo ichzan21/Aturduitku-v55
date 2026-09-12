@@ -56,4 +56,4 @@ export async function reportClientError(error, context = {}) {
     // Monitoring must never interrupt the customer workflow.
   }
 }
-import { getCurrentIdToken } from "./firebase.js";
+import { getCurrentIdToken } from "./firebaseClient.js";
