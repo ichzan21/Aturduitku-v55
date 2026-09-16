@@ -205,6 +205,19 @@ async function smoke(viewport, name, mutate = false) {
     await page.getByTestId("transaction-undo-button").click();
     await page.getByText(note, { exact:true }).waitFor({ state:"visible", timeout:15_000 });
 
+    const renameOnlyButton = page.getByRole("button", { name:"Ganti nama transaksi", exact:true }).first();
+    if (await renameOnlyButton.count() > 0) {
+      const renamedLinkedNote = `[E2E] rename aman ${Date.now()}`;
+      await renameOnlyButton.click();
+      await page.getByText("Ganti Nama Transaksi", { exact:true }).waitFor();
+      await page.getByLabel("Nama transaksi", { exact:true }).fill(renamedLinkedNote);
+      await page.getByRole("button", { name:"Simpan Nama", exact:true }).click();
+      await waitForModalClose(page);
+      await page.getByText(renamedLinkedNote, { exact:true }).waitFor({ state:"visible", timeout:15_000 });
+      await page.getByTestId("transaction-undo-button").click();
+      await page.getByText(renamedLinkedNote, { exact:true }).waitFor({ state:"detached", timeout:15_000 });
+    }
+
     await row.getByRole("button", { name:"Hapus" }).click();
     await page.getByRole("button", { name:/Ya, Lanjutkan|Yes, Proceed/ }).click();
     await waitForModalClose(page);

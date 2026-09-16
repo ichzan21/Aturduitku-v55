@@ -19,6 +19,10 @@ assert.deepEqual(
 assert.equal(movedDown.find(transaction => transaction.id === "kemarin"), sampleTransactions[3], "Tanggal lain tidak boleh disentuh");
 assert.equal(moveTransactionWithinDate(movedDown, "air", "up"), movedDown, "Batas atas tidak boleh menyusun ulang data");
 
+const renamedImport = { id:"import", ket:"QR 008 DOBAR COFF", displayName:"Kopi bersama klien", importRef:"bca-1" };
+assert.deepEqual(filterTransactionsForList([renamedImport], { search:"kopi bersama" }), [renamedImport], "Nama baru transaksi impor harus dapat dicari");
+assert.deepEqual(filterTransactionsForList([renamedImport], { search:"dobar" }), [renamedImport], "Keterangan asli harus tetap dapat dicari setelah transaksi diganti nama");
+
 assert.equal(resolveAccountOnboarded({ onboarded:true, data:{} }), true, "Flag onboarding eksplisit harus dipercaya");
 assert.equal(resolveAccountOnboarded({ onboarded:false, data:{ txs:[{ id:1 }] } }), true, "Data akun lama tidak boleh kembali ke onboarding");
 assert.equal(resolveAccountOnboarded({ onboarded:false, data:{ dompet:[{ nama:"Bank Jago", saldo:0 }] } }), true, "Dompet kustom menandakan onboarding sudah selesai");

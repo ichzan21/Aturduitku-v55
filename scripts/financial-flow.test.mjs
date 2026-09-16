@@ -68,11 +68,17 @@ assert.match(appSource, /Transaksi pembentuk realisasi/,
   "Realisasi budget harus dapat dibuka untuk melihat transaksi penyusunnya");
 assert.match(appSource, /aria-expanded=\{sameId\(expandedBudgetId,b\.id\)\}/,
   "Kontrol rincian realisasi budget harus menyampaikan status buka-tutup secara aksesibel");
-assert.match(appSource, /aria-label="Edit nama dan detail transaksi"/,
+assert.match(appSource, /aria-label=\{canEditTransaction\(t\)\?"Edit nama dan detail transaksi":"Ganti nama transaksi"\}/,
   "Aksi untuk mengganti nama transaksi harus mudah dikenali");
 assert.match(appSource, /Nama transaksi tidak boleh kosong/,
   "Nama transaksi hasil edit tidak boleh disimpan kosong");
 assert.match(appSource, /ket:cleanDescription/,
   "Nama transaksi harus dinormalisasi sebelum disimpan");
+assert.match(appSource, /canEditTransaction\(t\)\?openEditTransaction\(t\):openRenameTransaction\(t\)/,
+  "Semua transaksi harus memiliki aksi rename meski edit detailnya dikunci");
+assert.match(appSource, /displayName:cleanName===String\(tx\.ket\|\|tx\.tipe\|\|"Transaksi"\)\?"":cleanName/,
+  "Rename transaksi terhubung harus memakai nama tampilan tanpa merusak keterangan sumber");
+assert.match(appSource, /Hanya nama yang terlihat yang diubah/,
+  "Modal rename harus menjelaskan bahwa data keuangan tidak ikut berubah");
 
 console.log("Financial user flow tests passed");

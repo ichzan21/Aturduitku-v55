@@ -111,6 +111,7 @@ const IDRs = formatCompactRupiah;
 const fmtN = v=>{const n=String(v).replace(/\D/g,"");return n?n.replace(/\B(?=(\d{3})+(?!\d))/g,"."):"";};
 const pN   = v=>String(v).replace(/\./g,"");
 const N    = displayNumber;
+const transactionDisplayName=tx=>String(tx?.displayName||tx?.ket||tx?.tipe||"Transaksi");
 const AnimatedNumber=React.memo(function AnimatedNumber({value,format=Math.round,duration=720,className,style}){
   const target=Number.isFinite(Number(value))?Number(value):0;
   const currentRef=useRef(0);
@@ -4391,9 +4392,9 @@ export default function App(){
       .map((cmd,i)=>({...cmd,key:`action-${i}-${cmd.title}`}));
     if(q.length<2) return actions;
     const results=[];
-    s.txs.filter(tx=>`${tx.ket||""} ${tx.tipe||""} ${tx.tgl||""}`.toLowerCase().includes(q)).slice(0,6).forEach(tx=>results.push({
-      key:`tx-${tx.id}`,title:tx.ket||"Transaksi",desc:`${tx.tgl||""} · ${IDRs(N(tx.jml))}`,icon:"🧾",
-      run:()=>{setTxSearch(tx.ket||"");setTxPage(1);setPage("trans");}
+    s.txs.filter(tx=>`${transactionDisplayName(tx)} ${tx.ket||""} ${tx.tipe||""} ${tx.tgl||""}`.toLowerCase().includes(q)).slice(0,6).forEach(tx=>results.push({
+      key:`tx-${tx.id}`,title:transactionDisplayName(tx),desc:`${tx.tgl||""} · ${IDRs(N(tx.jml))}`,icon:"🧾",
+      run:()=>{setTxSearch(transactionDisplayName(tx));setTxPage(1);setPage("trans");}
     }));
     s.dompet.filter(d=>`${d.nama} ${d.tipe} ${d.norek||""}`.toLowerCase().includes(q)).slice(0,4).forEach(d=>results.push({
       key:`wallet-${d.id}`,title:d.nama,desc:`Dompet · ${IDRs(N(d.saldo))}`,icon:d.icon||"💳",
@@ -4640,7 +4641,7 @@ export default function App(){
       const kat = isInternal?"Transfer Internal":String(t.customKat||"").trim()||(t.tipe==="pemasukan"&&typeof t.katId==="string"?t.katId:"")||s.budgets.find(b=>b.id===t.katId)?.kat||"-";
       const dompet = findWallet(s.dompet,t.dompetId)?.nama||"-";
       const marker=isInternal?"↔":t.tipe==="pemasukan"?"➕":"➖";
-      return `${t.tgl} | ${marker} ${t.ket} | Rp ${Number(t.jml).toLocaleString("id-ID")} | ${kat} | ${dompet}`;
+      return `${t.tgl} | ${marker} ${transactionDisplayName(t)} | Rp ${Number(t.jml).toLocaleString("id-ID")} | ${kat} | ${dompet}`;
     }).join("\n  ") || "Belum ada transaksi";
 
     // Financial health score
@@ -5340,7 +5341,7 @@ Saldo amplop bertambah.`}]);
       const isInternalTransfer=["transfer_internal_keluar","transfer_internal_masuk"].includes(t.tipe);
       const isIncome = t.tipe==="pemasukan" || t.tipe==="pemasukan_transfer";
       const k = isInternalTransfer?"Transfer Internal":isIncome?incomeCategoryLabel(t):(String(t.customKat||"").trim()||(s.budgets.find(x => x.id === t.katId)?.kat || ""));
-      return [t.id,t.tgl,t.tipe,t.ket||"",N(t.jml),d,k,t.subKat||""].map(csvCell).join(",");
+      return [t.id,t.tgl,t.tipe,transactionDisplayName(t),N(t.jml),d,k,t.subKat||""].map(csvCell).join(",");
     });
     const BOM = "\uFEFF"; // agar Excel baca UTF-8 dengan benar
     const csv = BOM + [headers.map(csvCell).join(","), ...rows].join("\n");
@@ -5696,7 +5697,7 @@ Saldo amplop bertambah.`}]);
         const tlbl     = isGoalUsage?"[G]":TIPE_LBL[tx.tipe]||"[?]";
         const debit    = ["pengeluaran","tabungan","investasi","alokasi_amplop","transfer_internal_keluar"].includes(tx.tipe)||(tx.tipe==="penyesuaian"&&Num(tx.adjustmentDelta)<0)?idr(Num(tx.jml)):"";
         const kredit   = ["pemasukan","transfer_internal_masuk"].includes(tx.tipe)||(tx.tipe==="penyesuaian"&&Num(tx.adjustmentDelta)>0)?idr(Num(tx.jml)):"";
-        return [tx.tgl||"-", tlbl, clean(tx.ket||"-").slice(0,34), katLabel.slice(0,18), dompet.slice(0,14), debit, kredit];
+        return [tx.tgl||"-", tlbl, clean(transactionDisplayName(tx)).slice(0,34), katLabel.slice(0,18), dompet.slice(0,14), debit, kredit];
       });
       // Total row
       txRows.push(["","",isEN?"PERIOD TOTAL":"TOTAL PERIODE","","",
@@ -6264,7 +6265,7 @@ Saldo amplop bertambah.`}]);
         const dom = findWallet(s.dompet,tx.dompetId);
         rows2.push([
           {v:tx.tgl||"-", s:cell(bg,gray,false,"center")},
-          {v:tx.ket||"-", s:cell(bg,dark)},
+          {v:transactionDisplayName(tx), s:cell(bg,dark)},
           {v:tx.tipe, s:cell(isTipe.bg,isTipe.fg,true,"center")},
           {v:isInternal?(isEN?"Internal Transfer":"Transfer Internal"):tx.tipe==="pemasukan"?incomeCategoryLabel(tx):(String(tx.customKat||"").trim()||kat?.kat||(isEN?"Other":"Lainnya")), s:cell(bg,gray,false,"center")},
           {v:dom?.nama||"-", s:cell(bg,gray,false,"center")},
@@ -6549,6 +6550,29 @@ Saldo amplop bertambah.`}]);
       goalId:"",
     });
     setModal({type:"tx",editTxId:tx.id});
+  };
+
+  const openRenameTransaction=(tx)=>{
+    setModal({type:"renameTx",txId:tx.id,name:transactionDisplayName(tx)});
+  };
+
+  const saveRenamedTransaction=()=>{
+    const cleanName=String(modal?.name||"").trim().replace(/\s+/g," ").slice(0,120);
+    if(!cleanName){showToast("Nama transaksi tidak boleh kosong.");return;}
+    const previous=s.txs.find(tx=>sameId(tx.id,modal?.txId));
+    if(!previous){showToast("Transaksi tidak lagi tersedia.");closeModal();return;}
+    const nextState={
+      ...s,
+      txs:s.txs.map(tx=>sameId(tx.id,previous.id)?{
+        ...tx,
+        displayName:cleanName===String(tx.ket||tx.tipe||"Transaksi")?"":cleanName,
+        updatedAt:new Date().toISOString(),
+      }:tx),
+    };
+    setS(nextState);
+    scheduleUndo(s,nextState,"Nama transaksi diperbarui");
+    closeModal();
+    showToast("Nama transaksi berhasil diperbarui.");
   };
 
   const scheduleUndo=(beforeState,afterState,label)=>{
@@ -6919,7 +6943,7 @@ Saldo amplop bertambah.`}]);
 
   const deleteTx=(tx)=>confirmDelete({
     title:"Hapus transaksi?",
-    msg:`Transaksi "${tx.ket||tx.tipe}" akan dihapus dan saldo dompet terkait akan disesuaikan ulang.`,
+    msg:`Transaksi "${transactionDisplayName(tx)}" akan dihapus dan saldo dompet terkait akan disesuaikan ulang.`,
     toastMsg:"Transaksi dihapus",
     onConfirm:()=>{
       const p=s;
@@ -7050,7 +7074,7 @@ Saldo amplop bertambah.`}]);
             {txIcon}
           </div>
           <div style={{minWidth:0}}>
-            <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.ket||t.tipe}</div>
+            <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{transactionDisplayName(t)}</div>
             <div style={{fontSize:11,color:T.muted,lineHeight:1.45,overflowWrap:"anywhere"}}>{t.tgl}{walletLabel&&` · ${walletLabel}`}{txKatLabel&&` · ${txKatLabel}`}{!isTransfer&&t.subKat&&` › ${t.subKat}`}</div>
           </div>
         </div>
@@ -7063,10 +7087,9 @@ Saldo amplop bertambah.`}]);
             <button type="button" disabled={!transactionOrderMeta.get(String(t.id))?.canMoveUp} onClick={()=>moveSavedTransaction(t.id,"up")} title="Geser ke atas pada tanggal yang sama" aria-label="Geser transaksi ke atas" style={{width:28,height:22,borderRadius:7,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:13,fontWeight:900,cursor:transactionOrderMeta.get(String(t.id))?.canMoveUp?"pointer":"default",opacity:transactionOrderMeta.get(String(t.id))?.canMoveUp?1:.32,display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>↑</button>
             <button type="button" disabled={!transactionOrderMeta.get(String(t.id))?.canMoveDown} onClick={()=>moveSavedTransaction(t.id,"down")} title="Geser ke bawah pada tanggal yang sama" aria-label="Geser transaksi ke bawah" style={{width:28,height:22,borderRadius:7,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:13,fontWeight:900,cursor:transactionOrderMeta.get(String(t.id))?.canMoveDown?"pointer":"default",opacity:transactionOrderMeta.get(String(t.id))?.canMoveDown?1:.32,display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>↓</button>
           </div>}
-          {t.locked?<span title="Catatan otomatis" style={{fontSize:11,color:T.muted,fontWeight:800}}>AUTO</span>:<>
-            {canEditTransaction(t)&&<button type="button" onClick={()=>openEditTransaction(t)} title="Edit nama dan detail transaksi" aria-label="Edit nama dan detail transaksi" style={{width:30,height:30,borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:15,fontWeight:900,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>✎</button>}
-            <Del onClick={()=>deleteTx(t)}/>
-          </>}
+          {t.locked&&<span title="Catatan otomatis" style={{fontSize:11,color:T.muted,fontWeight:800}}>AUTO</span>}
+          <button type="button" onClick={()=>canEditTransaction(t)?openEditTransaction(t):openRenameTransaction(t)} title={canEditTransaction(t)?"Edit nama dan detail transaksi":"Ganti nama transaksi"} aria-label={canEditTransaction(t)?"Edit nama dan detail transaksi":"Ganti nama transaksi"} style={{width:30,height:30,borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:15,fontWeight:900,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>✎</button>
+          {!t.locked&&<Del onClick={()=>deleteTx(t)}/>}
         </div>
       </div>
     );
@@ -7748,6 +7771,18 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
             {/* Kalkulator Finansial */}
             {modal.type==="kalkulator"&&<KalkulatorFinansial onClose={()=>closeModal()} />}
+
+            {/* Rename-only modal keeps imported and linked transaction metadata intact. */}
+            {modal.type==="renameTx"&&<>
+              <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>Ganti Nama Transaksi</div>
+              <div style={{fontSize:12,color:T.muted,marginBottom:16,lineHeight:1.5}}>Hanya nama yang terlihat yang diubah. Nominal, saldo, dompet, kategori, dan data sumber tetap aman.</div>
+              <label htmlFor="rename-transaction-name" style={LS}>Nama transaksi</label>
+              <input id="rename-transaction-name" autoFocus maxLength={120} value={modal.name||""} onChange={e=>setModal(current=>({...current,name:e.target.value}))} placeholder="Contoh: Belanja bulanan" style={{...IS,marginBottom:14}}/>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <Btn onClick={()=>closeModal()} ch="Batal" c={T.muted} outline style={{padding:11}}/>
+                <Btn onClick={saveRenamedTransaction} ch="Simpan Nama" c={T.accent} style={{padding:11}}/>
+              </div>
+            </>}
 
             {/* TX Modal */}
             {modal.type==="tx"&&<>
@@ -8771,7 +8806,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                                 const wallet=findWallet(s.dompet,tx.dompetId);
                                 return <div key={tx.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.borderLight}`}}>
                                   <div style={{minWidth:0}}>
-                                    <div style={{fontSize:11,fontWeight:750,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tx.ket||"Transaksi tanpa keterangan"}</div>
+                                    <div style={{fontSize:11,fontWeight:750,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{transactionDisplayName(tx)}</div>
                                     <div style={{fontSize:9,color:T.muted,marginTop:2}}>{tx.tgl}{wallet?` · ${uiIcon(wallet.icon)} ${wallet.nama}`:""}{tx.subKat?` · ${tx.subKat}`:""}</div>
                                   </div>
                                   <span style={{fontSize:11,fontWeight:900,color:T.err,whiteSpace:"nowrap"}}>-{IDRs(N(tx.jml))}</span>

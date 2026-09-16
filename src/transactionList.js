@@ -48,7 +48,7 @@ export const filterTransactionsForList = (transactions = [], filters = {}) => {
   const endDate = transactionDateKey(filters.endDate);
 
   return [...transactions]
-    .filter(transaction => !search || normalizedText(transaction?.ket).includes(search))
+    .filter(transaction => !search || normalizedText(`${transaction?.displayName || ""} ${transaction?.ket || ""}`).includes(search))
     .filter(transaction => !walletId || String(transaction?.dompetId ?? "") === walletId)
     .filter(transaction => {
       const date = transactionDateKey(transaction?.tgl);
