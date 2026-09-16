@@ -6613,14 +6613,16 @@ Saldo amplop bertambah.`}]);
   const addTx=()=>{
     const {tipe,tgl,ket,jml,katId,customKat,subKat,dompetId,dompetTo,biaya,goalId}=txForm;
     if(!tgl||N(jml)<=0){showToast("⚠️ Isi tanggal dan jumlah yang valid!");return;}
+    const cleanDescription=String(ket||"").trim().replace(/\s+/g," ").slice(0,120);
+    const isEditing=modal?.editTxId!==undefined;
+    if(isEditing&&!cleanDescription){showToast("Nama transaksi tidak boleh kosong.");return;}
     const selectedExpenseCategory=s.budgets.find(b=>b.id===Number(katId));
     const usesCustomCategory=(tipe==="pemasukan"&&katId==="Lainnya")||(tipe==="pengeluaran"&&selectedExpenseCategory?.kat==="Lainnya");
     const cleanCustomCategory=String(customKat||"").trim().replace(/\s+/g," ").slice(0,40);
     if(usesCustomCategory&&!cleanCustomCategory){showToast("Isi nama kategori lainnya terlebih dahulu.");return;}
     const id=Date.now();
     const jmlNum=N(jml);
-    const draftTx={...txForm,jml:pN(jml)};
-    const isEditing=modal?.editTxId!==undefined;
+    const draftTx={...txForm,ket:cleanDescription,jml:pN(jml)};
     if(!isEditing){
       const validationError=transactionValidationError(s.dompet,draftTx);
       if(validationError==="wallet_not_found"){showToast(t("toast_walletNotFound"));return;}
@@ -6635,7 +6637,7 @@ Saldo amplop bertambah.`}]);
       if(!isEditing&&N(sumber.saldo)<jmlNum+N(biaya)){showToast(`⚠️ ${t("toast_notEnough")} (${sumber.nama}: ${IDR(N(sumber.saldo))})`  );return;}
       if(sameId(dompetId,dompetTo)){showToast(t("toast_sameDompet"));return;}
       if(!hasWallet(s.dompet,dompetTo)){showToast(t("toast_walletNotFound"));return;}
-      const savedTx={...txForm,id,tipe:"transfer",jml:pN(jml),katId:"",customKat:"",subKat:"",goalId:""};
+      const savedTx={...txForm,id,ket:cleanDescription,tipe:"transfer",jml:pN(jml),katId:"",customKat:"",subKat:"",goalId:""};
       if(commitEditedTransaction(savedTx)!==null) return;
       setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",biaya:""}));
@@ -6648,7 +6650,7 @@ Saldo amplop bertambah.`}]);
         showToast(`⚠️ ${t("toast_notEnough")} (${dompetSumber.nama}: ${IDR(N(dompetSumber.saldo))})`  );
         return;
       }
-      const savedTx={...txForm,id,jml:pN(jml),customKat:usesCustomCategory?cleanCustomCategory:""};
+      const savedTx={...txForm,id,ket:cleanDescription,jml:pN(jml),customKat:usesCustomCategory?cleanCustomCategory:""};
       if(commitEditedTransaction(savedTx)!==null) return;
       setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",goalId:""}));
@@ -6657,7 +6659,7 @@ Saldo amplop bertambah.`}]);
 
     if(tipe==="pemasukan"){
       const incomeKat = KAT_IN.includes(katId) ? katId : (inferIncomeCategory(ket)||"Lainnya");
-      const savedTx={...txForm,id,jml:pN(jml),katId:incomeKat,customKat:usesCustomCategory?cleanCustomCategory:"",subKat:"",incomeCategoryAuto:!katId};
+      const savedTx={...txForm,id,ket:cleanDescription,jml:pN(jml),katId:incomeKat,customKat:usesCustomCategory?cleanCustomCategory:"",subKat:"",incomeCategoryAuto:!katId};
       if(commitEditedTransaction(savedTx)!==null) return;
       setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",katId:"",customKat:"",subKat:"",goalId:""}));
@@ -6670,7 +6672,7 @@ Saldo amplop bertambah.`}]);
         showToast(`⚠️ Saldo ${dompetSumber.nama} tidak cukup! Saldo: ${IDR(N(dompetSumber.saldo))}`);
         return;
       }
-      const savedTx={...txForm,id,jml:pN(jml)};
+      const savedTx={...txForm,id,ket:cleanDescription,jml:pN(jml)};
       setS(p=>({
         ...p,
         dompet:applyTransactionToWallets(p.dompet,savedTx),
@@ -6681,7 +6683,7 @@ Saldo amplop bertambah.`}]);
       showToast(goalId?t("toast_savingOk"):t("toast_savingOk2"));closeModal();return;
     }
 
-    const savedTx={...txForm,id,jml:pN(jml)};
+    const savedTx={...txForm,id,ket:cleanDescription,jml:pN(jml)};
     setS(p=>({...p,txs:[savedTx,...p.txs]}));
     setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",goalId:""}));
     showToast(t("toast_txOk"));closeModal();
@@ -7062,7 +7064,7 @@ Saldo amplop bertambah.`}]);
             <button type="button" disabled={!transactionOrderMeta.get(String(t.id))?.canMoveDown} onClick={()=>moveSavedTransaction(t.id,"down")} title="Geser ke bawah pada tanggal yang sama" aria-label="Geser transaksi ke bawah" style={{width:28,height:22,borderRadius:7,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:13,fontWeight:900,cursor:transactionOrderMeta.get(String(t.id))?.canMoveDown?"pointer":"default",opacity:transactionOrderMeta.get(String(t.id))?.canMoveDown?1:.32,display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>↓</button>
           </div>}
           {t.locked?<span title="Catatan otomatis" style={{fontSize:11,color:T.muted,fontWeight:800}}>AUTO</span>:<>
-            {canEditTransaction(t)&&<button type="button" onClick={()=>openEditTransaction(t)} title="Edit transaksi" aria-label="Edit transaksi" style={{width:30,height:30,borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:15,fontWeight:900,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>✎</button>}
+            {canEditTransaction(t)&&<button type="button" onClick={()=>openEditTransaction(t)} title="Edit nama dan detail transaksi" aria-label="Edit nama dan detail transaksi" style={{width:30,height:30,borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:15,fontWeight:900,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>✎</button>}
             <Del onClick={()=>deleteTx(t)}/>
           </>}
         </div>
@@ -7749,7 +7751,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
             {/* TX Modal */}
             {modal.type==="tx"&&<>
-              <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{modal.editTxId!==undefined?"Edit Transaksi":t("newTx")}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>{modal.editTxId!==undefined?"Saldo lama akan dibalik, lalu data baru diterapkan secara otomatis.":"Catat transaksi baru dengan detail yang cukup supaya laporan tetap akurat."}</div>
+              <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{modal.editTxId!==undefined?"Edit Nama & Detail Transaksi":t("newTx")}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>{modal.editTxId!==undefined?"Ubah nama atau detail yang salah. Saldo akan disesuaikan otomatis jika nominal, tipe, atau dompet ikut berubah.":"Catat transaksi baru dengan detail yang cukup supaya laporan tetap akurat."}</div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
                 {[{v:"pengeluaran",l:t("outflow2")},{v:"pemasukan",l:t("inflow2")},{v:"tabungan",l:t("savingShort")},{v:"transfer",l:"Transfer"}].filter(({v})=>modal.editTxId===undefined||v!=="tabungan").map(({v,l})=>(
                   <button key={v} onClick={()=>setTxForm(f=>({...f,tipe:v,katId:v==="pemasukan"?"":v==="pengeluaran"?(s.budgets[0]?.id||""):v==="tabungan"?investasiBudgetId:f.katId,customKat:"",subKat:"",goalId:""}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${txForm.tipe===v?T.accent:T.inputBorder}`,background:txForm.tipe===v?T.accentBg:T.input,color:txForm.tipe===v?T.accent:T.sub}}>{l}</button>
@@ -7761,7 +7763,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <CurIn value={txForm.jml} onChange={v=>setTxForm(f=>({...f,jml:v}))} placeholder="0" style={{paddingRight:40}}/>
                 <button onClick={()=>openCalc("jml",txForm.jml,v=>setTxForm(f=>({...f,jml:v})))} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:12,fontWeight:800,color:T.accent}} title="Kalkulator" aria-label="Kalkulator">🧮</button>
               </div>
-              <label style={LS}>{t("description")}</label><input placeholder={t("txDescPlaceholder")} value={txForm.ket} onChange={e=>setTxForm(f=>({...f,ket:e.target.value}))} style={{...IS,marginBottom:10}}/>
+              <label htmlFor="transaction-name" style={LS}>{modal.editTxId!==undefined?"Nama transaksi":t("description")}</label><input id="transaction-name" autoFocus={modal.editTxId!==undefined} maxLength={120} placeholder={modal.editTxId!==undefined?"Contoh: Belanja bulanan":t("txDescPlaceholder")} value={txForm.ket} onChange={e=>setTxForm(f=>({...f,ket:e.target.value}))} style={{...IS,marginBottom:10}}/>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
                 <div><label style={LS}>{txForm.tipe==="transfer"?t("fromWallet"):t("dompet")}</label>
                 <select value={txForm.dompetId} onChange={e=>setTxForm(f=>({...f,dompetId:e.target.value}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>

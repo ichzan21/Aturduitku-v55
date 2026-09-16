@@ -187,19 +187,23 @@ async function smoke(viewport, name, mutate = false) {
 
     const transactionText = page.getByText(note, { exact:true });
     await transactionText.waitFor({ state:"visible", timeout:15_000 });
-    const row = transactionText.locator('xpath=ancestor::div[.//button[@aria-label="Edit transaksi"]][1]');
+    const row = transactionText.locator('xpath=ancestor::div[.//button[@aria-label="Edit nama dan detail transaksi"]][1]');
 
     await page.getByText("Laporan", { exact:true }).first().click();
     await page.getByText("Sumber Pemasukan", { exact:true }).waitFor({ state:"visible", timeout:15_000 });
     await page.getByText("Freelance", { exact:true }).last().waitFor({ state:"visible", timeout:10_000 });
     await openTransactions(page, false);
 
-    await row.getByRole("button", { name:"Edit transaksi" }).click();
-    await page.getByText("Edit Transaksi", { exact:true }).waitFor();
+    await row.getByRole("button", { name:"Edit nama dan detail transaksi" }).click();
+    await page.getByText("Edit Nama & Detail Transaksi", { exact:true }).waitFor();
+    const renamedNote = `${note} diperbarui`;
+    await page.getByLabel("Nama transaksi", { exact:true }).fill(renamedNote);
     await page.locator('input[inputmode="numeric"]').last().fill("2345");
     await page.getByRole("button", { name:"Simpan Perubahan", exact:true }).click();
     await waitForModalClose(page);
+    await page.getByText(renamedNote, { exact:true }).waitFor({ state:"visible", timeout:15_000 });
     await page.getByTestId("transaction-undo-button").click();
+    await page.getByText(note, { exact:true }).waitFor({ state:"visible", timeout:15_000 });
 
     await row.getByRole("button", { name:"Hapus" }).click();
     await page.getByRole("button", { name:/Ya, Lanjutkan|Yes, Proceed/ }).click();
