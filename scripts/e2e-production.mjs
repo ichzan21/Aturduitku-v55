@@ -177,6 +177,14 @@ async function smoke(viewport, name, mutate = false) {
   if (mutate) {
     await openTransactions(page, false);
     await cleanupE2ETransactions(page);
+    const importedTransaction = page.getByText(/TRANSAKSI TGL:/i).first();
+    if (await importedTransaction.count() > 0) {
+      const importedRow = importedTransaction.locator('xpath=ancestor::div[.//button[@aria-label="Edit nama dan detail transaksi"]][1]');
+      await importedRow.getByRole("button", { name:"Edit nama dan detail transaksi" }).click();
+      await page.getByText("Edit Nama & Detail Transaksi", { exact:true }).waitFor({ state:"visible", timeout:10_000 });
+      await page.locator(".modal-overlay").click({ position:{ x:5, y:5 } });
+      await waitForModalClose(page);
+    }
     const note = `[E2E] fee proyek ${Date.now()}`;
     await page.getByRole("button", { name:/Tambah Transaksi|\+ Transaksi/i }).first().click();
     await page.getByText(/Transaksi Baru|Transaksi baru/i).first().waitFor();

@@ -6526,7 +6526,7 @@ Saldo amplop bertambah.`}]);
   };
 
   const canEditTransaction=(tx)=>Boolean(
-    tx && !tx.locked && !tx.importRef && !tx.goalId && !tx.goalSpendId && !tx.asetId && !tx.amplopId && !tx.billRef &&
+    tx && !tx.locked && !tx.goalId && !tx.goalSpendId && !tx.asetId && !tx.amplopId && !tx.billRef &&
     !String(tx.ket||"").startsWith("[Rutin]") && ["pemasukan","pengeluaran","transfer"].includes(tx.tipe)
   );
 
@@ -6539,7 +6539,7 @@ Saldo amplop bertambah.`}]);
     setTxForm({
       tipe:tx.tipe,
       tgl:tx.tgl||today(),
-      ket:tx.ket||"",
+      ket:transactionDisplayName(tx),
       jml:String(tx.jml||""),
       katId:automaticIncomeCategory?"":(tx.katId??(tx.tipe==="pemasukan"?"":(s.budgets[0]?.id||""))),
       customKat:tx.customKat||"",
@@ -6607,6 +6607,7 @@ Saldo amplop bertambah.`}]);
       ...previous,
       ...nextTransaction,
       id:previous.id,
+      displayName:"",
       updatedAt:new Date().toISOString(),
       goalId:"",
       dompetTo:nextTransaction.tipe==="transfer"?nextTransaction.dompetTo:"",

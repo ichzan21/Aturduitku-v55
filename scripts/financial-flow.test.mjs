@@ -80,5 +80,11 @@ assert.match(appSource, /displayName:cleanName===String\(tx\.ket\|\|tx\.tipe\|\|
   "Rename transaksi terhubung harus memakai nama tampilan tanpa merusak keterangan sumber");
 assert.match(appSource, /Hanya nama yang terlihat yang diubah/,
   "Modal rename harus menjelaskan bahwa data keuangan tidak ikut berubah");
+assert.doesNotMatch(appSource, /tx && !tx\.locked && !tx\.importRef/,
+  "Transaksi hasil import mutasi harus dapat diedit lengkap");
+assert.match(appSource, /ket:transactionDisplayName\(tx\)/,
+  "Edit lengkap harus memuat nama tampilan terbaru dari transaksi impor");
+assert.match(appSource, /id:previous\.id,\s*displayName:""/,
+  "Edit lengkap harus menyatukan nama baru ke keterangan tanpa menyisakan override lama");
 
 console.log("Financial user flow tests passed");
