@@ -51,6 +51,22 @@ async function openTransactions(page, mobile) {
   await page.waitForTimeout(300);
 }
 
+async function openWallets(page, mobile) {
+  if (mobile) {
+    await page.getByRole("button", { name:/Dompet/ }).last().click();
+  } else {
+    await page.getByText("Dompet", { exact:true }).first().click();
+  }
+  await page.getByRole("button", { name:"Riwayat saldo", exact:true }).first().waitFor({ state:"visible", timeout:15_000 });
+  await page.waitForTimeout(500);
+  const brandLogos = page.locator('img[src^="/brand-logos/"]:visible');
+  const logoCount = await brandLogos.count();
+  for (let index = 0; index < logoCount; index += 1) {
+    const loaded = await brandLogos.nth(index).evaluate(image => image.complete && image.naturalWidth > 0);
+    if (!loaded) throw new Error(`Logo dompet ke-${index + 1} gagal dimuat`);
+  }
+}
+
 async function openBudget(page, mobile) {
   if (mobile) {
     await page.getByRole("button", { name:/Budget/ }).last().click();
@@ -148,6 +164,11 @@ async function smoke(viewport, name, mutate = false) {
   page.on("pageerror", (error) => consoleErrors.push(error.message));
 
   await login(page);
+  await openWallets(page, viewport.width < 900);
+  await waitForPageSettled(page, "Dompet");
+  await page.screenshot({ path:`${artifacts}/${name}-wallets.png`, fullPage:true });
+  await assertNoHorizontalOverflow(page, name, "wallets");
+
   await openTransactions(page, viewport.width < 900);
   const searchInput = page.getByPlaceholder(/Cari transaksi/i);
   await searchInput.fill(`[E2E-NO-MATCH] ${Date.now()}`);
