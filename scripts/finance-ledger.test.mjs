@@ -325,7 +325,9 @@ assert.equal(internalTransferPairsForReview(confirmedAgain.transactions,bankWall
 assert.equal(confirmedAgain.feeCount,1,"Tautan biaya harus bertahan setelah pemasangan ulang");
 
 // Pasangan lama tidak lagi mengganggu panel.
-assert.equal(internalTransferPairsForReview(feePaired.transactions,bankWallets,{now:"2026-10-01T00:00:00.000Z"}).length,0,
+const feePairMatchedAt=feePaired.transactions.find(tx=>tx.internalTransferPairId===feePairId)?.internalTransferMatchedAt;
+const afterReviewWindow=new Date(Date.parse(feePairMatchedAt)+8*86400000).toISOString();
+assert.equal(internalTransferPairsForReview(feePaired.transactions,bankWallets,{now:afterReviewWindow}).length,0,
   "Pasangan lama tidak perlu ditinjau lagi di panel mingguan");
 
 // Melepas tautan juga melepaskan biaya yang menempel padanya.

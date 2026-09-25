@@ -6,6 +6,7 @@ import {
 } from "../src/financeLedger.js";
 import { assertDataVersion, isMutationReplay } from "../api/_lib/dataVersion.js";
 import { incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "../src/incomeCategory.js";
+import { buildBudgetRealization, findTransactionBudget, transactionMatchesBudgetPeriod } from "../src/budgetRealization.js";
 
 const balances = wallets => Object.fromEntries(wallets.map(wallet => [String(wallet.id), Number(wallet.saldo)]));
 const base = [{ id:"utama", saldo:"1000000" }, { id:2, saldo:"500000" }];
@@ -60,12 +61,29 @@ assert.equal(normalizeIncomeTransaction({tipe:"pemasukan",ket:"Fee proyek",katId
 assert.equal(incomeCategoryLabel({tipe:"pemasukan",ket:"Fee proyek",katId:"Gaji"}), "Freelance", "Data lama dengan kategori default harus dianalisis ulang");
 assert.equal(incomeCategoryLabel({tipe:"pemasukan",ket:"Fee proyek",katId:"Lainnya",customKat:"Royalti"}), "Royalti", "Kategori manual user harus tetap dipertahankan");
 
+const transportBudget = { id:2, kat:"Transportasi", sub:[{ nama:"Bensin" }] };
+const foodBudget = { id:1, kat:"Makan & Minum", sub:[] };
+const fuelTransaction = { id:"fuel", tipe:"pengeluaran", tgl:"2026-09-25", jml:"42000", katId:"2", subKat:"Bensin" };
+const SeptemberRealization = buildBudgetRealization([fuelTransaction],[foodBudget,transportBudget]);
+assert.equal(SeptemberRealization.totalsByBudget["2"], 42000, "ID kategori string harus tetap masuk realisasi budget numerik");
+assert.equal(SeptemberRealization.rowsByBudget["2"][0].id, "fuel", "Rincian realisasi harus memuat transaksi pembentuknya");
+assert.equal(transactionMatchesBudgetPeriod(fuelTransaction,2026,8), true, "Tanggal transaksi September harus cocok dengan periode budget September");
+assert.equal(transactionMatchesBudgetPeriod(fuelTransaction,2026,7), false, "Transaksi tidak boleh masuk ke periode bulan yang berbeda");
+assert.equal(findTransactionBudget({...fuelTransaction,katId:"lama"},[foodBudget,transportBudget])?.id,2,"Subkategori unik harus memulihkan relasi kategori data lama");
+assert.equal(buildBudgetRealization([{...fuelTransaction,katId:"",subKat:""}],[foodBudget,transportBudget]).unassigned.length,1,"Transaksi tanpa kategori harus ditandai agar tidak hilang diam-diam");
+
 assert.match(appSource, /tipe:"transfer",jml:pN\(jml\),katId:"",customKat:"",subKat:"",goalId:""/,
   "Transfer baru tidak boleh mewarisi kategori pengeluaran dari form sebelumnya");
 assert.match(appSource, /const txKatLabel=isTransfer\?"Transfer antar dompet"/,
   "Transfer lama harus selalu tampil sebagai transfer antar dompet, bukan kategori pengeluaran");
 assert.match(appSource, /Transaksi pembentuk realisasi/,
   "Realisasi budget harus dapat dibuka untuk melihat transaksi penyusunnya");
+assert.match(appSource, /Realisasi mengikuti tanggal transaksi/,
+  "Halaman budget harus menjelaskan bahwa realisasi mengikuti tanggal transaksi");
+assert.match(appSource, /Pilih kategori budget agar transaksi masuk ke realisasi/,
+  "Pengeluaran manual tanpa kategori budget harus ditolak dengan pesan yang jelas");
+assert.match(appSource, /Pilih kategori budget untuk setiap pengeluaran massal/,
+  "Input massal tidak boleh membuat pengeluaran yang hilang dari realisasi budget");
 assert.match(appSource, /aria-expanded=\{sameId\(expandedBudgetId,b\.id\)\}/,
   "Kontrol rincian realisasi budget harus menyampaikan status buka-tutup secara aksesibel");
 assert.match(appSource, /aria-label=\{canEditTransaction\(t\)\?"Edit nama dan detail transaksi":"Ganti nama transaksi"\}/,
