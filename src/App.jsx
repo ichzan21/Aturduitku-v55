@@ -9,6 +9,7 @@ import { findBudgetSourceWallet, normalizeBudgetSourceId } from "./budgetSource.
 import { findGoalSourceWallet, normalizeGoalSourceId } from "./goalSource.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { uiIcon } from "./uiIcon.js";
+import { AppIcon, WalletIcon } from "./AppIcon.jsx";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
 import { afterFirstPaint, classifyRuntimeFailure, scheduleModuleLoadRecovery } from "./runtimeRecovery.js";
 import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "./incomeCategory.js";
@@ -196,7 +197,7 @@ const nowY = ()=>new Date().getFullYear();
 const MONTHS=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 const MSHORT=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
 const DAYS_SHORT=["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
-const ICONS=["🍜","🚗","🛍️","💡","💊","🎮","📚","📈","🏦","📦","✈️","🏠","👗","💻","🎵","🐾","🍕","☕","🎁","💰","🏋️","💅","🎓","🌿","🎯","📱","🚿","🎭","🍷","🎸","🏀","⚽","🚌","🧴","🎬","🧘","🍔","🌮","🎪","💈"];
+const ICONS=["FOOD","MOVE","SHOP","BILL","HEAL","FUN","EDU","INV","BANK","ETC","TRAVEL","HOME","STYL","WORK","MUS","CAFE","GIFT","CASH","FIT","CARE","STDY","PLNT","GOAL","PHN","NET","ENV","IDEA","PIN"];
 const DREAM_ICONS=["⭐","🏠","🚗","✈️","💻","👗","🎓","💍","🐾","🎵","🏋️","🌿","🍕","📸","🎮","💎","🏖️","🎯","🚀","🎺","🏄","🌏","🎭","🏕️","🛶"];
 const PIE_C=["#6366F1","#22C55E","#F59E0B","#EF4444","#3B82F6","#EC4899","#14B8A6","#8B5CF6","#F97316","#06B6D4","#84CC16","#A855F7"];
 const DOMPET_TIPE=["Bank","E-Wallet","Tunai","Investasi","Lainnya"];
@@ -206,7 +207,7 @@ const detectDebtProvider=name=>{
   if(q.includes("spaylater")||q.includes("shopee paylater")) return "Shopee PayLater";
   return DEBT_PROVIDER_OPTIONS.find(p=>p!=="Lainnya"&&q.includes(p.toLowerCase()))||"";
 };
-const DOMPET_ICONS={"Bank":"🏦","E-Wallet":"📱","Tunai":"💵","Investasi":"📈","Lainnya":"💳"};
+const DOMPET_ICONS={"Bank":"BANK","E-Wallet":"PAY","Tunai":"CASH","Investasi":"INV","Lainnya":"PAY"};
 
 // ─── TRANSLATIONS (i18n) ─────────────────────────────────────────────────────
 const MONTHS_EN=["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -1980,7 +1981,7 @@ function KomparasiBulanan({ txs, budgets, T, isMobile }) {
               const delta=v1-v2;
               return (
                 <div key={b.id} style={{display:"grid",gridTemplateColumns:"1fr 90px 90px 70px",padding:"7px 10px",borderBottom:`1px solid ${T.borderLight}`,gap:6,alignItems:"center"}}>
-                  <span style={{fontSize:11,color:T.text,fontWeight:600}}>{uiIcon(b.icon)} {b.kat}</span>
+                  <span style={{fontSize:11,color:T.text,fontWeight:600,display:"flex",alignItems:"center",gap:6}}><AppIcon icon={b.icon} size={14}/>{b.kat}</span>
                   <span style={{fontSize:11,fontWeight:700,color:T.accent}}>{v1?idr(v1):"-"}</span>
                   <span style={{fontSize:11,fontWeight:700,color:"#059669"}}>{v2?idr(v2):"-"}</span>
                   <span style={{fontSize:10,fontWeight:700,color:delta>0?T.err:delta<0?T.ok:T.muted}}>{delta>0?"↑+":"↓"}{idr(Math.abs(delta))}</span>
@@ -2103,7 +2104,7 @@ function Onboarding({ onDone, lang="id", changeLang }) {
             <div style={{display:"flex",flexDirection:"column",gap:7,maxHeight:260,overflowY:"auto",marginBottom:10}}>
               {dompetList.map(d=>(
                 <div key={d.id} style={{background:"#F5F3FF",borderRadius:11,padding:"9px 11px",display:"flex",gap:7,alignItems:"center"}}>
-                  <div style={{fontSize:20,minWidth:28,textAlign:"center"}}>{uiIcon(d.icon)}</div>
+                  <WalletIcon wallet={d} size={32}/>
                   <div style={{flex:1}}>
                     <input value={d.nama} onChange={e=>updateDompet(d.id,"nama",e.target.value)} placeholder={lang==="en"?"Account name":"Nama rekening"} style={{width:"100%",border:"1.5px solid #E9D5FF",borderRadius:7,padding:"4px 8px",fontSize:12,fontWeight:700,color:"#1F2937",background:"white",outline:"none",marginBottom:3}}/>
                     <div style={{display:"flex",gap:5,alignItems:"center"}}>
@@ -7090,12 +7091,12 @@ Saldo amplop bertambah.`}]);
     const isEnvelopeRefund=t.tipe==="pengembalian_amplop";
     const txColor=isInternalTransfer?T.accent:t.tipe==="pemasukan"||isEnvelopeRefund||isReceivableIn?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="investasi"?T.ok:t.tipe==="penyesuaian"?T.warn:t.tipe==="alokasi_amplop"||isReceivableOut?T.accent:t.tipe==="transfer"?T.accent:T.err;
     const txBg=isInternalTransfer?T.accentBg:t.tipe==="pemasukan"||isEnvelopeRefund||isReceivableIn?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer"||isReceivableOut)?T.accentBg:T.errBg;
-    const txIcon=isInternalTransfer?"↔️":isIn?"📈":isEnvelopeRefund?"↩️":isReceivableOut?"🤝":t.tipe==="tabungan"?"🏦":t.tipe==="investasi"?"💎":t.tipe==="penyesuaian"?"BAL":t.tipe==="alokasi_amplop"?"✉️":t.tipe==="transfer"?"↔️":kat?uiIcon(kat.icon):"📉";
+    const txIcon=isInternalTransfer?"transfer":isIn?"income":isEnvelopeRefund?"refund":isReceivableOut?"receivable":t.tipe==="tabungan"?"BANK":t.tipe==="investasi"?"INV":t.tipe==="penyesuaian"?"balance":t.tipe==="alokasi_amplop"?"ENV":t.tipe==="transfer"?"transfer":kat?.icon||"expense";
     return(
       <div key={t.id} className={txMotion&&sameId(txMotion.id,t.id)?(txMotion.type==="out"?"tx-row-out":"tx-row-new"):"tx-row-in"} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
           <div style={{width:36,height:36,borderRadius:10,background:txBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>
-            {txIcon}
+            <AppIcon icon={txIcon} size={18} strokeWidth={2.2}/>
           </div>
           <div style={{minWidth:0}}>
             <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{transactionDisplayName(t)}</div>
@@ -8028,7 +8029,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:2,textTransform:"uppercase",padding:"8px 10px 6px",marginTop:4}}>{section.label}</div>
                 {section.items.map(nav=>{const a=page===nav.id;return(
                   <div key={nav.id} onClick={()=>navTo(nav.id)} className="nav-item" style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",borderRadius:11,cursor:"pointer",marginBottom:4,background:a?T.navActive:"transparent",color:a?T.accent:T.sub,fontWeight:a?800:600,fontSize:13,borderLeft:a?`3px solid ${T.navBorder}`:"3px solid transparent",transition:"background .15s,color .15s"}}>
-                    <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,fontSize:16,fontWeight:700,letterSpacing:0,textAlign:"center",lineHeight:1}}>{uiIcon(nav.icon)}</span>
+                    <span style={{width:34,height:28,borderRadius:8,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><AppIcon icon={nav.id} size={17} strokeWidth={a?2.4:2}/></span>
                     <span>{nav.label}</span>
                     {a&&<span style={{marginLeft:"auto",width:6,height:6,borderRadius:"50%",background:T.accent,display:"block",boxShadow:`0 0 7px ${T.accent}`}}/>}
                   </div>
@@ -8582,7 +8583,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div key={d.id} className="stagger-in" style={{background:T.card,borderRadius:14,padding:18,border:`1px solid ${T.border}`,boxShadow:T.shadow,transition:"background .3s",animationDelay:`${Math.min(i,7)*45}ms`}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
                     <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
-                      <span style={{fontSize:26}}>{uiIcon(d.icon)}</span>
+                      <WalletIcon wallet={d} size={42}/>
                       <div><div style={{fontWeight:800,fontSize:14,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}{d.norek&&` • ${d.norek}`}</div></div>
                     </div>
                     <Del onClick={()=>requestDeleteWallet(d)} />
@@ -8767,7 +8768,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{fontSize:10,color:T.sub,lineHeight:1.5,marginBottom:12}}>{lang==="en"?"This identifies the planned funding source. Wallet balances change only when a transaction is recorded.":"Ini hanya menandai asal dana yang direncanakan. Saldo dompet baru berubah saat transaksi dicatat."}</div>
                 <label style={LS}>Pilih ikon</label>
                 <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:10,background:T.card,borderRadius:8,border:`1.5px solid ${T.infoBorder}`,marginBottom:12}}>
-                  {ICONS.slice(0,28).map(ico=><button key={ico} onClick={()=>setNewKat(f=>({...f,icon:ico}))} style={{width:34,height:34,borderRadius:7,border:`2px solid ${newKat.icon===ico?T.accent:"transparent"}`,background:newKat.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:17,fontFamily:"inherit"}}>{uiIcon(ico)}</button>)}
+                  {ICONS.map(ico=><button key={ico} type="button" title={ico} aria-label={`Pilih ikon ${ico}`} onClick={()=>setNewKat(f=>({...f,icon:ico}))} style={{width:38,height:38,borderRadius:8,border:`2px solid ${newKat.icon===ico?T.accent:"transparent"}`,background:newKat.icon===ico?T.accentBg:T.cardAlt,color:newKat.icon===ico?T.accent:T.sub,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",justifyContent:"center"}}><AppIcon icon={ico} size={18} strokeWidth={newKat.icon===ico?2.4:2}/></button>)}
                 </div>
                 <Btn onClick={()=>{if(!newKat.kat.trim()){showToast(t("toast_fillName"));return;}setS(p=>({...p,budgets:[...p.budgets,{id:Date.now(),kat:newKat.kat,icon:newKat.icon,kelas:newKat.kelas,dompetId:newKat.dompetId,alokasi:"0",sub:[]}]}));setNewKat({kat:"",icon:"ETC",kelas:"Kebutuhan",dompetId:""});setShowAddKat(false);showToast("Kategori ditambahkan!");}} ch="Simpan kategori" style={{padding:"10px 20px"}}/>
               </div>}
@@ -8816,7 +8817,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       return(
                         <div key={b.id} className="stagger-in" style={{background:T.card,borderRadius:13,padding:16,border:`1px solid ${over?T.errBorder:unallocated?T.warnBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s",animationDelay:`${Math.min(i,7)*45}ms`}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                            <div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:20}}>{uiIcon(b.icon)}</span><span style={{fontWeight:700,fontSize:13,color:T.text}}>{b.kat}</span></div>
+                            <div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{width:34,height:34,borderRadius:9,background:T.accentBg,color:T.accent,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><AppIcon icon={b.icon} size={18} strokeWidth={2.2}/></span><span style={{fontWeight:700,fontSize:13,color:T.text}}>{b.kat}</span></div>
                             <div style={{display:"flex",gap:6,alignItems:"center"}}>
                               <Pill c={statusColor} ch={statusLabel} xs/>
                               <button onClick={()=>confirmDelete({title:"Hapus kategori budget?",msg:`Kategori "${b.kat}" beserta subkategori di dalamnya akan dihapus. Transaksi lama tetap tersimpan.`,toastMsg:"Kategori budget dihapus",onConfirm:()=>setS(p=>({...p,budgets:p.budgets.filter(x=>x.id!==b.id)}))})} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:11,fontWeight:800,padding:"2px 5px",borderRadius:4,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>Hapus</button>
@@ -9320,7 +9321,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <Sec t={t("walletSection")} right={<button onClick={()=>setPage("dompet")} style={{fontSize:11,color:T.accent,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Kelola →</button>}/>
                 {s.dompet.map(d=>(
                   <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
-                    <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}><span style={{fontSize:20}}>{uiIcon(d.icon)}</span><div><div style={{fontSize:13,fontWeight:600,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}</div></div></div>
+                    <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}><WalletIcon wallet={d} size={36}/><div><div style={{fontSize:13,fontWeight:600,color:T.text}}>{d.nama}</div><div style={{fontSize:11,color:T.muted}}>{d.tipe}</div></div></div>
                     <span style={{fontWeight:700,color:T.text}}><MaskedValue blur={blurSaldo} v={IDR(N(d.saldo))}/></span>
                   </div>
                 ))}
@@ -9686,7 +9687,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       <div key={b.id} style={{background:T.cardAlt,border:`1px solid ${over?T.errBorder:T.border}`,borderRadius:16,padding:12,boxShadow:"0 8px 18px rgba(88,28,135,.05)",overflow:"hidden"}}>
                         <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",marginBottom:10}}>
                           <div style={{display:"flex",gap:9,alignItems:"center",minWidth:0}}>
-                            <span style={{width:34,height:34,borderRadius:12,background:T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{uiIcon(b.icon)}</span>
+                            <span style={{width:34,height:34,borderRadius:9,background:T.accentBg,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><AppIcon icon={b.icon} size={18} strokeWidth={2.2}/></span>
                             <div style={{minWidth:0}}>
                               <div style={{fontSize:13,fontWeight:900,color:T.text,lineHeight:1.25,wordBreak:"break-word"}}>{b.kat}</div>
                               <div style={{fontSize:10,color:T.muted,marginTop:2}}>Alokasi {IDRs(alloc)}</div>
@@ -9722,7 +9723,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 const spend=reportSpendByKat[b.id]||0;const pct=alloc>0?spend/alloc*100:0;const over=alloc>0&&spend>alloc;
                 return(
                   <div key={b.id} style={{display:"grid",gridTemplateColumns:"minmax(160px,1fr) 110px 110px minmax(150px,1fr) 78px",padding:"9px 0",borderBottom:`1px solid ${T.borderLight}`,gap:10,alignItems:"center"}}>
-                    <span style={{fontSize:12,display:"flex",gap:6,alignItems:"center",color:T.text,minWidth:0}}><span style={{flexShrink:0}}>{uiIcon(b.icon)}</span><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.kat}</span></span>
+                    <span style={{fontSize:12,display:"flex",gap:7,alignItems:"center",color:T.text,minWidth:0}}><span style={{flexShrink:0,color:T.accent}}><AppIcon icon={b.icon} size={16}/></span><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.kat}</span></span>
                     <span style={{fontSize:12,color:T.sub}}>{IDRs(alloc)}</span>
                     <span style={{fontSize:12,fontWeight:600,color:over?T.err:T.text}}>{IDRs(spend)}</span>
                     <PBar pct={Math.min(pct,100)} c={over?"#EF4444":pct>80?"#F59E0B":"#22C55E"}/>
@@ -10244,7 +10245,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
       {isMobile&&<nav className="bottom-nav" style={{background:T.nav,borderTopColor:T.border,display:(keyboardOpen||sidebarOpen||moreOpen||quickOpen||aiOpen||modal||notifOpen||commandOpen)?"none":"flex"}}>
         {[NAV[0],NAV[1],NAV[2],NAV[3]].map(nav=>{const a=page===nav.id;const go=()=>navTo(nav.id);return(
           <button key={nav.id} type="button" onClick={go} className="bottom-nav-item" style={{color:a?T.accent:T.muted}}>
-            <span style={{minWidth:34,padding:"4px 6px",borderRadius:999,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,fontSize:16,fontWeight:700,letterSpacing:0,lineHeight:1,transition:"transform .15s",transform:a?"scale(1.05)":"scale(1)"}}>{uiIcon(nav.icon)}</span>
+            <span style={{width:34,height:28,borderRadius:8,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,display:"inline-flex",alignItems:"center",justifyContent:"center",transition:"transform .15s",transform:a?"scale(1.05)":"scale(1)"}}><AppIcon icon={nav.id} size={17} strokeWidth={a?2.4:2}/></span>
             <span style={{fontSize:9,fontWeight:a?800:500}}>{nav.label}</span>
             {a&&<span style={{width:4,height:4,borderRadius:"50%",background:T.accent,marginTop:1,boxShadow:`0 0 6px ${T.accent}`}}/>}
           </button>
