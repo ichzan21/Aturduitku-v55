@@ -2773,6 +2773,7 @@ export default function App(){
 
   const [page,setPageState]=useState("home");
   const pageRef=useRef("home");
+  const mainScrollRef=useRef(null);
   const [pageBack,setPageBack]=useState(false);
   const setPage=nextPage=>{
     const target=typeof nextPage==="function"?nextPage(pageRef.current):nextPage;
@@ -2784,6 +2785,9 @@ export default function App(){
     pageRef.current=target;
     setPageState(target);
   };
+  useEffect(()=>{
+    mainScrollRef.current?.scrollTo({top:0,left:0,behavior:"auto"});
+  },[page]);
   const [toast,setToast]=useState("");
   const [toastClosing,setToastClosing]=useState(false);
   const toastTimersRef=useRef([]);
@@ -8050,7 +8054,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
       )}
 
       {/* ── MAIN CONTENT ── */}
-      <div className="app-main-scroll" style={{flex:1,height:"var(--app-height, 100dvh)",overflowY:"auto",overflowX:"hidden",minWidth:0,maxWidth:"100%",width:0,background:T.bg,transition:"background .3s",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain"}}>
+      <div ref={mainScrollRef} className="app-main-scroll" style={{flex:1,height:"var(--app-height, 100dvh)",overflowY:"auto",overflowX:"hidden",minWidth:0,maxWidth:"100%",width:0,background:T.bg,transition:"background .3s",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain"}}>
         {/* Topbar */}
         <div className="topbar-safe" style={{background:T.topbar,backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderBottom:`1.5px solid ${T.border}`,padding:isMobile?`10px max(14px,env(safe-area-inset-right)) 10px max(14px,env(safe-area-inset-left))`:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50,transition:"background .3s,border-color .3s"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0,flex:1}}>

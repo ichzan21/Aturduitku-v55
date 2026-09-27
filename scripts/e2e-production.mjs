@@ -101,6 +101,8 @@ async function openSettings(page, mobile) {
   }
   const layout = page.getByTestId("settings-layout");
   await layout.waitFor({ state:"visible", timeout:15_000 });
+  const scrollTop = await page.locator(".app-main-scroll").evaluate(element => element.scrollTop);
+  if (scrollTop > 1) throw new Error(`Halaman Setting tidak dimulai dari atas: scrollTop ${scrollTop}`);
   if (!mobile) {
     const leftCardGap = await layout.locator(":scope > div").nth(1).evaluate(element => {
       const lastChild = element.lastElementChild;
