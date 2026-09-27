@@ -192,6 +192,14 @@ async function outsideBudgetCount(page) {
   return Number(match?.[0] || 0);
 }
 
+async function activeBudgetDate(page) {
+  const periodText = await page.locator('[aria-label="Pilih periode budget"]').innerText();
+  const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+  const match = periodText.match(new RegExp(`(${months.join("|")})\\s+(\\d{4})`));
+  if (!match) throw new Error(`Periode budget aktif tidak dapat dibaca: ${periodText}`);
+  return `${match[2]}-${String(months.indexOf(match[1]) + 1).padStart(2,"0")}-15`;
+}
+
 async function smoke(viewport, name, mutate = false) {
   const context = await browser.newContext({ viewport, locale:"id-ID", timezoneId:"Asia/Makassar" });
   const page = await context.newPage();
@@ -242,11 +250,13 @@ async function smoke(viewport, name, mutate = false) {
 
     await openBudget(page, false);
     const outsideBudgetBefore = await outsideBudgetCount(page);
+    const outsideBudgetDate = await activeBudgetDate(page);
     await openTransactions(page, false);
     const outsideBudgetNote = `[E2E] di luar budget ${Date.now()}`;
     await page.getByRole("button", { name:/Tambah Transaksi|\+ Transaksi/i }).first().click();
     const transactionModal = page.locator(".modal-overlay");
     await transactionModal.getByText(/Transaksi Baru|Transaksi baru/i).first().waitFor();
+    await transactionModal.locator('input[type="date"]').fill(outsideBudgetDate);
     await transactionModal.locator("select").nth(1).selectOption("");
     await transactionModal.locator('input[inputmode="numeric"]').last().fill("4321");
     await transactionModal.getByPlaceholder(/Makan siang/i).fill(outsideBudgetNote);
