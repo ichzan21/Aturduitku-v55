@@ -255,7 +255,11 @@ async function smoke(viewport, name, mutate = false) {
     await transactionModal.getByRole("button", { name:"Simpan Transaksi", exact:true }).click();
     await waitForModalClose(page);
     await page.getByText(outsideBudgetNote, { exact:true }).waitFor({ state:"visible", timeout:15_000 });
-    await page.getByText("Donasi E2E", { exact:true }).waitFor({ state:"visible", timeout:10_000 });
+    const outsideBudgetRow = page.getByText(outsideBudgetNote, { exact:true }).locator('xpath=ancestor::div[.//button[@aria-label="Edit nama dan detail transaksi"]][1]');
+    const outsideBudgetRowText = await outsideBudgetRow.innerText();
+    if (!outsideBudgetRowText.includes("Donasi E2E")) {
+      throw new Error(`Label kategori bebas tidak tampil pada transaksi: ${outsideBudgetRowText}`);
+    }
 
     await openBudget(page, false);
     const outsideBudgetAfter = await outsideBudgetCount(page);
@@ -264,7 +268,6 @@ async function smoke(viewport, name, mutate = false) {
     }
 
     await openTransactions(page, false);
-    const outsideBudgetRow = page.getByText(outsideBudgetNote, { exact:true }).locator('xpath=ancestor::div[.//button[@aria-label="Edit nama dan detail transaksi"]][1]');
     await outsideBudgetRow.getByRole("button", { name:"Edit nama dan detail transaksi" }).click();
     const editOutsideBudgetModal = page.locator(".modal-overlay");
     await editOutsideBudgetModal.getByText("Edit Nama & Detail Transaksi", { exact:true }).waitFor();
