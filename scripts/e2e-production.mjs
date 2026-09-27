@@ -104,11 +104,31 @@ async function openSettings(page, mobile) {
   const scrollTop = await page.locator(".app-main-scroll").evaluate(element => element.scrollTop);
   if (scrollTop > 1) throw new Error(`Halaman Setting tidak dimulai dari atas: scrollTop ${scrollTop}`);
   if (!mobile) {
-    const leftCardGap = await layout.locator(":scope > div").nth(1).evaluate(element => {
-      const lastChild = element.lastElementChild;
-      return lastChild ? element.getBoundingClientRect().bottom - lastChild.getBoundingClientRect().bottom : 0;
+    const columns = page.getByTestId("settings-columns");
+    const columnLayout = await columns.evaluate(element => {
+      const group = element.querySelector(":scope > .settings-flow-group");
+      const cards = [
+        ...[...element.children].filter(child => child !== group),
+        ...[...(group?.children || [])],
+      ];
+      const rects = cards.map(card => {
+        const rect = card.getBoundingClientRect();
+        return {left:Math.round(rect.left),right:Math.round(rect.right),top:Math.round(rect.top),bottom:Math.round(rect.bottom),width:Math.round(rect.width)};
+      });
+      const bottoms = new Map();
+      rects.forEach(rect => bottoms.set(rect.left,Math.max(bottoms.get(rect.left) || 0,rect.bottom)));
+      const columnBottoms = [...bottoms.values()];
+      return {
+        clientWidth:element.clientWidth,
+        scrollWidth:element.scrollWidth,
+        rects,
+        columnCount:columnBottoms.length,
+        bottomDifference:columnBottoms.length===2?Math.abs(columnBottoms[0]-columnBottoms[1]):0,
+      };
     });
-    if (leftCardGap > 40) throw new Error(`Kartu setting menyisakan ruang kosong ${Math.round(leftCardGap)}px`);
+    if (columnLayout.scrollWidth > columnLayout.clientWidth + 1) throw new Error(`Setting overflow horizontal: ${JSON.stringify(columnLayout)}`);
+    if (columnLayout.rects.some(rect => rect.width < 300)) throw new Error(`Kartu Setting terlalu sempit: ${JSON.stringify(columnLayout)}`);
+    if (columnLayout.columnCount===2&&columnLayout.bottomDifference>220) throw new Error(`Kolom Setting belum seimbang: ${JSON.stringify(columnLayout)}`);
   }
 }
 

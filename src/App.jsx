@@ -9823,7 +9823,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               SETTING
           ══════════════════════════════════════════════════════════ */}
           {page==="setting"&&(
-            <div data-testid="settings-layout" style={{display:"grid",gridTemplateColumns:isMobile?"minmax(0,1fr)":"minmax(0,1fr) minmax(0,1fr)",gap:isMobile?14:18,alignItems:"start"}}>
+            <div data-testid="settings-layout" style={{display:"flex",flexDirection:"column",gap:isMobile?14:18}}>
               <Card ch={<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"auto 1fr auto",gap:14,alignItems:"center"}}>
                 <img src={fireUser?.photoURL || "/icon-192.png"} alt="" style={{width:58,height:58,borderRadius:18,objectFit:"cover",boxShadow:`0 10px 24px ${T.accentPop}`,border:`2px solid ${T.border}`,flexShrink:0}}/>
                 <div style={{minWidth:0}}>
@@ -9839,6 +9839,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <Btn onClick={exportJSON} ch="Backup" c={T.ok} outline style={{padding:"9px 12px",fontSize:12}}/>
                 </div>
               </div>} style={{gridColumn:"1/-1",padding:isMobile?14:"16px 18px"}}/>
+              <div data-testid="settings-columns" className="settings-flow" style={{columnCount:isMobile||isTablet?1:2,columnGap:isMobile?14:18}}>
               <Card ch={<>
                 <Sec t={t("profile")}/>
                 <label style={LS}>{t("displayName")}</label><input value={sfForm.name} onChange={e=>setSfForm(f=>({...f,name:e.target.value}))} style={{...IS,marginBottom:10}}/>
@@ -9905,29 +9906,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <div><label style={LS}>{t("year")}</label><select value={s.tahun} onChange={e=>setS(p=>({...p,tahun:e.target.value}))} style={IS}>{YEAR_OPTIONS.map(y=><option key={y}>{y}</option>)}</select></div>
                 </div>
                 
-                <div style={{marginBottom:12}}>
-                  <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>EXPORT DATA</div>
-                  <div style={{background:dark?"#1F1035":"#F0EBFF",borderRadius:10,padding:"12px",border:`1px solid ${T.border}`}}>
-                    <div style={{fontSize:12,fontWeight:700,color:T.accent,marginBottom:4}}>Export laporan</div>
-                    <div style={{fontSize:11,color:T.muted,lineHeight:1.6}}>Gunakan tombol <strong>Export Sheets</strong> atau <strong>Export PDF</strong> di halaman Laporan untuk download data kamu.</div>
-                  </div>
-                                  </div>
                 <Btn onClick={()=>{setS(p=>({...p,name:sfForm.name,targetDana:sfForm.targetDana,prevPemasukan:sfForm.prevPemasukan,prevPengeluaran:sfForm.prevPengeluaran}));showToast("Tersimpan!");}} ch={lang==="en"?"Save Changes":"Simpan perubahan"} style={{width:"100%",padding:11}}/>
-                <div style={{marginTop:16,paddingTop:14,borderTop:`1.5px solid ${T.errBorder}`}}>
-                  <div style={{fontSize:10,fontWeight:700,color:T.err,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Zona berbahaya</div>
-                  <button onClick={()=>setModal({type:"confirm",title:"Reset Semua Data",msg:"Tindakan ini akan menghapus SEMUA data keuanganmu secara permanen. Yakin ingin melanjutkan?",danger:true,onConfirm:()=>{
-              localStorage.removeItem("aturduitku_data");
-              localStorage.removeItem("aturduitku_onboarded");
-              setS(INIT);
-              setOnboarded(false);
-              closeModal();
-              showToast("Semua data berhasil direset!");
-            }})} style={{width:"100%",padding:10,borderRadius:10,border:`1.5px solid ${T.errBorder}`,background:T.errBg,color:T.err,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
-                    Reset semua data
-                  </button>
-                </div>
               </>}/>
-              <div style={{display:"grid",gap:14,alignContent:"start"}}>
+              <div className="settings-flow-group">
                 <Card ch={<>
                   <Sec t="Privasi & Keamanan" sub="Proteksi akun aktif tanpa menyimpan secret AI di browser."/>
                   <div className="security-grid" style={{display:"grid",gap:9}}>
@@ -10123,6 +10104,22 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     )}
                   </div>
                 )}/>
+
+                <Card ch={<>
+                  <Sec t="Zona Berbahaya" sub="Tindakan permanen untuk mengosongkan akun ini."/>
+                  <div style={{fontSize:11,color:T.muted,lineHeight:1.55,marginBottom:12}}>Gunakan hanya bila ingin memulai ulang. Semua dompet, transaksi, budget, goal, dan pengaturan keuangan akan dihapus.</div>
+                  <button onClick={()=>setModal({type:"confirm",title:"Reset Semua Data",msg:"Tindakan ini akan menghapus SEMUA data keuanganmu secara permanen. Yakin ingin melanjutkan?",danger:true,onConfirm:()=>{
+                    localStorage.removeItem("aturduitku_data");
+                    localStorage.removeItem("aturduitku_onboarded");
+                    setS(INIT);
+                    setOnboarded(false);
+                    closeModal();
+                    showToast("Semua data berhasil direset!");
+                  }})} style={{width:"100%",padding:10,borderRadius:10,border:`1.5px solid ${T.errBorder}`,background:T.errBg,color:T.err,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
+                    Reset semua data
+                  </button>
+                </>}/>
+              </div>
               </div>
             </div>
           )}
@@ -10292,6 +10289,16 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
         @keyframes aiTypingDot {
           0%,80%,100%{transform:scale(0.6);opacity:0.4;}
           40%{transform:scale(1);opacity:1;}
+        }
+        .settings-flow-group { display:contents; }
+        .settings-flow > div:not(.settings-flow-group),
+        .settings-flow-group > div {
+          display:inline-block;
+          width:100%;
+          margin:0 0 14px;
+          vertical-align:top;
+          break-inside:avoid;
+          page-break-inside:avoid;
         }
         /* ── Float Button ── */
         .ai-float-btn {
