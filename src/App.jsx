@@ -198,6 +198,7 @@ const MONTHS=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus"
 const MSHORT=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
 const DAYS_SHORT=["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
 const ICONS=["FOOD","MOVE","SHOP","BILL","HEAL","FUN","EDU","INV","BANK","ETC","TRAVEL","HOME","STYL","WORK","MUS","CAFE","GIFT","CASH","FIT","CARE","STDY","PLNT","GOAL","PHN","NET","ENV","IDEA","PIN"];
+const SUBCATEGORY_ICONS=["🍽️","🚗","🛍️","💡","💊","🎮","📚","📈","🏦","📦","✈️","🏠","👗","💻","🎵","🍕","☕","🎁","💰","🏋️","🎓","🌿","🎯","📱"];
 const DREAM_ICONS=["⭐","🏠","🚗","✈️","💻","👗","🎓","💍","🐾","🎵","🏋️","🌿","🍕","📸","🎮","💎","🏖️","🎯","🚀","🎺","🏄","🌏","🎭","🏕️","🛶"];
 const PIE_C=["#6366F1","#22C55E","#F59E0B","#EF4444","#3B82F6","#EC4899","#14B8A6","#8B5CF6","#F97316","#06B6D4","#84CC16","#A855F7"];
 const DOMPET_TIPE=["Bank","E-Wallet","Tunai","Investasi","Lainnya"];
@@ -8815,7 +8816,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       const statusLabel=unallocated?"Perlu budget":over?t("overLabel"):pct>80?t("almostLabel"):t("safeLabel");
                       const sourceWallet=findBudgetSourceWallet(s.dompet,b.dompetId);
                       return(
-                        <div key={b.id} className="stagger-in" style={{background:T.card,borderRadius:13,padding:16,border:`1px solid ${over?T.errBorder:unallocated?T.warnBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s",animationDelay:`${Math.min(i,7)*45}ms`}}>
+                        <div key={b.id} data-testid="budget-category-card" className="stagger-in" style={{background:T.card,borderRadius:13,padding:16,border:`1px solid ${over?T.errBorder:unallocated?T.warnBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s",animationDelay:`${Math.min(i,7)*45}ms`,minWidth:0}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                             <div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{width:34,height:34,borderRadius:9,background:T.accentBg,color:T.accent,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><AppIcon icon={b.icon} size={18} strokeWidth={2.2}/></span><span style={{fontWeight:700,fontSize:13,color:T.text}}>{b.kat}</span></div>
                             <div style={{display:"flex",gap:6,alignItems:"center"}}>
@@ -8823,13 +8824,13 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                               <button onClick={()=>confirmDelete({title:"Hapus kategori budget?",msg:`Kategori "${b.kat}" beserta subkategori di dalamnya akan dihapus. Transaksi lama tetap tersimpan.`,toastMsg:"Kategori budget dihapus",onConfirm:()=>setS(p=>({...p,budgets:p.budgets.filter(x=>x.id!==b.id)}))})} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:11,fontWeight:800,padding:"2px 5px",borderRadius:4,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>Hapus</button>
                             </div>
                           </div>
-                          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(150px,1.1fr) 1fr 1fr",gap:8,marginBottom:10}}>
-                            <div><label style={LS}>{lang==="en"?"Funding wallet":"Dompet sumber"}</label><select aria-label={`${lang==="en"?"Funding wallet":"Dompet sumber"} ${b.kat}`} value={sourceWallet?String(b.dompetId):""} onChange={e=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,dompetId:e.target.value})}))} style={IS}><option value="">{lang==="en"?"All wallets":"Semua dompet"}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>
-                            <div><label style={LS}>Alokasi</label><CurIn value={b.alokasi} onChange={v=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,alokasi:v})}))} /></div>
-                            <div><label style={LS}>Realisasi</label>
-                            <button type="button" aria-expanded={sameId(expandedBudgetId,b.id)} aria-controls={`budget-realization-${b.id}`} onClick={()=>setExpandedBudgetId(current=>sameId(current,b.id)?null:b.id)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1.5px dashed ${over?T.errBorder:unallocated?T.warnBorder:T.infoBorder}`,background:over?T.errBg:unallocated?T.warnBg:T.infoBg,color:over?T.err:unallocated?T.warn:T.info,textAlign:"left",cursor:"pointer",fontFamily:"inherit"}}>
-                              <span style={{display:"block",fontWeight:800,fontSize:13}}>{IDRs(spend)||"Rp 0"}</span>
-                              <span style={{display:"block",fontSize:9,fontWeight:800,marginTop:2,opacity:.78}}>{realizationRows.length} transaksi · {sameId(expandedBudgetId,b.id)?"Tutup rincian":"Lihat rincian"}</span>
+                          <div data-testid="budget-allocation-grid" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:8,marginBottom:10,minWidth:0}}>
+                            <div style={{gridColumn:"1/-1",minWidth:0}}><label style={LS}>{lang==="en"?"Funding wallet":"Dompet sumber"}</label><select aria-label={`${lang==="en"?"Funding wallet":"Dompet sumber"} ${b.kat}`} value={sourceWallet?String(b.dompetId):""} onChange={e=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,dompetId:e.target.value})}))} style={{...IS,minWidth:0,marginBottom:0}}><option value="">{lang==="en"?"All wallets":"Semua dompet"}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>
+                            <div style={{minWidth:0}}><label style={LS}>Alokasi</label><CurIn value={b.alokasi} onChange={v=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,alokasi:v})}))} style={{minWidth:0,height:58,fontSize:14,fontWeight:750,margin:0}}/></div>
+                            <div style={{minWidth:0}}><label style={LS}>Realisasi</label>
+                            <button type="button" aria-expanded={sameId(expandedBudgetId,b.id)} aria-controls={`budget-realization-${b.id}`} onClick={()=>setExpandedBudgetId(current=>sameId(current,b.id)?null:b.id)} style={{width:"100%",minWidth:0,height:58,padding:"8px 10px",borderRadius:9,border:`1.5px dashed ${over?T.errBorder:unallocated?T.warnBorder:T.infoBorder}`,background:over?T.errBg:unallocated?T.warnBg:T.infoBg,color:over?T.err:unallocated?T.warn:T.info,textAlign:"left",cursor:"pointer",fontFamily:"inherit",overflow:"hidden"}}>
+                              <span style={{display:"block",fontWeight:850,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{IDRs(spend)||"Rp 0"}</span>
+                              <span style={{display:"block",fontSize:9,fontWeight:800,marginTop:3,opacity:.78,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{realizationRows.length} transaksi · {sameId(expandedBudgetId,b.id)?"Tutup rincian":"Lihat rincian"}</span>
                             </button></div>
                           </div>
                           <PBar pct={pct} c={over?"#EF4444":pct>80?"#F59E0B":"#22C55E"} h={5}/>
@@ -8870,7 +8871,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                                   onChange={e=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:x.sub.map((item,j)=>j===si?{...item,emoji:e.target.value}:item)})}))}
                                   style={{width:44,height:44,flex:"0 0 44px",borderRadius:9,border:`1px solid ${T.border}`,background:T.card,color:T.text,fontSize:18,textAlign:"center",cursor:"pointer",fontFamily:"inherit"}}
                                 >
-                                  {[uiIcon(sb.emoji),...ICONS].filter((icon,index,all)=>all.indexOf(icon)===index).map(icon=><option key={icon} value={icon}>{icon}</option>)}
+                                  {[uiIcon(sb.emoji),...SUBCATEGORY_ICONS].filter((icon,index,all)=>all.indexOf(icon)===index).map(icon=><option key={icon} value={icon}>{icon}</option>)}
                                 </select>
                                 <div><div style={{fontSize:12,fontWeight:600,color:T.text}}>{sb.nama}</div>{sb.tempo&&<div style={{fontSize:10,color:T.muted}}>Tagihan tgl {sb.tempo}</div>}</div>
                               </div>
@@ -8890,7 +8891,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
                                 <div><label style={{...LS,fontSize:9}}>Emoji</label>
                                 <div style={{display:"flex",flexWrap:"wrap",gap:3,padding:5,background:T.card,borderRadius:6,border:`1px solid ${T.infoBorder}`}}>
-                                  {ICONS.slice(0,16).map(ic=><button key={ic} onClick={()=>setNewSub(f=>({...f,emoji:ic}))} style={{width:26,height:26,borderRadius:5,border:`1.5px solid ${newSub.emoji===ic?T.accent:"transparent"}`,background:newSub.emoji===ic?T.accentBg:"transparent",cursor:"pointer",fontSize:13,fontFamily:"inherit"}}>{ic}</button>)}
+                                  {SUBCATEGORY_ICONS.slice(0,16).map(ic=><button key={ic} onClick={()=>setNewSub(f=>({...f,emoji:ic}))} style={{width:30,height:30,borderRadius:6,border:`1.5px solid ${newSub.emoji===ic?T.accent:"transparent"}`,background:newSub.emoji===ic?T.accentBg:"transparent",cursor:"pointer",fontSize:15,fontFamily:"inherit"}}>{ic}</button>)}
                                 </div></div>
                                 <div><label style={{...LS,fontSize:9}}>Jatuh Tempo (tgl)</label><input type="number" min="1" max="31" placeholder="tgl" value={newSub.tempo} onChange={e=>setNewSub(f=>({...f,tempo:e.target.value}))} style={{...IS,fontSize:11,padding:"6px 9px"}}/></div>
                               </div>
@@ -9807,7 +9808,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               SETTING
           ══════════════════════════════════════════════════════════ */}
           {page==="setting"&&(
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:20}}>
+            <div data-testid="settings-layout" style={{display:"grid",gridTemplateColumns:isMobile?"minmax(0,1fr)":"minmax(0,1fr) minmax(0,1fr)",gap:isMobile?14:18,alignItems:"start"}}>
               <Card ch={<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"auto 1fr auto",gap:14,alignItems:"center"}}>
                 <img src={fireUser?.photoURL || "/icon-192.png"} alt="" style={{width:58,height:58,borderRadius:18,objectFit:"cover",boxShadow:`0 10px 24px ${T.accentPop}`,border:`2px solid ${T.border}`,flexShrink:0}}/>
                 <div style={{minWidth:0}}>

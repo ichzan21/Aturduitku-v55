@@ -76,11 +76,38 @@ async function openBudget(page, mobile) {
   const sourceSelectors = page.locator('select[aria-label^="Dompet sumber"], select[aria-label^="Funding wallet"]');
   await sourceSelectors.first().waitFor({ state:"visible", timeout:15_000 });
   if (await sourceSelectors.count() < 1) throw new Error("Pilihan dompet sumber budget tidak ditemukan");
+  const allocationGrids = page.getByTestId("budget-allocation-grid");
+  const allocationLayout = await allocationGrids.evaluateAll(elements => elements.map(element => ({
+    clientWidth:element.clientWidth,
+    scrollWidth:element.scrollWidth,
+    inputWidth:element.querySelector("input")?.getBoundingClientRect().width || 0,
+    realizationWidth:element.querySelector("button")?.getBoundingClientRect().width || 0,
+  })));
+  const brokenAllocation = allocationLayout.find(item => item.scrollWidth > item.clientWidth + 1 || item.inputWidth < 96 || item.realizationWidth < 96);
+  if (brokenAllocation) throw new Error(`Layout alokasi budget terpotong: ${JSON.stringify(brokenAllocation)}`);
   const realizationDetails = page.locator('button[aria-controls^="budget-realization-"]').first();
   await realizationDetails.waitFor({ state:"visible", timeout:10_000 });
   await realizationDetails.click();
   await page.getByText("Transaksi pembentuk realisasi", { exact:true }).first().waitFor({ state:"visible", timeout:10_000 });
   await realizationDetails.click();
+}
+
+async function openSettings(page, mobile) {
+  if (mobile) {
+    await page.getByRole("button", { name:/Lainnya/ }).last().click();
+    await page.getByRole("button", { name:/Setting/ }).last().click();
+  } else {
+    await page.getByText("Setting", { exact:true }).first().click();
+  }
+  const layout = page.getByTestId("settings-layout");
+  await layout.waitFor({ state:"visible", timeout:15_000 });
+  if (!mobile) {
+    const leftCardGap = await layout.locator(":scope > div").nth(1).evaluate(element => {
+      const lastChild = element.lastElementChild;
+      return lastChild ? element.getBoundingClientRect().bottom - lastChild.getBoundingClientRect().bottom : 0;
+    });
+    if (leftCardGap > 40) throw new Error(`Kartu setting menyisakan ruang kosong ${Math.round(leftCardGap)}px`);
+  }
 }
 
 async function openGoals(page, mobile) {
@@ -194,6 +221,11 @@ async function smoke(viewport, name, mutate = false) {
   await waitForPageSettled(page, "Amplop");
   await page.screenshot({ path:`${artifacts}/${name}-envelope.png`, fullPage:true });
   await assertNoHorizontalOverflow(page, name, "envelope");
+
+  await openSettings(page, viewport.width < 900);
+  await waitForPageSettled(page, "Setting");
+  await page.screenshot({ path:`${artifacts}/${name}-settings.png`, fullPage:true });
+  await assertNoHorizontalOverflow(page, name, "settings");
 
   if (mutate) {
     await openTransactions(page, false);
