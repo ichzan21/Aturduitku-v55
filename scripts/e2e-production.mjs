@@ -173,6 +173,8 @@ async function waitForModalClose(page) {
 }
 
 async function cleanupE2ETransactions(page) {
+  const allDatesButton = page.getByRole("button", { name:"Semua", exact:true }).first();
+  if (await allDatesButton.isVisible().catch(() => false)) await allDatesButton.click();
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const transactionText = page.getByText(/^\[E2E\](?: fee proyek)? \d+$/).first();
     if (!(await transactionText.isVisible().catch(() => false))) return;
@@ -252,6 +254,7 @@ async function smoke(viewport, name, mutate = false) {
     const outsideBudgetBefore = await outsideBudgetCount(page);
     const outsideBudgetDate = await activeBudgetDate(page);
     await openTransactions(page, false);
+    await page.getByRole("button", { name:"Semua", exact:true }).first().click();
     const outsideBudgetNote = `[E2E] di luar budget ${Date.now()}`;
     await page.getByRole("button", { name:/Tambah Transaksi|\+ Transaksi/i }).first().click();
     const transactionModal = page.locator(".modal-overlay");
