@@ -185,6 +185,13 @@ async function cleanupE2ETransactions(page) {
   throw new Error("Lebih dari 10 transaksi E2E lama ditemukan; cleanup dihentikan.");
 }
 
+async function outsideBudgetCount(page) {
+  const banner = page.getByText(/^\d+ transaksi di luar budget$/).first();
+  if (!(await banner.isVisible().catch(() => false))) return 0;
+  const match = (await banner.innerText()).match(/^\d+/);
+  return Number(match?.[0] || 0);
+}
+
 async function smoke(viewport, name, mutate = false) {
   const context = await browser.newContext({ viewport, locale:"id-ID", timezoneId:"Asia/Makassar" });
   const page = await context.newPage();
@@ -232,6 +239,50 @@ async function smoke(viewport, name, mutate = false) {
   if (mutate) {
     await openTransactions(page, false);
     await cleanupE2ETransactions(page);
+
+    await openBudget(page, false);
+    const outsideBudgetBefore = await outsideBudgetCount(page);
+    await openTransactions(page, false);
+    const outsideBudgetNote = `[E2E] di luar budget ${Date.now()}`;
+    await page.getByRole("button", { name:/Tambah Transaksi|\+ Transaksi/i }).first().click();
+    const transactionModal = page.locator(".modal-overlay");
+    await transactionModal.getByText(/Transaksi Baru|Transaksi baru/i).first().waitFor();
+    await transactionModal.locator("select").nth(1).selectOption("");
+    await transactionModal.locator('input[inputmode="numeric"]').last().fill("4321");
+    await transactionModal.getByPlaceholder(/Makan siang/i).fill(outsideBudgetNote);
+    await transactionModal.getByPlaceholder("Contoh: Donasi, peliharaan, renovasi").fill("Donasi E2E");
+    await transactionModal.getByText("Saldo dompet tetap berkurang dan transaksi tetap masuk laporan, tetapi tidak dihitung sebagai realisasi budget.", { exact:true }).waitFor({ state:"visible" });
+    await transactionModal.getByRole("button", { name:"Simpan Transaksi", exact:true }).click();
+    await waitForModalClose(page);
+    await page.getByText(outsideBudgetNote, { exact:true }).waitFor({ state:"visible", timeout:15_000 });
+    await page.getByText("Donasi E2E", { exact:true }).waitFor({ state:"visible", timeout:10_000 });
+
+    await openBudget(page, false);
+    const outsideBudgetAfter = await outsideBudgetCount(page);
+    if (outsideBudgetAfter !== outsideBudgetBefore + 1) {
+      throw new Error(`Transaksi di luar budget tidak tercatat benar: sebelum ${outsideBudgetBefore}, sesudah ${outsideBudgetAfter}`);
+    }
+
+    await openTransactions(page, false);
+    const outsideBudgetRow = page.getByText(outsideBudgetNote, { exact:true }).locator('xpath=ancestor::div[.//button[@aria-label="Edit nama dan detail transaksi"]][1]');
+    await outsideBudgetRow.getByRole("button", { name:"Edit nama dan detail transaksi" }).click();
+    const editOutsideBudgetModal = page.locator(".modal-overlay");
+    await editOutsideBudgetModal.getByText("Edit Nama & Detail Transaksi", { exact:true }).waitFor();
+    await editOutsideBudgetModal.locator("select").nth(1).selectOption({ index:1 });
+    await editOutsideBudgetModal.getByRole("button", { name:"Simpan Perubahan", exact:true }).click();
+    await waitForModalClose(page);
+
+    await openBudget(page, false);
+    const outsideBudgetAfterEdit = await outsideBudgetCount(page);
+    if (outsideBudgetAfterEdit !== outsideBudgetBefore) {
+      throw new Error(`Edit kategori tidak memasukkan transaksi ke budget: awal ${outsideBudgetBefore}, sesudah edit ${outsideBudgetAfterEdit}`);
+    }
+    await openTransactions(page, false);
+    await outsideBudgetRow.getByRole("button", { name:"Hapus" }).click();
+    await page.getByRole("button", { name:/Ya, Lanjutkan|Yes, Proceed/ }).click();
+    await waitForModalClose(page);
+    await page.getByText(outsideBudgetNote, { exact:true }).waitFor({ state:"detached", timeout:15_000 });
+
     const importedTransaction = page.getByText(/TRANSAKSI TGL:/i).first();
     if (await importedTransaction.count() > 0) {
       const importedRow = importedTransaction.locator('xpath=ancestor::div[.//button[@aria-label="Edit nama dan detail transaksi"]][1]');

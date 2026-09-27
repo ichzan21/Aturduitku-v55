@@ -6,7 +6,7 @@ import {
 } from "../src/financeLedger.js";
 import { assertDataVersion, isMutationReplay } from "../api/_lib/dataVersion.js";
 import { incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "../src/incomeCategory.js";
-import { buildBudgetRealization, findTransactionBudget, transactionMatchesBudgetPeriod } from "../src/budgetRealization.js";
+import { buildBudgetRealization, findTransactionBudget, prepareExpenseTransactionCategory, transactionMatchesBudgetPeriod } from "../src/budgetRealization.js";
 
 const balances = wallets => Object.fromEntries(wallets.map(wallet => [String(wallet.id), Number(wallet.saldo)]));
 const base = [{ id:"utama", saldo:"1000000" }, { id:2, saldo:"500000" }];
@@ -71,6 +71,18 @@ assert.equal(transactionMatchesBudgetPeriod(fuelTransaction,2026,8), true, "Tang
 assert.equal(transactionMatchesBudgetPeriod(fuelTransaction,2026,7), false, "Transaksi tidak boleh masuk ke periode bulan yang berbeda");
 assert.equal(findTransactionBudget({...fuelTransaction,katId:"lama"},[foodBudget,transportBudget])?.id,2,"Subkategori unik harus memulihkan relasi kategori data lama");
 assert.equal(buildBudgetRealization([{...fuelTransaction,katId:"",subKat:""}],[foodBudget,transportBudget]).unassigned.length,1,"Transaksi tanpa kategori harus ditandai agar tidak hilang diam-diam");
+const outsideBudgetExpense=prepareExpenseTransactionCategory({...fuelTransaction,katId:"",customKat:"Donasi",subKat:"Bensin"},[foodBudget,transportBudget]);
+assert.deepEqual(
+  {katId:outsideBudgetExpense.katId,customKat:outsideBudgetExpense.customKat,subKat:outsideBudgetExpense.subKat,budgetExcluded:outsideBudgetExpense.budgetExcluded},
+  {katId:"",customKat:"Donasi",subKat:"",budgetExcluded:true},
+  "Pengeluaran di luar budget harus tetap memiliki label tanpa tersambung diam-diam ke budget",
+);
+assert.equal(findTransactionBudget({...outsideBudgetExpense,customKat:"Transportasi"},[foodBudget,transportBudget]),null,"Pilihan di luar budget harus tetap dikecualikan meski namanya sama dengan kategori budget");
+assert.equal(buildBudgetRealization([outsideBudgetExpense],[foodBudget,transportBudget]).unassigned.length,1,"Pengeluaran di luar budget harus tampil sebagai transaksi yang belum dialokasikan");
+const categorizedExpense=prepareExpenseTransactionCategory({...outsideBudgetExpense,katId:"2",customKat:"Donasi"},[foodBudget,transportBudget]);
+assert.equal(categorizedExpense.katId,2,"Edit kategori harus dapat memasukkan transaksi kembali ke budget");
+assert.equal(categorizedExpense.budgetExcluded,false,"Transaksi yang sudah dipilihkan kategori harus masuk realisasi");
+assert.equal(categorizedExpense.customKat,"","Kategori bebas lama tidak boleh mengalahkan kategori budget baru");
 
 assert.match(appSource, /tipe:"transfer",jml:pN\(jml\),katId:"",customKat:"",subKat:"",goalId:""/,
   "Transfer baru tidak boleh mewarisi kategori pengeluaran dari form sebelumnya");
@@ -80,10 +92,12 @@ assert.match(appSource, /Transaksi pembentuk realisasi/,
   "Realisasi budget harus dapat dibuka untuk melihat transaksi penyusunnya");
 assert.match(appSource, /Realisasi mengikuti tanggal transaksi/,
   "Halaman budget harus menjelaskan bahwa realisasi mengikuti tanggal transaksi");
-assert.match(appSource, /Pilih kategori budget agar transaksi masuk ke realisasi/,
-  "Pengeluaran manual tanpa kategori budget harus ditolak dengan pesan yang jelas");
-assert.match(appSource, /Pilih kategori budget untuk setiap pengeluaran massal/,
-  "Input massal tidak boleh membuat pengeluaran yang hilang dari realisasi budget");
+assert.match(appSource, /Saldo dompet tetap berkurang dan transaksi tetap masuk laporan, tetapi tidak dihitung sebagai realisasi budget/,
+  "Form harus menjelaskan dampak transaksi di luar budget");
+assert.match(appSource, /<option value="">Di luar budget<\/option>/,
+  "Pengeluaran manual dan massal harus menyediakan pilihan di luar budget");
+assert.doesNotMatch(appSource, /Pilih kategori budget agar transaksi masuk ke realisasi/,
+  "Pengeluaran manual tidak boleh lagi dipaksa masuk kategori budget");
 assert.match(appSource, /aria-expanded=\{sameId\(expandedBudgetId,b\.id\)\}/,
   "Kontrol rincian realisasi budget harus menyampaikan status buka-tutup secara aksesibel");
 assert.match(appSource, /aria-label=\{canEditTransaction\(t\)\?"Edit nama dan detail transaksi":"Ganti nama transaksi"\}/,

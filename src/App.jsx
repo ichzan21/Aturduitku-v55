@@ -26,7 +26,7 @@ import { getDailyBudgetBreakdown } from "./dailyBudget.js";
 import { isCashflowExpense, isGoalFundUsage, sumGoalFundUsage } from "./cashflowClassification.js";
 import { formatCompactRupiah, formatRupiah } from "./moneyFormat.js";
 import { buildGoalHistoryTimeline } from "./goalHistory.js";
-import { buildBudgetRealization, findTransactionBudget, transactionMatchesBudgetPeriod } from "./budgetRealization.js";
+import { buildBudgetRealization, findTransactionBudget, prepareExpenseTransactionCategory, transactionMatchesBudgetPeriod } from "./budgetRealization.js";
 
 const TrendChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.TrendChart })));
 const DailyChartLazy = React.lazy(() => import("./ChartWidgets.jsx").then(m => ({ default:m.DailyChart })));
@@ -3576,7 +3576,7 @@ export default function App(){
   };
 
   // Forms
-  const [txForm,setTxForm]=useState({tipe:"pengeluaran",tgl:today(),ket:"",jml:"",katId:1,customKat:"",subKat:"",dompetId:1,dompetTo:2,biaya:"",goalId:""});
+  const [txForm,setTxForm]=useState({tipe:"pengeluaran",tgl:today(),ket:"",jml:"",katId:s.budgets[0]?.id||"",customKat:"",subKat:"",dompetId:1,dompetTo:2,biaya:"",goalId:"",budgetExcluded:false});
   const [bulkRows,setBulkRows]=useState([{tgl:today(),jml:"",tipe:"pengeluaran",dompetId:1,katId:s.budgets[0]?.id||"",ket:""}]);
   const [utForm,setUtForm]=useState({tipe:"utang",tgl:today(),provider:"",nama:"",jml:"",tempo:"",ket:"",sourceType:"wallet",sourceId:s.dompet[0]?.id||""});
   const [goalForm,setGoalForm]=useState({nama:"",target:"",kumpul:"",deadline:"",icon:"⭐"});
@@ -6561,18 +6561,20 @@ Saldo amplop bertambah.`}]);
       return;
     }
     const automaticIncomeCategory=tx.tipe==="pemasukan"&&(tx.incomeCategoryAuto===true||(!tx.customKat&&tx.katId==="Lainnya"));
+    const directExpenseCategory=tx.tipe==="pengeluaran"&&!tx.budgetExcluded?s.budgets.find(b=>sameId(b.id,tx.katId)):null;
     setTxForm({
       tipe:tx.tipe,
       tgl:tx.tgl||today(),
       ket:transactionDisplayName(tx),
       jml:String(tx.jml||""),
-      katId:automaticIncomeCategory?"":(tx.katId??(tx.tipe==="pemasukan"?"":(s.budgets[0]?.id||""))),
+      katId:automaticIncomeCategory?"":(tx.tipe==="pengeluaran"?(directExpenseCategory?.id??""):(tx.katId??"")),
       customKat:tx.customKat||"",
       subKat:tx.subKat||"",
       dompetId:tx.dompetId??s.dompet[0]?.id??"",
       dompetTo:tx.dompetTo??s.dompet.find(wallet=>!sameId(wallet.id,tx.dompetId))?.id??"",
       biaya:String(tx.biaya||""),
       goalId:"",
+      budgetExcluded:tx.tipe==="pengeluaran"&&!directExpenseCategory,
     });
     setModal({type:"tx",editTxId:tx.id});
   };
@@ -6667,7 +6669,6 @@ Saldo amplop bertambah.`}]);
     const isEditing=modal?.editTxId!==undefined;
     if(isEditing&&!cleanDescription){showToast("Nama transaksi tidak boleh kosong.");return;}
     const selectedExpenseCategory=s.budgets.find(b=>sameId(b.id,katId));
-    if(tipe==="pengeluaran"&&!selectedExpenseCategory){showToast("Pilih kategori budget agar transaksi masuk ke realisasi.");return;}
     const usesCustomCategory=(tipe==="pemasukan"&&katId==="Lainnya")||(tipe==="pengeluaran"&&selectedExpenseCategory?.kat==="Lainnya");
     const cleanCustomCategory=String(customKat||"").trim().replace(/\s+/g," ").slice(0,40);
     if(usesCustomCategory&&!cleanCustomCategory){showToast("Isi nama kategori lainnya terlebih dahulu.");return;}
@@ -6701,13 +6702,14 @@ Saldo amplop bertambah.`}]);
         showToast(`⚠️ ${t("toast_notEnough")} (${dompetSumber.nama}: ${IDR(N(dompetSumber.saldo))})`  );
         return;
       }
-      const savedTx={...txForm,id,ket:cleanDescription,jml:pN(jml),customKat:usesCustomCategory?cleanCustomCategory:""};
+      const savedTx=prepareExpenseTransactionCategory({...txForm,id,ket:cleanDescription,jml:pN(jml),customKat:cleanCustomCategory},s.budgets);
       if(commitEditedTransaction(savedTx)!==null) return;
       setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",goalId:""}));
       const inActiveBudgetPeriod=transactionMatchesBudgetPeriod(savedTx,yr,bulanIdx);
       const savedMonthIndex=Number(String(tgl).slice(5,7))-1;
-      showToast(inActiveBudgetPeriod?t("toast_expenseOk"):`Transaksi tersimpan untuk ${MONTHS_L[savedMonthIndex]||tgl} ${String(tgl).slice(0,4)}. Budget aktif tetap ${MONTHS_L[bulanIdx]} ${s.tahun}.`);closeModal();return;
+      const savedMessage=savedTx.budgetExcluded?"Transaksi tersimpan di luar budget dan tetap masuk saldo serta laporan.":inActiveBudgetPeriod?t("toast_expenseOk"):`Transaksi tersimpan untuk ${MONTHS_L[savedMonthIndex]||tgl} ${String(tgl).slice(0,4)}. Budget aktif tetap ${MONTHS_L[bulanIdx]} ${s.tahun}.`;
+      showToast(savedMessage);closeModal();return;
     }
 
     if(tipe==="pemasukan"){
@@ -6744,17 +6746,19 @@ Saldo amplop bertambah.`}]);
 
   const addBulk=()=>{
     const valid=bulkRows.filter(r=>r.tgl&&N(r.jml)>0);
-    if(valid.some(row=>row.tipe==="pengeluaran"&&!findTransactionBudget(row,s.budgets))){showToast("Pilih kategori budget untuk setiap pengeluaran massal.");return;}
     if(!valid.length){showToast("⚠️ Minimal satu baris terisi!");return;}
     const batchStartedAt=Date.now();
-    const newTxs=valid.map((r,i)=>normalizeIncomeTransaction({
-      ...r,
-      id:batchStartedAt+i,
-      entryOrder:batchStartedAt+i,
-      createdAt:new Date(batchStartedAt+i).toISOString(),
-      jml:pN(r.jml),
-      ket:r.ket||"",
-    }));
+    const newTxs=valid.map((r,i)=>{
+      const transaction=normalizeIncomeTransaction({
+        ...r,
+        id:batchStartedAt+i,
+        entryOrder:batchStartedAt+i,
+        createdAt:new Date(batchStartedAt+i).toISOString(),
+        jml:pN(r.jml),
+        ket:r.ket||"",
+      });
+      return r.tipe==="pengeluaran"?prepareExpenseTransactionCategory(transaction,s.budgets):transaction;
+    });
     let simulatedWallets=s.dompet;
     for(const tx of newTxs){
       const error=transactionValidationError(simulatedWallets,tx);
@@ -7819,7 +7823,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{modal.editTxId!==undefined?"Edit Nama & Detail Transaksi":t("newTx")}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>{modal.editTxId!==undefined?"Ubah nama atau detail yang salah. Saldo akan disesuaikan otomatis jika nominal, tipe, atau dompet ikut berubah.":"Catat transaksi baru dengan detail yang cukup supaya laporan tetap akurat."}</div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
                 {[{v:"pengeluaran",l:t("outflow2")},{v:"pemasukan",l:t("inflow2")},{v:"tabungan",l:t("savingShort")},{v:"transfer",l:"Transfer"}].filter(({v})=>modal.editTxId===undefined||v!=="tabungan").map(({v,l})=>(
-                  <button key={v} onClick={()=>setTxForm(f=>({...f,tipe:v,katId:v==="pemasukan"?"":v==="pengeluaran"?(s.budgets[0]?.id||""):v==="tabungan"?investasiBudgetId:f.katId,customKat:"",subKat:"",goalId:""}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${txForm.tipe===v?T.accent:T.inputBorder}`,background:txForm.tipe===v?T.accentBg:T.input,color:txForm.tipe===v?T.accent:T.sub}}>{l}</button>
+                  <button key={v} onClick={()=>setTxForm(f=>({...f,tipe:v,katId:v==="pemasukan"?"":v==="pengeluaran"?(s.budgets[0]?.id||""):v==="tabungan"?investasiBudgetId:f.katId,customKat:"",subKat:"",goalId:"",budgetExcluded:false}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${txForm.tipe===v?T.accent:T.inputBorder}`,background:txForm.tipe===v?T.accentBg:T.input,color:txForm.tipe===v?T.accent:T.sub}}>{l}</button>
                 ))}
               </div>
               <label style={LS}>{t("date")}</label><input type="date" value={txForm.tgl} onChange={e=>setTxForm(f=>({...f,tgl:e.target.value}))} style={{...IS,marginBottom:10}}/>
@@ -7832,11 +7836,18 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
                 <div><label style={LS}>{txForm.tipe==="transfer"?t("fromWallet"):t("dompet")}</label>
                 <select value={txForm.dompetId} onChange={e=>setTxForm(f=>({...f,dompetId:e.target.value}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>
-                {txForm.tipe==="pengeluaran"&&<div><label style={LS}>{t("category")}</label><select value={txForm.katId} onChange={e=>{const selected=s.budgets.find(b=>sameId(b.id,e.target.value));setTxForm(f=>({...f,katId:selected?.id??"",customKat:"",subKat:""}));}} style={IS}><option value="">-- Pilih --</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{uiIcon(b.icon)} {b.kat}</option>)}</select></div>}
+                {txForm.tipe==="pengeluaran"&&<div><label style={LS}>{t("category")}</label><select value={txForm.katId} onChange={e=>{const selected=s.budgets.find(b=>sameId(b.id,e.target.value));setTxForm(f=>({...f,katId:selected?.id??"",customKat:"",subKat:"",budgetExcluded:!selected}));}} style={IS}><option value="">Di luar budget</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{uiIcon(b.icon)} {b.kat}</option>)}</select></div>}
                 {txForm.tipe==="transfer"&&<div><label style={LS}>{t("toWallet")}</label><select value={txForm.dompetTo} onChange={e=>setTxForm(f=>({...f,dompetTo:e.target.value}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>}
                 {txForm.tipe==="pemasukan"&&<div><label style={LS}>Kategori</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:e.target.value,customKat:""}))} style={IS}><option value="">Otomatis dari keterangan</option>{KAT_IN.map(k=><option key={k}>{k}</option>)}</select><div style={{fontSize:10,color:T.muted,marginTop:5,lineHeight:1.45}}>{!txForm.katId&&txForm.ket.trim()?<>Terdeteksi: <strong style={{color:T.accent}}>{inferIncomeCategory(txForm.ket)||"Lainnya"}</strong></>:"Contoh: gaji kantor, fee proyek, bonus, jualan, dividen, atau transfer masuk."}</div></div>}
                 {txForm.tipe==="tabungan"&&<div><label style={LS}>Goal</label><select value={txForm.goalId} onChange={e=>setTxForm(f=>({...f,goalId:e.target.value}))} style={IS}><option value="">-- Pilih Goal --</option>{s.goals.filter(g=>!g.selesai).map(g=><option key={g.id} value={g.id}>{uiIcon(g.icon)} {g.nama}</option>)}</select></div>}
               </div>
+              {txForm.tipe==="pengeluaran"&&!s.budgets.some(b=>sameId(b.id,txForm.katId))&&(
+                <div style={{marginBottom:10,padding:"10px 12px",borderRadius:9,background:T.infoBg,border:`1px solid ${T.infoBorder}`}}>
+                  <label style={{...LS,color:T.info}}>Nama kategori bebas (opsional)</label>
+                  <input maxLength={40} placeholder="Contoh: Donasi, peliharaan, renovasi" value={txForm.customKat||""} onChange={e=>setTxForm(f=>({...f,customKat:e.target.value,budgetExcluded:true}))} style={IS}/>
+                  <div style={{fontSize:10,color:T.sub,marginTop:6,lineHeight:1.45}}>Saldo dompet tetap berkurang dan transaksi tetap masuk laporan, tetapi tidak dihitung sebagai realisasi budget.</div>
+                </div>
+              )}
               {((txForm.tipe==="pemasukan"&&txForm.katId==="Lainnya")||(txForm.tipe==="pengeluaran"&&s.budgets.find(b=>sameId(b.id,txForm.katId))?.kat==="Lainnya"))&&(
                 <div style={{marginBottom:10}}>
                   <label style={LS}>Nama kategori lainnya</label>
@@ -7868,7 +7879,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       <td style={{padding:4}}><CurIn value={r.jml} onChange={v=>{const n=[...bulkRows];n[i]={...n[i],jml:v};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:100}}/></td>
                       <td style={{padding:4}}><select value={r.tipe} onChange={e=>{const n=[...bulkRows];const tipe=e.target.value;n[i]={...n[i],tipe,katId:tipe==="pengeluaran"?(n[i].katId||s.budgets[0]?.id||""):tipe==="tabungan"?investasiBudgetId:""};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:110}}>{["pengeluaran","pemasukan","tabungan"].map(t=><option key={t}>{t}</option>)}</select></td>
                       <td style={{padding:4}}><select value={r.dompetId} onChange={e=>{const n=[...bulkRows];n[i]={...n[i],dompetId:e.target.value};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:90}}>{s.dompet.map(d=><option key={d.id} value={d.id}>{d.nama}</option>)}</select></td>
-                      <td style={{padding:4}}>{r.tipe==="pengeluaran"?<select aria-label={`Kategori baris ${i+1}`} value={r.katId} onChange={e=>{const n=[...bulkRows];const selected=s.budgets.find(b=>sameId(b.id,e.target.value));n[i]={...n[i],katId:selected?.id??""};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:130}}><option value="">Pilih</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{b.kat}</option>)}</select>:<span style={{display:"block",width:80,color:T.muted,fontSize:11,textAlign:"center"}}>Otomatis</span>}</td>
+                      <td style={{padding:4}}>{r.tipe==="pengeluaran"?<select aria-label={`Kategori baris ${i+1}`} value={r.katId} onChange={e=>{const n=[...bulkRows];const selected=s.budgets.find(b=>sameId(b.id,e.target.value));n[i]={...n[i],katId:selected?.id??""};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:140}}><option value="">Di luar budget</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{b.kat}</option>)}</select>:<span style={{display:"block",width:80,color:T.muted,fontSize:11,textAlign:"center"}}>Otomatis</span>}</td>
                       <td style={{padding:4}}><input placeholder={t("txDescPlaceholder")} value={r.ket} onChange={e=>{const n=[...bulkRows];n[i]={...n[i],ket:e.target.value};setBulkRows(n);}} style={{...IS,fontSize:11,padding:"5px 7px",width:140}}/></td>
                       <td style={{padding:4}}><div style={{display:"flex",gap:4}}>
                         <button type="button" title="Pindahkan ke atas" aria-label={`Pindahkan baris ${i+1} ke atas`} disabled={i===0} onClick={()=>setBulkRows(rows=>{const n=[...rows];[n[i-1],n[i]]=[n[i],n[i-1]];return n;})} style={{width:30,height:30,borderRadius:7,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontWeight:900,cursor:i===0?"not-allowed":"pointer",opacity:i===0?.35:1}}>↑</button>
@@ -8752,7 +8763,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             </div>;})()}
 
             {unassignedBudgetTransactions.length>0&&<div style={{display:"flex",alignItems:isMobile?"stretch":"center",justifyContent:"space-between",gap:12,flexDirection:isMobile?"column":"row",padding:"12px 14px",marginBottom:14,borderRadius:10,background:T.warnBg,border:`1px solid ${T.warnBorder}`}}>
-              <div><div style={{fontSize:12,fontWeight:900,color:T.warn}}>{unassignedBudgetTransactions.length} transaksi belum masuk realisasi</div><div style={{fontSize:11,color:T.sub,lineHeight:1.5,marginTop:2}}>Transaksi pada {MONTHS_L[bulanIdx]} {s.tahun} belum memiliki kategori budget yang valid. Edit kategorinya agar nominal ikut dihitung.</div></div>
+              <div><div style={{fontSize:12,fontWeight:900,color:T.warn}}>{unassignedBudgetTransactions.length} transaksi di luar budget</div><div style={{fontSize:11,color:T.sub,lineHeight:1.5,marginTop:2}}>Transaksi tetap masuk saldo dan laporan, tetapi tidak dihitung ke realisasi {MONTHS_L[bulanIdx]} {s.tahun}. Edit kategorinya bila ingin memasukkannya ke budget.</div></div>
               <Btn onClick={()=>{setTxFilt({dompet:"",tipe:"pengeluaran",sub:"",startDate:`${activeBudgetPeriodKey}-01`,endDate:`${activeBudgetPeriodKey}-${String(new Date(yr,bulanIdx+1,0).getDate()).padStart(2,"0")}`});setTxSearch("");setTxPage(1);setPage("trans");}} ch="Periksa transaksi" c={T.warn} outline style={{padding:"8px 12px",fontSize:11,flexShrink:0}}/>
             </div>}
 

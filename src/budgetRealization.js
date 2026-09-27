@@ -9,7 +9,30 @@ export const transactionMatchesBudgetPeriod = (transaction, year, monthIndex) =>
 export const isBudgetTrackedTransaction = transaction =>
   isCashflowExpense(transaction) || ["tabungan", "investasi"].includes(transaction?.tipe);
 
+export const prepareExpenseTransactionCategory = (transaction, budgets = []) => {
+  const selected = budgets.find(budget => String(budget?.id) === String(transaction?.katId));
+  const customCategory = String(transaction?.customKat || "").trim().replace(/\s+/g, " ").slice(0, 40);
+
+  if (!selected) {
+    return {
+      ...transaction,
+      katId:"",
+      customKat:customCategory || "Di luar budget",
+      subKat:"",
+      budgetExcluded:true,
+    };
+  }
+
+  return {
+    ...transaction,
+    katId:selected.id,
+    customKat:selected.kat === "Lainnya" ? customCategory : "",
+    budgetExcluded:false,
+  };
+};
+
 export const findTransactionBudget = (transaction, budgets = []) => {
+  if (transaction?.budgetExcluded === true) return null;
   const direct = budgets.find(budget => String(budget?.id) === String(transaction?.katId));
   if (direct) return direct;
 
