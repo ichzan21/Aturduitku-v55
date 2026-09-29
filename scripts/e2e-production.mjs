@@ -15,6 +15,14 @@ await mkdir(artifacts, { recursive:true });
 
 const browser = await chromium.launch({ channel:"chrome", headless:true });
 
+async function resolveCloudConflict(page, waitMs = 0) {
+  const dialog = page.getByRole("alertdialog", { name:"Data berubah di perangkat lain" });
+  if (waitMs) await dialog.waitFor({ state:"visible", timeout:waitMs }).catch(() => {});
+  if (!(await dialog.isVisible().catch(() => false))) return;
+  await dialog.getByRole("button", { name:"Pakai data cloud", exact:true }).click();
+  await dialog.waitFor({ state:"detached", timeout:15_000 });
+}
+
 async function login(page) {
   await page.goto(baseURL, { waitUntil:"domcontentloaded", timeout:45_000 });
   const rootFailure = page.getByText("Ada yang tidak beres. Coba muat ulang halaman.", { exact:true });
@@ -39,6 +47,7 @@ async function login(page) {
     const detail = await page.locator("details").innerText().catch(() => "Detail error tidak tersedia");
     throw new Error(`Pemulihan sesi dari root gagal: ${detail}`);
   }
+  await resolveCloudConflict(page, 2_500);
 }
 
 async function openTransactions(page, mobile) {
@@ -48,6 +57,7 @@ async function openTransactions(page, mobile) {
     await page.getByText("Transaksi", { exact:true }).first().click();
   }
   await page.getByPlaceholder(/Cari transaksi/i).waitFor({ state:"visible", timeout:15_000 });
+  await resolveCloudConflict(page, 750);
   await page.waitForTimeout(300);
 }
 
@@ -229,7 +239,11 @@ async function smoke(viewport, name, mutate = false) {
   const context = await browser.newContext({ viewport, locale:"id-ID", timezoneId:"Asia/Makassar" });
   const page = await context.newPage();
   const consoleErrors = [];
-  page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
+  page.on("console", (message) => {
+    if (message.type() !== "error") return;
+    const location = message.location();
+    consoleErrors.push(`${message.text()}${location.url?` @ ${location.url}`:""}`);
+  });
   page.on("pageerror", (error) => consoleErrors.push(error.message));
 
   await login(page);
@@ -383,7 +397,7 @@ async function smoke(viewport, name, mutate = false) {
     await page.getByText(note, { exact:true }).waitFor({ state:"detached", timeout:15_000 });
   }
 
-  const seriousErrors = consoleErrors.filter((message) => !/favicon|ResizeObserver|Failed to load resource.*404/i.test(message));
+  const seriousErrors = consoleErrors.filter((message) => !/favicon|ResizeObserver|Failed to load resource.*404|static\.cloudflareinsights\.com\/beacon\.min\.js/i.test(message));
   if (seriousErrors.length) throw new Error(`${name}: console error: ${seriousErrors.join(" | ")}`);
   await context.close();
   console.log(`OK ${name}: login, navigasi, dan tampilan transaksi` + (mutate ? ", termasuk edit/hapus/undo" : ""));
