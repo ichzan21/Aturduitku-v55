@@ -65,6 +65,9 @@ async function openWallets(page, mobile) {
     const loaded = await brandLogos.nth(index).evaluate(image => image.complete && image.naturalWidth > 0);
     if (!loaded) throw new Error(`Logo dompet ke-${index + 1} gagal dimuat`);
   }
+  await page.getByRole("button", { name:"Riwayat saldo", exact:true }).first().click();
+  await page.getByText(/Hanya transaksi yang benar-benar menambah atau mengurangi saldo/i).waitFor({ state:"visible", timeout:10_000 });
+  await page.getByRole("button", { name:"Tutup", exact:true }).last().click();
 }
 
 async function openBudget(page, mobile) {

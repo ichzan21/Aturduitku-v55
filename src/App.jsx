@@ -114,6 +114,7 @@ const fmtN = v=>{const n=String(v).replace(/\D/g,"");return n?n.replace(/\B(?=(\
 const pN   = v=>String(v).replace(/\./g,"");
 const N    = displayNumber;
 const transactionDisplayName=tx=>String(tx?.displayName||tx?.ket||tx?.tipe||"Transaksi");
+const clearUnusedTransferFields=tx=>tx?.tipe==="transfer"?tx:{...tx,dompetTo:"",biaya:""};
 const AnimatedNumber=React.memo(function AnimatedNumber({value,format=Math.round,duration=720,className,style}){
   const target=Number.isFinite(Number(value))?Number(value):0;
   const currentRef=useRef(0);
@@ -6702,7 +6703,7 @@ Saldo amplop bertambah.`}]);
         showToast(`⚠️ ${t("toast_notEnough")} (${dompetSumber.nama}: ${IDR(N(dompetSumber.saldo))})`  );
         return;
       }
-      const savedTx=prepareExpenseTransactionCategory({...txForm,id,ket:cleanDescription,jml:pN(jml),customKat:cleanCustomCategory},s.budgets);
+      const savedTx=clearUnusedTransferFields(prepareExpenseTransactionCategory({...txForm,id,ket:cleanDescription,jml:pN(jml),customKat:cleanCustomCategory},s.budgets));
       if(commitEditedTransaction(savedTx)!==null) return;
       setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",goalId:""}));
@@ -6714,7 +6715,7 @@ Saldo amplop bertambah.`}]);
 
     if(tipe==="pemasukan"){
       const incomeKat = KAT_IN.includes(katId) ? katId : (inferIncomeCategory(ket)||"Lainnya");
-      const savedTx={...txForm,id,ket:cleanDescription,jml:pN(jml),katId:incomeKat,customKat:usesCustomCategory?cleanCustomCategory:"",subKat:"",incomeCategoryAuto:!katId};
+      const savedTx=clearUnusedTransferFields({...txForm,id,ket:cleanDescription,jml:pN(jml),katId:incomeKat,customKat:usesCustomCategory?cleanCustomCategory:"",subKat:"",incomeCategoryAuto:!katId});
       if(commitEditedTransaction(savedTx)!==null) return;
       setS(p=>({...p,dompet:applyTransactionToWallets(p.dompet,savedTx),txs:[savedTx,...p.txs]}));
       setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",katId:"",customKat:"",subKat:"",goalId:""}));
@@ -6727,7 +6728,7 @@ Saldo amplop bertambah.`}]);
         showToast(`⚠️ Saldo ${dompetSumber.nama} tidak cukup! Saldo: ${IDR(N(dompetSumber.saldo))}`);
         return;
       }
-      const savedTx={...txForm,id,ket:cleanDescription,jml:pN(jml)};
+      const savedTx=clearUnusedTransferFields({...txForm,id,ket:cleanDescription,jml:pN(jml)});
       setS(p=>({
         ...p,
         dompet:applyTransactionToWallets(p.dompet,savedTx),
@@ -6738,7 +6739,7 @@ Saldo amplop bertambah.`}]);
       showToast(goalId?t("toast_savingOk"):t("toast_savingOk2"));closeModal();return;
     }
 
-    const savedTx={...txForm,id,ket:cleanDescription,jml:pN(jml)};
+    const savedTx=clearUnusedTransferFields({...txForm,id,ket:cleanDescription,jml:pN(jml)});
     setS(p=>({...p,txs:[savedTx,...p.txs]}));
     setTxForm(f=>({...f,tgl:today(),ket:"",jml:"",customKat:"",subKat:"",goalId:""}));
     showToast(t("toast_txOk"));closeModal();
@@ -7079,9 +7080,12 @@ Saldo amplop bertambah.`}]);
     setS(previous=>({...previous,txs:moveTransactionWithinDate(previous.txs,transactionId,direction)}));
     showToast(direction==="up"?"Transaksi digeser ke atas.":"Transaksi digeser ke bawah.");
   };
-  const renderTxItem=(t,{showOrderControls=false}={})=>{
+  const renderTxItem=(t,{showOrderControls=false,walletContextId=""}={})=>{
     const dompet=findWallet(s.dompet,t.dompetId);
     const destinationWallet=t.tipe==="transfer"?findWallet(s.dompet,t.dompetTo):null;
+    const walletContextDelta=walletContextId===""?null:walletDeltasForTransaction(t).get(String(walletContextId));
+    const hasWalletContext=walletContextDelta!==null&&walletContextDelta!==undefined;
+    const walletContextIncoming=hasWalletContext&&walletContextDelta>0;
     const spentGoal=t.goalSpendId?s.goals.find(goal=>sameId(goal.id,t.goalSpendId)):null;
     const kat=findTransactionBudget(t,s.budgets);
     const isInternalTransfer=["transfer_internal_keluar","transfer_internal_masuk"].includes(t.tipe);
@@ -7097,8 +7101,11 @@ Saldo amplop bertambah.`}]);
         : dompet
           ? `${uiIcon(dompet.icon)} ${dompet.nama}`
           : "";
+    const transferFeeContext=hasWalletContext&&isTransfer&&sameId(t.dompetId,walletContextId)&&N(t.biaya)>0
+      ? `Termasuk biaya ${IDRs(N(t.biaya))}`
+      : "";
     const isEnvelopeRefund=t.tipe==="pengembalian_amplop";
-    const txColor=isInternalTransfer?T.accent:t.tipe==="pemasukan"||isEnvelopeRefund||isReceivableIn?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="investasi"?T.ok:t.tipe==="penyesuaian"?T.warn:t.tipe==="alokasi_amplop"||isReceivableOut?T.accent:t.tipe==="transfer"?T.accent:T.err;
+    const txColor=hasWalletContext?(walletContextIncoming?T.ok:T.err):isInternalTransfer?T.accent:t.tipe==="pemasukan"||isEnvelopeRefund||isReceivableIn?T.ok:t.tipe==="tabungan"?T.info:t.tipe==="investasi"?T.ok:t.tipe==="penyesuaian"?T.warn:t.tipe==="alokasi_amplop"||isReceivableOut?T.accent:t.tipe==="transfer"?T.accent:T.err;
     const txBg=isInternalTransfer?T.accentBg:t.tipe==="pemasukan"||isEnvelopeRefund||isReceivableIn?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer"||isReceivableOut)?T.accentBg:T.errBg;
     const txIcon=isInternalTransfer?"transfer":isIn?"income":isEnvelopeRefund?"refund":isReceivableOut?"receivable":t.tipe==="tabungan"?"BANK":t.tipe==="investasi"?"INV":t.tipe==="penyesuaian"?"balance":t.tipe==="alokasi_amplop"?"ENV":t.tipe==="transfer"?"transfer":kat?.icon||"expense";
     return(
@@ -7109,12 +7116,14 @@ Saldo amplop bertambah.`}]);
           </div>
           <div style={{minWidth:0}}>
             <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{transactionDisplayName(t)}</div>
-            <div style={{fontSize:11,color:T.muted,lineHeight:1.45,overflowWrap:"anywhere"}}>{t.tgl}{walletLabel&&` · ${walletLabel}`}{txKatLabel&&` · ${txKatLabel}`}{!isTransfer&&t.subKat&&` › ${t.subKat}`}</div>
+            <div style={{fontSize:11,color:T.muted,lineHeight:1.45,overflowWrap:"anywhere"}}>{t.tgl}{walletLabel&&` · ${walletLabel}`}{txKatLabel&&` · ${txKatLabel}`}{transferFeeContext&&` · ${transferFeeContext}`}{!isTransfer&&t.subKat&&` › ${t.subKat}`}</div>
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
           <span style={{fontWeight:700,fontSize:isMobile?12:13,color:txColor,textAlign:"right",lineHeight:1.2,maxWidth:isMobile?104:160,whiteSpace:"normal",overflowWrap:"anywhere"}}>
-            {isInternalTransfer?"↔ ":isIn||isEnvelopeRefund?"+":isReceivableOut?"-":t.tipe==="penyesuaian"?(N(t.adjustmentDelta)>=0?"+":"-"):t.tipe==="alokasi_amplop"?"→":t.tipe==="transfer"?"→":"-"}{formatRupiah(N(t.jml))}
+            {hasWalletContext
+              ? `${walletContextIncoming?"+":"-"}${formatRupiah(Math.abs(walletContextDelta))}`
+              : <>{isInternalTransfer?"↔ ":isIn||isEnvelopeRefund?"+":isReceivableOut?"-":t.tipe==="penyesuaian"?(N(t.adjustmentDelta)>=0?"+":"-"):t.tipe==="alokasi_amplop"?"→":t.tipe==="transfer"?"→":"-"}{formatRupiah(N(t.jml))}</>}
           </span>
           {isInternalTransfer&&t.internalTransferPairId&&<button type="button" onClick={()=>unlinkInternalTransfer(t)} title="Bukan transfer antar dompet saya" aria-label="Lepas tautan transfer internal" style={{width:30,height:30,borderRadius:9,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.accent,fontSize:13,fontWeight:900,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>⛓</button>}
           {showOrderControls&&(transactionOrderMeta.get(String(t.id))?.canMoveUp||transactionOrderMeta.get(String(t.id))?.canMoveDown)&&<div aria-label="Atur urutan transaksi pada tanggal yang sama" style={{display:"grid",gridTemplateRows:"1fr 1fr",gap:2}}>
@@ -7911,14 +7920,18 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
             {modal.type==="walletHistory"&&(()=>{
               const wallet=findWallet(s.dompet,modal.walletId);
-              const rows=s.txs.filter(tx=>sameId(tx.dompetId,modal.walletId)||sameId(tx.dompetTo,modal.walletId)).sort(compareTransactionsNewestFirst);
+              const rows=s.txs.filter(tx=>{
+                const delta=walletDeltasForTransaction(tx).get(String(modal.walletId));
+                return delta!==undefined&&delta!==0;
+              }).sort(compareTransactionsNewestFirst);
               return <>
                 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
                   <span style={{width:44,height:44,borderRadius:14,background:T.accentBg,display:"grid",placeItems:"center",fontSize:22}}>{uiIcon(wallet?.icon||"WALLET")}</span>
                   <div style={{minWidth:0}}><div style={{fontSize:17,fontWeight:900,color:T.text}}>{wallet?.nama||"Riwayat dompet"}</div><div style={{fontSize:11,color:T.muted}}>Saldo sekarang {IDRs(N(wallet?.saldo))} · {rows.length} perubahan</div></div>
                 </div>
+                <div style={{fontSize:11,color:T.muted,lineHeight:1.5,marginBottom:10}}>Hanya transaksi yang benar-benar menambah atau mengurangi saldo {wallet?.nama||"dompet ini"}.</div>
                 <div style={{maxHeight:isMobile?"58svh":440,overflowY:"auto",borderTop:`1px solid ${T.border}`}}>
-                  {rows.length?rows.map(renderTxItem):<LaunchEmpty icon="🧾" title="Belum ada perubahan saldo" desc="Transaksi yang memakai dompet ini akan muncul di sini." style={{padding:"30px 12px"}}/>}
+                  {rows.length?rows.map(tx=>renderTxItem(tx,{walletContextId:modal.walletId})):<LaunchEmpty icon="🧾" title="Belum ada perubahan saldo" desc="Transaksi yang mengubah saldo dompet ini akan muncul di sini." style={{padding:"30px 12px"}}/>}
                 </div>
                 <Btn onClick={()=>closeModal()} ch="Tutup" c={T.muted} outline style={{width:"100%",marginTop:14,padding:"10px"}}/>
               </>;

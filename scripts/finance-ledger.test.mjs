@@ -12,6 +12,7 @@ import {
   transactionValidationError,
   uniqueNewTransactions,
   unlinkInternalTransferPair,
+  walletDeltasForTransaction,
 } from "../src/financeLedger.js";
 
 const balances = wallets => Object.fromEntries(wallets.map(wallet => [String(wallet.id),Number(wallet.saldo)]));
@@ -55,6 +56,14 @@ assert.equal(transactionValidationError(base,{tipe:"pemasukan",jml:"0",dompetId:
 assert.equal(transactionValidationError(base,{tipe:"pengeluaran",jml:"900.000",dompetId:"bca-live"}),"insufficient_funds");
 assert.equal(transactionValidationError(base,{tipe:"transfer",jml:"1.000",dompetId:"22",dompetTo:22}),"same_wallet");
 assert.equal(transactionValidationError(base,{tipe:"pemasukan",jml:"1.000",dompetId:"missing"}),"wallet_not_found");
+
+const staleDestinationExpense={tipe:"pengeluaran",jml:"25.000",dompetId:"bca-live",dompetTo:"22"};
+assert.equal(walletDeltasForTransaction(staleDestinationExpense).has("22"),false,
+  "Dompet tujuan sisa pada transaksi non-transfer tidak boleh mencemari riwayat dompet");
+assert.equal(walletDeltasForTransaction({tipe:"transfer",jml:"25.000",biaya:"2.500",dompetId:"bca-live",dompetTo:"22"}).get("22"),25000,
+  "Transfer asli harus tetap muncul sebagai saldo masuk di dompet tujuan");
+assert.equal(walletDeltasForTransaction({tipe:"transfer",jml:"25.000",biaya:"2.500",dompetId:"bca-live",dompetTo:"22"}).get("bca-live"),-27500,
+  "Riwayat dompet sumber harus mencakup nominal transfer dan biaya");
 
 const allKinds = [
   [{tipe:"tabungan",jml:"10.000",dompetId:"22"},{"22":74900,"bca-live":875000}],
