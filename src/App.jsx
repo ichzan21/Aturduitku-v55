@@ -11,6 +11,7 @@ import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { uiIcon } from "./uiIcon.js";
 import { debtReminderKey, isOutstandingDebt, remainingDebtAmount, visibleAlerts } from "./financialNotifications.js";
 import { recordInvestment } from "./investmentTransaction.js";
+import { getBillPayment } from "./billPayment.js";
 import { AppIcon, WalletIcon } from "./AppIcon.jsx";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
 import { afterFirstPaint, classifyRuntimeFailure, scheduleModuleLoadRecovery } from "./runtimeRecovery.js";
@@ -3694,8 +3695,8 @@ export default function App(){
     s.budgets.forEach(b=>b.sub.forEach((sb,subIndex)=>{
       if(!sb.tempo) return;
       const billRef=`${b.id}:${subIndex}`;
-      const paidTx=s.txs.find(tx=>tx.billRef===billRef&&String(tx.tgl||"").startsWith(period));
-      list.push({...sb,kat:b.kat,katId:b.id,subIndex,billRef,paid:!!paidTx,paidTxId:paidTx?.id||null});
+      const payment=getBillPayment(s.txs,b,sb,subIndex,period);
+      list.push({...sb,kat:b.kat,katId:b.id,subIndex,billRef,paid:payment.paid,paidTxId:payment.transactionId});
     }));
     return list.sort((a,b)=>Number(a.tempo)-Number(b.tempo));
   },[s.budgets,s.txs,yr,bulanIdx]);
@@ -4156,7 +4157,8 @@ export default function App(){
     // Tagihan jatuh tempo
     s.budgets.forEach(b=>b.sub.forEach((sb,subIndex)=>{
       if(sb.tempo){
-        if(txBulan.some(tx=>tx.billRef===`${b.id}:${subIndex}`)) return;
+        const reminderPeriod=`${now_date.getFullYear()}-${String(now_date.getMonth()+1).padStart(2,"0")}`;
+        if(getBillPayment(s.txs,b,sb,subIndex,reminderPeriod).paid) return;
         const tDate=new Date(now_date.getFullYear(),now_date.getMonth(),Number(sb.tempo));
         const diff=Math.ceil((tDate-now_date)/(1000*60*60*24));
         if(diff>=0&&diff<=7){list.push({icon:sb.emoji||b.icon,title:`${lang==="en"?"Bill":"Tagihan"}: ${sb.nama}`,msg:diff===0?(lang==="en"?"Due TODAY!":"Jatuh tempo HARI INI!"):(lang==="en"?"due in "+diff+" days":diff+" hari lagi jatuh tempo"),tag:lang==="en"?"Bill":"Tagihan",color:diff<=1?"danger":"warning",amount:N(sb.alokasi)});}
@@ -4192,7 +4194,7 @@ export default function App(){
     if(recurringPending.length) list.push({icon:"REPEAT",title:lang==="en"?"Recurring transactions not processed":"Transaksi rutin belum diproses",msg:lang==="en"?`${recurringPending.length} recurring transactions awaiting review.`:`${recurringPending.length} transaksi rutin menunggu pengecekan.`,tag:lang==="en"?"Recurring":"Rutin",color:"warning"});
     const priority={danger:0,warning:1,info:2,success:3};
     return list.sort((a,b)=>(priority[a.color]??9)-(priority[b.color]??9));
-  },[s.budgets,s.goals,s.utang,s.amplop,s.recurring,s.processedRecurring,s.bulan,s.tahun,spendByKat,txBulan,todayTxCount,habitTotalToday,habitDoneToday,lang]);
+  },[s.budgets,s.txs,s.goals,s.utang,s.amplop,s.recurring,s.processedRecurring,s.bulan,s.tahun,spendByKat,txBulan,todayTxCount,habitTotalToday,habitDoneToday,lang]);
 
   useEffect(()=>{
     if(typeof window==="undefined"||!("Notification" in window)||Notification.permission!=="granted") return;
@@ -8673,7 +8675,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <option value="">{t("allWallets")}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}
                 </select>
                 <select value={txFilt.tipe} onChange={e=>{setTxFilt(f=>({...f,tipe:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
-                  <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="investasi">Investasi</option><option value="alokasi_amplop">Alokasi Amplop</option><option value="pengembalian_amplop">Pengembalian Amplop</option><option value="penyesuaian">Koreksi saldo</option><option value="transfer">Transfer</option><option value="transfer_internal">Transfer Internal</option>
+                  <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="investasi">Investasi</option><option value="alokasi_amplop">Alokasi Amplop</option><option value="pengembalian_amplop">Pengembalian Amplop</option><option value="penyesuaian">Koreksi saldo</option><option value="transfer_internal">{lang==="en"?"Between wallets":"Transfer antar dompet"}</option>
                 </select>
                 {txHasFilter&&<Btn onClick={()=>{setTxSearch("");setTxFilt({dompet:"",tipe:"",sub:"",startDate:"",endDate:""});setTxPage(1);}} ch="Reset" c={T.err} outline style={{padding:"7px 12px",fontSize:12}}/>}
                 <Btn onClick={()=>exportCSV()} ch="Export" c="#16A34A" outline style={{padding:"7px 12px",fontSize:12}}/>
@@ -8721,6 +8723,10 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               {internalTransferReview.length>1&&<Btn onClick={confirmAllInternalTransfers} ch="Tandai semua sudah benar" c={T.accent} outline style={{padding:"7px 12px",fontSize:12,marginTop:2}}/>}
             </>} style={{marginBottom:16}}/>}
 
+            {["transfer","transfer_internal"].includes(txFilt.tipe)&&<div role="status" style={{padding:"12px 14px",marginBottom:16,background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:8,color:T.info,fontSize:12,lineHeight:1.6}}>
+              <strong>{lang==="en"?"Between-wallet transfers":"Transfer antar dompet"} · {filtTx.length} {t("txCount")}</strong>
+              <div>{lang==="en"?"Balance moves between your wallets. Transfer principal is not income or spending; bank fees remain expenses.":"Saldo berpindah antar dompet sendiri. Nominal transfer tidak dihitung sebagai pemasukan atau pengeluaran; biaya admin tetap masuk pengeluaran."}</div>
+            </div>}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:16}}>
               {[{l:t("incomeLabel"),value:filteredTxSummary.income,vc:T.ok,bg:T.okBg},{l:t("expenseLabel"),value:filteredTxSummary.expense,vc:T.err,bg:T.errBg},{l:"Tabungan & Investasi",value:filteredTxSummary.future,vc:T.info,bg:T.infoBg},{l:"Net",value:filteredTxSummary.net,vc:filteredTxSummary.net>=0?T.ok:T.err,bg:filteredTxSummary.net>=0?T.okBg:T.errBg}].map((x,i)=>(
                 <div key={x.l} className="stagger-in" style={{background:x.bg,borderRadius:12,padding:"13px 16px",transition:"background .3s",animationDelay:`${i*55}ms`}}>
@@ -8911,7 +8917,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                           </div>}
                           {b.sub.map((sb,si)=>{
                             const billRef=`${b.id}:${si}`;
-                            const paid=txBulan.some(tx=>tx.billRef===billRef);
+                            const paid=getBillPayment(txBulan,b,sb,si,`${yr}-${String(bulanIdx+1).padStart(2,"0")}`).paid;
                             const bill={...sb,kat:b.kat,katId:b.id,subIndex:si,billRef,paid};
                             return <div key={si} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:paid?T.okBg:T.cardAlt,borderRadius:8,marginBottom:4,border:`1px solid ${paid?T.okBorder:T.borderLight}`}}>
                               <div style={{display:"flex",gap:7,alignItems:"center"}}>

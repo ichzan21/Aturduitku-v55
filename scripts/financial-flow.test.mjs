@@ -7,6 +7,31 @@ import {
 import { assertDataVersion, isMutationReplay } from "../api/_lib/dataVersion.js";
 import { incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "../src/incomeCategory.js";
 import { buildBudgetRealization, findTransactionBudget, prepareExpenseTransactionCategory, transactionMatchesBudgetPeriod } from "../src/budgetRealization.js";
+import { getBillPayment } from "../src/billPayment.js";
+import { filterTransactionsForList } from "../src/transactionList.js";
+
+const billBudget = { id:3 };
+const waterBill = { nama:"Air", alokasi:"145000" };
+const manualBillPayment = { id:100, tipe:"pengeluaran", katId:"3", subKat:" Air ", jml:"145.000", tgl:"2026-10-01" };
+const paymentStatus = transactions => getBillPayment(transactions, billBudget, waterBill, 0, "2026-10").paid;
+assert.equal(paymentStatus([manualBillPayment]), true, "Manual payment must settle the matching bill");
+assert.equal(paymentStatus([{...manualBillPayment,jml:"45000"}]), false, "Partial payment must not dismiss the bill");
+assert.equal(paymentStatus([{...manualBillPayment,jml:"45000"},{...manualBillPayment,id:101,jml:"100000"}]), true);
+for (const changed of [{tgl:"2026-09-01"},{katId:4},{subKat:"Internet"},{tipe:"pemasukan"},{jml:"0"}])
+  assert.equal(paymentStatus([{...manualBillPayment,...changed}]), false);
+assert.equal(paymentStatus([{...manualBillPayment,subKat:"Air",billRef:"3:0",jml:"120000"}]), true, "Explicit bill payment preserves actual billed amount");
+assert.equal(paymentStatus([{...manualBillPayment,subKat:"Internet",billRef:"3:0"}]), false, "Changed subcategory index must not settle a different bill");
+assert.equal(paymentStatus(JSON.parse(JSON.stringify([manualBillPayment]))), true, "Payment survives persistence");
+const transferRows = [
+  {id:10,tipe:"transfer",dompetId:1,dompetTo:2,jml:"7500",tgl:"2026-10-01"},
+  {id:11,tipe:"transfer_internal_keluar",dompetId:1,jml:"10000",tgl:"2026-10-01"},
+  {id:12,tipe:"transfer_internal_masuk",dompetId:2,jml:"10000",tgl:"2026-10-01"},
+  {...manualBillPayment,id:13,dompetId:1},
+];
+assert.equal(filterTransactionsForList(transferRows,{type:"transfer_internal"}).length,3);
+assert.equal(filterTransactionsForList(transferRows,{type:"transfer"}).length,3);
+assert.deepEqual(filterTransactionsForList(transferRows,{type:"transfer_internal",walletId:"2"}).map(tx=>tx.id).sort(),[10,12]);
+assert.equal(filterTransactionsForList(transferRows,{type:"transfer_internal",walletId:"99"}).length,0);
 
 const balances = wallets => Object.fromEntries(wallets.map(wallet => [String(wallet.id), Number(wallet.saldo)]));
 const base = [{ id:"utama", saldo:"1000000" }, { id:2, saldo:"500000" }];

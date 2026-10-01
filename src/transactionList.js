@@ -1,4 +1,7 @@
 import { isCashflowExpense } from "./cashflowClassification.js";
+import { walletDeltasForTransaction } from "./financeLedger.js";
+
+export const isWalletTransfer = transaction => ["transfer", "transfer_internal_keluar", "transfer_internal_masuk"].includes(transaction?.tipe);
 
 const normalizedText = value => String(value || "").trim().toLowerCase();
 
@@ -49,7 +52,9 @@ export const filterTransactionsForList = (transactions = [], filters = {}) => {
 
   return [...transactions]
     .filter(transaction => !search || normalizedText(`${transaction?.displayName || ""} ${transaction?.ket || ""}`).includes(search))
-    .filter(transaction => !walletId || String(transaction?.dompetId ?? "") === walletId)
+    .filter(transaction => !walletId || (isWalletTransfer(transaction)
+      ? (walletDeltasForTransaction(transaction).get(walletId) || 0) !== 0
+      : String(transaction?.dompetId ?? "") === walletId))
     .filter(transaction => {
       const date = transactionDateKey(transaction?.tgl);
       if (startDate && (!date || date < startDate)) return false;
@@ -58,8 +63,8 @@ export const filterTransactionsForList = (transactions = [], filters = {}) => {
     })
     .filter(transaction => {
       if (!type) return true;
-      if (type === "transfer_internal") {
-        return ["transfer_internal_keluar", "transfer_internal_masuk"].includes(transaction?.tipe);
+      if (type === "transfer_internal" || type === "transfer") {
+        return isWalletTransfer(transaction);
       }
       return transaction?.tipe === type;
     })
