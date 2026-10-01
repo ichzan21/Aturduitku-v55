@@ -9,6 +9,8 @@ import { findBudgetSourceWallet, normalizeBudgetSourceId } from "./budgetSource.
 import { findGoalSourceWallet, normalizeGoalSourceId } from "./goalSource.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { uiIcon } from "./uiIcon.js";
+import { debtReminderKey, isOutstandingDebt, remainingDebtAmount, visibleAlerts } from "./financialNotifications.js";
+import { recordInvestment } from "./investmentTransaction.js";
 import { AppIcon, WalletIcon } from "./AppIcon.jsx";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
 import { afterFirstPaint, classifyRuntimeFailure, scheduleModuleLoadRecovery } from "./runtimeRecovery.js";
@@ -3439,9 +3441,9 @@ export default function App(){
       const todayStr = today();
       const todayD = new Date(todayStr);
       // 1. Tagihan jatuh tempo dalam 3 hari
-      s.utang.filter(u=>u.tempo&&u.status!=="lunas").forEach(u=>{
+      s.utang.filter(u=>u.tempo&&isOutstandingDebt(u)).forEach(u=>{
         const diff = Math.ceil((new Date(u.tempo)-todayD)/(1000*60*60*24));
-        if(diff>=0&&diff<=3) alerts.push({type:"warn",title:`⏰ ${lang==="en"?"Due: ":"Jatuh Tempo: "}${u.nama}`,body:`${u.tipe==="utang"?(lang==="en"?"Debt":"Hutang"):(lang==="en"?"Receivable":"Piutang")} ${IDR(N(u.jml))} ${lang==="en"?"due":"jatuh tempo"} ${diff===0?(lang==="en"?"TODAY":"HARI INI"):(lang==="en"?"in "+diff+(diff===1?" day":" days"):"dalam "+diff+" hari")} (${u.tempo})`});
+        if(diff>=0&&diff<=3) alerts.push({key:debtReminderKey(u),type:"warn",title:`⏰ ${lang==="en"?"Due: ":"Jatuh Tempo: "}${u.nama}`,body:`${u.tipe==="utang"?(lang==="en"?"Debt":"Hutang"):(lang==="en"?"Receivable":"Piutang")} ${IDR(remainingDebtAmount(u))} ${lang==="en"?"due":"jatuh tempo"} ${diff===0?(lang==="en"?"TODAY":"HARI INI"):(lang==="en"?"in "+diff+(diff===1?" day":" days"):"dalam "+diff+" hari")} (${u.tempo})`});
       });
       // 2. Budget hampir habis (>85%)
       const spendKatLocal={};
@@ -3462,11 +3464,12 @@ export default function App(){
       const unproc=s.recurring.filter(r=>r.aktif&&!Object.keys(s.processedRecurring).some(k=>k.startsWith(r.id+"_"+mk)));
       if(unproc.length>0) alerts.push({type:"info",title:`🔁 ${unproc.length} ${lang==="en"?"Recurring Transactions Not Processed":"Transaksi Rutin Belum Diproses"}`,body:lang==="en"?`Click "Process Now" in Settings → Recurring Transactions`:`Klik "Proses Sekarang" di menu Setting → Transaksi Rutin`});
 
-      setInAppAlerts(alerts);
+      const activeAlerts=visibleAlerts(alerts,s.dismissedAlerts,todayStr);
+      setInAppAlerts(activeAlerts);
 
       // Browser notification (jika diizinkan)
-      if(alerts.length>0&&"Notification" in window&&Notification.permission==="granted"){
-        const urgent=alerts.filter(a=>a.type==="danger"||a.type==="warn");
+      if(activeAlerts.length>0&&"Notification" in window&&Notification.permission==="granted"){
+        const urgent=activeAlerts.filter(a=>a.type==="danger"||a.type==="warn");
         if(urgent.length>0){
           const a=urgent[0];
           try{
@@ -3481,7 +3484,7 @@ export default function App(){
     };
     runChecks();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[s.utang, s.budgets, s.txs, s.recurring, s.processedRecurring, lang]);
+  },[s.utang, s.budgets, s.txs, s.recurring, s.processedRecurring, s.dismissedAlerts, s.bulan, s.tahun, lang]);
 
   const requestNotifPermission=async()=>{
     if(!("Notification" in window)){showToast(lang==="en"?"❌ Browser does not support notifications":"❌ Browser tidak mendukung notifikasi");return;}
@@ -3644,7 +3647,7 @@ export default function App(){
   const savRate=totalIn>0?(totalFuture/totalIn*100):0;
   const rasioOut=totalIn>0?(totalOut/totalIn*100):0;
   const totalAset=totalSaldo+totalGoalFunds+totalAmplopAvailable+s.asetTetap.reduce((a,b)=>a+N(b.nilai),0);
-  const remainingDebt=u=>Math.max(N(u.jml)-(u.cicilan||[]).reduce((sum,c)=>sum+N(c.jml),0),0);
+  const remainingDebt=remainingDebtAmount;
   const totalUtangAktif=s.utang.filter(u=>u.tipe==="utang"&&!u.lunas).reduce((a,b)=>a+remainingDebt(b),0);
   const totalPiutang=s.utang.filter(u=>(u.tipe==="piutang"||u.tipe==="piutangBisnis")&&!u.lunas).reduce((a,b)=>a+remainingDebt(b),0);
   const netWorthTotal=totalAset+totalPiutang-totalUtangAktif;
@@ -3709,7 +3712,7 @@ export default function App(){
       return key;
     };
     const items=[];
-    s.utang.filter(u=>!u.lunas&&u.tempo).forEach(u=>{
+    s.utang.filter(u=>isOutstandingDebt(u)&&u.tempo).forEach(u=>{
       const sisa=Math.max(N(u.jml)-(u.cicilan||[]).reduce((a,c)=>a+N(c.jml),0),0);
       const provider=u.provider||detectDebtProvider(u.nama);
       items.push({id:`debt-${u.id}`,date:u.tempo,title:u.nama,type:provider||"Utang",amount:sisa,icon:provider?"🧾":"📌",tone:"debt",days:diffDays(u.tempo)});
@@ -4174,7 +4177,7 @@ export default function App(){
       if(diff>=0&&diff<=14){const pct=N(g.target)>0?N(g.kumpul)/N(g.target)*100:0;list.push({icon:g.icon,title:`Goal: ${g.nama}`,msg:lang==="en"?`${diff} days left, ${pct.toFixed(0)}% progress`:`${diff} hari lagi, progress ${pct.toFixed(0)}%`,tag:"Goal",color:pct>=80?"success":"warning"});}
     });
     // Utang tempo
-    s.utang.filter(u=>!u.lunas&&u.tempo).forEach(u=>{
+    s.utang.filter(u=>isOutstandingDebt(u)&&u.tempo).forEach(u=>{
       const tempo=new Date(u.tempo);
       const diff=Math.ceil((tempo-now_date)/(1000*60*60*24));
       if(diff>=0&&diff<=14){list.push({icon:"📋",title:u.tipe==="utang"?`${lang==="en"?"Debt":"Utang"}: ${u.nama}`:`${lang==="en"?"Receivable":"Piutang"}: ${u.nama}`,msg:diff===0?(lang==="en"?"Due TODAY!":"Jatuh tempo HARI INI!"):(lang==="en"?diff+" days left":diff+" hari lagi"),tag:u.tipe==="utang"?(lang==="en"?"Debt":"Utang"):(lang==="en"?"Receivable":"Piutang"),color:diff<=3?"danger":"warning",amount:N(u.jml)});}
@@ -6722,6 +6725,22 @@ Saldo amplop bertambah.`}]);
       showToast(t("toast_incomeOk"));closeModal();return;
     }
 
+    if(tipe==="investasi"){
+      if(!cleanDescription){showToast("Isi nama investasi terlebih dahulu.");return;}
+      const savedTx=clearUnusedTransferFields({...txForm,id,ket:cleanDescription,jml:pN(jml),asetId:txForm.asetId||id+1,goalId:"",customKat:"",budgetExcluded:false});
+      try{
+        const nextState=recordInvestment(s,savedTx);
+        setS(nextState);
+        scheduleUndo(s,nextState,"Investasi dicatat");
+        setTxForm(f=>({...f,tipe:"pengeluaran",tgl:today(),ket:"",jml:"",asetId:"",katId:s.budgets[0]?.id||"",subKat:""}));
+        showToast(savedTx.katId?"Investasi dicatat. Realisasi budget mengikuti tanggal transaksi.":"Investasi dicatat di luar budget.");
+        closeModal();
+      }catch(error){
+        showToast(error.message==="insufficient_funds"?t("toast_walletNotEnough"):error.message==="wallet_not_found"?t("toast_walletNotFound"):"Kategori budget investasi tidak tersedia.");
+      }
+      return;
+    }
+
     if(tipe==="tabungan"){
       const dompetSumber=findWallet(s.dompet,dompetId);
       if(dompetSumber&&N(dompetSumber.saldo)<jmlNum){
@@ -6879,7 +6898,7 @@ Saldo amplop bertambah.`}]);
        if(N(targetDompet.saldo) < N(asetForm.nilai)) {
            showToast(t("toast_walletNotEnough")); return;
        }
-       const investmentTx={id:assetId+1, tipe:"investasi", tgl:today(), ket:`Beli Aset: ${asetForm.nama}`, jml:pN(asetForm.nilai), dompetId:asetForm.dompetId,asetId:assetId,katId:investasiBudgetId,bulan:s.bulan,tahun:s.tahun};
+       const investmentTx={id:assetId+1, tipe:"investasi", tgl:today(), ket:`Beli Aset: ${asetForm.nama}`, jml:pN(asetForm.nilai), dompetId:asetForm.dompetId,asetId:assetId,katId:asetForm.katId??investasiBudgetId,bulan:s.bulan,tahun:s.tahun};
        setS(p=>({...p,
           asetTetap:[...p.asetTetap,{id:assetId, nama:asetForm.nama, nilai:asetForm.nilai, ket:asetForm.ket}],
           dompet:applyTransactionToWallets(p.dompet,investmentTx),
@@ -7831,8 +7850,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             {modal.type==="tx"&&<>
               <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{modal.editTxId!==undefined?"Edit Nama & Detail Transaksi":t("newTx")}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>{modal.editTxId!==undefined?"Ubah nama atau detail yang salah. Saldo akan disesuaikan otomatis jika nominal, tipe, atau dompet ikut berubah.":"Catat transaksi baru dengan detail yang cukup supaya laporan tetap akurat."}</div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
-                {[{v:"pengeluaran",l:t("outflow2")},{v:"pemasukan",l:t("inflow2")},{v:"tabungan",l:t("savingShort")},{v:"transfer",l:"Transfer"}].filter(({v})=>modal.editTxId===undefined||v!=="tabungan").map(({v,l})=>(
-                  <button key={v} onClick={()=>setTxForm(f=>({...f,tipe:v,katId:v==="pemasukan"?"":v==="pengeluaran"?(s.budgets[0]?.id||""):v==="tabungan"?investasiBudgetId:f.katId,customKat:"",subKat:"",goalId:"",budgetExcluded:false}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${txForm.tipe===v?T.accent:T.inputBorder}`,background:txForm.tipe===v?T.accentBg:T.input,color:txForm.tipe===v?T.accent:T.sub}}>{l}</button>
+                {[{v:"pengeluaran",l:t("outflow2")},{v:"pemasukan",l:t("inflow2")},{v:"tabungan",l:t("savingShort")},{v:"investasi",l:"Investasi"},{v:"transfer",l:"Transfer"}].filter(({v})=>modal.editTxId===undefined||!["tabungan","investasi"].includes(v)).map(({v,l})=>(
+                  <button key={v} onClick={()=>setTxForm(f=>({...f,tipe:v,katId:v==="pemasukan"?"":v==="pengeluaran"?(s.budgets[0]?.id||""):["tabungan","investasi"].includes(v)?investasiBudgetId:f.katId,customKat:"",subKat:"",goalId:"",asetId:"",budgetExcluded:false}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${txForm.tipe===v?T.accent:T.inputBorder}`,background:txForm.tipe===v?T.accentBg:T.input,color:txForm.tipe===v?T.accent:T.sub}}>{l}</button>
                 ))}
               </div>
               <label style={LS}>{t("date")}</label><input type="date" value={txForm.tgl} onChange={e=>setTxForm(f=>({...f,tgl:e.target.value}))} style={{...IS,marginBottom:10}}/>
@@ -7848,8 +7867,10 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 {txForm.tipe==="pengeluaran"&&<div><label style={LS}>{t("category")}</label><select value={txForm.katId} onChange={e=>{const selected=s.budgets.find(b=>sameId(b.id,e.target.value));setTxForm(f=>({...f,katId:selected?.id??"",customKat:"",subKat:"",budgetExcluded:!selected}));}} style={IS}><option value="">Di luar budget</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{uiIcon(b.icon)} {b.kat}</option>)}</select></div>}
                 {txForm.tipe==="transfer"&&<div><label style={LS}>{t("toWallet")}</label><select value={txForm.dompetTo} onChange={e=>setTxForm(f=>({...f,dompetTo:e.target.value}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>}
                 {txForm.tipe==="pemasukan"&&<div><label style={LS}>Kategori</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:e.target.value,customKat:""}))} style={IS}><option value="">Otomatis dari keterangan</option>{KAT_IN.map(k=><option key={k}>{k}</option>)}</select><div style={{fontSize:10,color:T.muted,marginTop:5,lineHeight:1.45}}>{!txForm.katId&&txForm.ket.trim()?<>Terdeteksi: <strong style={{color:T.accent}}>{inferIncomeCategory(txForm.ket)||"Lainnya"}</strong></>:"Contoh: gaji kantor, fee proyek, bonus, jualan, dividen, atau transfer masuk."}</div></div>}
+                {txForm.tipe==="investasi"&&<div><label htmlFor="investment-budget" style={LS}>Kategori budget investasi</label><select id="investment-budget" value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:e.target.value,subKat:""}))} style={IS}><option value="">Di luar budget</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{b.kat}</option>)}</select></div>}
                 {txForm.tipe==="tabungan"&&<div><label style={LS}>Goal</label><select value={txForm.goalId} onChange={e=>setTxForm(f=>({...f,goalId:e.target.value}))} style={IS}><option value="">-- Pilih Goal --</option>{s.goals.filter(g=>!g.selesai).map(g=><option key={g.id} value={g.id}>{uiIcon(g.icon)} {g.nama}</option>)}</select></div>}
               </div>
+              {txForm.tipe==="investasi"&&<div style={{marginBottom:10}}><label htmlFor="investment-asset" style={LS}>Aset investasi</label><select id="investment-asset" value={txForm.asetId||""} onChange={e=>setTxForm(f=>({...f,asetId:e.target.value}))} style={IS}><option value="">Buat aset dari nama transaksi</option>{s.asetTetap.map(a=><option key={a.id} value={a.id}>{a.nama}</option>)}</select></div>}
               {txForm.tipe==="pengeluaran"&&!s.budgets.some(b=>sameId(b.id,txForm.katId))&&(
                 <div style={{marginBottom:10,padding:"10px 12px",borderRadius:9,background:T.infoBg,border:`1px solid ${T.infoBorder}`}}>
                   <label style={{...LS,color:T.info}}>Nama kategori bebas (opsional)</label>
@@ -7864,7 +7885,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <div style={{fontSize:10,color:T.muted,marginTop:5}}>Nama ini akan tampil di riwayat dan laporan transaksi.</div>
                 </div>
               )}
-              {txForm.tipe==="pengeluaran"&&txForm.katId&&s.budgets.find(b=>sameId(b.id,txForm.katId))?.sub?.length>0&&(
+              {["pengeluaran","investasi"].includes(txForm.tipe)&&txForm.katId&&s.budgets.find(b=>sameId(b.id,txForm.katId))?.sub?.length>0&&(
                 <div style={{marginBottom:10}}><label style={LS}>Subkategori</label>
                 <select value={txForm.subKat} onChange={e=>setTxForm(f=>({...f,subKat:e.target.value}))} style={IS}>
                   <option value="">-- Pilih --</option>
@@ -8028,9 +8049,11 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     <span style={{fontSize:13, fontWeight:600,lineHeight:1.45}}>Potong saldo dari dompet terpilih</span>
                  </div>
                  {asetForm.beliDariDompet && (
-                    <select value={asetForm.dompetId} onChange={e=>setAsetForm(f=>({...f,dompetId:e.target.value}))} style={IS}>
+                    <><select value={asetForm.dompetId} onChange={e=>setAsetForm(f=>({...f,dompetId:e.target.value}))} style={IS}>
                        {s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}
                     </select>
+                    <label htmlFor="asset-investment-budget" style={{...LS,marginTop:10}}>Kategori budget investasi</label>
+                    <select id="asset-investment-budget" value={asetForm.katId??investasiBudgetId} onChange={e=>setAsetForm(f=>({...f,katId:e.target.value}))} style={IS}><option value="">Di luar budget</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{b.kat}</option>)}</select></>
                  )}
                </div>}
 
@@ -8201,7 +8224,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     <div style={{fontSize:12,fontWeight:800,color:a.type==="danger"?T.err:a.type==="warn"?T.warn:T.info,marginBottom:2}}>{a.title}</div>
                     <div style={{fontSize:11,color:T.sub}}>{a.body}</div>
                   </div>
-                  <button onClick={()=>setInAppAlerts(p=>p.filter((_,j)=>j!==i))} style={{background:"transparent",border:"none",cursor:"pointer",color:T.muted,fontSize:14,padding:"0 2px",flexShrink:0}}>X</button>
+                  <button aria-label={`Tutup pengingat ${a.title}`} onClick={()=>{setInAppAlerts(p=>p.filter(item=>item.key!==a.key));setS(p=>({...p,dismissedAlerts:{...p.dismissedAlerts,[a.key]:true}}));}} style={{background:"transparent",border:"none",cursor:"pointer",color:T.muted,fontSize:14,padding:"0 2px",flexShrink:0}}>X</button>
                 </div>
               ))}
               {inAppAlerts.length>3&&<div style={{fontSize:11,color:T.muted,textAlign:"center",padding:"4px 0"}}>+{inAppAlerts.length-3} {lang==="en"?"more notifications":"notifikasi lainnya"}</div>}

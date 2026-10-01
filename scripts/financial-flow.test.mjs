@@ -119,4 +119,31 @@ assert.match(appSource, /ket:transactionDisplayName\(tx\)/,
 assert.match(appSource, /id:previous\.id,\s*displayName:""/,
   "Edit lengkap harus menyatukan nama baru ke keterangan tanpa menyisakan override lama");
 
+const {isOutstandingDebt,remainingDebtAmount,debtReminderKey,visibleAlerts}=await import("../src/financialNotifications.js");
+const {recordInvestment}=await import("../src/investmentTransaction.js");
+const paidDebt={id:1,jml:"217.500",tempo:"2026-10-01",cicilan:[{jml:"217.500"}]};
+assert.equal(isOutstandingDebt({...paidDebt,cicilan:[],lunas:true}),false);
+assert.equal(isOutstandingDebt({...paidDebt,cicilan:[],status:"lunas"}),false);
+assert.equal(isOutstandingDebt(paidDebt),false,"Pembayaran penuh harus menghentikan pengingat meskipun flag lama belum diperbarui");
+const partialDebt={...paidDebt,cicilan:[{jml:"7.500"}]};
+assert.equal(isOutstandingDebt(partialDebt),true);
+assert.equal(remainingDebtAmount(partialDebt),210000);
+const reminder={key:debtReminderKey(partialDebt),type:"warn",title:"Jatuh Tempo",body:"Sisa piutang"};
+const dismissed=JSON.parse(JSON.stringify({[reminder.key]:true}));
+assert.equal(visibleAlerts([reminder],dismissed,"2026-10-02").length,0,"Pengingat utang yang ditutup harus tetap tersembunyi setelah reload dan pergantian hari");
+assert.equal(visibleAlerts([{...reminder,key:debtReminderKey({...partialDebt,tempo:"2026-10-05"})}],dismissed,"2026-10-02").length,1,"Perubahan jatuh tempo harus menghasilkan pengingat baru");
+const investmentState={dompet:[{id:"bank",saldo:"1000000"}],asetTetap:[],txs:[],budgets:[{id:"emas",kat:"Emas",kelas:"Investasi"}]};
+const investmentDraft={id:1,asetId:2,tipe:"investasi",jml:"217500",ket:"Emas digital",tgl:"2026-10-01",dompetId:"bank",katId:"emas",dompetTo:"stale"};
+const invested=recordInvestment(investmentState,investmentDraft);
+assert.equal(invested.dompet[0].saldo,"782500");
+assert.equal(invested.asetTetap[0].nilai,"217500");
+assert.equal(invested.txs[0].dompetTo,"");
+assert.equal(buildBudgetRealization(invested.txs,invested.budgets,Number).totalsByBudget.emas,217500);
+const toppedUp=recordInvestment(invested,{...investmentDraft,id:3,jml:"7500"});
+assert.equal(toppedUp.asetTetap.length,1);
+assert.equal(toppedUp.asetTetap[0].nilai,"225000");
+assert.equal(toppedUp.dompet[0].saldo,"775000");
+assert.throws(()=>recordInvestment(investmentState,{...investmentDraft,jml:"2000000"}),/insufficient_funds/);
+assert.throws(()=>recordInvestment(investmentState,{...investmentDraft,katId:"deleted"}),/budget_not_found/);
+assert.equal(investmentState.txs.length,0,"Validasi gagal tidak boleh mengubah data");
 console.log("Financial user flow tests passed");

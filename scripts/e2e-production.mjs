@@ -288,6 +288,39 @@ async function smoke(viewport, name, mutate = false) {
     await cleanupE2ETransactions(page);
 
     await openBudget(page, false);
+    const investmentDate = await activeBudgetDate(page);
+    const beforeInvestment = await page.evaluate(() => JSON.parse(localStorage.getItem("aturduitku_data")));
+    const investmentWallet = beforeInvestment.dompet.find(wallet => Number(String(wallet.saldo).replace(/\./g,"")) >= 7500);
+    if (!investmentWallet) throw new Error("Akun QA membutuhkan saldo Rp7.500 untuk uji investasi");
+    const investmentBudget = beforeInvestment.budgets.find(budget => budget.kelas==="Investasi") || beforeInvestment.budgets[0];
+    const investmentNote = `[E2E] investasi ${Date.now()}`;
+    await openTransactions(page, false);
+    await page.getByRole("button", {name:/Tambah Transaksi|\+ Transaksi/i}).first().click();
+    const investmentModal = page.locator(".modal-overlay");
+    await investmentModal.getByRole("button", {name:"Investasi",exact:true}).click();
+    await investmentModal.locator('input[type="date"]').fill(investmentDate);
+    await investmentModal.locator('input[inputmode="numeric"]').fill("7500");
+    await investmentModal.locator("#transaction-name").fill(investmentNote);
+    await investmentModal.locator("select").first().selectOption(String(investmentWallet.id));
+    await investmentModal.getByLabel("Kategori budget investasi", {exact:true}).selectOption(String(investmentBudget.id));
+    await investmentModal.getByRole("button", {name:"Simpan Transaksi",exact:true}).click();
+    await waitForModalClose(page);
+    await page.waitForFunction(({note,walletId,previous})=>{
+      const data=JSON.parse(localStorage.getItem("aturduitku_data"));
+      return data.txs.some(tx=>tx.ket===note&&tx.tipe==="investasi"&&Number(tx.jml)===7500)
+        && Number(data.dompet.find(wallet=>String(wallet.id)===walletId).saldo)===previous-7500
+        && data.asetTetap.some(asset=>asset.nama===note&&Number(asset.nilai)===7500);
+    },{note:investmentNote,walletId:String(investmentWallet.id),previous:Number(String(investmentWallet.saldo).replace(/\./g,""))});
+    const afterInvestment = await page.evaluate(() => JSON.parse(localStorage.getItem("aturduitku_data")));
+    const investmentTx = afterInvestment.txs.find(tx=>tx.ket===investmentNote);
+    if (String(investmentTx.katId)!==String(investmentBudget.id)) throw new Error("Investasi tidak terhubung ke budget pilihan");
+    await page.getByTestId("transaction-undo-button").click();
+    await page.waitForFunction(note=>{
+      const data=JSON.parse(localStorage.getItem("aturduitku_data"));
+      return !data.txs.some(tx=>tx.ket===note)&&!data.asetTetap.some(asset=>asset.nama===note);
+    },investmentNote);
+    console.log("OK investasi: nominal tepat, saldo dompet, aset, kategori budget, dan undo");
+    await openBudget(page, false);
     const outsideBudgetBefore = await outsideBudgetCount(page);
     const outsideBudgetDate = await activeBudgetDate(page);
     await openTransactions(page, false);
