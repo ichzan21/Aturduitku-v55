@@ -262,7 +262,10 @@ async function smoke(viewport, name, mutate = false) {
   await searchInput.fill("");
   await page.screenshot({ path:`${artifacts}/${name}-transactions.png`, fullPage:true });
   await assertNoHorizontalOverflow(page, name, "transactions");
-  await page.getByRole("button",{name:/Tambah Transaksi|\+ Transaksi/i}).first().click();
+  if(viewport.width<900){
+    await page.getByRole("button",{name:"Aksi cepat",exact:true}).click();
+    await page.getByRole("button",{name:/Catat pengeluaran/}).click();
+  }else await page.getByRole("button",{name:/Tambah Transaksi|\+ Transaksi/i}).first().click();
   const investmentPreview=page.locator(".modal-overlay");
   await investmentPreview.getByRole("button",{name:"Investasi",exact:true}).click();
   await investmentPreview.getByLabel("Kategori budget investasi",{exact:true}).waitFor({state:"visible"});

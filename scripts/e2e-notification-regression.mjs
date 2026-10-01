@@ -70,6 +70,7 @@ try{
     assert.equal(await page.getByText(/(?:Piutang|Jatuh Tempo): QA/).count(),0,"All settled debts must disappear from notification panel after reopening");
     assert.equal(await page.getByText("Tagihan: QA air lunas",{exact:true}).count(),0,"Manually paid bill must not return on reopen");
     await page.getByText("Tagihan: QA internet belum",{exact:true}).waitFor({state:"visible"});
+    await page.waitForTimeout(1000);
     await page.screenshot({path:`.e2e-artifacts/notifications-${viewport.width}.png`,fullPage:true});
     console.log(`OK notification regression ${viewport.width}: settled statuses, dismissal persistence, repayment, reopen`);
     await page.reload({waitUntil:"domcontentloaded"});
@@ -84,6 +85,7 @@ try{
     const walletFilter=page.locator('select').filter({has:page.locator('option').filter({hasText:"Tujuan QA"})});
     await walletFilter.selectOption("2");
     await page.getByText("QA transfer manual",{exact:true}).waitFor({state:"visible"});
+    await page.waitForTimeout(1000);
     await page.screenshot({path:`.e2e-artifacts/transfer-filter-${viewport.width}.png`,fullPage:true});
     await transferFilter.selectOption("");
     await walletFilter.selectOption("");
@@ -106,7 +108,7 @@ try{
     await page.getByTestId("page-title").waitFor({state:"visible"});
     if(viewport.width<900) await page.getByRole("button",{name:/Budget/}).last().click();
     else await page.getByText("Budget",{exact:true}).first().click();
-    const budget=page.getByTestId("budget-category-card").first();
+    const budget=page.getByTestId("budget-category-card").filter({has:page.locator('button[aria-controls="budget-realization-1"]')});
     await budget.locator('button[aria-controls="budget-realization-1"]').click();
     await budget.getByText("QA investasi emas",{exact:true}).waitFor({state:"visible"});
     await page.screenshot({path:`.e2e-artifacts/investment-realization-${viewport.width}.png`,fullPage:true});
