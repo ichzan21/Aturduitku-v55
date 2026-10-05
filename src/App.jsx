@@ -5,6 +5,7 @@ import {
 } from "./firebaseClient.js";
 import { reportClientError } from "./monitoring.js";
 import { applyTransactionToWallets, confirmInternalTransferPair, displayNumber, findWallet, hasWallet, internalTransferPairsForReview, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, unlinkInternalTransferPair, walletDeltasForTransaction } from "./financeLedger.js";
+import { retryCloudSave } from "./cloudSaveRetry.js";
 import { findBudgetSourceWallet, normalizeBudgetSourceId } from "./budgetSource.js";
 import { findGoalSourceWallet, normalizeGoalSourceId } from "./goalSource.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
@@ -3067,27 +3068,19 @@ export default function App(){
     const mutationId=globalThis.crypto?.randomUUID?.()||`save-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const requestBody=JSON.stringify({...payload,baseVersion:cloudVersionRef.current,mutationId});
     let result;
-    let lastError;
-    for(let attempt=0;attempt<2;attempt+=1){
-      try{
-        result=await authedJson("/api/users/data", {
+    try{
+        result=await retryCloudSave(()=>authedJson("/api/users/data", {
           method:"POST",
           body:requestBody,
           timeoutMs:20000,
           suppressNetworkMonitoring:true,
-        });
-        break;
-      }catch(error){
-        lastError=error;
-        if(!["API_NETWORK_ERROR","API_TIMEOUT"].includes(error.code)||attempt===1)break;
-        await new Promise(resolve=>setTimeout(resolve,600));
+          suppressMonitoring:true,
+        }));
+    }catch(error){
+      if(error?.status>=500||error?.monitorable){
+        reportClientError(error,{type:error.status>=500?"api_server_error":error.code==="API_TIMEOUT"?"api_timeout":"api_network_error",component:"cloud_autosave",route:"/api/users/data",durationMs:error.durationMs});
       }
-    }
-    if(!result){
-      if(lastError?.monitorable){
-        reportClientError(lastError,{type:lastError.code==="API_TIMEOUT"?"api_timeout":"api_network_error",component:"cloud_autosave",route:"/api/users/data",durationMs:lastError.durationMs});
-      }
-      throw lastError||new Error("Data belum dapat disimpan");
+      throw error;
     }
     cloudVersionRef.current=Number(result.version)||cloudVersionRef.current;
     setSyncMeta(meta=>({...meta,updatedAt:result.updatedAt||meta.updatedAt}));
@@ -3317,6 +3310,15 @@ export default function App(){
   },[fireUser?.uid, accessProfile?.approvalStatus]);
 
   // Handle sign in with Google - auto setup Sheets
+  useEffect(()=>{
+    const handlePopupError=()=>{
+      if(fireUser)return;
+      setGoogleAuthError("Login Google terputus. Coba kembali dan biarkan jendela Google terbuka sampai selesai.");
+    };
+    window.addEventListener("aturduitku-auth-popup-error",handlePopupError);
+    return()=>window.removeEventListener("aturduitku-auth-popup-error",handlePopupError);
+  },[fireUser]);
+
   const handleGoogleSignIn = async() => {
     if(authBusy) return;
     setAuthBusy(true);
@@ -5273,6 +5275,10 @@ Lihat di menu **Aset** untuk detail lengkap.`}]);
           const jumlah=aiAmount(parsed.jml, parsed.jumlah, parsed.nominal);
           if(!jumlah){
             aiDone("⚠️ Nominal utang/piutang belum jelas.");
+          } else if(parsed.tipe==="piutang") {
+            setUtForm({tipe:"piutang",tgl:today(),provider:parsed.provider||"",nama:parsed.nama||"",jml:String(jumlah),tempo:parsed.tempo||"",ket:parsed.catatan||"Dicatat via AI",sourceType:"wallet",sourceId:""});
+            setPage("utang");
+            aiDone("Pilih sumber dana di menu Utang, lalu tekan Simpan Catatan. Piutang belum disimpan dan saldo belum dipotong.");
           } else {
             const newUtang = {
               id:Date.now(),
@@ -5320,6 +5326,10 @@ Saldo amplop bertambah.`}]);
         if(fallback?.action==="tambah_utang"){
           if(!fallback.jml){
             aiDone("⚠️ Nominal utang/piutang belum jelas. Contoh: `catat utang ke Budi 200rb`.");
+          } else if(fallback.tipe==="piutang") {
+            setUtForm({tipe:"piutang",tgl:today(),provider:"",nama:fallback.nama||"",jml:String(fallback.jml),tempo:"",ket:"Dicatat via AI",sourceType:"wallet",sourceId:""});
+            setPage("utang");
+            aiDone("Pilih sumber dana di menu Utang, lalu tekan Simpan Catatan. Piutang belum disimpan dan saldo belum dipotong.");
           } else {
             const newUtang={
               id:Date.now(),
@@ -6803,9 +6813,11 @@ Saldo amplop bertambah.`}]);
     const provider=utForm.provider==="Lainnya"?"":(utForm.provider||detectDebtProvider(utForm.nama));
     const isReceivable=["piutang","piutangBisnis"].includes(utForm.tipe);
     const amount=N(utForm.jml);
+    if(!Number.isFinite(amount)||amount<=0){showToast("Nominal harus lebih dari nol.");return;}
     const sourceWallet=findWallet(s.dompet,utForm.sourceId);
     const sourceGoal=s.goals.find(g=>sameId(g.id,utForm.sourceId));
     if(isReceivable&&!utForm.sourceId){showToast("Pilih sumber dana piutang.");return;}
+    if(isReceivable&&!["wallet","goal"].includes(utForm.sourceType)){showToast("Pilih dompet atau Goal sumber piutang.");return;}
     if(isReceivable&&utForm.sourceType==="wallet"&&!sourceWallet){showToast("Pilih dompet sumber piutang.");return;}
     if(isReceivable&&utForm.sourceType==="goal"&&!sourceGoal){showToast("Pilih Goal sumber piutang.");return;}
     if(isReceivable&&utForm.sourceType==="wallet"&&N(sourceWallet.saldo)<amount){showToast("⚠️ Saldo dompet sumber tidak cukup.");return;}
@@ -6819,7 +6831,7 @@ Saldo amplop bertambah.`}]);
       return {...p,utang:[debt,...p.utang],goals:isReceivable&&utForm.sourceType==="goal"?p.goals.map(g=>sameId(g.id,utForm.sourceId)?{...g,kumpul:String(Math.max(N(g.kumpul)-amount,0)),history:[...(g.history||[]),{tgl:utForm.tgl,jml:String(-amount),tipe:"piutang_keluar",ket:`Dipinjamkan: ${utForm.nama}`}]}:g):p.goals,dompet:sourceTx?applyTransactionToWallets(p.dompet,sourceTx):p.dompet,txs:sourceTx?[sourceTx,...p.txs]:p.txs};
     });
     setUtForm({tipe:"utang",tgl:today(),provider:"",nama:"",jml:"",tempo:"",ket:"",sourceType:"wallet",sourceId:s.dompet[0]?.id||""});
-    showToast(t("toast_noteOk"));
+    showToast(isReceivable?`Piutang tersimpan. ${sourceWallet&&utForm.sourceType==="wallet"?sourceWallet.nama:sourceGoal.nama} berkurang ${IDR(amount)}.`:t("toast_noteOk"));
   };
 
   const addGoal=()=>{

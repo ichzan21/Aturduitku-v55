@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import "./sync-recovery.test.mjs";
 import { readFile } from "node:fs/promises";
 import { afterFirstPaint, classifyRuntimeFailure, getRuntimeErrorMessage, isModuleLoadFailure, isRecoverableStorageFailure, isServiceWorkerLifecycleFailure, scheduleModuleLoadRecovery } from "../src/runtimeRecovery.js";
 import { getCloudDataPayload } from "../api/_lib/userCloudData.js";

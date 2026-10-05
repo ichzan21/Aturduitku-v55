@@ -4,6 +4,7 @@ import './index.css'
 import App, { ErrorBoundary } from './App.jsx'
 import { reportClientError } from './monitoring.js'
 import { classifyRuntimeFailure, scheduleModuleLoadRecovery } from './runtimeRecovery.js'
+import { isAuthPopupAssertion } from './authPopupGuard.js'
 
 const STORAGE_RECOVERY_KEY = 'aturduitku_storage_recovery_at'
 let storageRecoveryScheduled = false
@@ -32,6 +33,12 @@ function scheduleStorageRecovery() {
 }
 
 function handleRuntimeFailure(reason, type, event) {
+  if (isAuthPopupAssertion(reason)) {
+    event?.preventDefault?.()
+    reportClientError(reason, { type:'auth_popup_error', component:'firebase_google_popup' })
+    window.dispatchEvent(new Event('aturduitku-auth-popup-error'))
+    return
+  }
   const classification = classifyRuntimeFailure(reason)
   if (classification.kind === 'ignored') {
     event?.preventDefault?.()

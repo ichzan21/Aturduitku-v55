@@ -1,3 +1,5 @@
+import { singleFlightAuth } from "./authPopupGuard.js";
+
 let firebaseModulePromise;
 
 const loadFirebase = () => {
@@ -9,10 +11,10 @@ const loadFirebase = () => {
 
 export const preloadFirebase = () => loadFirebase();
 
-export const signInWithGoogle = async () => {
+export const signInWithGoogle = singleFlightAuth(async () => {
   const firebase = await loadFirebase();
   return firebase.signInWithGoogle();
-};
+});
 
 export const signInWithEmail = async (email, password) => {
   const firebase = await loadFirebase();
