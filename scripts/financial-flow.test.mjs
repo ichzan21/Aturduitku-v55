@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import "./wallet-reconciliation.test.mjs";
 import { readFile } from "node:fs/promises";
 import {
   applyTransactionToWallets,

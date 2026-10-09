@@ -6,6 +6,7 @@ import {
 import { reportClientError } from "./monitoring.js";
 import { applyTransactionToWallets, confirmInternalTransferPair, displayNumber, findWallet, hasWallet, internalTransferPairsForReview, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, unlinkInternalTransferPair, walletDeltasForTransaction } from "./financeLedger.js";
 import { retryCloudSave } from "./cloudSaveRetry.js";
+import { reconcileWalletBalance, walletBalanceAtDate } from "./walletReconciliation.js";
 import { findBudgetSourceWallet, normalizeBudgetSourceId } from "./budgetSource.js";
 import { findGoalSourceWallet, normalizeGoalSourceId } from "./goalSource.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
@@ -6870,17 +6871,12 @@ Saldo amplop bertambah.`}]);
   };
 
   const reconcileWallet=()=>{
-    const wallet=findWallet(s.dompet,modal?.walletId);
-    if(!wallet) return;
-    const actual=N(modal?.actual);
-    const diff=actual-N(wallet.saldo);
-    if(!Number.isFinite(actual)||actual<0){showToast("Isi saldo sebenarnya yang valid");return;}
-    if(diff===0){showToast("Saldo sudah cocok");closeModal();return;}
-    setS(p=>{
-      const adjustmentTx={id:Date.now(),tipe:"penyesuaian",tgl:today(),ket:`Cocokkan saldo: ${wallet.nama}`,jml:String(Math.abs(diff)),adjustmentDelta:diff,dompetId:wallet.id,bulan:p.bulan,tahun:p.tahun};
-      return {...p,dompet:applyTransactionToWallets(p.dompet,adjustmentTx),txs:[adjustmentTx,...p.txs]};
-    });
-    showToast(`Saldo ${wallet.nama} berhasil dicocokkan`);closeModal();
+    const options={walletId:modal?.walletId,actual:modal?.actual,date:modal?.date??today(),today:today(),id:Date.now()};
+    const result=reconcileWalletBalance(s,options);
+    if(result.error){showToast(result.error);return;}
+    if(!result.transaction){showToast("Saldo sudah cocok");closeModal();return;}
+    setS(p=>reconcileWalletBalance(p,options).state||p);
+    showToast("Koreksi saldo tersimpan, bukan pemasukan atau pengeluaran.");closeModal();
   };
 
   const payScheduledBill=()=>{
@@ -8003,15 +7999,17 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
             {modal.type==="reconcileWallet"&&(()=>{
               const wallet=findWallet(s.dompet,modal.walletId);
-              const actual=N(modal.actual),current=N(wallet?.saldo),diff=actual-current;
+              const actual=N(modal.actual),current=walletBalanceAtDate(wallet,s.txs,modal.date??today()),diff=actual-current;
               return <>
                 <div style={{fontSize:17,fontWeight:900,color:T.text,marginBottom:4}}>Cocokkan saldo {wallet?.nama}</div>
                 <div style={{fontSize:12,color:T.muted,lineHeight:1.55,marginBottom:16}}>Masukkan saldo yang terlihat di rekening atau e-wallet. Selisih dicatat sebagai koreksi saldo dan tidak dianggap pemasukan atau pengeluaran.</div>
+                <label htmlFor="balance-reference-date" style={LS}>Tanggal saldo acuan (akhir hari)</label>
+                <input id="balance-reference-date" type="date" max={today()} value={modal.date??today()} onChange={e=>setModal(m=>({...m,date:e.target.value}))} style={{...IS,marginBottom:14}}/>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginBottom:14}}>
                   <div style={{padding:"11px 12px",borderRadius:11,background:T.cardAlt,border:`1px solid ${T.border}`}}><div style={{fontSize:9,color:T.muted,fontWeight:900,textTransform:"uppercase",marginBottom:4}}>Saldo aplikasi</div><div style={{fontSize:15,fontWeight:900,color:T.text}}>{IDRs(current)}</div></div>
                   <div style={{padding:"11px 12px",borderRadius:11,background:diff===0?T.okBg:T.warnBg,border:`1px solid ${diff===0?T.okBorder:T.warnBorder}`}}><div style={{fontSize:9,color:T.muted,fontWeight:900,textTransform:"uppercase",marginBottom:4}}>Selisih</div><div style={{fontSize:15,fontWeight:900,color:diff===0?T.ok:T.warn}}>{diff>0?"+":""}{IDRs(diff)}</div></div>
                 </div>
-                <label style={LS}>Saldo sebenarnya</label><CurIn value={modal.actual} onChange={v=>setModal(m=>({...m,actual:v}))} placeholder="0" style={{...IS,marginBottom:14}}/>
+                <label style={LS}>Saldo sebenarnya pada tanggal acuan</label><CurIn value={modal.actual} onChange={v=>setModal(m=>({...m,actual:v}))} placeholder="0" style={{...IS,marginBottom:14}}/>
                 <Btn onClick={reconcileWallet} ch={diff===0?"Saldo sudah cocok":"Simpan koreksi saldo"} c={diff===0?T.ok:T.accent} style={{width:"100%",padding:"12px"}}/>
               </>;
             })()}
