@@ -16,6 +16,7 @@ const browser = await chromium.launch({ channel:"chrome", headless:true });
 
 async function login(page) {
   await page.goto(baseURL, { waitUntil:"domcontentloaded", timeout:45_000 });
+  await page.locator(".public-login").click();
   await page.getByPlaceholder("Email").fill(email);
   await page.getByPlaceholder("Password").fill(password);
   await page.getByRole("button", { name:"Masuk dengan Email" }).click();

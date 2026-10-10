@@ -70,6 +70,7 @@ try{
       }else await page.getByText(name,{exact:true}).first().click();
     };
     await page.goto(process.env.E2E_BASE_URL||"https://www.aturduitku.com",{waitUntil:"domcontentloaded"});
+    await page.locator(".public-login").click();
     await page.getByPlaceholder("Email").fill(process.env.E2E_EMAIL);
     await page.getByPlaceholder("Password").fill(process.env.E2E_PASSWORD);
     await page.getByRole("button",{name:"Masuk dengan Email"}).click();

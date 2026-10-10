@@ -26,6 +26,7 @@
     "test:admin-password": "node scripts/admin-password.test.mjs",
     "test:money-format": "node scripts/money-format.test.mjs",
     "test:e2e": "node scripts/e2e-production.mjs",
+    "test:e2e:landing": "node scripts/e2e-public-landing.mjs",
     "test:e2e:notifications": "node scripts/e2e-notification-regression.mjs",
     "test:e2e:receivables": "node scripts/e2e-receivable-regression.mjs",
     "test:e2e:keyboard": "node scripts/e2e-keyboard-layout.mjs",

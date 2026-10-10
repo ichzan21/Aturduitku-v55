@@ -30,6 +30,7 @@ async function login(page) {
     const detail = await page.locator("details").innerText().catch(() => "Detail error tidak tersedia");
     throw new Error(`Root aplikasi masuk ErrorBoundary: ${detail}`);
   }
+  await page.locator(".public-login").click();
   await page.getByPlaceholder("Email").fill(email);
   await page.getByPlaceholder("Password").fill(password);
   await page.getByRole("button", { name:"Masuk dengan Email" }).click();

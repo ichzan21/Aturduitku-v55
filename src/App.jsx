@@ -7,6 +7,7 @@ import { reportClientError } from "./monitoring.js";
 import { applyTransactionToWallets, confirmInternalTransferPair, displayNumber, findWallet, hasWallet, internalTransferPairsForReview, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, unlinkInternalTransferPair, walletDeltasForTransaction } from "./financeLedger.js";
 import { retryCloudSave } from "./cloudSaveRetry.js";
 import { reconcileWalletBalance, walletBalanceAtDate } from "./walletReconciliation.js";
+import PublicLanding from "./PublicLanding.jsx";
 import { findBudgetSourceWallet, normalizeBudgetSourceId } from "./budgetSource.js";
 import { findGoalSourceWallet, normalizeGoalSourceId } from "./goalSource.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
@@ -2725,6 +2726,12 @@ export default function App(){
   const [accessProfile,setAccessProfile]=useState(null);
   const [accessLoading,setAccessLoading]=useState(true);
   const [authMode,setAuthMode]=useState("signin");
+  const [publicLogin,setPublicLogin]=useState(()=>window.location.hash==="#login");
+  useEffect(()=>{
+    const update=()=>{setPublicLogin(window.location.hash==="#login");if(window.location.hash==="#login"||window.location.hash==="#home")window.scrollTo(0,0);};
+    window.addEventListener("hashchange",update);
+    return()=>window.removeEventListener("hashchange",update);
+  },[]);
   const [authBusy,setAuthBusy]=useState(false);
   const [authError,setAuthError]=useState("");
   const [googleAuthError,setGoogleAuthError]=useState("");
@@ -7256,10 +7263,13 @@ Saldo amplop bertambah.`}]);
     </div>
   );
 
-  // Show Google login if not authenticated
+  if(!fireUser && !publicLogin) return <PublicLanding/>;
+
+  // Keep the existing authentication form behind the public Login link.
   if(!fireUser) return (
     <div style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#2E1065 0%,#1A0A2E 100%)",padding:"max(24px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px))",fontFamily:"system-ui,sans-serif"}}>
       <div style={{width:"100%",maxWidth:360,display:"flex",flexDirection:"column",alignItems:"center",gap:0}}>
+        <a href="#home" style={{color:"#DDD6FE",fontSize:13,padding:"12px",marginBottom:12}}>Kembali ke beranda</a>
         {/* Logo */}
         <img className="cat-mascot" src="/icon-192.png" alt="AturDuitku" style={{width:88,height:88,borderRadius:22,objectFit:"cover",marginBottom:20,boxShadow:"0 8px 32px rgba(124,58,237,0.5)"}}/>
         <div style={{color:"white",fontWeight:800,fontSize:28,marginBottom:6,letterSpacing:-0.5}}>AturDuitku</div>

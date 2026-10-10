@@ -33,6 +33,7 @@ try{
     });
     await page.route("**/api/monitoring/client-error",route=>route.fulfill({json:{ok:true}}));
     await page.goto(process.env.E2E_BASE_URL||"https://www.aturduitku.com",{waitUntil:"domcontentloaded"});
+    await page.locator(".public-login").click();
     await page.getByPlaceholder("Email").fill(process.env.E2E_EMAIL);
     await page.getByPlaceholder("Password").fill(process.env.E2E_PASSWORD);
     await page.getByRole("button",{name:"Masuk dengan Email"}).click();
@@ -60,8 +61,9 @@ try{
     assert.equal(cloud.data.dompet[0].saldo,"700000");
     assert.equal(cloud.data.txs.find(tx=>tx.tipe==="penyesuaian").tgl,"2026-10-04");
     assert.deepEqual(summarizeTransactions(cloud.data.txs,moneyNumber),originalTotals);
-    await page.reload({waitUntil:"domcontentloaded"});
+    await page.goto(process.env.E2E_BASE_URL||"https://www.aturduitku.com",{waitUntil:"domcontentloaded"});
     await page.getByTestId("page-title").waitFor({state:"visible"});
+    assert.equal(await page.locator(".public-site").count(),0,"Existing session must return to the app from root");
     await walletPage();
     await page.locator('[data-animated-number="700000"]').first().waitFor({state:"visible"});
     await page.getByRole("button",{name:"Cocokkan saldo",exact:true}).click();

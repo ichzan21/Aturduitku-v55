@@ -35,6 +35,7 @@ try{
       return route.fulfill({json:{ok:true}});
     });
     await page.goto(baseURL,{waitUntil:"domcontentloaded"});
+    await page.locator(".public-login").click();
     await page.getByPlaceholder("Email").fill(process.env.E2E_EMAIL);
     await page.getByPlaceholder("Password").fill(process.env.E2E_PASSWORD);
     await page.getByRole("button",{name:"Masuk dengan Email"}).click();
