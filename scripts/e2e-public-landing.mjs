@@ -23,6 +23,28 @@ try {
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`Overflow ${width}`);
     assert.equal(await page.locator(".public-ai-word").isVisible(),true);
     assert.match(await page.locator(".public-hero h2").innerText(),/Money feels messy\?/);
+    const mascotPoses = page.locator("[data-mascot]");
+    assert.deepEqual(await mascotPoses.evaluateAll(nodes=>nodes.map(node=>node.dataset.mascot)),["wave","think","save","guide","cheer"]);
+    for (const pose of await mascotPoses.all()) {
+      await pose.scrollIntoViewIfNeeded();
+      await pose.evaluate(image=>image.decode());
+      const pixels = await pose.evaluate(image=>{
+        const canvas=document.createElement("canvas");canvas.width=64;canvas.height=64;
+        const ctx=canvas.getContext("2d");ctx.drawImage(image,0,0,64,64);
+        const data=ctx.getImageData(0,0,64,64).data;
+        return {cornerAlpha:data[3],opaquePixels:Array.from(data).filter((value,index)=>index%4===3&&value>200).length,source:image.currentSrc,width:image.naturalWidth};
+      });
+      assert.equal(pixels.cornerAlpha,0,`Mascot background must stay transparent: ${pixels.source}`);
+      assert.ok(pixels.opaquePixels>500,`Mascot must render nonblank: ${pixels.source}`);
+      assert.equal(pixels.width,512);
+      const bounds=await pose.boundingBox();
+      assert.ok(bounds.x>=0&&bounds.x+bounds.width<=width+1,`Mascot escapes viewport at ${width}: ${pixels.source}`);
+    }
+    for (const [mascot,text] of [[".public-ai-mascot",".public-ai-heading h2"],[".public-saving-mascot",".public-intro-title h2"],[".public-gallery-guide img","#features-title"]]) {
+      const a=await page.locator(mascot).boundingBox(),b=await page.locator(text).boundingBox();
+      assert.ok(a.x+a.width<=b.x+1||b.x+b.width<=a.x+1||a.y+a.height<=b.y+1||b.y+b.height<=a.y+1,`Mascot overlaps copy at ${width}: ${mascot}`);
+    }
+    await page.evaluate(()=>window.scrollTo(0,0));
     const aiHint = await page.locator(".public-ai").boundingBox();
     assert.ok(aiHint.y < height - 20, `Next section should be visible at ${width}x${height}: ${aiHint.y}`);
     const controls = await page.locator(".public-site button, .public-login, .public-primary").evaluateAll(nodes=>nodes.map(node=>({name:node.textContent,height:node.getBoundingClientRect().height,overflow:node.scrollWidth>node.clientWidth+1})));
@@ -93,7 +115,7 @@ try {
     assert.equal(await page.locator(".public-hero-copy").evaluate(el=>getComputedStyle(el).animationName),"none");
     assert.equal(await page.locator(".public-mascot").evaluate(el=>getComputedStyle(el).animationName),"none");
     assert.deepEqual(errors,[]);
-    console.log(`PASS public landing ${width}x${height}: media, next-section hint, tap targets, tabs, keyboard, all AI examples and pain selectors, stable demo, all FAQs, login, reload, back, reduced motion, no overflow`);
+    console.log(`PASS public landing ${width}x${height}: five transparent nonblank mascot poses, no mascot-copy overlap, media, next-section hint, tap targets, tabs, keyboard, all AI examples and pain selectors, stable demo, all FAQs, login, reload, back, reduced motion, no overflow`);
     await context.close();
   }
 } finally { await browser.close(); }

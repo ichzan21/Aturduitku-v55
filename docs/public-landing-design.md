@@ -29,7 +29,11 @@ selections from resizing the conversation tool.
 - Composition: centered welcome and real product scene, interactive AI example,
   selectable customer problems, connected-records bridge, screenshot gallery, then specific account FAQs.
   The AI comes before the gallery because it is the requested primary story.
-- Assets: existing branded cat and genuine seeded demo screenshots. No copied
+- Assets: four generated pose variants of the existing branded cat, the original
+  pointing pose, and genuine seeded demo screenshots. Wave welcomes, tablet
+  review introduces AI, piggy-bank saving supports goals, pointer presents the
+  real tools, and wink/thumbs-up encourages the next step. All five are 512px
+  alpha WebP assets (190,126 bytes total); below-hero poses load lazily. No copied
   reference artwork, customer financial data, fictional testimonials or metrics.
 - Motion: one-shot mascot greeting introduces Dokter Keuangan; one-time section
   reveals guide the narrative. Prompt feedback lasts 240ms. No perpetual motion;
@@ -58,10 +62,10 @@ Browser sizes: 360x720, 390x844, 600x900, 768x900, 1440x768, 1920x1080.
 ### Hard Gate
 
 - R-02 PASS: no em dashes in public copy.
-- R-03 PASS: six viewport tests find no overflow; controls fit and screenshots were inspected.
+- R-03 PASS: six viewport tests find no overflow, verify five mascot poses stay in bounds and do not overlap section copy; screenshots were inspected.
 - R-17 PASS: no customer-count, uptime or performance statistics; product screenshots say demo.
 - R-18 PASS: no testimonials or invented people.
-- R-23 PASS: existing owner-approved brand assets and requested navigation are reused.
+- R-23 PASS: owner explicitly requested more mascot styles; four identity-preserving raster poses were generated from the original, not from another brand.
 - R-24 PASS: navigation targets existing AI, gallery, FAQ and login destinations.
 - R-25 PASS: computed text contrast checks pass AA thresholds at all six sizes.
 - R-26 PASS: all local buttons, tabs, prompts, three money-problem selectors and FAQs were exercised; external admin link uses the existing support number.
@@ -88,7 +92,7 @@ Browser sizes: 360x720, 390x844, 600x900, 768x900, 1440x768, 1920x1080.
 - R-13 PASS: no decorative glows.
 - R-14 PASS: gallery is one switchable screenshot, capabilities are unframed rows, not a repeating card grid.
 - R-19 PASS: one-shot greeting, one-time reveal, 240ms selection feedback; no loops and reduced-motion is verified.
-- R-22 PASS: original AturDuitku cat introduces the existing Dokter Keuangan persona, not generic stock illustration.
+- R-22 PASS: consistent AturDuitku cat poses support welcoming, AI review, saving, feature guidance, and encouragement, not generic stock illustration.
 
 ### Liveliness
 

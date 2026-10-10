@@ -76,10 +76,11 @@ body.atur-public-page #root { height: auto; overflow: visible; overscroll-behavi
 .public-mascot-greeting span:last-child { margin: 10px 0 0; }
 .public-demo-note { font-size: 11px; margin: 10px auto 0; }
 .public-ai { padding-top: 48px; padding-bottom: 60px; }
-.public-ai-heading { max-width: 800px; }
+.public-ai-heading { display: grid; grid-template-columns: minmax(0, 800px) 160px; justify-content: space-between; align-items: center; gap: 32px; }
 .public-ai-heading h2 { font-size: 40px; margin-bottom: 18px; text-wrap: balance; }
 .public-ai-heading h2 span { color: var(--public-accent); }
-.public-ai-heading > p:last-child { font-size: 17px; max-width: 680px; }
+.public-ai-heading > div > p { font-size: 17px; max-width: 680px; }
+.public-ai-mascot { display: block; width: 160px; aspect-ratio: 1; object-fit: contain; }
 .public-ai-layout { display: grid; grid-template-columns: 1fr 1.15fr; gap: 64px; align-items: start; margin-top: 32px; }
 .public-ai-capabilities { min-width: 0; }
 .public-pain-options { display: grid; gap: 8px; }
@@ -113,6 +114,9 @@ body.atur-public-page #root { height: auto; overflow: visible; overscroll-behavi
 .public-ai-disclaimer { font-size: 12px; max-width: 820px; margin-top: 22px; }
 .public-intro { padding-top: 48px; padding-bottom: 56px; display: grid; grid-template-columns: 1fr 1fr; gap: 70px; align-items: center; border-top: 1px solid #e5e1eb; }
 .public-intro h2 { font-size: 34px; margin-bottom: 20px; text-wrap: balance; }
+.public-intro-title { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+.public-intro-title h2 { min-width: 0; margin-bottom: 0; font-size: 30px; }
+.public-saving-mascot { flex: 0 0 120px; width: 120px; aspect-ratio: 1; object-fit: contain; }
 .public-intro h2 span { color: var(--public-green); }
 .public-intro > div > p { font-size: 16px; max-width: 480px; }
 .public-connected-benefits { list-style: none; padding: 0; margin: 0; display: grid; gap: 26px; }
@@ -124,6 +128,10 @@ body.atur-public-page #root { height: auto; overflow: visible; overscroll-behavi
 .public-section-heading { display: flex; justify-content: space-between; align-items: end; gap: 30px; margin-bottom: 28px; }
 .public-section-heading h2 { font-size: 34px; max-width: 560px; }
 .public-section-heading > p { font-size: 14px; min-width: 230px; }
+.public-section-heading > div:first-child { min-width: 0; }
+.public-gallery-guide { display: flex; gap: 18px; align-items: center; flex-shrink: 0; }
+.public-gallery-guide img { display: block; width: 110px; aspect-ratio: 1; object-fit: contain; }
+.public-gallery-guide p { font-size: 14px; }
 .public-tabs { display: flex; gap: 8px; margin-bottom: 28px; border-bottom: 1px solid #cec2df; padding-bottom: 12px; }
 .public-tabs button { display: inline-flex; gap: 8px; align-items: center; border: 1px solid transparent; background: transparent; color: var(--public-muted); padding: 10px 18px; min-height: 44px; border-radius: 8px; font-size: 14px; font-weight: 650; }
 .public-tabs button[aria-selected=true] { background: #fff; border-color: #b6a3d5; color: var(--public-accent); }
@@ -145,6 +153,7 @@ body.atur-public-page #root { height: auto; overflow: visible; overscroll-behavi
 .public-faq details > p { font-size: 14px; padding-bottom: 20px; }
 .public-closing { text-align: center; padding-top: 48px; padding-bottom: 64px; border-top: 1px solid #e5e1eb; }
 .public-closing > img { border-radius: 8px; margin-bottom: 18px; }
+.public-closing > .public-cheer-mascot { display: block; width: 156px; aspect-ratio: 1; object-fit: contain; border-radius: 0; margin: 0 auto 18px; }
 .public-closing h2 { font-size: 36px; margin-bottom: 18px; }
 .public-closing > p { font-size: 15px; margin-bottom: 24px; }
 .public-footer { border-top: 1px solid #e5e1eb; padding-top: 24px; padding-bottom: 28px; display: flex; align-items: center; flex-wrap: wrap; gap: 18px 28px; font-size: 12px; }
@@ -182,10 +191,18 @@ body.atur-public-page #root { height: auto; overflow: visible; overscroll-behavi
   .public-header nav a:last-child { display: none; }
   .public-feature-panel { grid-template-columns: 250px minmax(0,1fr); gap: 28px; }
   .public-ai-layout { gap: 32px; }
+  .public-ai-heading { grid-template-columns: minmax(0,1fr) 120px; gap: 24px; }
+  .public-ai-mascot { width: 120px; }
+  .public-ai-heading h2 { font-size: 34px; }
   .public-pain-option { padding: 18px 12px; gap: 12px; }
   .public-pain-option strong { font-size: 16px; }
   .public-section-heading > p { display: none; }
+  .public-gallery-guide p { display: none; }
+  .public-gallery-guide img { width: 96px; }
   .public-intro { gap: 16px 32px; }
+  .public-intro-title { gap: 12px; }
+  .public-intro-title h2 { font-size: 26px; }
+  .public-saving-mascot { flex-basis: 90px; width: 90px; }
   .public-faq > .public-container { gap: 32px; }
   .public-mascot-greeting { display: none; }
   .public-mascot { width: 190px !important; left: -12px; }
@@ -220,8 +237,10 @@ body.atur-public-page #root { height: auto; overflow: visible; overscroll-behavi
   .public-mascot { width: 138px !important; left: -15px; bottom: -5px; }
   .public-demo-note { max-width: 310px; font-size: 10px; }
   .public-ai { padding-top: 30px; padding-bottom: 40px; }
-  .public-ai-heading h2 { font-size: 30px; }
-  .public-ai-heading > p:last-child { font-size: 15px; }
+  .public-ai-heading { grid-template-columns: minmax(0,1fr) 84px; gap: 16px; align-items: start; }
+  .public-ai-heading h2 { font-size: 28px; }
+  .public-ai-heading > div > p { font-size: 15px; }
+  .public-ai-mascot { width: 84px; margin-top: 4px; }
   .public-ai-layout { display: flex; flex-direction: column; gap: 28px; margin-top: 28px; }
   .public-ai-capabilities { order: 2; }
   .public-ai-capabilities { width: 100%; }
@@ -238,11 +257,15 @@ body.atur-public-page #root { height: auto; overflow: visible; overscroll-behavi
   .public-demo-transaction dd { font-size: 14px; }
   .public-intro { display: block; padding-top: 32px; padding-bottom: 40px; }
   .public-intro h2 { font-size: 29px; }
+  .public-intro-title h2 { font-size: 26px; }
+  .public-saving-mascot { flex-basis: 90px; width: 90px; }
   .public-intro > div > p { font-size: 15px; }
   .public-connected-benefits { margin-top: 28px; gap: 24px; }
   .public-connected-benefits strong { font-size: 16px; }
   .public-feature-section { padding: 40px 0; }
   .public-section-heading h2 { font-size: 29px; }
+  .public-section-heading { gap: 16px; }
+  .public-gallery-guide img { width: 76px; }
   .public-tabs { gap: 4px; }
   .public-tabs button { padding: 10px 12px; font-size: 13px; }
   .public-feature-panel { display: flex; flex-direction: column; gap: 22px; align-items: stretch; }
@@ -255,6 +278,7 @@ body.atur-public-page #root { height: auto; overflow: visible; overscroll-behavi
   .public-faq h2 { font-size: 29px; margin-bottom: 24px; }
   .public-closing { padding-top: 40px; padding-bottom: 48px; }
   .public-closing h2 { font-size: 28px; }
+  .public-closing > .public-cheer-mascot { width: 132px; }
   .public-footer { gap: 12px; }
   .public-footer > p { width: 100%; }
   .public-footer > a:not(.public-brand) { margin-left: 0; }
