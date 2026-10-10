@@ -93,7 +93,7 @@ body.atur-public-page #root { height: auto; overflow: visible; overscroll-behavi
 .public-prompts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .public-prompts button { padding: 8px 12px; min-height: 44px; border: 1px solid #b6a3d5; border-radius: 6px; background: #fff; color: #542199; font-size: 12px; font-weight: 650; }
 .public-prompts button[aria-pressed=true] { background: var(--public-accent); color: #fff; border-color: var(--public-accent); }
-.public-question { background: var(--public-accent); color: white; border-radius: 8px; padding: 12px 16px; margin: 22px 0 18px 30px; font-size: 14px; }
+.public-question { display: flex; align-items: center; min-height: 70px; background: var(--public-accent); color: white; border-radius: 8px; padding: 12px 16px; margin: 22px 0 18px 30px; font-size: 14px; }
 .public-answer { min-height: 252px; animation: public-answer-enter 240ms var(--public-ease); }
 .public-answer p { font-size: 14px; color: #3c2b4c; margin-bottom: 16px; }
 .public-answer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }

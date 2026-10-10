@@ -13,6 +13,9 @@ try {
     page.on("pageerror",error=>errors.push(error.message));
     await page.goto(base,{waitUntil:"domcontentloaded"});
     await page.locator(".public-site").waitFor({timeout:30000});
+    assert.equal(await page.locator("html").getAttribute("lang"),"en");
+    assert.equal(await page.locator(".public-site").getAttribute("lang"),"en");
+    assert.equal(await page.locator(".public-footer > span").innerText(),"© 2025 AturDuitku");
     assert.equal(await page.locator("body").evaluate(node=>getComputedStyle(node).position),"static");
     await page.locator(".public-hero-product picture img").evaluate(image=>image.decode());
     await page.locator(".public-mascot").evaluate(image=>image.decode());
@@ -42,13 +45,13 @@ try {
     await page.getByRole("tabpanel").locator("img").evaluate(image=>image.decode());
     assert.equal(await page.getByRole("tab",{name:"Budget",exact:true}).getAttribute("aria-selected"),"true");
     await page.getByRole("tab",{name:"Budget",exact:true}).press("ArrowRight");
-    assert.equal(await page.getByRole("tab",{name:"Laporan",exact:true}).getAttribute("aria-selected"),"true");
-    await page.getByRole("button",{name:"Bantu catat",exact:true}).click();
-    assert.match(await page.locator(".public-question").innerText(),/25 ribu/);
-    assert.match(await page.locator(".public-demo-transaction").innerText(),/Rp 25.000/);
-    assert.match(await page.locator(".public-example-note").innerText(),/Tidak mencatat transaksi/);
+    assert.equal(await page.getByRole("tab",{name:"Reports",exact:true}).getAttribute("aria-selected"),"true");
+    await page.getByRole("button",{name:"Help me record",exact:true}).click();
+    assert.match(await page.locator(".public-question").innerText(),/Rp 25,000/);
+    assert.match(await page.locator(".public-demo-transaction").innerText(),/Rp 25,000/);
+    assert.match(await page.locator(".public-example-note").innerText(),/No transactions are recorded/);
     const demoHeight = (await page.locator(".public-ai-demo").boundingBox()).height;
-    for (const label of ["Mulai dari mana?","Evaluasi uang","Bantu catat"]) {
+    for (const label of ["Where to start?","Review my money","Help me record"]) {
       await page.getByRole("button",{name:label,exact:true}).click();
       assert.equal(await page.getByRole("button",{name:label,exact:true}).getAttribute("aria-pressed"),"true");
       assert.ok(Math.abs((await page.locator(".public-ai-demo").boundingBox()).height-demoHeight)<2,`Demo layout shifts: ${width} ${label}`);
@@ -66,11 +69,12 @@ try {
       assert.equal(await faq.evaluate(node=>node.parentElement.open),true);
       await faq.press("Enter");
     }
-    await page.getByText("Apakah rekening bank terhubung otomatis?",{exact:true}).click();
-    assert.equal(await page.getByText(/bukan koneksi otomatis ke bank/).isVisible(),true);
+    await page.getByText("Are bank accounts connected automatically?",{exact:true}).click();
+    assert.equal(await page.getByText(/not an automatic connection to your bank/).isVisible(),true);
     await page.locator(".public-login").click();
     await page.getByPlaceholder("Email").waitFor();
     assert.equal(await page.locator("body").evaluate(node=>node.classList.contains("atur-public-page")),false);
+    assert.equal(await page.locator("html").getAttribute("lang"),"id");
     assert.equal(new URL(page.url()).hash,"#login");
     await page.reload();
     await page.getByPlaceholder("Email").waitFor().catch(async error=>{await page.screenshot({path:".e2e-artifacts/public-reload-error.png"});console.log(page.url(),await page.locator("body").innerText(),errors);throw error;});

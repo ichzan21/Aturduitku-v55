@@ -8,6 +8,13 @@ Anti-slop is applied during implementation, as selected by the owner.
 
 Dials: ENERGY 3 / RHYTHM 3 / MOTION 2.
 
+Language update: the owner requested English for the public page. All landing
+copy, accessible labels, image descriptions and sharing metadata are English.
+Brand names are preserved. Original app screenshots remain Indonesian, and the
+document language returns to the existing app language when leaving the landing.
+The copyright year stays 2025. Two-line question space keeps English demo
+selections from resizing the conversation tool.
+
 - Palette: brand purple identifies AturDuitku and login; mint makes the welcome
   warmer without turning the whole page purple. Yellow highlights the literal
   AI word and the mascot's introduction. No decorative gradient or background grid.
@@ -90,7 +97,7 @@ Browser sizes: 360x720, 390x844, 600x900, 768x900, 1440x768, 1920x1080.
 - R-05 PASS: varied scene, conversation, editorial, gallery and FAQ composition; no template trust bar or feature-card grid.
 - R-11 PASS: controls/tools use 6-8px radii; AI highlight 4px; no universal pill treatment.
 - R-15 PASS: product-specific login and AI-section actions.
-- R-16 PASS: plain Indonesian descriptions, no revolutionary/AI-powered buzzwords.
+- R-16 PASS: plain English descriptions, no revolutionary/AI-powered buzzwords.
 - R-20 PASS: branded cat and real product screenshots keep the page specific to AturDuitku.
 - R-21 PASS: welcoming light theme, no unrequested dark-theme implementation.
 - R-29 PASS: purple, mint and yellow plus neutral text; existing screenshot colors belong to the demonstrated app.
