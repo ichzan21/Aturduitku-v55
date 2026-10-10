@@ -187,6 +187,14 @@ through public/login/back. Six viewport tests cover the unchanged interactions
 and new copy. The authenticated fixture test also checks title and language
 after login and after reopening the root URL. Impeccable detector: no findings.
 
+Production QA note: the first runs encountered intermittent `decode()` errors
+before a lazy image had selected its source. A browser diagnostic captured
+`currentSrc: ""`, `complete: false`, and zero natural width immediately after
+scrolling. The test now waits for an actual selected, loaded, nonzero image
+before decoding it. This does not retry broken images or bypass alpha/pixel
+checks; a failed asset still times out. All five production assets returned
+HTTP 200 with image/webp and decoded successfully in a separate browser check.
+
 Remaining limitation: page content is still client-rendered, not prerendered.
 The JavaScript-disabled check confirms metadata, not a fully usable static
 landing page. Index coverage and ranking were not measured in Search Console.

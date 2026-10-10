@@ -60,6 +60,8 @@ try {
     assert.deepEqual(await mascotPoses.evaluateAll(nodes=>nodes.map(node=>node.dataset.mascot)),["wave","think","save","guide","cheer"]);
     for (const pose of await mascotPoses.all()) {
       await pose.scrollIntoViewIfNeeded();
+      // Lazy loading may not have selected a source on the first scroll frame.
+      await page.waitForFunction(image=>image.currentSrc&&image.complete&&image.naturalWidth>0,await pose.elementHandle(),{timeout:15000});
       await pose.evaluate(image=>image.decode());
       const pixels = await pose.evaluate(image=>{
         const canvas=document.createElement("canvas");canvas.width=64;canvas.height=64;
