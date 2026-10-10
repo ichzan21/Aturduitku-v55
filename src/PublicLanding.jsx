@@ -102,6 +102,6 @@ export default function PublicLanding() {
       ].map(([question,answer])=><details key={question}><summary>{question}<ChevronDown size={19}/></summary><p>{answer}</p></details>)}</div></div></section>
       <section className="public-closing public-container" data-reveal><img src="/icon-192.png" alt="" width="64" height="64"/><h2>Mulai dari uang yang ada.<br/>Bangun kebiasaan yang bertahan.</h2><p>Tidak perlu menunggu semuanya rapi untuk mulai merapikannya.</p><a className="public-primary" href="#login">Masuk ke AturDuitku <LogIn size={18}/></a></section>
     </main>
-    <footer className="public-footer public-container"><a className="public-brand" href="#home"><img src="/icon-192.png" alt="" width="32" height="32"/>AturDuitku</a><p>Catat, paham, dan tumbuh lebih rapi.</p><a href="https://wa.me/6287785472696" target="_blank" rel="noreferrer">Hubungi admin <ArrowUpRight size={15}/></a><span>© {new Date().getFullYear()} AturDuitku</span></footer>
+    <footer className="public-footer public-container"><a className="public-brand" href="#home"><img src="/icon-192.png" alt="" width="32" height="32"/>AturDuitku</a><p>Catat, paham, dan tumbuh lebih rapi.</p><a href="https://wa.me/6287785472696" target="_blank" rel="noreferrer">Hubungi admin <ArrowUpRight size={15}/></a><span>© 2025 AturDuitku</span></footer>
   </div>;
 }
