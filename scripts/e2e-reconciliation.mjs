@@ -38,6 +38,8 @@ try{
     await page.getByPlaceholder("Password").fill(process.env.E2E_PASSWORD);
     await page.getByRole("button",{name:"Masuk dengan Email"}).click();
     await page.getByTestId("page-title").waitFor({state:"visible",timeout:45000});
+    assert.equal(await page.title(),"AturDuitku");
+    assert.equal(await page.locator("html").getAttribute("lang"),"id");
     for(const name of ["Nanti dulu","Nanti"]){
       const button=page.getByRole("button",{name,exact:true});
       if(await button.isVisible().catch(()=>false))await button.click();
@@ -64,6 +66,8 @@ try{
     await page.goto(process.env.E2E_BASE_URL||"https://www.aturduitku.com",{waitUntil:"domcontentloaded"});
     await page.getByTestId("page-title").waitFor({state:"visible"});
     assert.equal(await page.locator(".public-site").count(),0,"Existing session must return to the app from root");
+    assert.equal(await page.title(),"AturDuitku");
+    assert.equal(await page.locator("html").getAttribute("lang"),"id");
     await walletPage();
     await page.locator('[data-animated-number="700000"]').first().waitFor({state:"visible"});
     await page.getByRole("button",{name:"Cocokkan saldo",exact:true}).click();

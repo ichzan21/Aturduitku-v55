@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /__/auth/
+
+Sitemap: https://www.aturduitku.com/sitemap.xml

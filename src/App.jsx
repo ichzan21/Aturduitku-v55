@@ -2891,8 +2891,13 @@ export default function App(){
     let meta=document.querySelector("meta[name=\"viewport\"]");
     if(!meta){meta=document.createElement("meta");meta.name="viewport";document.head.appendChild(meta);}
     meta.content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no";
-    document.title="AturDuitku";
   },[]);
+
+  useEffect(()=>{
+    const isPublicPage=!fireUser&&!publicLogin;
+    document.title=isPublicPage?"AturDuitku | AI Budget Planner & Expense Tracker":"AturDuitku";
+    document.documentElement.lang=isPublicPage?"en":"id";
+  },[fireUser,publicLogin]);
 
   useEffect(()=>{
     const onBeforeInstall=(e)=>{e.preventDefault();setInstallPrompt(e);};

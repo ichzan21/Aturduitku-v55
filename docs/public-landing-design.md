@@ -45,8 +45,9 @@ selections from resizing the conversation tool.
 - Honesty: AI examples are visibly simulated and never write financial data.
   Supported capabilities are contextual analysis and requested recording, with
   ambiguity and AI-error limitations stated. Existing authenticated routing is unchanged.
-- Copy: the hero names money confusion; the examples address unclear spending,
-  recording friction, and realistic saving rather than selling unspecified AI.
+- Copy: the hero names the desired next step; the examples address unclear
+  spending, recording friction, and saving within actual commitments. Product
+  categories appear naturally in descriptive copy, not in keyword lists.
 - Product evidence: `src/App.jsx` AI context and prompts support cashflow,
   budget review, natural-language recording, and savings plans. Examples are
   clearly illustrative; no bank sync, guaranteed savings, or autonomous decision
@@ -122,3 +123,75 @@ Browser sizes: 360x720, 390x844, 600x900, 768x900, 1440x768, 1920x1080.
 - R-31 PASS: every major visual decision has a one-line reason in Design Read.
 
 Existing large-bundle build warning remains; no new animation library or font was added.
+
+## Copywriting And SEO Refinement
+
+2026-10-11: installed `antislop-copywriting` from the official
+`miqdadbadjuber/anti-slop` repository at pinned release `v3.2.0`. This companion
+uses the same R-01..R-38 rule numbering as the existing local core. The dedicated
+copy skill was read and applied during drafting, not claimed before installation.
+
+Voice: friendly, specific English for people who have lost track of spending,
+put off recording, or cannot tell how much they can save. Keep the cat-led
+identity without repeating fragment-heavy slogans or abstract promises.
+
+- Headline: "Know where your money went. Plan what's next with AI." names the
+  visitor's problem and intended next step without promising a financial result.
+- Product: "expense tracker", "monthly budget planner", and "AI finance
+  assistant" describe existing functionality and appear in relevant sections.
+- Actions: "Open AturDuitku" goes to the existing login; "See AI examples"
+  scrolls to visibly simulated conversations, not a live account analysis.
+- Restarting records: the intro addresses gaps in tracking using the existing
+  current-balance setup rather than pretending AI can recover missing spending.
+- FAQ: the added monthly-period question explains actual transaction/report
+  filters without suggesting deletion or a mandatory close-book action.
+
+Draft audit: the previous page repeated short abstract slogans and "clearer"
+without naming the product category. The revision uses everyday finance tasks,
+varies sentence lengths, and removes those repetitions. No new performance,
+customer, automatic-bank-sync, security, price, or savings claims were added.
+
+### Copy Skill Checklist
+
+- PASS: no invented numbers, testimonials, or claims; transaction examples remain
+  explicitly simulated and screenshots remain labeled sample data.
+- PASS: no empty AI buzzwords; AI review, requested recording, and savings-plan
+  discussion are supported by the existing implementation.
+- PASS: no em or en dashes in landing prose.
+- PASS: quotation marks represent a sample question, not emphasis.
+- PASS: AI is an acronym, not a shouted emphasis clause.
+- PASS: sentences identify users or the AI; passive wording is limited to
+  notices where the action's absence is the point.
+- PASS: CTA labels identify the actual destination or example action.
+- PASS: no forced trios or abstract aphorisms; three AI examples correspond to
+  three implemented use cases, not an invented marketing framework.
+- PASS: the approachable voice and original cat identity remain.
+- PASS: read-aloud review finds direct, varied sentences without padded closers.
+
+### SEO Evidence And Limits
+
+The initial HTML now has an English language declaration, a descriptive product
+title, matching search/social descriptions, image alt metadata, the existing
+canonical, and factual WebSite structured data. A dedicated App effect preserves
+the public title instead of overwriting it on mount; login and authenticated
+views use the existing Indonesian language and short brand title.
+
+`robots.txt` points to a valid sitemap containing only the public homepage.
+API and auth-handler exclusions are crawler guidance, not access controls.
+No private routes, login hash, ratings, fictitious prices, or rich-result promises
+appear in the sitemap or schema.
+
+Verification: the landing browser test checks initial metadata with JavaScript
+disabled, parses structured data and sitemap XML, and verifies title/language
+through public/login/back. Six viewport tests cover the unchanged interactions
+and new copy. The authenticated fixture test also checks title and language
+after login and after reopening the root URL. Impeccable detector: no findings.
+
+Remaining limitation: page content is still client-rendered, not prerendered.
+The JavaScript-disabled check confirms metadata, not a fully usable static
+landing page. Index coverage and ranking were not measured in Search Console.
+English copy does not establish relevance for every Indonesian-language query.
+No claim of a perfect SEO score, indexing, or a first-page position is made.
+
+References: [Google title guidance](https://developers.google.com/search/docs/appearance/title-link)
+and [JavaScript SEO](https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics).

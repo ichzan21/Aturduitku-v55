@@ -5,7 +5,38 @@ import { mkdir } from "node:fs/promises";
 const base = process.env.E2E_BASE_URL || "http://127.0.0.1:5185";
 await mkdir(".e2e-artifacts", {recursive:true});
 const browser = await chromium.launch({channel:"chrome",headless:true});
+const publicTitle = "AturDuitku | AI Budget Planner & Expense Tracker";
 try {
+  const staticContext = await browser.newContext({javaScriptEnabled:false});
+  const staticPage = await staticContext.newPage();
+  await staticPage.goto(base,{waitUntil:"domcontentloaded"});
+  assert.equal(await staticPage.title(),publicTitle);
+  assert.equal(await staticPage.locator("html").getAttribute("lang"),"en");
+  const description = await staticPage.locator('meta[name="description"]').getAttribute("content");
+  assert.match(description,/Track expenses, plan a monthly budget/);
+  assert.equal(await staticPage.locator('meta[property="og:title"]').getAttribute("content"),publicTitle);
+  assert.equal(await staticPage.locator('meta[name="twitter:title"]').getAttribute("content"),publicTitle);
+  assert.equal(await staticPage.locator('meta[property="og:description"]').getAttribute("content"),description);
+  assert.equal(await staticPage.locator('meta[name="twitter:description"]').getAttribute("content"),description);
+  assert.equal(await staticPage.locator('link[rel="canonical"]').getAttribute("href"),"https://www.aturduitku.com/");
+  const schema = JSON.parse(await staticPage.locator('script[type="application/ld+json"]').textContent());
+  assert.equal(schema["@type"],"WebSite");
+  assert.equal(schema.url,"https://www.aturduitku.com/");
+  assert.equal(schema.description,description);
+  const robots = await staticContext.request.get(`${base}/robots.txt`);
+  assert.equal(robots.status(),200);
+  assert.match(await robots.text(),/Sitemap: https:\/\/www\.aturduitku\.com\/sitemap\.xml/);
+  const sitemap = await staticContext.request.get(`${base}/sitemap.xml`);
+  assert.equal(sitemap.status(),200);
+  const sitemapXml = await sitemap.text();
+  const urls = await staticPage.evaluate(xml=>{
+    const doc=new DOMParser().parseFromString(xml,"application/xml");
+    if(doc.querySelector("parsererror"))throw new Error("Invalid sitemap XML");
+    return [...doc.getElementsByTagName("loc")].map(node=>node.textContent);
+  },sitemapXml);
+  assert.deepEqual(urls,["https://www.aturduitku.com/"]);
+  await staticContext.close();
+  console.log("PASS initial HTML SEO: English language, matching title and sharing metadata, canonical, WebSite schema, robots and valid single-public-URL sitemap");
   for (const [width,height] of [[360,720],[390,844],[600,900],[768,900],[1440,768],[1920,1080]]) {
     const context = await browser.newContext({viewport:{width,height},locale:"id-ID"});
     const page = await context.newPage();
@@ -15,6 +46,8 @@ try {
     await page.locator(".public-site").waitFor({timeout:30000});
     assert.equal(await page.locator("html").getAttribute("lang"),"en");
     assert.equal(await page.locator(".public-site").getAttribute("lang"),"en");
+    assert.equal(await page.title(),publicTitle);
+    assert.equal(await page.locator("h1").count(),1);
     assert.equal(await page.locator(".public-footer > span").innerText(),"© 2025 AturDuitku");
     assert.equal(await page.locator("body").evaluate(node=>getComputedStyle(node).position),"static");
     await page.locator(".public-hero-product picture img").evaluate(image=>image.decode());
@@ -22,7 +55,7 @@ try {
     await page.waitForTimeout(1100);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`Overflow ${width}`);
     assert.equal(await page.locator(".public-ai-word").isVisible(),true);
-    assert.match(await page.locator(".public-hero h2").innerText(),/Money feels messy\?/);
+    assert.match(await page.locator(".public-hero h2").innerText(),/Know where your money went/);
     const mascotPoses = page.locator("[data-mascot]");
     assert.deepEqual(await mascotPoses.evaluateAll(nodes=>nodes.map(node=>node.dataset.mascot)),["wave","think","save","guide","cheer"]);
     for (const pose of await mascotPoses.all()) {
@@ -106,11 +139,14 @@ try {
     await page.getByPlaceholder("Email").waitFor();
     assert.equal(await page.locator("body").evaluate(node=>node.classList.contains("atur-public-page")),false);
     assert.equal(await page.locator("html").getAttribute("lang"),"id");
+    assert.equal(await page.title(),"AturDuitku");
     assert.equal(new URL(page.url()).hash,"#login");
     await page.reload();
     await page.getByPlaceholder("Email").waitFor().catch(async error=>{await page.screenshot({path:".e2e-artifacts/public-reload-error.png"});console.log(page.url(),await page.locator("body").innerText(),errors);throw error;});
     await page.getByRole("link",{name:"Kembali ke beranda",exact:true}).click();
     await page.locator(".public-site").waitFor();
+    assert.equal(await page.title(),publicTitle);
+    assert.equal(await page.locator("html").getAttribute("lang"),"en");
     await page.emulateMedia({reducedMotion:"reduce"});
     assert.equal(await page.locator(".public-hero-copy").evaluate(el=>getComputedStyle(el).animationName),"none");
     assert.equal(await page.locator(".public-mascot").evaluate(el=>getComputedStyle(el).animationName),"none");
