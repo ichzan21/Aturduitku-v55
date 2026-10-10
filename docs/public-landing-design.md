@@ -6,23 +6,28 @@ Direction: the owner's request for a more fun Meowslim-inspired public page,
 with AturDuitku's existing cat mascot and a stronger Dokter Keuangan AI story.
 Anti-slop is applied during implementation, as selected by the owner.
 
+Reading this as: an English public landing for people who feel unsure about
+their personal finances, in AturDuitku's playful cat-led visual language, dial
+ENERGY 3 / RHYTHM 3 / MOTION 2. This is a focused refinement of the existing
+public surface, not a replacement of the app's design or authentication.
+
 Dials: ENERGY 3 / RHYTHM 3 / MOTION 2.
 
 Language update: the owner requested English for the public page. All landing
 copy, accessible labels, image descriptions and sharing metadata are English.
 Brand names are preserved. Original app screenshots remain Indonesian, and the
 document language returns to the existing app language when leaving the landing.
-The copyright year stays 2025. Two-line question space keeps English demo
+The copyright year stays 2025. Stable question space keeps English demo
 selections from resizing the conversation tool.
 
 - Palette: brand purple identifies AturDuitku and login; mint makes the welcome
   warmer without turning the whole page purple. Yellow highlights the literal
-  AI word and the mascot's introduction. No decorative gradient or background grid.
+  AI word and a concrete money question beside the mascot. No decorative gradient or background grid.
 - Type: the existing system sans stays fast and familiar; heavier display
   weights create a playful voice without loading another font. Fixed responsive
   sizes, zero tracking, and smaller tool headings protect readability.
 - Composition: centered welcome and real product scene, interactive AI example,
-  editorial money-habit bridge, screenshot gallery, then specific account FAQs.
+  selectable customer problems, connected-records bridge, screenshot gallery, then specific account FAQs.
   The AI comes before the gallery because it is the requested primary story.
 - Assets: existing branded cat and genuine seeded demo screenshots. No copied
   reference artwork, customer financial data, fictional testimonials or metrics.
@@ -30,14 +35,22 @@ selections from resizing the conversation tool.
   reveals guide the narrative. Prompt feedback lasts 240ms. No perpetual motion;
   reduced-motion disables it all. Hover lifting is fine-pointer only.
 - Controls: login opens the existing login screen, tabs support arrow/Home/End
-  navigation, AI examples switch locally, and FAQs use native details elements.
+  navigation, money-problem rows and prompt buttons switch the same local AI
+  example, and FAQs use native details elements. Selected rows use mint to show
+  state without a decorative badge; selection does not resize the conversation.
 - Honesty: AI examples are visibly simulated and never write financial data.
   Supported capabilities are contextual analysis and requested recording, with
   ambiguity and AI-error limitations stated. Existing authenticated routing is unchanged.
+- Copy: the hero names money confusion; the examples address unclear spending,
+  recording friction, and realistic saving rather than selling unspecified AI.
+- Product evidence: `src/App.jsx` AI context and prompts support cashflow,
+  budget review, natural-language recording, and savings plans. Examples are
+  clearly illustrative; no bank sync, guaranteed savings, or autonomous decision
+  making is claimed. The incomplete-records FAQ explains the actual limit.
 
 ## Delivery Gate
 
-Verified 2026-10-10 against the production build. Evidence: `qa:release`,
+Verified 2026-10-11 against the production build. Evidence: `qa:release`,
 `e2e-public-landing.mjs`, `e2e-reconciliation.mjs`, and screenshots in
 `.e2e-artifacts/public-hero-*`, `public-ai-tool-*`, and `public-full-*`.
 Browser sizes: 360x720, 390x844, 600x900, 768x900, 1440x768, 1920x1080.
@@ -51,10 +64,10 @@ Browser sizes: 360x720, 390x844, 600x900, 768x900, 1440x768, 1920x1080.
 - R-23 PASS: existing owner-approved brand assets and requested navigation are reused.
 - R-24 PASS: navigation targets existing AI, gallery, FAQ and login destinations.
 - R-25 PASS: computed text contrast checks pass AA thresholds at all six sizes.
-- R-26 PASS: all local buttons, tabs, prompts and FAQs were exercised; external admin link uses the existing support number.
+- R-26 PASS: all local buttons, tabs, prompts, three money-problem selectors and FAQs were exercised; external admin link uses the existing support number.
 - R-27 PASS: examples are local static content, not a remote data view; all selection states work. Existing auth loading and error handling remain unchanged.
-- R-28 PASS: FAQs address AI limitations, existing-account login, PWA, bank imports and approval.
-- R-32 PASS: gallery arrow navigation and every FAQ Enter toggle pass; visible focus styles are present.
+- R-28 PASS: FAQs address AI limitations, incomplete records, existing-account login, PWA, bank imports and approval.
+- R-32 PASS: gallery arrow navigation, problem-selector Enter activation and every FAQ Enter toggle pass; visible focus styles are present.
 - R-33 PASS: source and styles edited directly with apply_patch, not rewriting scripts.
 - R-34 PASS: no theme toggle is shipped on the public page.
 - R-35 PASS: release suite, production build, six browser sizes, login reload and authenticated regressions pass.

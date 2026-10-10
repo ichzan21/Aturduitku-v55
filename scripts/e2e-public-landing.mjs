@@ -22,6 +22,7 @@ try {
     await page.waitForTimeout(1100);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`Overflow ${width}`);
     assert.equal(await page.locator(".public-ai-word").isVisible(),true);
+    assert.match(await page.locator(".public-hero h2").innerText(),/Money feels messy\?/);
     const aiHint = await page.locator(".public-ai").boundingBox();
     assert.ok(aiHint.y < height - 20, `Next section should be visible at ${width}x${height}: ${aiHint.y}`);
     const controls = await page.locator(".public-site button, .public-login, .public-primary").evaluateAll(nodes=>nodes.map(node=>({name:node.textContent,height:node.getBoundingClientRect().height,overflow:node.scrollWidth>node.clientWidth+1})));
@@ -51,10 +52,18 @@ try {
     assert.match(await page.locator(".public-demo-transaction").innerText(),/Rp 25,000/);
     assert.match(await page.locator(".public-example-note").innerText(),/No transactions are recorded/);
     const demoHeight = (await page.locator(".public-ai-demo").boundingBox()).height;
-    for (const label of ["Where to start?","Review my money","Help me record"]) {
+    for (const label of ["Where did it go?","Plan my savings","Help me record"]) {
       await page.getByRole("button",{name:label,exact:true}).click();
       assert.equal(await page.getByRole("button",{name:label,exact:true}).getAttribute("aria-pressed"),"true");
       assert.ok(Math.abs((await page.locator(".public-ai-demo").boundingBox()).height-demoHeight)<2,`Demo layout shifts: ${width} ${label}`);
+    }
+    const painOptions = page.locator(".public-pain-option");
+    for (let index=0;index<3;index++) {
+      await painOptions.nth(index).focus();
+      await painOptions.nth(index).press("Enter");
+      assert.equal(await painOptions.nth(index).getAttribute("aria-pressed"),"true");
+      assert.equal(await page.locator(".public-prompts button").nth(index).getAttribute("aria-pressed"),"true");
+      assert.ok(Math.abs((await page.locator(".public-ai-demo").boundingBox()).height-demoHeight)<2,`Pain selection layout shifts: ${width} ${index}`);
     }
     await page.locator(".public-ai-demo").scrollIntoViewIfNeeded();
     await page.evaluate(()=>window.scrollBy(0,-90));
@@ -84,7 +93,7 @@ try {
     assert.equal(await page.locator(".public-hero-copy").evaluate(el=>getComputedStyle(el).animationName),"none");
     assert.equal(await page.locator(".public-mascot").evaluate(el=>getComputedStyle(el).animationName),"none");
     assert.deepEqual(errors,[]);
-    console.log(`PASS public landing ${width}x${height}: media, next-section hint, tap targets, tabs, keyboard, all AI examples, stable demo, all FAQs, login, reload, back, reduced motion, no overflow`);
+    console.log(`PASS public landing ${width}x${height}: media, next-section hint, tap targets, tabs, keyboard, all AI examples and pain selectors, stable demo, all FAQs, login, reload, back, reduced motion, no overflow`);
     await context.close();
   }
 } finally { await browser.close(); }
