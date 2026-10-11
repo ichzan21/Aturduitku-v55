@@ -8,6 +8,7 @@ const base = process.env.E2E_BASE_URL || "http://127.0.0.1:5185";
 const repro = process.env.E2E_REPRO === "1";
 const allScenarios=["fresh-storage", "slow-cloud", "missing-embedded", "startup-failure", "approval-failure", "invalid-cloud", "invalid-cloud-desktop", "legacy-cache", "corrupt-cache", "other-account-cache", "new-account", "explicit-reset", "admin-inspection", "admin-inspection-desktop"];
 allScenarios.push("empty-cloud-local","empty-cloud-local-confirm","empty-cloud-backup","empty-cloud-backup-desktop","empty-cloud-backup-race","empty-cloud-backup-cas");
+allScenarios.push("admin-inspection-restore","admin-inspection-restore-desktop");
 const scenarios=repro?["approval-failure"]:process.env.E2E_SCENARIOS?process.env.E2E_SCENARIOS.split(","):allScenarios;
 assert.ok(scenarios.every(scenario=>allScenarios.includes(scenario)),"Unknown test scenario");
 await mkdir(".e2e-artifacts", { recursive:true });
@@ -32,15 +33,31 @@ try {
     const writes = [];
     const errors = [];
     let inspectionReads=0;
+    let adminRestored=false;
+    const adminRestores=[];
     page.on("pageerror",e=>errors.push(e.message));
     await page.route("**/api/admin/users**",async route=>{
+      if(scenario.includes("-restore")&&route.request().method()==="POST"){
+        const request=route.request().postDataJSON();
+        adminRestores.push(request);
+        assert.equal(request.action,"restore_backup");
+        assert.equal(request.uid,"qa-target");
+        assert.equal(request.expectedEmail,"qa-target@example.invalid");
+        assert.equal(request.expectedVersion,8);
+        assert.equal(request.confirmed,true);
+        assert.deepEqual(request.backup,fixture);
+        if(adminRestores.length===1) return route.fulfill({status:520,json:{error:"QA temporary restore failure"}});
+        assert.deepEqual(adminRestores[0],request,"Retry retains target, backup and mutation ID");
+        adminRestored=true;
+        return route.fulfill({json:{ok:true,restored:{transactionCount:68,walletCount:1,version:9}}});
+      }
       assert.equal(route.request().method(),"GET","Admin inspection is read-only");
       const url=new URL(route.request().url());
       if(url.searchParams.has("inspectUid")){
         inspectionReads++;
         assert.equal(url.searchParams.get("inspectUid"),"qa-target");
         if(inspectionReads===1) return route.fulfill({status:503,json:{error:"QA unavailable"}});
-        return route.fulfill({json:{ok:true,inspection:{uid:"qa-target",checkedAt:new Date().toISOString(),cloud:{dataPresent:true,dataShapeValid:true,transactionCount:68,walletCount:1,version:7,onboarded:false,updatedAt:"2026-10-10T12:00:00Z"},backups:[]}}});
+        return route.fulfill({json:{ok:true,inspection:{uid:"qa-target",checkedAt:new Date().toISOString(),cloud:{dataPresent:true,dataShapeValid:true,transactionCount:scenario.includes("-restore")&&!adminRestored?0:68,walletCount:1,version:scenario.includes("-restore")?(adminRestored?9:8):7,onboarded:adminRestored,updatedAt:"2026-10-10T12:00:00Z"},backups:[]}}});
       }
       return route.fulfill({json:{ok:true,users:[{uid:"qa-target",displayName:"QA target",email:"qa-target@example.invalid",approvalStatus:"approved",role:"user"}],stats:{total:1,approved:1,pending_review:0,rejected:0}}});
     });
@@ -200,10 +217,31 @@ try {
         await page.getByText("Pemeriksaan belum berhasil. Coba lagi.",{exact:true}).waitFor();
         await page.getByRole("button",{name:"Periksa sinkronisasi",exact:true}).click();
         await page.getByTestId("admin-data-inspection").waitFor();
-        assert.match(await page.getByTestId("admin-data-inspection").innerText(),/Transaksi: 68/);
+        assert.match(await page.getByTestId("admin-data-inspection").innerText(),scenario.includes("-restore")?/Transaksi: 0/:/Transaksi: 68/);
         assert.equal(inspectionReads,2);
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
         await page.screenshot({path:`.e2e-artifacts/account-bootstrap-${scenario}.png`,fullPage:true});
+        if(scenario.includes("-restore")){
+          await page.getByRole("button",{name:"Pulihkan backup JSON",exact:true}).click();
+          const panel=page.getByTestId("admin-backup-restore");
+          await panel.getByLabel("Backup JSON customer",{exact:true}).setInputFiles({name:"qa.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(fixture))});
+          await panel.getByRole("status").waitFor();
+          const submit=panel.getByRole("button",{name:"Pulihkan ke server customer",exact:true});
+          assert.equal(await submit.isEnabled(),false,"Preview is not authorization to save");
+          assert.equal(adminRestores.length,0);
+          await panel.getByLabel("Konfirmasi backup milik akun tujuan",{exact:true}).check();
+          assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
+          assert.ok((await submit.boundingBox()).height>=44);
+          await page.screenshot({path:`.e2e-artifacts/account-bootstrap-${scenario}-modal.png`,fullPage:true});
+          await submit.click();
+          await panel.getByRole("alert").waitFor();
+          assert.match(await panel.getByRole("status").innerText(),/68 transaksi/);
+          await submit.click();
+          await panel.waitFor({state:"hidden"});
+          await page.getByTestId("admin-data-inspection").getByText(/Transaksi: 68/).waitFor();
+          assert.equal(adminRestores.length,2);
+          assert.match(await page.getByTestId("admin-data-inspection").innerText(),/Versi: 9/);
+        }
       }
     }
     if (!repro) {

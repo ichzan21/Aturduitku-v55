@@ -2749,6 +2749,8 @@ export default function App(){
   const [adminPasswordForm,setAdminPasswordForm]=useState({password:"",confirm:""});
   const [adminPasswordBusy,setAdminPasswordBusy]=useState(false);
   const [adminDataInspections,setAdminDataInspections]=useState({});
+  const [adminRestoreForm,setAdminRestoreForm]=useState(null);
+  const adminRestoreFileSequenceRef=useRef(0);
   const [showAdminPassword,setShowAdminPassword]=useState(false);
   const [syncStatus,setSyncStatus]=useState("idle"); // idle | saving | saved | error | conflict
   const [syncMeta,setSyncMeta]=useState({updatedAt:null,lastBackupAt:null});
@@ -2842,6 +2844,8 @@ export default function App(){
     dismissTimersRef.current.push(timer);
   };
   const closeModal=after=>{
+    if(modalRef.current?.type==="adminRestore"&&adminRestoreForm?.busy) return;
+    if(modalRef.current?.type==="adminRestore") adminRestoreFileSequenceRef.current++;
     if(!modalRef.current){after?.();return;}
     if(modalClosingRef.current) return;
     modalClosingRef.current=true;
@@ -3227,6 +3231,48 @@ export default function App(){
     }
   };
 
+  const openAdminRestoreModal=(user)=>{
+    const inspection=adminDataInspections[user.uid]?.inspection;
+    if(!isAdmin||!inspection||inspection.cloud.transactionCount!==0||inspection.cloud.onboarded) return;
+    adminRestoreFileSequenceRef.current++;
+    setAdminRestoreForm({uid:user.uid,expectedEmail:user.email,expectedVersion:inspection.cloud.version,backup:null,confirmed:false,busy:false,error:"",mutationId:globalThis.crypto?.randomUUID?.()||`restore-${Date.now()}-${Math.random().toString(36).slice(2)}`});
+    setModal({type:"adminRestore",user});
+  };
+
+  const selectAdminRestoreFile=(file)=>{
+    if(!file||adminRestoreForm?.busy) return;
+    const sequence=++adminRestoreFileSequenceRef.current;
+    setAdminRestoreForm(p=>({...p,backup:null,confirmed:false,error:""}));
+    if(file.size>800000){setAdminRestoreForm(p=>({...p,error:"File backup terlalu besar."}));return;}
+    const reader=new FileReader();
+    reader.onload=()=>{
+      if(sequence!==adminRestoreFileSequenceRef.current) return;
+      try{
+        const backup=parseAccountRecoveryBackup(reader.result);
+        setAdminRestoreForm(p=>({...p,backup,confirmed:false,error:""}));
+      }catch{setAdminRestoreForm(p=>({...p,error:"Backup JSON tidak valid atau kosong."}));}
+    };
+    reader.onerror=()=>{if(sequence===adminRestoreFileSequenceRef.current) setAdminRestoreForm(p=>({...p,error:"File belum bisa dibaca. Pilih ulang backup."}));};
+    reader.readAsText(file);
+  };
+
+  const restoreAdminBackup=async()=>{
+    const form=adminRestoreForm;
+    if(!isAdmin||!form?.backup||!form.confirmed||form.busy) return;
+    const adminUid=fireUser.uid;
+    setAdminRestoreForm(p=>({...p,busy:true,error:""}));
+    try{
+      await authedJson("/api/admin/users",{method:"POST",expectedUid:adminUid,timeoutMs:30000,body:JSON.stringify({action:"restore_backup",uid:form.uid,expectedEmail:form.expectedEmail,expectedVersion:form.expectedVersion,backup:form.backup,confirmed:true,mutationId:form.mutationId})});
+      if(activeAccountUidRef.current!==adminUid) return;
+      setModal(null);
+      setAdminRestoreForm(null);
+      await inspectAdminUserData(form.uid);
+      showToast("Backup tersimpan di server akun customer.");
+    }catch(error){
+      if(activeAccountUidRef.current===adminUid) setAdminRestoreForm(p=>p?.uid===form.uid?{...p,busy:false,error:error.message||"Pemulihan belum berhasil. Periksa kembali sinkronisasi akun."}:p);
+    }
+  };
+
   const updateAdminApproval = async (uid, approvalStatus) => {
     setAdminLoading(true);
     try{
@@ -3358,6 +3404,8 @@ export default function App(){
           setFireUser(user);
           setCloudReady(false);
           setAccountLoadError(false);
+          setAdminRestoreForm(null);
+          adminRestoreFileSequenceRef.current++;
           setAccountRecovery(null);
           setRecoveryBackup(null);
           setRecoveryError("");
@@ -7809,6 +7857,21 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           <div className={`modal-pop ${modalClosing?"closing":""}`} style={{cursor:"pointer",background:T.card,borderRadius:isMobile?"24px 24px 0 0":20,padding:isMobile?"20px max(18px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(18px, env(safe-area-inset-left))":"26px",width:"100%",maxWidth:isMobile?"100%":520,maxHeight:isMobile?"min(88svh, calc(var(--app-height, 100dvh) - 12px))":"min(92vh, calc(var(--app-height, 100dvh) - 32px))",overflowY:"auto",overflowX:"hidden",color:T.text,WebkitOverflowScrolling:"touch"}} onClick={e=>e.stopPropagation()}>
 
             {isMobile&&<div style={{width:40,height:4,borderRadius:99,background:"rgba(0,0,0,.15)",margin:"-8px auto 16px",flexShrink:0}}/>}
+            {modal.type==="adminRestore"&&adminRestoreForm&&<section data-testid="admin-backup-restore" aria-labelledby="admin-restore-heading">
+              <h2 id="admin-restore-heading" style={{fontSize:20,lineHeight:1.3,margin:"0 0 12px"}}>Pulihkan backup customer</h2>
+              <p style={{fontSize:14,lineHeight:1.6,overflowWrap:"anywhere"}}>Akun tujuan: <strong>{adminRestoreForm.expectedEmail}</strong><br/>Cloud: 0 transaksi · versi {adminRestoreForm.expectedVersion}</p>
+              <label style={{display:"block",fontSize:14,fontWeight:700,marginTop:16}}>Backup JSON customer<input aria-label="Backup JSON customer" type="file" accept=".json,application/json" disabled={adminRestoreForm.busy} onChange={event=>selectAdminRestoreFile(event.target.files?.[0])} style={{display:"block",width:"100%",fontSize:14,marginTop:10}}/></label>
+              {adminRestoreForm.backup&&<>
+                <p role="status" style={{fontSize:16,lineHeight:1.6}}><strong>{adminRestoreForm.backup.txs.length} transaksi</strong> · {adminRestoreForm.backup.dompet.length} dompet · {adminRestoreForm.backup.budgets?.length||0} kategori budget</p>
+                <label style={{display:"flex",alignItems:"flex-start",gap:10,minHeight:44,fontSize:14,lineHeight:1.5,margin:"16px 0"}}><input aria-label="Konfirmasi backup milik akun tujuan" type="checkbox" checked={adminRestoreForm.confirmed} disabled={adminRestoreForm.busy} onChange={event=>setAdminRestoreForm(p=>({...p,confirmed:event.target.checked}))}/><span>Saya memastikan backup ini milik akun tujuan di atas.</span></label>
+              </>}
+              <p style={{fontSize:14,lineHeight:1.6}}>Kondisi server sebelumnya akan dicadangkan. Pemulihan dibatalkan jika data cloud sudah berubah atau berisi catatan.</p>
+              {adminRestoreForm.error&&<p role="alert" style={{fontSize:14,lineHeight:1.5,color:T.err}}>{adminRestoreForm.error}</p>}
+              <div style={{display:"flex",flexWrap:"wrap",gap:12,marginTop:20}}>
+                <button onClick={restoreAdminBackup} disabled={!adminRestoreForm.backup||!adminRestoreForm.confirmed||adminRestoreForm.busy} style={{minHeight:46,padding:"12px 16px",border:0,borderRadius:8,background:T.accent,color:"white",fontFamily:"inherit",fontSize:14,fontWeight:700,opacity:(!adminRestoreForm.backup||!adminRestoreForm.confirmed)?0.6:1,cursor:"pointer"}}>{adminRestoreForm.busy?"Memulihkan...":"Pulihkan ke server customer"}</button>
+                <button onClick={()=>{adminRestoreFileSequenceRef.current++;closeModal();}} disabled={adminRestoreForm.busy} style={{minHeight:46,padding:"12px 16px",border:`1px solid ${T.border}`,borderRadius:8,background:T.card,color:T.text,fontFamily:"inherit",fontSize:14,fontWeight:700,cursor:"pointer"}}>Batal</button>
+              </div>
+            </section>}
             {modal.type==="adminPassword"&&<>
               <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",marginBottom:5}}>Bantuan akses user</div>
               <div style={{fontSize:18,fontWeight:900,color:T.text,marginBottom:4}}>Setel password baru</div>
@@ -10453,6 +10516,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                           <div>Tersimpan: {cloud.updatedAt?new Date(cloud.updatedAt).toLocaleString("id-ID"):"Belum tercatat"}</div>
                           <div>Diperiksa: {new Date(checkedAt).toLocaleString("id-ID")}</div>
                           <div>Backup terakhir: {backups===null?"Belum dapat diperiksa":!backups.length?"Belum ada":backups.map((backup,index)=><div key={index}>{backup.backupAt?new Date(backup.backupAt).toLocaleString("id-ID"):"Tanggal belum diketahui"} · {backup.transactionCount??"?"} transaksi</div>)}</div>
+                          {user.role!=="admin"&&user.approvalStatus==="approved"&&cloud.transactionCount===0&&!cloud.onboarded&&<button onClick={()=>openAdminRestoreModal(user)} style={{marginTop:12,minHeight:44,padding:"10px 12px",borderRadius:8,border:`1px solid ${T.border}`,background:T.card,color:T.text,fontFamily:"inherit",fontWeight:700,cursor:"pointer"}}>Pulihkan backup JSON</button>}
                         </div>;
                       })()}
                     </details>

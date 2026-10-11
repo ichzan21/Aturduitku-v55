@@ -51,6 +51,8 @@ At 21:28 WITA on 2026-10-11, the matching account's server document had 0 transa
 
 ## Customer recovery precautions
 
+An authorized admin JSON recovery action is available under the existing users route, without adding an API route. It checks Firebase UID/email, approved status, admin-account exclusions, an explicit confirmation, and the inspected cloud version. It refuses meaningful cloud data, preserves the previous and restored snapshots plus an admin audit record atomically, and supports replay of the same recovery mutation after a lost response. The uploaded data is not normalized or altered. Unit tests cover ownership/role restrictions, rejected input, CAS conflicts, exact backup preservation, and replay. Browser tests cover mobile/desktop preview, confirmation, failure/retry, and refreshed server counts using fixtures; the real supplied customer backup is never added to the repository.
+
 1. Do not reset, complete replacement setup, clear Chrome storage, or discard the JSON backup while diagnosis is unfinished.
 2. Reopen the existing Chrome tab and preserve a fresh backup before troubleshooting the Home Screen installation.
 3. After updating, retry loading the Home Screen app with the same Google account.

@@ -3,6 +3,7 @@ import { getAdminEmails, requireAdmin } from "../_lib/auth.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 import { consumeRateLimit } from "../_lib/rateLimit.js";
 import { readAccountDataInspection } from "../_lib/accountDataInspection.js";
+import { restoreAdminAccountBackup } from "../_lib/accountBackupRestore.js";
 
 const ALLOWED_STATUSES = ["pending_review", "approved", "rejected"];
 const MIN_PASSWORD_LENGTH = 8;
@@ -56,7 +57,12 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      assertJsonSize(req.body, 24_000);
+      assertJsonSize(req.body, req.body?.action==="restore_backup"?850_000:24_000);
+      if(req.body?.action==="restore_backup"){
+        await consumeRateLimit(db,`admin_recovery_${admin.uid}`,{windowMs:15*60*1000,windowLimit:5,dailyLimit:20});
+        const restored=await restoreAdminAccountBackup(db,getAdminAuth(),admin,req.body,getAdminEmails());
+        return res.status(200).json({ok:true,restored});
+      }
       if (req.body?.action === "set_password") {
         await consumeRateLimit(db, `admin_password_${admin.uid}`, {
           windowMs: 15 * 60 * 1000,
@@ -125,6 +131,6 @@ export default async function handler(req, res) {
   } catch (error) {
     const status = error.status >= 400 && error.status < 500 ? error.status : 500;
     if (status === 500) console.error("Admin users request failed", error?.message || error);
-    return res.status(status).json({ error: status === 500 ? "Permintaan dashboard admin gagal" : error.message });
+    return res.status(status).json({ error: status === 500 ? "Permintaan dashboard admin gagal" : error.message,...(error.code?{code:error.code}:{}) });
   }
 }
