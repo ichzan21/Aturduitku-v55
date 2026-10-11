@@ -36,9 +36,9 @@ export const onAuthChange = async (callback) => {
   return firebase.onAuthChange(callback);
 };
 
-export const getCurrentIdToken = async () => {
+export const getCurrentIdToken = async (expectedUid) => {
   const firebase = await loadFirebase();
-  return firebase.getCurrentIdToken();
+  return firebase.getCurrentIdToken(expectedUid);
 };
 
 export const sendResetPassword = async (email) => {

@@ -21,7 +21,10 @@ try{
     const originalTotals=summarizeTransactions(cloud.data.txs,moneyNumber);
     await page.route("**/api/users/**",async route=>{
       const path=new URL(route.request().url()).pathname;
-      if(path==="/api/users/me")return route.fulfill({json:{profile:{approvalStatus:"approved",role:"user",paymentStatus:"paid"},cloud}});
+      if(path==="/api/users/me"){
+        const uid=JSON.parse(Buffer.from(route.request().headers().authorization.slice(7).split(".")[1],"base64url").toString()).sub;
+        return route.fulfill({json:{profile:{uid,approvalStatus:"approved",role:"user",paymentStatus:"paid"},cloud}});
+      }
       if(path==="/api/users/data"){
         if(route.request().method()==="POST"){
           const payload=route.request().postDataJSON();

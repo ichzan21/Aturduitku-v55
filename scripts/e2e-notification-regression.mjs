@@ -24,7 +24,10 @@ try{
     // All financial reads and writes stay in this browser fixture.
     await page.route("**/api/users/**",async route=>{
       const url=new URL(route.request().url());
-      if(url.pathname==="/api/users/me") return route.fulfill({json:{profile:{approvalStatus:"approved",role:"user",paymentStatus:"paid"},cloud}});
+      if(url.pathname==="/api/users/me") {
+        const uid=JSON.parse(Buffer.from(route.request().headers().authorization.slice(7).split(".")[1],"base64url").toString()).sub;
+        return route.fulfill({json:{profile:{uid,approvalStatus:"approved",role:"user",paymentStatus:"paid"},cloud}});
+      }
       if(url.pathname==="/api/users/data"){
         if(route.request().method()==="POST"){
           const payload=route.request().postDataJSON();

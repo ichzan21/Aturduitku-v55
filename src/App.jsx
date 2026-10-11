@@ -27,7 +27,7 @@ import { buildAiFallbackAnswer, buildAiQuestionGuidance } from "./aiConversation
 import { buildReportActivity, buildReportCashflowActivity, filterTransactionsByPeriod, formatReportPeriod, getReportPdfTemplate, getReportPeriodRange, shiftReportAnchor, summarizeTransactions } from "./reportPeriod.js";
 import { compareTransactionsNewestFirst, filterTransactionsForList, getHighestExpenseDay, moveTransactionWithinDate } from "./transactionList.js";
 import { EMAIL_VERIFICATION_COOLDOWN_MS, EMAIL_VERIFICATION_RATE_LIMIT_COOLDOWN_MS, formatEmailVerificationCooldown, getEmailVerificationCooldownSeconds, isEmailVerificationRateLimitError } from "./emailVerification.js";
-import { resolveAccountOnboarded } from "./accountBootstrap.js";
+import { fetchAccountBootstrap, isCompleteCloudSnapshot, readOwnedLocalAccount, resolveAccountOnboarded } from "./accountBootstrap.js";
 import { getDailyBudgetBreakdown } from "./dailyBudget.js";
 import { isCashflowExpense, isGoalFundUsage, sumGoalFundUsage } from "./cashflowClassification.js";
 import { formatCompactRupiah, formatRupiah } from "./moneyFormat.js";
@@ -2753,6 +2753,10 @@ export default function App(){
   const [syncMeta,setSyncMeta]=useState({updatedAt:null,lastBackupAt:null});
   const [syncConflict,setSyncConflict]=useState(null);
   const [cloudReady,setCloudReady]=useState(false);
+  const [accountLoadError,setAccountLoadError]=useState(false);
+  const activeAccountUidRef=useRef(null);
+  const accountLoadSequenceRef=useRef(0);
+  const accountResetPendingRef=useRef(false);
   const cloudVersionRef=useRef(0);
   const cloudSaveQueueRef=useRef(Promise.resolve());
   const cloudSaveSequenceRef=useRef(0);
@@ -2931,11 +2935,18 @@ export default function App(){
 
   const authedJson = async (url, options={}) => {
     const requestStartedAt=performance.now();
-    const token = await getCurrentIdToken();
+    const { expectedUid, timeoutMs, suppressNetworkMonitoring=false, suppressMonitoring=false, ...fetchOptions } = options;
+    const checkAccount=()=>{
+      if(expectedUid&&activeAccountUidRef.current!==expectedUid){
+        throw Object.assign(new Error("Sesi akun sudah berubah"),{code:"ACCOUNT_SESSION_CHANGED"});
+      }
+    };
+    checkAccount();
+    const token = await getCurrentIdToken(expectedUid);
+    checkAccount();
     let requestWasHidden=document.hidden;
     const trackHidden=()=>{if(document.hidden)requestWasHidden=true;};
     document.addEventListener("visibilitychange",trackHidden);
-    const { timeoutMs, suppressNetworkMonitoring=false, suppressMonitoring=false, ...fetchOptions } = options;
     const controller = new AbortController();
     const requestTimeout=timeoutMs||12000;
     const timeout = setTimeout(()=>controller.abort(), requestTimeout);
@@ -2969,6 +2980,7 @@ export default function App(){
       document.removeEventListener("visibilitychange",trackHidden);
     }
     const data = await resp.json().catch(()=>({}));
+    checkAccount();
     const requestDuration=Math.round(performance.now()-requestStartedAt);
     if(!resp.ok){
       const error = new Error(data.error || `Request failed: ${resp.status}`);
@@ -2989,22 +3001,54 @@ export default function App(){
     return data;
   };
 
-  const loadAccessProfile = async () => {
-    const data = await authedJson("/api/users/me", { method:"GET" });
-    setAccessProfile(data.profile || null);
-    return data.profile || null;
+  const loadAccountBootstrap = async (user, isCurrent=()=>activeAccountUidRef.current===user.uid) => {
+    const {profile,cloudData}=await fetchAccountBootstrap(authedJson,user.uid);
+    if(!isCurrent()) return null;
+    if(profile.approvalStatus==="approved"){
+      if(!applyLoadedUserData(user,cloudData)){
+        // Local recovery is allowed only after the server confirms an empty account.
+        let local;
+        try{local=readOwnedLocalAccount(localStorage,user.uid);}
+        catch(error){error.profile=profile;throw error;}
+        if(local){
+          applyLoadedUserData(user,{...cloudData,...local});
+        }else{
+          setS(mergeUserData(INIT));
+          setOnboarded(false);
+        }
+      }
+      cloudVersionRef.current=cloudData.version;
+      setSyncMeta({updatedAt:cloudData.updatedAt||null,lastBackupAt:cloudData.lastBackupAt||null});
+      setAccountLoadError(false);
+      setCloudReady(true);
+    }else{
+      setCloudReady(false);
+      setOnboarded(false);
+    }
+    setAccessProfile(profile);
+    return profile;
   };
 
-  const loadAccountBootstrap = async () => {
-    const data = await authedJson("/api/users/me?includeData=1", { method:"GET", timeoutMs:20000 });
-    const profile = data.profile || null;
-    const cloudData = data.cloud || null;
-    setAccessProfile(profile);
-    if(cloudData){
-      cloudVersionRef.current=Number(cloudData.version)||0;
-      setSyncMeta({updatedAt:cloudData.updatedAt||null,lastBackupAt:cloudData.lastBackupAt||null});
-    }
-    return {profile,cloudData};
+  const handleAccountLoadFailure=(user,error)=>{
+    if(activeAccountUidRef.current!==user.uid) return;
+    setCloudReady(false);
+    setAccountLoadError(true);
+    setAccessProfile(error.profile||{
+      uid:user.uid,email:user.email||"",displayName:user.displayName||"",
+      photoURL:user.photoURL||"",role:"user",approvalStatus:"verification_unavailable",backendReady:false,
+    });
+  };
+
+  const retryAccountLoad=async()=>{
+    if(!fireUser) return;
+    const user=fireUser;
+    const sequence=++accountLoadSequenceRef.current;
+    const isCurrent=()=>sequence===accountLoadSequenceRef.current&&activeAccountUidRef.current===user.uid;
+    setAccessLoading(true);
+    setCloudReady(false);
+    try{await loadAccountBootstrap(user,isCurrent);}
+    catch(error){if(isCurrent()) handleAccountLoadFailure(user,error);}
+    finally{if(isCurrent()) setAccessLoading(false);}
   };
 
   const backupRequestedDayRef=useRef("");
@@ -3070,7 +3114,8 @@ export default function App(){
 
   const loadCloudData = async (uid) => {
     if(!uid) return null;
-    const result=await authedJson("/api/users/data", { method:"GET" });
+    const result=await authedJson("/api/users/data", { method:"GET",expectedUid:uid });
+    if(!isCompleteCloudSnapshot(result)) throw Object.assign(new Error("Data akun belum berhasil dimuat"),{code:"ACCOUNT_DATA_UNAVAILABLE"});
     cloudVersionRef.current=Number(result.version)||0;
     setSyncMeta({updatedAt:result.updatedAt||null,lastBackupAt:result.lastBackupAt||null});
     return result;
@@ -3084,6 +3129,7 @@ export default function App(){
     try{
         result=await retryCloudSave(()=>authedJson("/api/users/data", {
           method:"POST",
+          expectedUid:uid,
           body:requestBody,
           timeoutMs:20000,
           suppressNetworkMonitoring:true,
@@ -3172,7 +3218,7 @@ export default function App(){
   // Auto-save (hanya saat s berubah, bukan setiap render/clock tick)
   // Autosave: localStorage + Firestore
   useEffect(()=>{
-    if(fireUser && isApproved && cloudReady && !syncConflict){
+    if(fireUser && isApproved && cloudReady && (onboarded||accountResetPendingRef.current) && !syncConflict){
       try{
         localStorage.setItem("aturduitku_data",JSON.stringify(s));
         localStorage.setItem(LOCAL_OWNER_KEY,fireUser.uid);
@@ -3186,6 +3232,8 @@ export default function App(){
             .then(()=>saveCloudData(fireUser.uid, {data:s, onboarded}));
           cloudSaveQueueRef.current=saveTask;
           await saveTask;
+          if(activeAccountUidRef.current!==fireUser.uid) return;
+          if(!onboarded) accountResetPendingRef.current=false;
           try{localStorage.setItem(LOCAL_OWNER_KEY, fireUser.uid);}catch(e){}
           if(saveSequence===cloudSaveSequenceRef.current){
             setSyncStatus("saved");
@@ -3226,61 +3274,32 @@ export default function App(){
         if(disposed) return;
         const nextUnsub = await onAuthChange(async(user)=>{
           if(disposed) return;
+          const sequence=++accountLoadSequenceRef.current;
+          activeAccountUidRef.current=user?.uid||null;
+          accountResetPendingRef.current=false;
+          const isCurrent=()=>!disposed&&sequence===accountLoadSequenceRef.current;
           cloudSaveSequenceRef.current+=1;
           cloudVersionRef.current=0;
           setSyncConflict(null);
           setFireLoading(true);
           setFireUser(user);
           setCloudReady(false);
+          setAccountLoadError(false);
           setAccessProfile(null);
           setAccessLoading(Boolean(user));
           if(user){
             try{
-              const {profile,cloudData}=await loadAccountBootstrap();
-              if(disposed) return;
-              const approved = profile?.approvalStatus==="approved";
-              if(approved){
-                if(!applyLoadedUserData(user, cloudData)){
-                  const localRaw = localStorage.getItem("aturduitku_data");
-                  const localOwner = localStorage.getItem(LOCAL_OWNER_KEY);
-                  const localOnboarded = localStorage.getItem("aturduitku_onboarded")==="1";
-                  if(localRaw && localOwner===user.uid){
-                    try{await saveCloudData(user.uid,{data:JSON.parse(localRaw),onboarded:localOnboarded});}catch(e){}
-                    if(disposed) return;
-                    try{setS(mergeUserData(JSON.parse(localRaw)));}catch(e){setS(mergeUserData(INIT));}
-                    setOnboarded(localOnboarded);
-                  } else {
-                    setS(mergeUserData(INIT));
-                    setOnboarded(false);
-                    try{
-                      localStorage.removeItem("aturduitku_data");
-                      localStorage.removeItem("aturduitku_onboarded");
-                      localStorage.setItem(LOCAL_OWNER_KEY,user.uid);
-                    }catch(e){}
-                  }
-                }
-                if(!disposed) setCloudReady(true);
-              } else {
-                setOnboarded(false);
-              }
+              await loadAccountBootstrap(user,isCurrent);
             }catch(e){
               console.warn("Load from Firebase failed:",e);
-              if(disposed) return;
-              setAccessProfile({
-                uid:user.uid,
-                email:user.email||"",
-                displayName:user.displayName||"",
-                photoURL:user.photoURL||"",
-                role:"user",
-                approvalStatus:"verification_unavailable",
-                backendReady:false,
-              });
+              if(!isCurrent()) return;
+              handleAccountLoadFailure(user,e);
             }
           } else {
             setCloudReady(false);
             setAccessLoading(false);
           }
-          if(disposed) return;
+          if(!isCurrent()) return;
           setAccessLoading(false);
           setFireLoading(false);
         });
@@ -3297,27 +3316,28 @@ export default function App(){
       }
     };
     startAuth();
-    return ()=>{disposed=true;unsub();};
+    return ()=>{disposed=true;accountLoadSequenceRef.current+=1;activeAccountUidRef.current=null;unsub();};
   },[]);
 
   useEffect(()=>{
     if(!fireUser || !accessProfile || accessProfile.approvalStatus==="approved") return;
     let disposed=false;
+    let busy=false;
     const timer=setInterval(async()=>{
+      if(busy) return;
+      busy=true;
+      const sequence=accountLoadSequenceRef.current;
+      const isCurrent=()=>!disposed&&sequence===accountLoadSequenceRef.current&&activeAccountUidRef.current===fireUser.uid;
       try{
-        const profile=await loadAccessProfile();
-        if(disposed) return;
+        const profile=await loadAccountBootstrap(fireUser,isCurrent);
+        if(!isCurrent()) return;
         if(profile?.approvalStatus==="approved"){
           showToast("✅ Akun sudah aktif. Selamat datang!");
-          const cloudData=await loadCloudData(fireUser.uid).catch(()=>null);
-          if(!disposed){
-            applyLoadedUserData(fireUser, cloudData);
-            setCloudReady(true);
-          }
         }
       }catch(e){
         console.warn("Approval status polling failed:", e);
-      }
+        if(isCurrent()) handleAccountLoadFailure(fireUser,e);
+      }finally{busy=false;}
     },8000);
     return ()=>{disposed=true;clearInterval(timer);};
   },[fireUser?.uid, accessProfile?.approvalStatus]);
@@ -7386,11 +7406,26 @@ Saldo amplop bertambah.`}]);
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          <button onClick={async()=>{setAccessLoading(true);try{await loadAccessProfile();}catch(error){showToast(error?.code==="API_TIMEOUT"?"Koneksi sedang lambat. Coba cek status lagi sebentar lagi.":"Status akun belum dapat diperiksa. Periksa koneksi lalu coba lagi.");}finally{setAccessLoading(false);}}} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.08)",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{accessLoading?"Mengecek...":"Cek status lagi"}</button>
+          <button onClick={retryAccountLoad} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.08)",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{accessLoading?"Mengecek...":"Cek status lagi"}</button>
           <button onClick={handleSignOut} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(252,165,165,.35)",background:"rgba(127,29,29,.22)",color:"#FCA5A5",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Keluar</button>
         </div>
       </div>
     </div>
+  );
+
+  if(!cloudReady) return (
+    <main data-testid="account-data-unavailable" style={{minHeight:"var(--app-height, 100dvh)",display:"grid",placeItems:"center",padding:24,background:T.bg,color:T.text,fontFamily:"system-ui,sans-serif"}}>
+      <section style={{width:"100%",maxWidth:440}} aria-labelledby="account-load-heading">
+        <img src="/icon-192.png" alt="AturDuitku" width="56" height="56" style={{borderRadius:8,marginBottom:20}}/>
+        <h1 id="account-load-heading" style={{fontSize:24,lineHeight:1.3,margin:"0 0 12px",letterSpacing:0}}>{accountLoadError?"Data akun belum berhasil dimuat":"Data akun belum siap"}</h1>
+        <p role="status" style={{fontSize:16,lineHeight:1.6,margin:"0 0 16px"}}>Setup awal dan penyimpanan ditunda sampai data akun selesai diperiksa. Periksa koneksi, lalu coba muat kembali.</p>
+        <p style={{fontSize:14,lineHeight:1.5,overflowWrap:"anywhere",margin:"0 0 24px"}}>Akun: {fireUser.email}</p>
+        <div style={{display:"flex",flexWrap:"wrap",gap:12}}>
+          <button onClick={retryAccountLoad} style={{minHeight:46,padding:"12px 16px",borderRadius:8,border:0,background:LIGHT.accent,color:"white",fontFamily:"inherit",fontSize:14,fontWeight:700,cursor:"pointer"}}>Coba muat data lagi</button>
+          <button onClick={handleSignOut} style={{minHeight:46,padding:"12px 16px",borderRadius:8,border:`1px solid ${T.border}`,background:T.card,color:T.text,fontFamily:"inherit",fontSize:14,fontWeight:700,cursor:"pointer"}}>Keluar</button>
+        </div>
+      </section>
+    </main>
   );
 
   if (!onboarded) return <Onboarding onDone={handleOnboardDone} lang={lang} changeLang={changeLang}/>;
@@ -10176,6 +10211,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <Sec t="Zona Berbahaya" sub="Tindakan permanen untuk mengosongkan akun ini."/>
                   <div style={{fontSize:11,color:T.muted,lineHeight:1.55,marginBottom:12}}>Gunakan hanya bila ingin memulai ulang. Semua dompet, transaksi, budget, goal, dan pengaturan keuangan akan dihapus.</div>
                   <button onClick={()=>setModal({type:"confirm",title:"Reset Semua Data",msg:"Tindakan ini akan menghapus SEMUA data keuanganmu secara permanen. Yakin ingin melanjutkan?",danger:true,onConfirm:()=>{
+                    accountResetPendingRef.current=true;
                     localStorage.removeItem("aturduitku_data");
                     localStorage.removeItem("aturduitku_onboarded");
                     setS(INIT);

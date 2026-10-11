@@ -1,5 +1,6 @@
 // AturDuitku Firebase configuration
 import { initializeApp } from "firebase/app";
+import { readAccountToken } from "./accountBootstrap.js";
 import {
   createUserWithEmailAndPassword,
   getAuth,
@@ -54,7 +55,6 @@ export const sendVerificationEmail = () => {
   return sendEmailVerification(auth.currentUser);
 };
 export const onAuthChange = (cb) => onAuthStateChanged(auth, cb);
-export const getCurrentIdToken = async () => {
-  const user = auth.currentUser;
-  return user ? user.getIdToken() : "";
+export const getCurrentIdToken = async (expectedUid) => {
+  return readAccountToken(()=>auth.currentUser,expectedUid);
 };
