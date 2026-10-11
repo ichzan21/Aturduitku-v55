@@ -77,3 +77,18 @@ export function readOwnedLocalAccount(storage, uid) {
   if (!isAccountData(data)) throw accountDataError();
   return { data, onboarded:resolveAccountOnboarded({ data, onboarded:storage.getItem("aturduitku_onboarded") === "1" }) };
 }
+
+export function accountRecoveryMode(cloud, local, confirmedResetVersion=null) {
+  if(cloud.data?.txs?.length===0&&local?.data?.txs?.length>0) return "local-confirm";
+  if(resolveAccountOnboarded(cloud)) return "cloud";
+  if(local?.onboarded) return cloud.data===null?"local":"local-confirm";
+  if(confirmedResetVersion===cloud.version) return "new";
+  if(cloud.version>0||cloud.updatedAt) return "backup";
+  return "new";
+}
+
+export function parseAccountRecoveryBackup(text) {
+  const data=JSON.parse(text);
+  if(!isAccountData(data)||!hasMeaningfulAccountData(data)) throw accountDataError();
+  return data;
+}

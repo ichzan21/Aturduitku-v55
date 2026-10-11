@@ -1,6 +1,6 @@
 import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { requireApprovedUser } from "../_lib/auth.js";
-import { assertDataVersion, isMutationReplay } from "../_lib/dataVersion.js";
+import { assertAccountResetIntent, assertDataVersion, isMutationReplay } from "../_lib/dataVersion.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 import { buildCloudDataPayload, getCloudDataPayload } from "../_lib/userCloudData.js";
 
@@ -50,6 +50,7 @@ export default async function handler(req, res) {
           return;
         }
         const currentVersion = assertDataVersion(current.dataVersion, body.baseVersion, body.force === true);
+        assertAccountResetIntent(current,body);
         nextVersion = currentVersion + 1;
         transaction.set(ref, {
           data: body.data || {},

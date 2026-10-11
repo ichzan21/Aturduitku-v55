@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import "./account-data-inspection.test.mjs";
 import { readFile } from "node:fs/promises";
-import { fetchAccountBootstrap, isCompleteCloudSnapshot, readAccountToken, readOwnedLocalAccount, resolveAccountOnboarded } from "../src/accountBootstrap.js";
+import { accountRecoveryMode, fetchAccountBootstrap, isCompleteCloudSnapshot, parseAccountRecoveryBackup, readAccountToken, readOwnedLocalAccount, resolveAccountOnboarded } from "../src/accountBootstrap.js";
 import { filterTransactionsForList, moveTransactionWithinDate } from "../src/transactionList.js";
+import { assertAccountResetIntent } from "../api/_lib/dataVersion.js";
 
 const sampleTransactions = [
   { id:"air", tgl:"2026-08-18", ket:"Beli air", entryOrder:300, jml:"5000" },
@@ -33,6 +34,25 @@ const profile = { uid:"qa-user", approvalStatus:"approved" };
 const accountData = { dompet:[{ nama:"Tunai", saldo:"932000" }], txs:Array.from({length:68},(_,id)=>({id})) };
 const snapshot = { data:accountData, onboarded:false, version:7, updatedAt:"2026-10-10T12:00:00Z" };
 const emptySnapshot = { data:null, onboarded:false, version:0, updatedAt:null };
+const savedDefaults={data:{name:"Iksanarsana",txs:[],dompet:[{nama:"BCA",saldo:0},{nama:"GoPay",saldo:0},{nama:"Tunai",saldo:0}]},onboarded:false,version:8,updatedAt:"2026-10-11T12:32:17Z"};
+assert.throws(()=>assertAccountResetIntent({data:accountData,onboarded:false},{data:savedDefaults.data,onboarded:false}),{status:409,code:"DATA_RESET_NOT_CONFIRMED"},"Old clients must never erase an established account with onboarding defaults");
+assert.throws(()=>assertAccountResetIntent({data:accountData,onboarded:true},{data:savedDefaults.data}),{code:"DATA_RESET_NOT_CONFIRMED"});
+assert.doesNotThrow(()=>assertAccountResetIntent({data:accountData,onboarded:true},{data:savedDefaults.data,onboarded:false,confirmedReset:true}),"Explicit confirmed reset must remain supported");
+assert.doesNotThrow(()=>assertAccountResetIntent({data:accountData,onboarded:true},{data:savedDefaults.data,onboarded:true}),"Normal editing/deleting the last record is not an account reset");
+assert.doesNotThrow(()=>assertAccountResetIntent({data:savedDefaults.data,onboarded:false},{data:savedDefaults.data,onboarded:false}));
+assert.doesNotThrow(()=>assertAccountResetIntent({data:{dompet:{}},onboarded:false},{onboarded:false}),"Malformed historic wallets must not crash the reset guard");
+const dataRouteSource=await readFile(new URL("../api/users/data.js",import.meta.url),"utf8");
+assert.ok(dataRouteSource.indexOf("assertAccountResetIntent(current,body)")<dataRouteSource.indexOf("transaction.set(ref"),"The reset guard must run before a server write");
+assert.equal(accountRecoveryMode(savedDefaults,{data:accountData,onboarded:true}),"local-confirm","Server defaults must never replace 68 local records automatically");
+assert.equal(accountRecoveryMode(savedDefaults,null),"backup","Existing saved defaults require recovery, not immediate setup");
+assert.equal(accountRecoveryMode(savedDefaults,null,8),"new","An explicit matching reset may resume setup");
+assert.equal(accountRecoveryMode(savedDefaults,null,7),"backup","A stale reset must not bypass recovery");
+assert.equal(accountRecoveryMode(emptySnapshot,{data:accountData,onboarded:true}),"local");
+assert.equal(accountRecoveryMode(emptySnapshot,null),"new");
+assert.equal(accountRecoveryMode(snapshot,null),"cloud");
+assert.equal(parseAccountRecoveryBackup(JSON.stringify(accountData)).txs.length,68);
+assert.throws(()=>parseAccountRecoveryBackup("invalid json"));
+assert.throws(()=>parseAccountRecoveryBackup(JSON.stringify(savedDefaults.data)),{code:"ACCOUNT_DATA_UNAVAILABLE"});
 assert.equal(isCompleteCloudSnapshot(snapshot),true);
 assert.equal(isCompleteCloudSnapshot(emptySnapshot),true);
 const hasOwn=Object.hasOwn;

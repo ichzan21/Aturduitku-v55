@@ -27,7 +27,7 @@ import { buildAiFallbackAnswer, buildAiQuestionGuidance } from "./aiConversation
 import { buildReportActivity, buildReportCashflowActivity, filterTransactionsByPeriod, formatReportPeriod, getReportPdfTemplate, getReportPeriodRange, shiftReportAnchor, summarizeTransactions } from "./reportPeriod.js";
 import { compareTransactionsNewestFirst, filterTransactionsForList, getHighestExpenseDay, moveTransactionWithinDate } from "./transactionList.js";
 import { EMAIL_VERIFICATION_COOLDOWN_MS, EMAIL_VERIFICATION_RATE_LIMIT_COOLDOWN_MS, formatEmailVerificationCooldown, getEmailVerificationCooldownSeconds, isEmailVerificationRateLimitError } from "./emailVerification.js";
-import { fetchAccountBootstrap, isCompleteCloudSnapshot, readOwnedLocalAccount, resolveAccountOnboarded } from "./accountBootstrap.js";
+import { accountRecoveryMode, fetchAccountBootstrap, isCompleteCloudSnapshot, parseAccountRecoveryBackup, readOwnedLocalAccount, resolveAccountOnboarded } from "./accountBootstrap.js";
 import { getDailyBudgetBreakdown } from "./dailyBudget.js";
 import { isCashflowExpense, isGoalFundUsage, sumGoalFundUsage } from "./cashflowClassification.js";
 import { formatCompactRupiah, formatRupiah } from "./moneyFormat.js";
@@ -2755,6 +2755,10 @@ export default function App(){
   const [syncConflict,setSyncConflict]=useState(null);
   const [cloudReady,setCloudReady]=useState(false);
   const [accountLoadError,setAccountLoadError]=useState(false);
+  const [accountRecovery,setAccountRecovery]=useState(null);
+  const [recoveryBackup,setRecoveryBackup]=useState(null);
+  const [recoveryError,setRecoveryError]=useState("");
+  const [recoveryBusy,setRecoveryBusy]=useState(false);
   const activeAccountUidRef=useRef(null);
   const accountLoadSequenceRef=useRef(0);
   const accountResetPendingRef=useRef(false);
@@ -3006,17 +3010,31 @@ export default function App(){
     const {profile,cloudData}=await fetchAccountBootstrap(authedJson,user.uid);
     if(!isCurrent()) return null;
     if(profile.approvalStatus==="approved"){
-      if(!applyLoadedUserData(user,cloudData)){
-        // Local recovery is allowed only after the server confirms an empty account.
-        let local;
-        try{local=readOwnedLocalAccount(localStorage,user.uid);}
-        catch(error){error.profile=profile;throw error;}
-        if(local){
-          applyLoadedUserData(user,{...cloudData,...local});
-        }else{
-          setS(mergeUserData(INIT));
-          setOnboarded(false);
-        }
+      let local;
+      try{if(!cloudData.data?.txs?.length) local=readOwnedLocalAccount(localStorage,user.uid);}
+      catch(error){error.profile=profile;throw error;}
+      let confirmedResetVersion=null;
+      try{
+        const reset=JSON.parse(localStorage.getItem("aturduitku_confirmed_reset")||"null");
+        if(reset?.uid===user.uid&&Number.isInteger(reset.version)) confirmedResetVersion=reset.version;
+      }catch{}
+      const recovery=accountRecoveryMode(cloudData,local,confirmedResetVersion);
+      setAccountRecovery(null);
+      setRecoveryBackup(null);
+      setRecoveryError("");
+      if(recovery==="local-confirm"){
+        const merged=mergeUserData(local.data);
+        setS(merged);
+        setOnboarded(true);
+        setSyncConflict({localData:merged,localOnboarded:true,remote:cloudData,emptyCloudRecovery:true});
+      }else if(recovery==="local"){
+        applyLoadedUserData(user,{...cloudData,...local});
+      }else if(recovery==="cloud"){
+        applyLoadedUserData(user,cloudData);
+      }else{
+        setS(mergeUserData(INIT));
+        setOnboarded(false);
+        if(recovery==="backup") setAccountRecovery(cloudData);
       }
       cloudVersionRef.current=cloudData.version;
       setSyncMeta({updatedAt:cloudData.updatedAt||null,lastBackupAt:cloudData.lastBackupAt||null});
@@ -3052,17 +3070,53 @@ export default function App(){
     finally{if(isCurrent()) setAccessLoading(false);}
   };
 
+  const selectRecoveryBackup=(file)=>{
+    if(!file||recoveryBusy) return;
+    setRecoveryBackup(null);
+    setRecoveryError("");
+    if(file.size>850000){setRecoveryError("File backup terlalu besar.");return;}
+    const uid=fireUser.uid;
+    const reader=new FileReader();
+    reader.onload=()=>{
+      if(activeAccountUidRef.current!==uid) return;
+      try{setRecoveryBackup(parseAccountRecoveryBackup(reader.result));}
+      catch{setRecoveryError("Backup tidak valid atau kosong. Pilih backup JSON yang berisi data lama.");}
+    };
+    reader.onerror=()=>{if(activeAccountUidRef.current===uid) setRecoveryError("File backup belum dapat dibaca. Coba pilih ulang.");};
+    reader.readAsText(file);
+  };
+
+  const restoreAccountBackup=async()=>{
+    if(!recoveryBackup||recoveryBusy||!fireUser) return;
+    const user=fireUser;
+    setRecoveryBusy(true);
+    setRecoveryError("");
+    try{
+      const remote=await loadCloudData(user.uid);
+      if(resolveAccountOnboarded(remote)) throw Object.assign(new Error("Data cloud sudah berubah. Muat ulang akun sebelum memulihkan backup."),{code:"ACCOUNT_RECOVERY_CONFLICT"});
+      const restored=mergeUserData(recoveryBackup);
+      const saved=await saveCloudData(user.uid,{data:restored,onboarded:true});
+      if(activeAccountUidRef.current!==user.uid) return;
+      applyLoadedUserData(user,{data:restored,onboarded:true,version:saved.version});
+      setAccountRecovery(null);
+      setRecoveryBackup(null);
+      setCloudReady(true);
+    }catch(error){
+      if(activeAccountUidRef.current===user.uid) setRecoveryError(error.code==="ACCOUNT_RECOVERY_CONFLICT"?error.message:error.code==="DATA_CONFLICT"?"Data cloud berubah saat pemulihan. Muat ulang akun sebelum mencoba lagi.":"Backup belum berhasil disimpan. File backup tetap aman; periksa koneksi lalu coba lagi.");
+    }finally{if(activeAccountUidRef.current===user.uid) setRecoveryBusy(false);}
+  };
+
   const backupRequestedDayRef=useRef("");
   useEffect(()=>{
-    if(!fireUser||!isApproved||!cloudReady)return;
+    if(!fireUser||!isApproved||!cloudReady||accountRecovery||syncConflict)return;
     const today=new Date().toISOString().slice(0,10);
     if(String(syncMeta.lastBackupAt||"").slice(0,10)===today||backupRequestedDayRef.current===today)return;
-    backupRequestedDayRef.current=today;
     let disposed=false;
     const timer=setTimeout(async()=>{
+      backupRequestedDayRef.current=today;
       try{
         const result=await authedJson("/api/users/data?backup=1", {
-          method:"GET",
+          method:"GET",expectedUid:fireUser.uid,
           timeoutMs:30000,
           suppressNetworkMonitoring:true,
         });
@@ -3074,7 +3128,7 @@ export default function App(){
       }
     },3500);
     return()=>{disposed=true;clearTimeout(timer);};
-  },[fireUser?.uid,isApproved,cloudReady,syncMeta.lastBackupAt]);
+  },[fireUser?.uid,isApproved,cloudReady,syncMeta.lastBackupAt,accountRecovery,syncConflict]);
 
   useEffect(()=>{
     if(!fireUser||!cloudReady||performanceReportedRef.current)return;
@@ -3237,16 +3291,22 @@ export default function App(){
         localStorage.setItem(LOCAL_OWNER_KEY,fireUser.uid);
       }catch(e){}
       setSyncStatus("saving");
+      const confirmedReset=!onboarded&&accountResetPendingRef.current;
       const timer = setTimeout(async()=>{
         const saveSequence=++cloudSaveSequenceRef.current;
         try{
           const saveTask=cloudSaveQueueRef.current
             .catch(()=>null)
-            .then(()=>saveCloudData(fireUser.uid, {data:s, onboarded}));
+            .then(()=>saveCloudData(fireUser.uid, {data:s, onboarded,...(confirmedReset?{confirmedReset:true}:{})}));
           cloudSaveQueueRef.current=saveTask;
-          await saveTask;
+          const saved=await saveTask;
           if(activeAccountUidRef.current!==fireUser.uid) return;
-          if(!onboarded) accountResetPendingRef.current=false;
+          if(!onboarded&&accountResetPendingRef.current){
+            try{localStorage.setItem("aturduitku_confirmed_reset",JSON.stringify({uid:fireUser.uid,version:saved.version}));}catch{}
+            accountResetPendingRef.current=false;
+          }else if(onboarded){
+            try{localStorage.removeItem("aturduitku_confirmed_reset");}catch{}
+          }
           try{localStorage.setItem(LOCAL_OWNER_KEY, fireUser.uid);}catch(e){}
           if(saveSequence===cloudSaveSequenceRef.current){
             setSyncStatus("saved");
@@ -3298,6 +3358,10 @@ export default function App(){
           setFireUser(user);
           setCloudReady(false);
           setAccountLoadError(false);
+          setAccountRecovery(null);
+          setRecoveryBackup(null);
+          setRecoveryError("");
+          setRecoveryBusy(false);
           setAccessProfile(null);
           setAccessLoading(Boolean(user));
           if(user){
@@ -3981,7 +4045,8 @@ export default function App(){
   };
 
   const resolveConflictWithCloud=()=>{
-    if(!syncConflict?.remote||!fireUser) return;
+    if(!syncConflict?.remote||!fireUser||syncStatus==="saving") return;
+    if(syncConflict.emptyCloudRecovery&&!window.confirm("Pakai cloud akan mengganti salinan perangkat yang berisi transaksi. Pastikan sudah memiliki backup JSON sebelum melanjutkan. Tetap pakai cloud?")) return;
     applyLoadedUserData(fireUser,syncConflict.remote);
     setSyncConflict(null);
     setSyncStatus("saved");
@@ -3989,20 +4054,29 @@ export default function App(){
   };
 
   const resolveConflictWithLocal=async()=>{
-    if(!syncConflict||!fireUser) return;
+    if(!syncConflict||!fireUser||syncStatus==="saving") return;
+    const uid=fireUser.uid;
     setSyncStatus("saving");
     try{
-      await saveCloudData(fireUser.uid,{
+      await saveCloudData(uid,{
         data:syncConflict.localData,
         onboarded:syncConflict.localOnboarded,
       });
+      if(activeAccountUidRef.current!==uid) return;
       setS(syncConflict.localData);
       setOnboarded(syncConflict.localOnboarded);
       setSyncConflict(null);
       setSyncStatus("saved");
       showToast("Data dari perangkat ini berhasil disimpan.");
     }catch(error){
+      if(activeAccountUidRef.current!==uid) return;
       setSyncStatus(error.code==="DATA_CONFLICT"?"conflict":"error");
+      if(error.code==="DATA_CONFLICT"){
+        try{
+          const remote=await loadCloudData(uid);
+          setSyncConflict(previous=>previous?{...previous,remote}:previous);
+        }catch{}
+      }
       showToast("Data berubah lagi. Muat versi cloud sebelum melanjutkan.");
     }
   };
@@ -7441,6 +7515,26 @@ Saldo amplop bertambah.`}]);
     </main>
   );
 
+  if(accountRecovery) return (
+    <main data-testid="account-backup-recovery" style={{minHeight:"var(--app-height, 100dvh)",display:"grid",placeItems:"center",padding:24,background:T.bg,color:T.text,fontFamily:"system-ui,sans-serif"}}>
+      <section style={{width:"100%",maxWidth:480}} aria-labelledby="backup-recovery-heading">
+        <img src="/icon-192.png" alt="AturDuitku" width="56" height="56" style={{borderRadius:8,marginBottom:20}}/>
+        <h1 id="backup-recovery-heading" style={{fontSize:24,lineHeight:1.3,margin:"0 0 12px",letterSpacing:0}}>Data lama belum tersedia di cloud</h1>
+        <p style={{fontSize:16,lineHeight:1.6}}>Cloud akun ini belum memuat transaksi lama. Jika data masih terlihat di Chrome, buat backup JSON di sana sebelum refresh atau menghapus data browser.</p>
+        <p style={{fontSize:14,overflowWrap:"anywhere"}}>Akun: {fireUser.email}</p>
+        <label style={{display:"block",fontSize:14,fontWeight:700,marginTop:24}}>Pilih backup JSON<input type="file" aria-label="Pilih backup JSON" accept=".json,application/json" disabled={recoveryBusy} onChange={event=>selectRecoveryBackup(event.target.files?.[0])} style={{display:"block",width:"100%",marginTop:10,fontSize:14}}/></label>
+        {recoveryBackup&&<p role="status" style={{fontSize:16,lineHeight:1.5}}>Backup: <strong>{recoveryBackup.txs.length} transaksi</strong> dan {recoveryBackup.dompet.length} dompet. Data ini akan disimpan ke akun di atas.</p>}
+        {recoveryError&&<p role="alert" style={{fontSize:14,lineHeight:1.5,color:T.err}}>{recoveryError}</p>}
+        <div style={{display:"flex",flexWrap:"wrap",gap:12,marginTop:20}}>
+          {recoveryBackup&&<button onClick={restoreAccountBackup} disabled={recoveryBusy} style={{minHeight:46,padding:"12px 16px",borderRadius:8,border:0,background:LIGHT.accent,color:"white",fontFamily:"inherit",fontSize:14,fontWeight:700,cursor:recoveryBusy?"wait":"pointer"}}>{recoveryBusy?"Memulihkan...":"Pulihkan backup ke akun ini"}</button>}
+          <button onClick={retryAccountLoad} disabled={recoveryBusy} style={{minHeight:46,padding:"12px 16px",borderRadius:8,border:`1px solid ${T.border}`,background:T.card,color:T.text,fontFamily:"inherit",fontSize:14,fontWeight:700,cursor:"pointer"}}>Coba muat data lagi</button>
+          <button onClick={handleSignOut} disabled={recoveryBusy} style={{minHeight:46,padding:"12px 16px",borderRadius:8,border:`1px solid ${T.border}`,background:T.card,color:T.text,fontFamily:"inherit",fontSize:14,fontWeight:700,cursor:"pointer"}}>Keluar</button>
+        </div>
+        <button onClick={()=>{if(window.confirm("Mulai setup baru tanpa memulihkan transaksi lama? Jangan lanjutkan jika masih ingin memakai data dari Chrome atau backup.")) setAccountRecovery(null);}} disabled={recoveryBusy} style={{marginTop:24,minHeight:44,padding:"10px 0",border:0,background:"transparent",color:T.text,textDecoration:"underline",fontFamily:"inherit",fontSize:14,cursor:"pointer"}}>Saya ingin mulai akun ini dari awal</button>
+      </section>
+    </main>
+  );
+
   if (!onboarded) return <Onboarding onDone={handleOnboardDone} lang={lang} changeLang={changeLang}/>;
 
   // ── IMPORT MUTASI HANDLER ──────────────────────────────────────────────────
@@ -7653,12 +7747,14 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
             <img src="/icon-192.png" alt="" style={{width:42,height:42,borderRadius:12,objectFit:"cover"}}/>
             <div>
-              <div id="sync-conflict-title" style={{fontSize:17,fontWeight:900}}>Data berubah di perangkat lain</div>
+              <div id="sync-conflict-title" style={{fontSize:17,fontWeight:900}}>{syncConflict.emptyCloudRecovery?"Data perangkat belum ada di cloud":"Data berubah di perangkat lain"}</div>
               <div style={{fontSize:11,color:T.muted,marginTop:3}}>Pilih versi yang ingin dipakai agar saldo tidak tertimpa.</div>
             </div>
           </div>
           <div style={{fontSize:12,lineHeight:1.65,color:T.sub,background:T.warnBg,border:`1px solid ${T.warnBorder}`,borderRadius:12,padding:12,marginBottom:14}}>
             Versi cloud diperbarui {syncConflict.remote?.updatedAt?new Date(syncConflict.remote.updatedAt).toLocaleString("id-ID"):"dari perangkat lain"}. Data perangkat ini tetap aman sampai kamu memilih.
+            <div style={{marginTop:8}}>Perangkat ini: {syncConflict.localData?.txs?.length||0} transaksi. Cloud: {syncConflict.remote?.data?.txs?.length||0} transaksi.</div>
+            {syncConflict.emptyCloudRecovery&&<strong style={{display:"block",marginTop:8}}>Pilih Simpan perangkat ini untuk memakai salinan lokal. Pakai data cloud akan mengganti salinan lokal yang terlihat.</strong>}
           </div>
           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:9}}>
             <button type="button" onClick={resolveConflictWithCloud} style={{padding:"11px 12px",borderRadius:11,border:`1px solid ${T.accent}`,background:T.accentBg,color:T.accent,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>Pakai data cloud</button>

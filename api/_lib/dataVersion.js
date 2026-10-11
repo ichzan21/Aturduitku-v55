@@ -17,3 +17,16 @@ export function isMutationReplay(lastMutationId, mutationId) {
   const incoming = String(mutationId || "").trim();
   return Boolean(incoming && previous === incoming);
 }
+
+export function assertAccountResetIntent(current, payload) {
+  if(payload.onboarded===true||payload.confirmedReset===true) return;
+  const data=current.data||{};
+  const hasSavedData=current.onboarded
+    || ["txs","utang","goals","asetTetap","recurring","amplop","habits"].some(key=>Array.isArray(data[key])&&data[key].length>0)
+    || (Array.isArray(data.dompet)&&data.dompet.some(wallet=>Number(wallet?.saldo)!==0&&Number.isFinite(Number(wallet?.saldo))));
+  if(!hasSavedData) return;
+  const error=new Error("Data akun tersimpan tidak boleh diganti dengan setup awal tanpa konfirmasi reset");
+  error.status=409;
+  error.code="DATA_RESET_NOT_CONFIRMED";
+  throw error;
+}
