@@ -5,7 +5,7 @@ Date: 2026-10-11
 ## Scope and limits
 
 - Complaint: an iPhone Home Screen installation asks for setup while an existing Chrome tab still contains records under the same Google email.
-- Customer financial records, Firebase UID, cloud history, and backups have NOT been inspected directly. The Codex in-app browser failed to connect; an authenticated admin session was not available.
+- The initial Codex browser connection failed, then a new tab recovered the existing admin session. The target account was found active with Google login. Individual customer financial records have not been opened; cloud counts/backups are checked separately through the protected read-only inspector.
 - No customer records were edited. Tests use a QA authentication account with mocked financial/profile/monitoring endpoints.
 - Fresh mobile browser contexts emulate isolated local storage, not an actual iPhone installation or Google popup login on iOS.
 
@@ -28,11 +28,13 @@ Before-fix browser reproduction: pending profile -> approved profile -> cloud GE
 - Ignore outdated auth callbacks and bind financial reads/saves to their expected UID, including before/after asynchronous token retrieval.
 - Do not autosave fresh onboarding defaults. Explicit, confirmed settings resets retain their existing persistence path.
 - Leave login methods, server financial data, backups, public landing, and stored auth sessions intact.
+- Add an admin-only, read-only inspection action to the existing users route: it returns record counts, cloud version/setup flag/timestamps, and up to three backup summaries. It never returns transaction contents, names, amounts, or wallet balances, and does not write to customer documents.
 
 ## QA
 
 - `npm run qa:release`: 19 test groups, production build, secret scan, backend syntax, and prelaunch checks.
-- `npm run test:e2e:account-bootstrap`: fresh storage with 68 records, slow reads, missing embedded cloud, startup failure/retry, approval failure/retry, malformed cloud on mobile/desktop, legacy owned cache, corrupt cache, another account's cache, a genuinely new account, and explicit confirmed reset.
+- `npm run test:e2e:account-bootstrap`: fresh storage with 68 records, slow reads, missing embedded cloud, startup failure/retry, approval failure/retry, malformed cloud on mobile/desktop, legacy owned cache, corrupt cache, another account's cache, a genuinely new account, explicit confirmed reset, and read-only admin inspection/failure/retry on mobile/desktop (14 scenarios).
+- Read-only inspector tests cover malformed/missing accounts, failed backup reads, admin guard ordering, and exclusion of sensitive transaction/wallet fields. The slow-read browser assertion compares against writes already completed before a reload, while still forbidding any additional writes during the pending read.
 - Related regression scripts cover notifications, receivable wallet changes/save retry, reconciliation, and the public landing.
 - Browser fixtures verify preserved record counts/balances, no writes on failed reads, no onboarding flash during slow reads, no migration across UIDs, retry recovery, and no page errors.
 - Mobile/desktop error screenshots are under ignored `.e2e-artifacts/account-bootstrap-*.png`.

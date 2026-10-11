@@ -2748,6 +2748,7 @@ export default function App(){
   const [adminPage,setAdminPage]=useState(1);
   const [adminPasswordForm,setAdminPasswordForm]=useState({password:"",confirm:""});
   const [adminPasswordBusy,setAdminPasswordBusy]=useState(false);
+  const [adminDataInspections,setAdminDataInspections]=useState({});
   const [showAdminPassword,setShowAdminPassword]=useState(false);
   const [syncStatus,setSyncStatus]=useState("idle"); // idle | saving | saved | error | conflict
   const [syncMeta,setSyncMeta]=useState({updatedAt:null,lastBackupAt:null});
@@ -3157,6 +3158,18 @@ export default function App(){
       showToast(`⚠️ ${e.message || "Gagal memuat user admin"}`);
     }finally{
       setAdminLoading(false);
+    }
+  };
+
+  const inspectAdminUserData=async(uid)=>{
+    if(!isAdmin||adminDataInspections[uid]?.loading) return;
+    setAdminDataInspections(p=>({...p,[uid]:{loading:true}}));
+    try{
+      const result=await authedJson(`/api/admin/users?inspectUid=${encodeURIComponent(uid)}`,{method:"GET",expectedUid:fireUser.uid});
+      if(result.inspection?.uid!==uid) throw new Error("Hasil pemeriksaan akun tidak sesuai");
+      setAdminDataInspections(p=>({...p,[uid]:{inspection:result.inspection}}));
+    }catch{
+      setAdminDataInspections(p=>({...p,[uid]:{error:true}}));
     }
   };
 
@@ -10333,6 +10346,19 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                         {user.reviewedBy&&<span>Oleh: {user.reviewedBy}</span>}
                         {user.passwordUpdatedAt&&<span>Password dibantu: {new Date(user.passwordUpdatedAt).toLocaleString("id-ID")}</span>}
                       </div>
+                      <button onClick={()=>inspectAdminUserData(user.uid)} disabled={adminDataInspections[user.uid]?.loading} style={{marginTop:12,minHeight:44,padding:"10px 12px",borderRadius:8,border:`1px solid ${T.border}`,background:T.card,color:T.text,fontFamily:"inherit",fontWeight:700,cursor:adminDataInspections[user.uid]?.loading?"wait":"pointer"}}>{adminDataInspections[user.uid]?.loading?"Memeriksa...":"Periksa sinkronisasi"}</button>
+                      {adminDataInspections[user.uid]?.error&&<p role="alert" style={{fontSize:14,color:T.err}}>Pemeriksaan belum berhasil. Coba lagi.</p>}
+                      {adminDataInspections[user.uid]?.inspection&&(()=>{
+                        const {cloud,backups,checkedAt}=adminDataInspections[user.uid].inspection;
+                        return <div role="status" data-testid="admin-data-inspection" style={{fontSize:14,lineHeight:1.6,marginTop:12,overflowWrap:"anywhere"}}>
+                          <strong>Data cloud: {cloud.dataPresent?(cloud.dataShapeValid?"Tersedia":"Perlu diperiksa"):"Belum ada"}</strong>
+                          <div>Transaksi: {cloud.transactionCount??"Belum diketahui"} · Dompet: {cloud.walletCount??"Belum diketahui"} · Versi: {cloud.version}</div>
+                          <div>Setup: {cloud.onboarded?"Selesai":"Belum ditandai selesai"}</div>
+                          <div>Tersimpan: {cloud.updatedAt?new Date(cloud.updatedAt).toLocaleString("id-ID"):"Belum tercatat"}</div>
+                          <div>Diperiksa: {new Date(checkedAt).toLocaleString("id-ID")}</div>
+                          <div>Backup terakhir: {backups===null?"Belum dapat diperiksa":!backups.length?"Belum ada":backups.map((backup,index)=><div key={index}>{backup.backupAt?new Date(backup.backupAt).toLocaleString("id-ID"):"Tanggal belum diketahui"} · {backup.transactionCount??"?"} transaksi</div>)}</div>
+                        </div>;
+                      })()}
                     </details>
                   </div>
                 ))}

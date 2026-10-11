@@ -2,6 +2,7 @@ import { getAdminAuth, getAdminDb } from "../_lib/firebaseAdmin.js";
 import { getAdminEmails, requireAdmin } from "../_lib/auth.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 import { consumeRateLimit } from "../_lib/rateLimit.js";
+import { readAccountDataInspection } from "../_lib/accountDataInspection.js";
 
 const ALLOWED_STATUSES = ["pending_review", "approved", "rejected"];
 const MIN_PASSWORD_LENGTH = 8;
@@ -35,6 +36,10 @@ export default async function handler(req, res) {
     const db = getAdminDb();
 
     if (req.method === "GET") {
+      if(req.query?.inspectUid!==undefined){
+        const inspection=await readAccountDataInspection(db,req.query.inspectUid);
+        return res.status(200).json({ok:true,inspection});
+      }
       const snap = await db.collection("users").get();
       const users = sortUsers(snap.docs.map(toAdminUser));
 

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import "./account-data-inspection.test.mjs";
 import { readFile } from "node:fs/promises";
 import { fetchAccountBootstrap, isCompleteCloudSnapshot, readAccountToken, readOwnedLocalAccount, resolveAccountOnboarded } from "../src/accountBootstrap.js";
 import { filterTransactionsForList, moveTransactionWithinDate } from "../src/transactionList.js";

@@ -5,6 +5,9 @@ import { chromium } from "playwright-core";
 if (!process.env.E2E_EMAIL || !process.env.E2E_PASSWORD) throw new Error("QA credentials required");
 const base = process.env.E2E_BASE_URL || "http://127.0.0.1:5185";
 const repro = process.env.E2E_REPRO === "1";
+const allScenarios=["fresh-storage", "slow-cloud", "missing-embedded", "startup-failure", "approval-failure", "invalid-cloud", "invalid-cloud-desktop", "legacy-cache", "corrupt-cache", "other-account-cache", "new-account", "explicit-reset", "admin-inspection", "admin-inspection-desktop"];
+const scenarios=repro?["approval-failure"]:process.env.E2E_SCENARIOS?process.env.E2E_SCENARIOS.split(","):allScenarios;
+assert.ok(scenarios.every(scenario=>allScenarios.includes(scenario)),"Unknown test scenario");
 await mkdir(".e2e-artifacts", { recursive:true });
 const browser = await chromium.launch({ channel:"chrome", headless:true });
 const fixture = {
@@ -14,21 +17,34 @@ const fixture = {
   budgets:[], goals:[], utang:[], asetTetap:[], recurring:[], processedRecurring:{}, amplop:[], habits:[],
 };
 try {
-  for (const scenario of repro ? ["approval-failure"] : ["fresh-storage", "slow-cloud", "missing-embedded", "startup-failure", "approval-failure", "invalid-cloud", "invalid-cloud-desktop", "legacy-cache", "corrupt-cache", "other-account-cache", "new-account", "explicit-reset"]) {
-    const desktop=scenario==="invalid-cloud-desktop";
+  for (const scenario of scenarios) {
+    const desktop=scenario.endsWith("-desktop");
+    const admin=scenario.startsWith("admin-inspection");
     const context = await browser.newContext({ viewport:desktop?{width:1440,height:900}:{ width:390, height:844 }, locale:"id-ID", isMobile:!desktop, hasTouch:!desktop });
     const page = await context.newPage();
     let recovery = false;
     let gets = 0;
     const writes = [];
     const errors = [];
+    let inspectionReads=0;
     page.on("pageerror",e=>errors.push(e.message));
+    await page.route("**/api/admin/users**",async route=>{
+      assert.equal(route.request().method(),"GET","Admin inspection is read-only");
+      const url=new URL(route.request().url());
+      if(url.searchParams.has("inspectUid")){
+        inspectionReads++;
+        assert.equal(url.searchParams.get("inspectUid"),"qa-target");
+        if(inspectionReads===1) return route.fulfill({status:503,json:{error:"QA unavailable"}});
+        return route.fulfill({json:{ok:true,inspection:{uid:"qa-target",checkedAt:new Date().toISOString(),cloud:{dataPresent:true,dataShapeValid:true,transactionCount:68,walletCount:1,version:7,onboarded:false,updatedAt:"2026-10-10T12:00:00Z"},backups:[]}}});
+      }
+      return route.fulfill({json:{ok:true,users:[{uid:"qa-target",displayName:"QA target",email:"qa-target@example.invalid",approvalStatus:"approved",role:"user"}],stats:{total:1,approved:1,pending_review:0,rejected:0}}});
+    });
     await page.route("**/api/users/**", async route=>{
       const request = route.request();
       const path = new URL(request.url()).pathname;
       const token = request.headers().authorization?.slice(7);
       const uid = JSON.parse(Buffer.from(token.split(".")[1],"base64url").toString()).sub;
-      const profile = { uid, email:process.env.E2E_EMAIL, approvalStatus:"approved", role:"user", paymentStatus:"paid" };
+      const profile = { uid, email:process.env.E2E_EMAIL, approvalStatus:"approved", role:admin?"admin":"user", paymentStatus:"paid" };
       const cloud = { data:fixture, onboarded:false, version:7, updatedAt:"2026-10-10T12:00:00.000Z", lastBackupAt:null };
       if (path === "/api/users/me") {
         gets++;
@@ -41,9 +57,10 @@ try {
           },{uid,fixture,scenario});
         }
         if (scenario === "slow-cloud") {
+          const writesBefore=writes.length;
           await page.waitForTimeout(1800);
           assert.equal(await page.getByText("Halo! Saya AturDuitku",{exact:true}).count(),0,"No setup flash while loading");
-          assert.equal(writes.length,0,"No writes while loading");
+          assert.equal(writes.length,writesBefore,"No additional writes while loading, including reload");
         }
         if (["missing-embedded","approval-failure","startup-failure"].includes(scenario)) return route.fulfill({ json:{ profile } });
         if (scenario.startsWith("invalid-cloud")) return route.fulfill({ json:{ profile, cloud:{ ...cloud, data:{} } } });
@@ -111,6 +128,27 @@ try {
         await page.getByRole("button",{name:"Reset semua data",exact:true}).click();
         await page.getByRole("button",{name:"Ya, Lanjutkan",exact:true}).click();
         await page.getByText("Halo! Saya AturDuitku",{exact:true}).waitFor();
+      }
+      if(admin){
+        for(const name of ["Nanti dulu","Nanti"]){
+          const button=page.getByRole("button",{name,exact:true});
+          if(await button.isVisible().catch(()=>false)) await button.click();
+        }
+        if(desktop) await page.getByText("Admin",{exact:true}).first().click();
+        else{
+          await page.getByRole("button",{name:/Lainnya/}).last().click();
+          await page.getByRole("dialog",{name:"Menu lainnya"}).getByRole("button",{name:/Admin/}).click();
+        }
+        await page.getByText("QA target",{exact:true}).waitFor();
+        await page.getByText("Detail akun",{exact:true}).click();
+        await page.getByRole("button",{name:"Periksa sinkronisasi",exact:true}).click();
+        await page.getByText("Pemeriksaan belum berhasil. Coba lagi.",{exact:true}).waitFor();
+        await page.getByRole("button",{name:"Periksa sinkronisasi",exact:true}).click();
+        await page.getByTestId("admin-data-inspection").waitFor();
+        assert.match(await page.getByTestId("admin-data-inspection").innerText(),/Transaksi: 68/);
+        assert.equal(inspectionReads,2);
+        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
+        await page.screenshot({path:`.e2e-artifacts/account-bootstrap-${scenario}.png`,fullPage:true});
       }
     }
     if (!repro) {
