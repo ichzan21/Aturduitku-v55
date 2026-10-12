@@ -1,7 +1,9 @@
-import { StrictMode } from 'react'
+import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App, { ErrorBoundary } from './App.jsx'
+import AppBoot from './AppBoot.jsx'
+import { ErrorBoundary } from './ErrorBoundary.jsx'
+import { preloadFirebase } from './firebaseClient.js'
 import { reportClientError } from './monitoring.js'
 import { classifyRuntimeFailure, scheduleModuleLoadRecovery } from './runtimeRecovery.js'
 import { isAuthPopupAssertion } from './authPopupGuard.js'
@@ -82,10 +84,16 @@ window.addEventListener('unhandledrejection', event => {
   handleRuntimeFailure(event.reason, 'unhandled_rejection', event)
 })
 
+// Start auth and application downloads together, before the larger app renders.
+const App = lazy(() => import('./App.jsx'))
+preloadFirebase().catch(error => handleRuntimeFailure(error, 'auth_initialization'))
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      <Suspense fallback={<AppBoot />}>
+        <App />
+      </Suspense>
     </ErrorBoundary>
   </StrictMode>,
 )

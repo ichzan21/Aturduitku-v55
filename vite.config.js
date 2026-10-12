@@ -15,6 +15,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;
+          if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react-vendor';
           if (id.includes('firebase')) return 'firebase-vendor';
           if (id.includes('recharts') || id.includes('d3-')) return 'charts-vendor';
           if (id.includes('pdfjs-dist')) return 'pdf-vendor';

@@ -9,6 +9,7 @@ const repro = process.env.E2E_REPRO === "1";
 const allScenarios=["fresh-storage", "slow-cloud", "missing-embedded", "startup-failure", "approval-failure", "invalid-cloud", "invalid-cloud-desktop", "legacy-cache", "corrupt-cache", "other-account-cache", "new-account", "explicit-reset", "admin-inspection", "admin-inspection-desktop"];
 allScenarios.push("empty-cloud-local","empty-cloud-local-confirm","empty-cloud-backup","empty-cloud-backup-desktop","empty-cloud-backup-race","empty-cloud-backup-cas");
 allScenarios.push("admin-inspection-restore","admin-inspection-restore-desktop");
+allScenarios.push("very-slow-cloud","very-slow-cloud-desktop");
 const scenarios=repro?["approval-failure"]:process.env.E2E_SCENARIOS?process.env.E2E_SCENARIOS.split(","):allScenarios;
 assert.ok(scenarios.every(scenario=>allScenarios.includes(scenario)),"Unknown test scenario");
 await mkdir(".e2e-artifacts", { recursive:true });
@@ -78,11 +79,21 @@ try {
             localStorage.setItem("aturduitku_onboarded","0");
           },{uid,fixture,scenario});
         }
-        if (scenario === "slow-cloud") {
+        if (scenario === "slow-cloud" || scenario.startsWith("very-slow-cloud")) {
           const writesBefore=writes.length;
-          await page.waitForTimeout(1800);
+          await page.waitForTimeout(scenario.startsWith("very-slow-cloud") ? 9200 : 1800);
           assert.equal(await page.getByText("Halo! Saya AturDuitku",{exact:true}).count(),0,"No setup flash while loading");
           assert.equal(writes.length,writesBefore,"No additional writes while loading, including reload");
+          if(scenario.startsWith("very-slow-cloud")){
+            const boot=page.getByTestId("app-boot");
+            assert.equal(await boot.getAttribute("data-stage"),"data");
+            assert.equal(await boot.getByText("Pemuatan lebih lama dari biasanya.",{exact:true}).isVisible(),true);
+            const reload=boot.getByRole("button",{name:"Muat ulang",exact:true});
+            assert.equal(await reload.isEnabled(),true);
+            assert.ok((await reload.boundingBox()).height>=44);
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+            await page.screenshot({path:`.e2e-artifacts/account-bootstrap-${scenario}-loading.png`});
+          }
         }
         if (["missing-embedded","approval-failure","startup-failure"].includes(scenario)) return route.fulfill({ json:{ profile } });
         if (scenario.startsWith("invalid-cloud")) return route.fulfill({ json:{ profile, cloud:{ ...cloud, data:{} } } });

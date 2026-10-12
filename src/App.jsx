@@ -16,8 +16,9 @@ import { debtReminderKey, isOutstandingDebt, remainingDebtAmount, visibleAlerts 
 import { recordInvestment } from "./investmentTransaction.js";
 import { getBillPayment } from "./billPayment.js";
 import { AppIcon, WalletIcon } from "./AppIcon.jsx";
+import AppBoot from "./AppBoot.jsx";
 import { isEditableElement, measureMobileViewport } from "./mobileViewport.js";
-import { afterFirstPaint, classifyRuntimeFailure, scheduleModuleLoadRecovery } from "./runtimeRecovery.js";
+import { afterFirstPaint } from "./runtimeRecovery.js";
 import { KAT_IN, incomeCategoryLabel, inferIncomeCategory, normalizeIncomeTransaction } from "./incomeCategory.js";
 import { extractPdfStatement, parsePdfStatementLines, validatePdfStatement } from "./pdfStatement.js";
 import { detectFinancialProvider as detectBank, findWalletForProvider, parseStatementCSV as parseBankCSV, walletDraftForProvider } from "./bankImport.js";
@@ -42,36 +43,7 @@ const AdminMonitoringPanelLazy = React.lazy(() => import("./AdminMonitoringPanel
 
 
 // ─── ERROR BOUNDARY ───────────────────────────────────────────────────────────
-export class ErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
-  static getDerivedStateFromError(error) { return { hasError: true, error }; }
-  componentDidCatch(err, info) {
-    console.error("AturDuitku Error:", err, info);
-    const runtimeFailure=classifyRuntimeFailure(err);
-    const type=runtimeFailure.kind==="module_load"?"asset_load_recovery":"react_boundary";
-    reportClientError(err, { type, component:info?.componentStack }).catch(()=>{});
-    if(runtimeFailure.kind==="module_load") scheduleModuleLoadRecovery();
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"#0f0a22",color:"#fff",padding:24,fontFamily:"sans-serif"}}>
-          <div style={{fontSize:48,marginBottom:16}}>⚠️</div>
-          <div style={{fontSize:20,fontWeight:800,marginBottom:8,color:"#A78BFA"}}>AturDuitku</div>
-          <div style={{fontSize:14,color:"#aaa",marginBottom:20,textAlign:"center"}}>Ada yang tidak beres. Coba muat ulang halaman.</div>
-          <button onClick={()=>window.location.reload()} style={{padding:"12px 28px",borderRadius:12,border:"none",background:"#6D28D9",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>
-            🔄 Muat Ulang
-          </button>
-          {this.state.error&&<details style={{marginTop:20,fontSize:10,color:"#666",maxWidth:500}}>
-            <summary style={{cursor:"pointer",color:"#888"}}>Detail Error (untuk developer)</summary>
-            <pre style={{marginTop:8,whiteSpace:"pre-wrap",fontSize:10}}>{String(this.state.error)}</pre>
-          </details>}
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
+export { ErrorBoundary } from "./ErrorBoundary.jsx";
 
 
 // ─── THEME CONTEXT ────────────────────────────────────────────────────────────
@@ -3138,7 +3110,7 @@ export default function App(){
     if(!fireUser||!cloudReady||performanceReportedRef.current)return;
     performanceReportedRef.current=true;
     const navigation=performance.getEntriesByType?.("navigation")?.[0];
-    const navigationDuration=Math.round(Number(navigation?.duration)||0);
+    const navigationDuration=Math.round(Math.max(Number(navigation?.duration)||0,performance.now()));
     if(navigationDuration>=8000){
       reportClientError(new Error(`Startup lambat: ${navigationDuration} ms`),{type:"performance_slow",component:"app_startup",route:page,durationMs:navigationDuration});
     }
@@ -7410,18 +7382,7 @@ Saldo amplop bertambah.`}]);
   };
 
   // Show loading screen while checking auth
-  if(fireLoading || accessLoading) return (
-    <div style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"radial-gradient(circle at 50% 20%,#5B21B6 0%,#2E1065 42%,#13051F 100%)",gap:16,padding:"env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)",fontFamily:"system-ui,sans-serif"}}>
-      <style>{`@keyframes loadCat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-10px) rotate(2deg)}}@keyframes loadBar{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}`}</style>
-      <img src="/icon-192.png" alt="" style={{width:84,height:84,borderRadius:24,objectFit:"cover",animation:"loadCat 1.6s ease-in-out infinite",boxShadow:"0 18px 42px rgba(124,58,237,.45)"}}/>
-      <div style={{color:"white",fontWeight:900,fontSize:20,letterSpacing:-.3}}>AturDuitku</div>
-      <div style={{color:"#DDD6FE",fontSize:12,fontWeight:700}}>Menyiapkan data akunmu...</div>
-      <div style={{width:190,height:7,borderRadius:99,background:"rgba(255,255,255,.14)",overflow:"hidden",border:"1px solid rgba(255,255,255,.12)"}}>
-        <div style={{width:70,height:"100%",borderRadius:99,background:"linear-gradient(90deg,transparent,#C4B5FD,transparent)",animation:"loadBar 1.15s ease-in-out infinite"}}/>
-      </div>
-      <div style={{color:"#A78BFA",fontSize:11}}>Sinkronisasi cloud berjalan otomatis</div>
-    </div>
-  );
+  if(fireLoading || accessLoading) return <AppBoot stage={fireUser ? "data" : "auth"} />;
 
   if(!fireUser && !publicLogin) return <PublicLanding/>;
 

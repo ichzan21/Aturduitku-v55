@@ -8,6 +8,16 @@ const appSource = await readFile(new URL("../src/App.jsx", import.meta.url), "ut
 const mainSource = await readFile(new URL("../src/main.jsx", import.meta.url), "utf8");
 const monitoringSource = await readFile(new URL("../src/monitoring.js", import.meta.url), "utf8");
 const serviceWorkerSource = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
+const bootSource = await readFile(new URL("../src/AppBoot.jsx", import.meta.url), "utf8");
+const boundarySource = await readFile(new URL("../src/ErrorBoundary.jsx", import.meta.url), "utf8");
+assert.match(mainSource, /const App = lazy\(\(\) => import\('\.\/App\.jsx'\)\)/, "Bundle aplikasi harus dimuat di belakang shell ringan");
+assert.doesNotMatch(mainSource, /import App.*from '\.\/App\.jsx'/, "Entry tidak boleh menunggu evaluasi seluruh aplikasi");
+assert.ok(mainSource.indexOf("preloadFirebase().catch") < mainSource.indexOf("createRoot("), "Pemeriksaan login mulai bersamaan dengan unduhan aplikasi");
+assert.match(mainSource, /<Suspense fallback=\{<AppBoot \/>\}>/, "Unduhan kode aplikasi harus tetap memiliki layar yang terlihat");
+assert.match(boundarySource, /scheduleModuleLoadRecovery/, "Kegagalan chunk aplikasi tetap memiliki pemulihan");
+assert.match(bootSource, /8000 - performance\.now\(\)/, "Waktu bantuan tidak boleh dimulai ulang setiap tahap bootstrap");
+assert.match(bootSource, /window\.location\.reload\(\)/, "Tombol pemulihan hanya memuat ulang halaman");
+assert.doesNotMatch(bootSource, /localStorage|sessionStorage|signOut|fetch\(/, "Layar pemuatan tidak boleh mengubah data atau sesi customer");
 assert.match(appSource, /const GoalCard=\(\{[^}]*lang="id"[^}]*\}\)=>\{/,
   "GoalCard harus memiliki fallback bahasa agar tidak memicu react_boundary");
 assert.match(appSource, /<GoalCard[^>]*lang=\{lang\}/,
