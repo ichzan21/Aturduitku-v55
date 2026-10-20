@@ -27,6 +27,9 @@ assert.deepEqual(
 );
 assert.equal(inferDirectTransactionAction("kalau dapat pemasukan 2 jt sebaiknya bagaimana?"), null);
 assert.equal(inferDirectTransactionAction("saya ingin dapat pemasukan 2 juta dari freelance"), null);
+for(const message of ["catat bayar utang Budi 50000 dari tunai","catat cicilan piutang Budi 50000 ke BCA","saya bayar cicilan 50000","catat pemasukan pelunasan piutang 50000"]){
+  assert.equal(inferDirectTransactionAction(message),null,"Pembayaran utang/piutang harus melalui aksi terhubung, bukan transaksi umum");
+}
 assert.equal(
   normalizeAiTransactionAction({ action:"catat", tipe:"pengeluaran", jml:23_000_000 }, "catat pemasukan 2.3 jt ke BCA").tipe,
   "pemasukan",

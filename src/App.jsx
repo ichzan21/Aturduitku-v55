@@ -13,6 +13,7 @@ import { findGoalSourceWallet, normalizeGoalSourceId } from "./goalSource.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { uiIcon } from "./uiIcon.js";
 import { debtReminderKey, isOutstandingDebt, remainingDebtAmount, visibleAlerts } from "./financialNotifications.js";
+import { isDebtPayment, reverseDebtPayment } from "./debtPayments.js";
 import { recordInvestment } from "./investmentTransaction.js";
 import { getBillPayment } from "./billPayment.js";
 import { AppIcon, WalletIcon } from "./AppIcon.jsx";
@@ -5177,18 +5178,12 @@ CONTOH GAYA:
           if(!utang) aiDone(`⚠️ Utang/piutang "${parsed.nama}" tidak ditemukan.`);
           else if(!dompet) aiDone(`⚠️ Dompet "${parsed.dompet}" tidak ditemukan.`);
           else if(!jumlah) aiDone("⚠️ Nominal pembayaran utang belum jelas.");
-          else if(!aiBalanceOk(dompet,jumlah)) aiDone(`⚠️ Saldo ${dompet.nama} tidak cukup. Saldo tersedia Rp ${aiMoney(N(dompet.saldo))}.`);
+          else if(jumlah>remainingDebtAmount(utang)) aiDone("⚠️ Nominal pembayaran melebihi sisa utang/piutang.");
+          else if(utang.tipe==="utang"&&!aiBalanceOk(dompet,jumlah)) aiDone(`⚠️ Saldo ${dompet.nama} tidak cukup. Saldo tersedia Rp ${aiMoney(N(dompet.saldo))}.`);
           else {
-            const totalC=(utang.cicilan||[]).reduce((a,b)=>a+N(b.jml),0)+jumlah;
-            const lunas=totalC>=N(utang.jml);
-            const paymentTx={id:Date.now(),tipe:"pengeluaran",tgl:today(),ket:`Bayar utang: ${utang.nama}`,jml:String(jumlah),katId:s.budgets[0]?.id||"",dompetId:dompet?.id||1,subKat:"",bulan:s.bulan,tahun:s.tahun};
-            setS(p=>({...p,
-              utang:p.utang.map(u=>u.id===utang.id?{...u,lunas,cicilan:[...(u.cicilan||[]),{tgl:today(),jml:String(jumlah),dompetId:dompet?.id||1}]}:u),
-              dompet:applyTransactionToWallets(p.dompet,paymentTx),
-              txs:[paymentTx,...p.txs]
-            }));
+            const lunas=jumlah>=remainingDebtAmount(utang);
+            catatCicilan(utang.id,String(jumlah),"wallet",dompet.id);
             aiDone(`📋 **Cicilan dicatat!**\n\n${utang.nama}\nRp ${aiMoney(jumlah)}${lunas?"\nStatus: lunas ✅":""}`);
-            showToast("Cicilan utang dicatat via AI");
           }
         } else if(parsed.action==="buat_amplop") {
           const dompet=cleanAiText(parsed.dompet)?aiDompetStrict(parsed.dompet):aiDompet(parsed.dompet);
@@ -6709,7 +6704,7 @@ Saldo amplop bertambah.`}]);
   };
 
   const canEditTransaction=(tx)=>Boolean(
-    tx && !tx.locked && !tx.goalId && !tx.goalSpendId && !tx.asetId && !tx.amplopId && !tx.billRef &&
+    tx && !tx.locked && !tx.goalId && !tx.goalSpendId && !tx.asetId && !tx.amplopId && !tx.billRef && !isDebtPayment(tx) &&
     !String(tx.ket||"").startsWith("[Rutin]") && ["pemasukan","pengeluaran","transfer"].includes(tx.tipe)
   );
 
@@ -7078,9 +7073,9 @@ Saldo amplop bertambah.`}]);
       const debt=p.utang.find(x=>sameId(x.id,uid));
       if(!debt||!isOutstandingDebt(debt)||N(jml)>remainingDebtAmount(debt)) return p;
       const receivesPayment=["piutang","piutangBisnis"].includes(debt?.tipe);
-      const paymentTx={id:Date.now(), tipe:receivesPayment?(destinationType==="goal"?"piutang_masuk_goal":"piutang_masuk"):"pengeluaran", tgl:today(), ket:`${receivesPayment?"Terima Piutang/Cicilan":"Bayar Utang/Cicilan"}: ${debt?.nama}`, jml:pN(jml), dompetId:destinationType==="wallet"?destinationId:"",bulan:p.bulan,tahun:p.tahun,katId:"",piutangId:receivesPayment?debt?.id:"",goalId:receivesPayment&&destinationType==="goal"?destinationId:""};
+      const paymentTx={id:Date.now(),debtId:debt.id, tipe:receivesPayment?(destinationType==="goal"?"piutang_masuk_goal":"piutang_masuk"):"pengeluaran", tgl:today(), ket:`${receivesPayment?"Terima Piutang/Cicilan":"Bayar Utang/Cicilan"}: ${debt?.nama}`, jml:pN(jml), dompetId:destinationType==="wallet"?destinationId:"",bulan:p.bulan,tahun:p.tahun,katId:"",piutangId:receivesPayment?debt?.id:"",goalId:receivesPayment&&destinationType==="goal"?destinationId:""};
       return {...p,
-        utang:p.utang.map(u=>{if(!sameId(u.id,uid))return u;const nc=[...(u.cicilan||[]),{tgl:today(),jml}];const tc=nc.reduce((a,b)=>a+N(b.jml),0);return{...u,cicilan:nc,lunas:tc>=N(u.jml)};}),
+        utang:p.utang.map(u=>{if(!sameId(u.id,uid))return u;const nc=[...(u.cicilan||[]),{tgl:paymentTx.tgl,jml:pN(jml),txId:paymentTx.id,dompetId:paymentTx.dompetId,goalId:paymentTx.goalId}];const tc=nc.reduce((a,b)=>a+N(b.jml),0);return{...u,cicilan:nc,lunas:tc>=N(u.jml)};}),
         goals:receivesPayment&&destinationType==="goal"?p.goals.map(g=>sameId(g.id,destinationId)?{...g,kumpul:String(N(g.kumpul)+N(jml)),history:[...(g.history||[]),{tgl:today(),jml:String(N(jml)),tipe:"pengembalian_piutang",ket:`Pengembalian piutang: ${debt?.nama}`,txId:paymentTx.id}]}:g):p.goals,
         dompet:destinationType==="wallet"?applyTransactionToWallets(p.dompet,paymentTx):p.dompet,
         txs:[paymentTx, ...p.txs]
@@ -7143,7 +7138,7 @@ Saldo amplop bertambah.`}]);
       msg,
       danger:true,
       onConfirm:()=>{
-        onConfirm();
+        if(onConfirm()===false) return;
         closeModal();
         showToast(toastMsg);
       }
@@ -7152,13 +7147,16 @@ Saldo amplop bertambah.`}]);
 
   const deleteTx=(tx)=>confirmDelete({
     title:"Hapus transaksi?",
-    msg:`Transaksi "${transactionDisplayName(tx)}" akan dihapus dan saldo dompet terkait akan disesuaikan ulang.`,
+    msg:`Transaksi "${transactionDisplayName(tx)}" akan dihapus dan saldo dompet terkait akan disesuaikan ulang.${isDebtPayment(tx)?" Cicilan terkait juga dibatalkan dan sisa utang/piutang dihitung ulang.":""}`,
     toastMsg:"Transaksi dihapus",
     onConfirm:()=>{
       const p=s;
+      let debtReversal;
+      try{debtReversal=reverseDebtPayment(p,tx);}
+      catch(error){showToast(error.message);return false;}
       const jmlNum=N(tx.jml);
       let newDompet=applyTransactionToWallets(p.dompet,tx,-1);
-      let newGoals=p.goals;
+      let newGoals=debtReversal.goals;
       let newAset=p.asetTetap;
       let newAmplop=p.amplop;
       if(tx.tipe==="pemasukan"&&tx.dompetId){
@@ -7207,7 +7205,7 @@ Saldo amplop bertambah.`}]);
       }
       const remainingTransactions=p.txs.filter(x=>x.id!==tx.id);
       const repairedPairs=pairImportedInternalTransfers(remainingTransactions,newDompet);
-      const nextState={...p,txs:repairedPairs.transactions,dompet:newDompet,goals:newGoals,asetTetap:newAset,amplop:newAmplop};
+      const nextState={...p,txs:repairedPairs.transactions,dompet:newDompet,goals:newGoals,utang:debtReversal.utang,asetTetap:newAset,amplop:newAmplop};
       clearTimeout(txMotionTimerRef.current);
       setTxMotion({id:tx.id,type:"out"});
       txMotionTimerRef.current=setTimeout(()=>{
@@ -7283,7 +7281,7 @@ Saldo amplop bertambah.`}]);
     const txBg=isInternalTransfer?T.accentBg:t.tipe==="pemasukan"||isEnvelopeRefund||isReceivableIn?T.okBg:t.tipe==="tabungan"?T.infoBg:t.tipe==="investasi"?T.okBg:t.tipe==="penyesuaian"?T.warnBg:(t.tipe==="alokasi_amplop"||t.tipe==="transfer"||isReceivableOut)?T.accentBg:T.errBg;
     const txIcon=isInternalTransfer?"transfer":isIn?"income":isEnvelopeRefund?"refund":isReceivableOut?"receivable":t.tipe==="tabungan"?"BANK":t.tipe==="investasi"?"INV":t.tipe==="penyesuaian"?"balance":t.tipe==="alokasi_amplop"?"ENV":t.tipe==="transfer"?"transfer":kat?.icon||"expense";
     return(
-      <div key={t.id} className={txMotion&&sameId(txMotion.id,t.id)?(txMotion.type==="out"?"tx-row-out":"tx-row-new"):"tx-row-in"} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
+      <div key={t.id} data-testid="transaction-row" className={txMotion&&sameId(txMotion.id,t.id)?(txMotion.type==="out"?"tx-row-out":"tx-row-new"):"tx-row-in"} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.borderLight}`}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
           <div style={{width:36,height:36,borderRadius:10,background:txBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>
             <AppIcon icon={txIcon} size={18} strokeWidth={2.2}/>

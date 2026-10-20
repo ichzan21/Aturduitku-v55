@@ -53,6 +53,8 @@ export const inferTransactionType = (message, fallback = "") => {
 
 export const inferDirectTransactionAction = (message) => {
   const text = String(message || "").trim();
+  // Debt payments need an installment link, not an unlinked cash-flow shortcut.
+  if (/\b(?:utang|hutang|piutang|pinjaman|cicilan)(?:ku|nya)?\b/i.test(text)) return null;
   const declarativeTransaction = /\bsaya\s+(?:dapat|dapet|menerima|terima|bayar|membayar|beli|belanja)\b/i.test(text);
   if ((!executionSignal.test(text) && !declarativeTransaction) || ((hypotheticalSignal.test(text) || planningSignal.test(text)) && !executionSignal.test(text))) return null;
   const tipe = inferTransactionType(text);

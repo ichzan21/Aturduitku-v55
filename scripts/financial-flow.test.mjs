@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import "./wallet-reconciliation.test.mjs";
+import "./debt-payments.test.mjs";
 import { readFile } from "node:fs/promises";
 import {
   applyTransactionToWallets,
@@ -149,6 +150,10 @@ const {isOutstandingDebt,remainingDebtAmount,debtReminderKey,visibleAlerts}=awai
 assert.doesNotMatch(appSource,/u\.lunas/,"Daftar, ringkasan, kartu, dan ekspor harus memakai status berdasarkan sisa, bukan hanya flag lama");
 assert.match(appSource,/const settled=!isOutstandingDebt\(u\)/);
 assert.match(appSource,/N\(jml\)>remainingDebtAmount\(selectedDebt\)/,"Pembayaran tidak boleh melebihi sisa kewajiban");
+assert.match(appSource,/txId:paymentTx.id/,"Cicilan baru harus menunjuk transaksi pembayaran");
+assert.match(appSource,/debtId:debt.id/,"Transaksi pembayaran harus menunjuk utang terkait");
+assert.match(appSource,/utang:debtReversal.utang/,"Hapus transaksi harus membatalkan cicilan di daftar utang");
+assert.match(appSource,/catatCicilan\(utang.id,String\(jumlah\),"wallet",dompet.id\)/,"AI harus memakai jalur pembayaran terhubung yang sama");
 const {recordInvestment}=await import("../src/investmentTransaction.js");
 const paidDebt={id:1,jml:"217.500",tempo:"2026-10-01",cicilan:[{jml:"217.500"}]};
 assert.equal(isOutstandingDebt({...paidDebt,cicilan:[],lunas:true}),false);
