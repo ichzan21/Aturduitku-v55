@@ -1379,30 +1379,32 @@ const UtangCard=({u,dompetList,goals=[],onDelete,onCicilan})=>{
   const [inp,setInp]=useState("");const [showCalc,setShowCalc]=useState(false);
   const [destination, setDestination]=useState(()=>u.sourceType==="goal"?`goal:${u.sourceId}`:`wallet:${dompetList[0]?.id || 1}`);
   const totalC=(u.cicilan||[]).reduce((a,b)=>a+N(b.jml),0);
+  const settled=!isOutstandingDebt(u);
+  const unrecordedSettlement=settled&&remainingDebtAmount(u)>0;
   const pct=N(u.jml)>0?Math.min(totalC/N(u.jml)*100,100):0;
   return(
-    <div style={{background:T.cardAlt,borderRadius:12,padding:16,marginBottom:10,border:`1px solid ${u.lunas?T.okBorder:u.tipe==="utang"?T.errBorder:T.infoBorder}`,transition:"background .3s,border-color .3s"}}>
+    <div data-testid="debt-card" data-debt-status={settled?"settled":"active"} style={{background:T.cardAlt,borderRadius:12,padding:16,marginBottom:10,border:`1px solid ${settled?T.okBorder:u.tipe==="utang"?T.errBorder:T.infoBorder}`,transition:"background .3s,border-color .3s"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
         <div>
           <div style={{fontWeight:700,fontSize:14,color:T.text}}>{u.nama}</div>
           <div style={{fontSize:11,color:T.muted}}>{u.tgl}{(u.provider||detectDebtProvider(u.nama))&&` · ${(u.provider||detectDebtProvider(u.nama))}`}{u.tempo&&` · Tempo: ${u.tempo}`}</div>
         </div>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          <Pill c={u.lunas?"green":u.tipe==="utang"?"red":u.tipe==="piutangBisnis"?"purple":"blue"} ch={u.lunas?"✓ Lunas":u.tipe==="utang"?"Utang":u.tipe==="piutangBisnis"?"Piutang Bisnis":"Piutang"}/>
+          <Pill c={settled?"green":u.tipe==="utang"?"red":u.tipe==="piutangBisnis"?"purple":"blue"} ch={settled?"✓ Lunas":u.tipe==="utang"?"Utang":u.tipe==="piutangBisnis"?"Piutang Bisnis":"Piutang"}/>
           <Del onClick={onDelete}/>
         </div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}}>
-        {[{l:"Total",v:IDR(N(u.jml)),c:u.tipe==="utang"?T.err:T.info},{l:"Terbayar",v:IDR(totalC),c:T.ok},{l:"Sisa",v:IDR(Math.max(N(u.jml)-totalC,0)),c:T.warn}].map(x=>(
+        {[{l:"Total",v:IDR(N(u.jml)),c:u.tipe==="utang"?T.err:T.info},{l:unrecordedSettlement?"Tercatat":"Terbayar",v:IDR(totalC),c:T.ok},{l:unrecordedSettlement?"Belum dirinci":"Sisa",v:IDR(Math.max(N(u.jml)-totalC,0)),c:T.warn}].map(x=>(
           <div key={x.l} style={{background:T.card,borderRadius:8,padding:"8px 10px",border:`1px solid ${T.border}`}}>
             <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.6,marginBottom:2}}>{x.l}</div>
             <div style={{fontWeight:700,color:x.c,fontSize:12}}>{x.v}</div>
           </div>
         ))}
       </div>
-      <PBar pct={pct} c={u.lunas?"#22C55E":u.tipe==="utang"?"#EF4444":"#3B82F6"} h={5}/>
-      <div style={{fontSize:10,color:T.muted,marginBottom:8,marginTop:3}}>{pct.toFixed(0)}% terbayar</div>
-      {!u.lunas&&<div style={{display:"flex",gap:8,alignItems:"center"}}>
+      <PBar pct={pct} c={settled?"#22C55E":u.tipe==="utang"?"#EF4444":"#3B82F6"} h={5}/>
+      <div style={{fontSize:10,color:unrecordedSettlement?T.sub:T.muted,marginBottom:8,marginTop:3}}>{unrecordedSettlement?"Ditandai lunas; rincian cicilan belum lengkap.":`${pct.toFixed(0)}% terbayar`}</div>
+      {!settled&&<div style={{display:"flex",gap:8,alignItems:"center"}}>
         <div style={{position:"relative",flex:1}}>
           <CurIn value={inp} onChange={v=>setInp(v)} placeholder="Nominal..." style={{paddingRight:36}}/>
           <button onClick={()=>setShowCalc(true)} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14}}>🔢</button>
@@ -3781,8 +3783,8 @@ export default function App(){
   const rasioOut=totalIn>0?(totalOut/totalIn*100):0;
   const totalAset=totalSaldo+totalGoalFunds+totalAmplopAvailable+s.asetTetap.reduce((a,b)=>a+N(b.nilai),0);
   const remainingDebt=remainingDebtAmount;
-  const totalUtangAktif=s.utang.filter(u=>u.tipe==="utang"&&!u.lunas).reduce((a,b)=>a+remainingDebt(b),0);
-  const totalPiutang=s.utang.filter(u=>(u.tipe==="piutang"||u.tipe==="piutangBisnis")&&!u.lunas).reduce((a,b)=>a+remainingDebt(b),0);
+  const totalUtangAktif=s.utang.filter(u=>u.tipe==="utang"&&isOutstandingDebt(u)).reduce((a,b)=>a+remainingDebt(b),0);
+  const totalPiutang=s.utang.filter(u=>(u.tipe==="piutang"||u.tipe==="piutangBisnis")&&isOutstandingDebt(u)).reduce((a,b)=>a+remainingDebt(b),0);
   const netWorthTotal=totalAset+totalPiutang-totalUtangAktif;
   const runwayReal=totalOut>0?(totalSaldo/totalOut).toFixed(1):0;
   const totalBudget=s.budgets.reduce((a,b)=>a+N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0),0);
@@ -3863,7 +3865,7 @@ export default function App(){
   },[s.utang,tagihan,s.recurring,yr,bulanIdx]);
   const paylaterHealth=useMemo(()=>{
     const tracked=["Shopee PayLater","SPayLater","Kredivo","Akulaku","GoPayLater","Traveloka PayLater","LazPayLater","Home Credit","Kartu Kredit"];
-    const list=s.utang.filter(u=>u.tipe==="utang"&&!u.lunas).map(u=>{
+    const list=s.utang.filter(u=>u.tipe==="utang"&&isOutstandingDebt(u)).map(u=>{
       const provider=u.provider||detectDebtProvider(u.nama);
       const paid=(u.cicilan||[]).reduce((a,c)=>a+N(c.jml),0);
       return {...u,provider,sisa:Math.max(N(u.jml)-paid,0),days:u.tempo?Math.ceil((new Date(`${u.tempo}T00:00:00`)-new Date(`${today()}T00:00:00`))/(1000*60*60*24)):null};
@@ -4757,7 +4759,7 @@ export default function App(){
     }).join("\n  ") : "Belum ada goals";
 
     // Debt/receivable
-    const utangAktif = s.utang.filter(u=>!u.lunas);
+    const utangAktif = s.utang.filter(isOutstandingDebt);
     const aiRemaining=u=>Math.max(Number(u.jml||0)-(u.cicilan||[]).reduce((sum,c)=>sum+Number(c.jml||0),0),0);
     const totalUtang = utangAktif.filter(u=>u.tipe==="utang").reduce((a,u)=>a+aiRemaining(u),0);
     const totalPiutang = utangAktif.filter(u=>u.tipe==="piutang"||u.tipe==="piutangBisnis").reduce((a,u)=>a+aiRemaining(u),0);
@@ -5060,7 +5062,7 @@ CONTOH GAYA:
       const aiAset = name => findAiItem(s.asetTetap, name, ["nama"]);
       const aiAmplop = name => findAiItem(s.amplop, name, ["nama"]);
       const aiHabit = name => findAiItem(s.habits, name, ["nama"]);
-      const aiUtang = name => findAiItem(s.utang.filter(u=>!u.lunas), name, ["nama"]);
+      const aiUtang = name => findAiItem(s.utang.filter(isOutstandingDebt), name, ["nama"]);
       const aiMoney = v => Number(v||0).toLocaleString("id-ID");
       const aiDone = content => setAiMsgs(prev=>[...prev,{role:"assistant",content}]);
       const aiConfirm = ({icon="✅",title,lines=[],next=""}) => {
@@ -6243,15 +6245,15 @@ Saldo amplop bertambah.`}]);
       const assetRows=(s.asetTetap||[]).map(a=>[clean(a.nama),idr(Num(a.nilai)),clean(a.ket||"-")]);
       const debtRows=(s.utang||[]).map(u=>{
         const paid=(u.cicilan||[]).reduce((sum,c)=>sum+Num(c.jml),0);
-        return [clean(u.nama),u.tipe||"utang",idr(Num(u.jml)),idr(Math.max(Num(u.jml)-paid,0)),u.lunas?"Lunas":"Aktif"];
+        return [clean(u.nama),u.tipe||"utang",idr(Num(u.jml)),idr(Math.max(Num(u.jml)-paid,0)),isOutstandingDebt(u)?"Aktif":"Lunas"];
       });
       if(goalRows.length||envelopeRows.length||assetRows.length||debtRows.length){
         newPage();y=6;
         const goalFunds=(s.goals||[]).reduce((sum,g)=>sum+Num(g.kumpul),0);
         const envelopeFunds=(s.amplop||[]).reduce((sum,a)=>sum+Math.max(Num(a.alokasi)-Num(a.terpakai),0),0);
         const fixedAssets=(s.asetTetap||[]).reduce((sum,a)=>sum+Num(a.nilai),0);
-        const activeDebt=(s.utang||[]).filter(u=>u.tipe==="utang"&&!u.lunas).reduce((sum,u)=>sum+Math.max(Num(u.jml)-(u.cicilan||[]).reduce((x,c)=>x+Num(c.jml),0),0),0);
-        const receivable=(s.utang||[]).filter(u=>u.tipe!=="utang"&&!u.lunas).reduce((sum,u)=>sum+Math.max(Num(u.jml)-(u.cicilan||[]).reduce((x,c)=>x+Num(c.jml),0),0),0);
+        const activeDebt=(s.utang||[]).filter(u=>u.tipe==="utang"&&isOutstandingDebt(u)).reduce((sum,u)=>sum+remainingDebtAmount(u),0);
+        const receivable=(s.utang||[]).filter(u=>u.tipe!=="utang"&&isOutstandingDebt(u)).reduce((sum,u)=>sum+remainingDebtAmount(u),0);
         const netWorth=totalBal+goalFunds+envelopeFunds+fixedAssets+receivable-activeDebt;
         y=secTitle(isEN?"Goals & Net Worth":"Goals & Kekayaan",isEN?"Goals, envelopes, assets, and debts":"Progress Goals, saldo Amplop, aset, dan utang",y);
         fc(C.purpleBg);rr(ML,y,CT,19,2);fc(C.purple);rx(ML,y,3,19);tc(C.gray);ft("bold",6);txt(isEN?"ESTIMATED NET WORTH":"ESTIMASI NET WORTH",ML+6,y+6);tc(C.purple);ft("bold",15);txt(idrc(netWorth),ML+6,y+14);y+=25;
@@ -6537,7 +6539,7 @@ Saldo amplop bertambah.`}]);
       appendDataSheet(isEN?"Goals":"Goals",[isEN?"Goal":"Goal",isEN?"Target":"Target",isEN?"Saved":"Terkumpul","Progress %","Deadline"],(s.goals||[]).map(g=>[g.nama,Num(g.target),Num(g.kumpul),Num(g.target)>0?Number((Num(g.kumpul)/Num(g.target)*100).toFixed(1)):0,g.deadline||""]),[28,18,18,14,16]);
       appendDataSheet(isEN?"Envelopes":"Amplop",[isEN?"Envelope":"Amplop",isEN?"Category":"Kategori",isEN?"Allocated":"Alokasi",isEN?"Used":"Terpakai",isEN?"Remaining":"Sisa"],(s.amplop||[]).map(a=>[a.nama,s.budgets.find(b=>b.id===a.katId)?.kat||"Lainnya",Num(a.alokasi),Num(a.terpakai),Math.max(Num(a.alokasi)-Num(a.terpakai),0)]),[26,22,18,18,18]);
       appendDataSheet(isEN?"Assets":"Aset",[isEN?"Asset":"Aset",isEN?"Value":"Nilai",isEN?"Note":"Keterangan"],(s.asetTetap||[]).map(a=>[a.nama,Num(a.nilai),a.ket||""]),[28,20,36]);
-      appendDataSheet(isEN?"Debt & Receivables":"Utang & Piutang",[isEN?"Name":"Nama",isEN?"Type":"Tipe",isEN?"Principal":"Nilai",isEN?"Paid":"Terbayar",isEN?"Remaining":"Sisa",isEN?"Due":"Jatuh Tempo",isEN?"Status":"Status"],(s.utang||[]).map(u=>{const paid=(u.cicilan||[]).reduce((sum,c)=>sum+Num(c.jml),0);return[u.nama,u.tipe||"utang",Num(u.jml),paid,Math.max(Num(u.jml)-paid,0),u.tempo||"",u.lunas?"Lunas":"Aktif"]}),[28,16,18,18,18,16,14]);
+      appendDataSheet(isEN?"Debt & Receivables":"Utang & Piutang",[isEN?"Name":"Nama",isEN?"Type":"Tipe",isEN?"Principal":"Nilai",isEN?"Paid":"Terbayar",isEN?"Remaining":"Sisa",isEN?"Due":"Jatuh Tempo",isEN?"Status":"Status"],(s.utang||[]).map(u=>{const paid=(u.cicilan||[]).reduce((sum,c)=>sum+Num(c.jml),0);return[u.nama,u.tipe||"utang",Num(u.jml),paid,Math.max(Num(u.jml)-paid,0),u.tempo||"",isOutstandingDebt(u)?"Aktif":"Lunas"]}),[28,16,18,18,18,16,14]);
 
       // ── Save ─────────────────────────────────────────────────────────────────
       const fname = `AturDuitku_${reportPeriodLabel.replace(/\s+/g,"_")}.xlsx`;
@@ -7062,7 +7064,10 @@ Saldo amplop bertambah.`}]);
 
   const catatCicilan=(uid,jml,destinationType,destinationId)=>{
     if(N(jml)<=0){showToast("⚠️ Nominal cicilan harus lebih dari nol.");return;}
-    const isReceivable = ["piutang","piutangBisnis"].includes(s.utang.find(x=>x.id===uid)?.tipe);
+    const selectedDebt=s.utang.find(x=>sameId(x.id,uid));
+    if(!selectedDebt||!isOutstandingDebt(selectedDebt)){showToast("Catatan sudah lunas atau tidak ditemukan.");return;}
+    if(N(jml)>remainingDebtAmount(selectedDebt)){showToast("Nominal pembayaran melebihi sisa utang/piutang.");return;}
+    const isReceivable = ["piutang","piutangBisnis"].includes(selectedDebt.tipe);
     const targetDompet = destinationType==="wallet"?findWallet(s.dompet,destinationId):null;
     const targetGoal = destinationType==="goal"?s.goals.find(g=>sameId(g.id,destinationId)):null;
     if(destinationType==="wallet"&&!targetDompet) { showToast(t("toast_walletNotFound")); return; }
@@ -7070,11 +7075,12 @@ Saldo amplop bertambah.`}]);
     if(!isReceivable && (!targetDompet || N(targetDompet.saldo) < N(jml))) { showToast("⚠️ Saldo dompet tidak cukup!"); return; }
     
     setS(p=>{
-      const debt=p.utang.find(x=>x.id===uid);
+      const debt=p.utang.find(x=>sameId(x.id,uid));
+      if(!debt||!isOutstandingDebt(debt)||N(jml)>remainingDebtAmount(debt)) return p;
       const receivesPayment=["piutang","piutangBisnis"].includes(debt?.tipe);
       const paymentTx={id:Date.now(), tipe:receivesPayment?(destinationType==="goal"?"piutang_masuk_goal":"piutang_masuk"):"pengeluaran", tgl:today(), ket:`${receivesPayment?"Terima Piutang/Cicilan":"Bayar Utang/Cicilan"}: ${debt?.nama}`, jml:pN(jml), dompetId:destinationType==="wallet"?destinationId:"",bulan:p.bulan,tahun:p.tahun,katId:"",piutangId:receivesPayment?debt?.id:"",goalId:receivesPayment&&destinationType==="goal"?destinationId:""};
       return {...p,
-        utang:p.utang.map(u=>{if(u.id!==uid)return u;const nc=[...u.cicilan,{tgl:today(),jml}];const tc=nc.reduce((a,b)=>a+N(b.jml),0);return{...u,cicilan:nc,lunas:tc>=N(u.jml)};}),
+        utang:p.utang.map(u=>{if(!sameId(u.id,uid))return u;const nc=[...(u.cicilan||[]),{tgl:today(),jml}];const tc=nc.reduce((a,b)=>a+N(b.jml),0);return{...u,cicilan:nc,lunas:tc>=N(u.jml)};}),
         goals:receivesPayment&&destinationType==="goal"?p.goals.map(g=>sameId(g.id,destinationId)?{...g,kumpul:String(N(g.kumpul)+N(jml)),history:[...(g.history||[]),{tgl:today(),jml:String(N(jml)),tipe:"pengembalian_piutang",ket:`Pengembalian piutang: ${debt?.nama}`,txId:paymentTx.id}]}:g):p.goals,
         dompet:destinationType==="wallet"?applyTransactionToWallets(p.dompet,paymentTx):p.dompet,
         txs:[paymentTx, ...p.txs]
@@ -9654,10 +9660,10 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <Btn onClick={addUt} ch={t("saveNote")} style={{width:"100%",padding:11}}/>
               </>}/>
               <div style={{display:"grid",gap:14,alignContent:"start"}}>
-                {[{l:t("debtActive"),v:IDR(totalUtangAktif),vc:T.err,bg:T.errBg},{l:t("recvActive"),v:IDR(totalPiutang),vc:T.ok,bg:T.okBg},{l:"Sudah Lunas",v:s.utang.filter(u=>u.lunas).length+" item",vc:T.accent,bg:T.accentBg}].map((x,i)=>(
+                {[{l:t("debtActive"),v:IDR(totalUtangAktif),vc:T.err,bg:T.errBg},{l:t("recvActive"),v:IDR(totalPiutang),vc:T.ok,bg:T.okBg},{l:"Sudah Lunas",v:s.utang.filter(u=>!isOutstandingDebt(u)).length+" item",vc:T.accent,bg:T.accentBg}].map((x,i)=>(
                   <div key={x.l} className="stagger-in" style={{background:x.bg,borderRadius:12,padding:"14px 18px",transition:"background .3s",animationDelay:`${i*55}ms`}}>
                     <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:5}}>{x.l}</div>
-                    <div style={{fontWeight:800,fontSize:17,color:x.vc}}>{i===0?<AnimatedAmount value={totalUtangAktif}/>:i===1?<AnimatedAmount value={totalPiutang}/>:<><AnimatedNumber value={s.utang.filter(u=>u.lunas).length}/> item</>}</div>
+                    <div style={{fontWeight:800,fontSize:17,color:x.vc}}>{i===0?<AnimatedAmount value={totalUtangAktif}/>:i===1?<AnimatedAmount value={totalPiutang}/>:<><AnimatedNumber value={s.utang.filter(u=>!isOutstandingDebt(u)).length}/> item</>}</div>
                   </div>
                 ))}
               </div>
@@ -9733,16 +9739,16 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               </>}/>
             </div>
             {["utang","piutang","piutangBisnis"].map(tipe=>{
-              const list=s.utang.filter(u=>u.tipe===tipe&&!u.lunas);
+              const list=s.utang.filter(u=>u.tipe===tipe&&isOutstandingDebt(u));
               if(!list.length)return null;
               return <div key={tipe} style={{marginBottom:14}}>
                 <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>{tipe==="utang"?"Utang Aktif":tipe==="piutangBisnis"?"Piutang Bisnis":"Piutang Aktif"}</div>
                 {list.map(u=><UtangCard key={u.id} u={u} dompetList={s.dompet} onDelete={()=>confirmDelete({title:"Hapus catatan utang/piutang?",msg:`Catatan "${u.nama}" beserta riwayat cicilannya akan dihapus.`,toastMsg:"Catatan dihapus",onConfirm:()=>setS(p=>({...p,utang:p.utang.filter(x=>x.id!==u.id)}))})} onCicilan={catatCicilan}/>)}
               </div>;
             })}
-            {s.utang.filter(u=>u.lunas).length>0&&<div>
+            {s.utang.filter(u=>!isOutstandingDebt(u)).length>0&&<div data-testid="settled-debts">
               <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>✓ Sudah Lunas</div>
-              {s.utang.filter(u=>u.lunas).map(u=><UtangCard key={u.id} u={u} dompetList={s.dompet} onDelete={()=>confirmDelete({title:"Hapus catatan lunas?",msg:`Riwayat "${u.nama}" akan dihapus dari daftar utang/piutang lunas.`,toastMsg:"Catatan lunas dihapus",onConfirm:()=>setS(p=>({...p,utang:p.utang.filter(x=>x.id!==u.id)}))})} onCicilan={catatCicilan}/>)}
+              {s.utang.filter(u=>!isOutstandingDebt(u)).map(u=><UtangCard key={u.id} u={u} dompetList={s.dompet} onDelete={()=>confirmDelete({title:"Hapus catatan lunas?",msg:`Riwayat "${u.nama}" akan dihapus dari daftar utang/piutang lunas.`,toastMsg:"Catatan lunas dihapus",onConfirm:()=>setS(p=>({...p,utang:p.utang.filter(x=>x.id!==u.id)}))})} onCicilan={catatCicilan}/>)}
             </div>}
             {!s.utang.length&&<Card ch={<div style={{textAlign:"center",padding:40,color:T.muted}}>{t("noDebt")} 🙌</div>}/>}
           </>}

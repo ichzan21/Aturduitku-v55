@@ -98,7 +98,7 @@ try{
       console.log(`OK AI receivable ${viewport.width}: explicit source required, no premature save or debit`);
     }
     await page.getByRole("button",{name:"Piutang",exact:true}).click();
-    const source=page.locator('select').filter({has:page.locator('option[value="wallet:bsi-qa"]')});
+    const source=page.locator('select:not([aria-label="Tujuan pembayaran"])').filter({has:page.locator('option[value="wallet:bsi-qa"]')});
     await source.selectOption("wallet:bsi-qa");
     await page.locator('input[type="date"]').first().fill(date);
     await page.getByPlaceholder(/Contoh: Shopee PayLater/).fill("QA pinjam BSI");
@@ -142,6 +142,50 @@ try{
     await page.reload({waitUntil:"domcontentloaded"});
     await page.getByTestId("page-title").waitFor({state:"visible"});
     assert.equal(cloud.data.dompet[0].saldo,"1000000","Reopen must not double apply repayment");
+    await navigate("Utang");
+    await page.getByTestId("settled-debts").getByText("QA pinjam BSI",{exact:true}).waitFor();
+    assert.equal(await page.getByTestId("settled-debts").getByRole("button",{name:"+ Bayar",exact:true}).count(),0);
+    const walletBeforeLegacy=JSON.stringify(cloud.data.dompet);
+    const txsBeforeLegacy=JSON.stringify(cloud.data.txs);
+    const legacy=[
+      {id:"legacy-paid",nama:"QA piutang lunas lama",tipe:"piutang",jml:"20.000",lunas:false,cicilan:[{tgl:date,jml:"10000"},{tgl:date,jml:"10.000"}]},
+      {id:"legacy-debt",nama:"QA utang lunas lama",tipe:"utang",jml:"40000",cicilan:[{tgl:date,jml:"40000"}]},
+      {id:"legacy-status",nama:"QA status lunas lama",tipe:"piutang",jml:"60000",status:" LUNAS ",lunas:false,cicilan:[]},
+      {id:"legacy-partial",nama:"QA piutang sebagian",tipe:"piutangBisnis",jml:"50000",lunas:false,cicilan:[{tgl:date,jml:"15000"}]},
+    ];
+    cloud={...cloud,data:{...cloud.data,utang:[...cloud.data.utang,...legacy]}};
+    for(let reopen=0;reopen<2;reopen++){
+      await page.reload({waitUntil:"domcontentloaded"});
+      await page.getByTestId("page-title").waitFor();
+      await navigate("Utang");
+      const settled=page.getByTestId("settled-debts");
+      await settled.getByText("QA piutang lunas lama",{exact:true}).waitFor();
+      assert.equal(await settled.getByTestId("debt-card").count(),4,"Paid legacy records remain as settled history, never disappear");
+      assert.equal(await settled.getByRole("button",{name:"+ Bayar",exact:true}).count(),0,"Settled records cannot be paid twice");
+      const statusOnly=settled.getByTestId("debt-card").filter({hasText:"QA status lunas lama"});
+      assert.match(await statusOnly.innerText(),/rincian cicilan belum lengkap/);
+      assert.match(await statusOnly.innerText(),/Belum dirinci/i);
+      assert.equal(await page.locator('[data-debt-status="active"]').count(),1);
+      const partial=page.locator('[data-debt-status="active"]');
+      assert.match(await partial.innerText(),/QA piutang sebagian/);
+      assert.match(await partial.innerText(),/35\.000/);
+      assert.equal(await partial.getByRole("button",{name:"+ Bayar",exact:true}).isVisible(),true);
+      if(reopen===0){
+        await partial.getByPlaceholder("Nominal...").fill("50001");
+        await partial.getByRole("button",{name:"+ Bayar",exact:true}).click();
+        await page.getByText("Nominal pembayaran melebihi sisa utang/piutang.",{exact:true}).waitFor();
+      }
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+      assert.equal(JSON.stringify(cloud.data.dompet),walletBeforeLegacy,"Status classification must never reapply wallet effects");
+      assert.equal(JSON.stringify(cloud.data.txs),txsBeforeLegacy,"Status classification must preserve financial history");
+      assert.deepEqual(cloud.data.utang.slice(-4),legacy,"Old flags and original installment evidence remain untouched");
+      if(reopen===1){
+        await settled.scrollIntoViewIfNeeded();
+        await page.screenshot({path:`.e2e-artifacts/receivable-settled-${viewport.width}.png`,fullPage:true});
+        await settled.getByTestId("debt-card").filter({hasText:"QA piutang lunas lama"}).screenshot({path:`.e2e-artifacts/receivable-legacy-paid-${viewport.width}.png`});
+      }
+    }
+    console.log(`OK settled status ${viewport.width}: full/partial/legacy/explicit status, no duplicate payment, preserved history and balances after reopen`);
     if(process.env.E2E_TEST_SYNC==="1"){
       await navigate("Utang");
       await page.getByRole("button",{name:"Piutang",exact:true}).click();

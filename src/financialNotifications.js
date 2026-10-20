@@ -6,7 +6,7 @@ export const remainingDebtAmount = debt => Math.max(
 );
 
 export const isOutstandingDebt = debt =>
-  debt?.lunas !== true && String(debt?.status || "").toLowerCase() !== "lunas" && remainingDebtAmount(debt) > 0;
+  debt?.lunas !== true && String(debt?.status || "").trim().toLowerCase() !== "lunas" && remainingDebtAmount(debt) > 0;
 
 export const debtReminderKey = debt =>
   JSON.stringify(["debt", String(debt?.id), debt?.tempo, remainingDebtAmount(debt)]);

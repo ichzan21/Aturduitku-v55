@@ -146,11 +146,22 @@ assert.match(appSource, /id:previous\.id,\s*displayName:""/,
   "Edit lengkap harus menyatukan nama baru ke keterangan tanpa menyisakan override lama");
 
 const {isOutstandingDebt,remainingDebtAmount,debtReminderKey,visibleAlerts}=await import("../src/financialNotifications.js");
+assert.doesNotMatch(appSource,/u\.lunas/,"Daftar, ringkasan, kartu, dan ekspor harus memakai status berdasarkan sisa, bukan hanya flag lama");
+assert.match(appSource,/const settled=!isOutstandingDebt\(u\)/);
+assert.match(appSource,/N\(jml\)>remainingDebtAmount\(selectedDebt\)/,"Pembayaran tidak boleh melebihi sisa kewajiban");
 const {recordInvestment}=await import("../src/investmentTransaction.js");
 const paidDebt={id:1,jml:"217.500",tempo:"2026-10-01",cicilan:[{jml:"217.500"}]};
 assert.equal(isOutstandingDebt({...paidDebt,cicilan:[],lunas:true}),false);
 assert.equal(isOutstandingDebt({...paidDebt,cicilan:[],status:"lunas"}),false);
 assert.equal(isOutstandingDebt(paidDebt),false,"Pembayaran penuh harus menghentikan pengingat meskipun flag lama belum diperbarui");
+assert.equal(isOutstandingDebt({...paidDebt,status:" LUNAS ",cicilan:[]}),false,"Status lunas lama harus mengabaikan spasi dan kapitalisasi");
+for(const tipe of ["utang","piutang","piutangBisnis"]){
+  const legacy={id:`legacy-${tipe}`,tipe,jml:"50.000",lunas:false,cicilan:[{jml:"25.000"},{jml:"25000"}]};
+  const before=JSON.stringify(legacy);
+  assert.equal(remainingDebtAmount(legacy),0);
+  assert.equal(isOutstandingDebt(legacy),false);
+  assert.equal(JSON.stringify(legacy),before,"Membaca status tidak boleh menghapus cicilan atau mengubah flag lama");
+}
 const partialDebt={...paidDebt,cicilan:[{jml:"7.500"}]};
 assert.equal(isOutstandingDebt(partialDebt),true);
 assert.equal(remainingDebtAmount(partialDebt),210000);
