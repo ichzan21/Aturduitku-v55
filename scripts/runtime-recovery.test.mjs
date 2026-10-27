@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import "./sync-recovery.test.mjs";
+import "./auth-helper-routing.test.mjs";
 import { readFile } from "node:fs/promises";
 import { afterFirstPaint, classifyRuntimeFailure, getRuntimeErrorMessage, isModuleLoadFailure, isRecoverableStorageFailure, isServiceWorkerLifecycleFailure, scheduleModuleLoadRecovery } from "../src/runtimeRecovery.js";
 import { getCloudDataPayload } from "../api/_lib/userCloudData.js";
@@ -42,7 +43,7 @@ assert.equal(isRecoverableStorageFailure("IndexedDB database connection closed")
 assert.equal(getRuntimeErrorMessage({ message:"Pesan aman" }), "Pesan aman");
 assert.match(appSource, /e\?\.target\?\.files\?\.\[0\]/, "Pemilih file harus aman saat event tidak lengkap");
 assert.match(mainSource, /type:'asset_load_recovery'/, "Kegagalan chunk harus masuk jalur pemulihan, bukan crash biasa");
-assert.match(serviceWorkerSource, /aturduitku-v28-valid-assets/, "Cache PWA harus berganti versi setelah validasi aset diperbaiki");
+assert.match(serviceWorkerSource, /aturduitku-v29-auth-bypass/, "Cache PWA harus berganti versi setelah pemisahan helper login");
 assert.match(serviceWorkerSource, /fetch\(e\.request, \{ cache: 'no-store' \}\)[\s\S]*catch\(\(\) => caches\.match\(e\.request\)\)/,
   "Aset build harus network-first dengan fallback offline");
 assert.match(serviceWorkerSource, /javascript\|ecmascript[\s\S]*Asset version expired/,

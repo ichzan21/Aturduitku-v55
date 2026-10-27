@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aturduitku-v28-valid-assets';
+const CACHE_NAME = 'aturduitku-v29-auth-bypass';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -30,7 +30,8 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
-  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
+  // Firebase helper responses must never become the offline app shell or cached auth state.
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/__/')) return;
   if (e.request.mode === 'navigate') {
     e.respondWith(
       caches.match('/index.html').then(cached => {

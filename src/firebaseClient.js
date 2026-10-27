@@ -4,7 +4,10 @@ let firebaseModulePromise;
 
 const loadFirebase = () => {
   if (!firebaseModulePromise) {
-    firebaseModulePromise = import("./firebase.js");
+    firebaseModulePromise = import("./firebase.js").catch(error => {
+      firebaseModulePromise = undefined;
+      throw error;
+    });
   }
   return firebaseModulePromise;
 };

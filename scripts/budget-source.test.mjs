@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import "./budget-allocation.test.mjs";
 import { budgetSourceLabel, findBudgetSourceWallet, normalizeBudgetSourceId } from "../src/budgetSource.js";
 
 const wallets = [

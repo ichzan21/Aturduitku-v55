@@ -14,6 +14,7 @@ import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
 import { uiIcon } from "./uiIcon.js";
 import { debtReminderKey, isOutstandingDebt, remainingDebtAmount, visibleAlerts } from "./financialNotifications.js";
 import { isDebtPayment, reverseDebtPayment } from "./debtPayments.js";
+import { getBudgetAllocation } from "./budgetAllocation.js";
 import { recordInvestment } from "./investmentTransaction.js";
 import { getBillPayment } from "./billPayment.js";
 import { AppIcon, WalletIcon } from "./AppIcon.jsx";
@@ -917,7 +918,7 @@ const googleAuthErrorMessage=(error)=>{
   if(code.includes("account-exists-with-different-credential")) return "Email ini sudah terdaftar dengan metode login lain. Masuk memakai email dan password dulu.";
   if(code.includes("network-request-failed")) return "Koneksi ke Google terputus. Periksa internet lalu coba lagi.";
   if(code.includes("too-many-requests")) return "Terlalu banyak percobaan login. Tunggu sebentar lalu coba lagi.";
-  if(code.includes("internal-error")) return "Komponen login Google belum bisa dimuat. Muat ulang halaman lalu coba lagi.";
+  if(code.includes("internal-error")) return "Layanan login Google belum berhasil dimuat. Muat ulang login lalu coba lagi. Data akun tidak dihapus.";
   return "Login Google belum berhasil. Muat ulang halaman atau gunakan email dan password.";
 };
 const INIT={
@@ -7425,7 +7426,10 @@ Saldo amplop bertambah.`}]);
           </svg>
           {authBusy?"Membuka Google...":"Masuk dengan Google"}
         </button>
-        {googleAuthError&&<div role="alert" style={{width:"100%",fontSize:11,color:"#FECACA",lineHeight:1.5,background:"rgba(127,29,29,.28)",border:"1px solid rgba(252,165,165,.3)",borderRadius:11,padding:"10px 12px",marginTop:10,textAlign:"left"}}>{googleAuthError}</div>}
+        {googleAuthError&&<div role="alert" style={{width:"100%",fontSize:12,color:"#FECACA",lineHeight:1.5,background:"rgba(127,29,29,.28)",border:"1px solid rgba(252,165,165,.3)",borderRadius:8,padding:"10px 12px",marginTop:10,textAlign:"left"}}>
+          {googleAuthError}
+          <button type="button" onClick={()=>window.location.reload()} style={{display:"block",marginTop:8,minHeight:44,padding:"8px 12px",borderRadius:6,border:"1px solid #FECACA",background:"transparent",color:"#FFF",fontWeight:750,fontFamily:"inherit",cursor:"pointer"}}>Muat ulang login</button>
+        </div>}
 
         <div style={{width:"100%",display:"flex",alignItems:"center",gap:10,margin:"18px 0 14px"}}>
           <div style={{height:1,flex:1,background:"rgba(255,255,255,.12)"}}/>
@@ -9062,10 +9066,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                       const spend=spendByKat[b.id]||0;
                       const realizationRows=[...(budgetRealization.rowsByBudget[String(b.id)]||[])]
                         .sort(compareTransactionsNewestFirst);
-                      const alloc=N(b.alokasi)+b.sub.reduce((x,y)=>x+N(y.alokasi),0);
-                      const pct=alloc>0?spend/alloc*100:0;
-                      const unallocated=alloc<=0&&spend>0;
-                      const over=alloc>0&&spend>alloc;
+                      const allocation=getBudgetAllocation(b,spend);
+                      const {total:alloc,percent:pct,unallocated,over}=allocation;
                       const statusColor=unallocated?"yellow":over?"red":pct>80?"yellow":"green";
                       const statusLabel=unallocated?"Perlu budget":over?t("overLabel"):pct>80?t("almostLabel"):t("safeLabel");
                       const sourceWallet=findBudgetSourceWallet(s.dompet,b.dompetId);
@@ -9080,16 +9082,20 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                           </div>
                           <div data-testid="budget-allocation-grid" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:8,marginBottom:10,minWidth:0}}>
                             <div style={{gridColumn:"1/-1",minWidth:0}}><label style={LS}>{lang==="en"?"Funding wallet":"Dompet sumber"}</label><select aria-label={`${lang==="en"?"Funding wallet":"Dompet sumber"} ${b.kat}`} value={sourceWallet?String(b.dompetId):""} onChange={e=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,dompetId:e.target.value})}))} style={{...IS,minWidth:0,marginBottom:0}}><option value="">{lang==="en"?"All wallets":"Semua dompet"}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>
-                            <div style={{minWidth:0}}><label style={LS}>Alokasi</label><CurIn value={b.alokasi} onChange={v=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,alokasi:v})}))} style={{minWidth:0,height:58,fontSize:14,fontWeight:750,margin:0}}/></div>
+                            <div style={{minWidth:0}}><label style={LS}>{b.sub.length?(lang==="en"?"Main allocation":"Alokasi utama"):"Alokasi"}</label><CurIn value={b.alokasi} onChange={v=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,alokasi:v})}))} style={{minWidth:0,height:58,fontSize:14,fontWeight:750,margin:0}}/></div>
                             <div style={{minWidth:0}}><label style={LS}>Realisasi</label>
                             <button type="button" aria-expanded={sameId(expandedBudgetId,b.id)} aria-controls={`budget-realization-${b.id}`} onClick={()=>setExpandedBudgetId(current=>sameId(current,b.id)?null:b.id)} style={{width:"100%",minWidth:0,height:58,padding:"8px 10px",borderRadius:9,border:`1.5px dashed ${over?T.errBorder:unallocated?T.warnBorder:T.infoBorder}`,background:over?T.errBg:unallocated?T.warnBg:T.infoBg,color:over?T.err:unallocated?T.warn:T.info,textAlign:"left",cursor:"pointer",fontFamily:"inherit",overflow:"hidden"}}>
                               <span style={{display:"block",fontWeight:850,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{IDRs(spend)||"Rp 0"}</span>
                               <span style={{display:"block",fontSize:9,fontWeight:800,marginTop:3,opacity:.78,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{realizationRows.length} transaksi · {sameId(expandedBudgetId,b.id)?"Tutup rincian":"Lihat rincian"}</span>
                             </button></div>
                           </div>
+                          <div data-testid="budget-total-allocation" style={{marginBottom:10,minWidth:0}}>
+                            <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap",fontSize:12,color:T.text}}><span>{lang==="en"?"Total allocation":"Total alokasi"}</span><strong>{IDR(alloc)}</strong></div>
+                            {b.sub.length>0&&<div style={{fontSize:11,color:T.sub,lineHeight:1.5,marginTop:4,overflowWrap:"anywhere"}}>{IDR(allocation.main)} {lang==="en"?"main":"utama"} + {IDR(allocation.subcategories)} {lang==="en"?"subcategories":"subkategori"}</div>}
+                          </div>
                           <PBar pct={pct} c={over?"#EF4444":pct>80?"#F59E0B":"#22C55E"} h={5}/>
-                          <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.muted,marginTop:3,marginBottom:b.sub.length?10:0}}>
-                            <span>{unallocated?"Belum ada alokasi":`${pct.toFixed(0)}% terpakai`}</span><span>Sisa: {IDR(Math.max(alloc-spend,0))}</span>
+                          <div data-testid="budget-usage-summary" style={{display:"flex",justifyContent:"space-between",gap:6,flexWrap:"wrap",fontSize:11,color:over?T.err:T.muted,marginTop:5,marginBottom:b.sub.length?10:0}}>
+                            <span>{unallocated?(lang==="en"?"No allocation":"Belum ada alokasi"):`${pct.toFixed(0)}% ${lang==="en"?"used":"terpakai"}`}</span><span>{allocation.excess>0?`${lang==="en"?"Over by":"Lebih"}: ${IDR(allocation.excess)}`:`${lang==="en"?"Remaining":"Sisa"}: ${IDR(allocation.remaining)}`}</span>
                           </div>
                           {sameId(expandedBudgetId,b.id)&&<div id={`budget-realization-${b.id}`} style={{borderTop:`1px solid ${T.border}`,paddingTop:10,marginTop:10,marginBottom:b.sub.length?10:0}}>
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,marginBottom:8}}>
