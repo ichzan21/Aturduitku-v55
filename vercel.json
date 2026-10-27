@@ -40,8 +40,8 @@
   ],
   "rewrites": [
     {
-      "source": "/__/firebase/:path*",
-      "destination": "https://aturduitku.firebaseapp.com/__/firebase/:path*"
+      "source": "/__/firebase/init.json",
+      "destination": "/firebase-init.json"
     },
     {
       "source": "/__/auth/:path*",

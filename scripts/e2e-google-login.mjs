@@ -7,6 +7,12 @@ await mkdir('.e2e-artifacts',{recursive:true});
 const browser=await chromium.launch({channel:'chrome',headless:true});
 try {
   const context=await browser.newContext({viewport:{width:390,height:844}});
+  if(new URL(base).hostname==='www.aturduitku.com') {
+    const init=await context.request.get(`${base}/__/firebase/init.json`);
+    assert.equal(init.status(),200,'Production auth helper configuration must be available');
+    assert.match(init.headers()['content-type'],/application\/json/);
+    assert.equal((await init.json()).projectId,'aturduitku');
+  }
   const page=await context.newPage();
   await page.route('**/api/**',route=>route.fulfill({json:{ok:true}}));
   const blocked=[];

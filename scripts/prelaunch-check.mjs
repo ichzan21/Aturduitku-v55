@@ -1,9 +1,11 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { extname, join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { firebaseConfig } from "../src/firebaseConfig.js";
 
 const requiredFiles = [
   "dist/index.html",
+  "dist/firebase-init.json",
   "public/manifest.json",
   "public/sw.js",
   "api/users/data.js",
@@ -19,6 +21,9 @@ const requiredFiles = [
 const failures = [];
 for (const file of requiredFiles) {
   if (!existsSync(file)) failures.push(`File wajib tidak ditemukan: ${file}`);
+}
+if (existsSync("dist/firebase-init.json") && JSON.stringify(JSON.parse(readFileSync("dist/firebase-init.json","utf8"))) !== JSON.stringify(firebaseConfig)) {
+  failures.push("Konfigurasi helper Firebase berbeda dari SDK login");
 }
 
 const vercel = JSON.parse(readFileSync("vercel.json", "utf8"));

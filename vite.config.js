@@ -1,12 +1,18 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { firebaseConfig } from './src/firebaseConfig.js'
 
 const appVersion = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12)
   || process.env.GITHUB_SHA?.slice(0, 12)
   || 'local'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), {
+    name: 'firebase-auth-init',
+    generateBundle() {
+      this.emitFile({type:'asset',fileName:'firebase-init.json',source:JSON.stringify(firebaseConfig)})
+    },
+  }],
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
   },

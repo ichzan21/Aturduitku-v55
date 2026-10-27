@@ -3,12 +3,15 @@ import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 
 const vercel = JSON.parse(await readFile(new URL('../vercel.json',import.meta.url),'utf8'));
-for (const namespace of ['auth','firebase']) {
+for (const namespace of ['auth']) {
   const source=`/__/${namespace}/:path*`;
   const index=vercel.rewrites.findIndex(rule=>rule.source===source);
   assert.ok(index>=0&&index<vercel.rewrites.length-1,'Firebase helpers must precede the SPA fallback');
   assert.equal(vercel.rewrites[index].destination,`https://aturduitku.firebaseapp.com/__/${namespace}/:path*`);
 }
+const initIndex=vercel.rewrites.findIndex(rule=>rule.source==='/__/firebase/init.json');
+assert.ok(initIndex>=0&&initIndex<vercel.rewrites.length-1);
+assert.equal(vercel.rewrites[initIndex].destination,'/firebase-init.json','Init configuration must not depend on an undeployed Firebase Hosting site');
 const listeners = {};
 const sw = await readFile(new URL('../public/sw.js',import.meta.url),'utf8');
 runInNewContext(sw,{URL,self:{location:{origin:'https://www.aturduitku.com'},addEventListener:(event,cb)=>{listeners[event]=cb;}}});
