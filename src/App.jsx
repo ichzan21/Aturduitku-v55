@@ -8477,6 +8477,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{textAlign:"right",background:"rgba(0,0,0,.2)",borderRadius:12,padding:"14px 18px",flexShrink:0}}>
                   <div style={{fontSize:9,opacity:.6,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>{t("totalBalance")}</div>
                   <div style={{fontSize:24,fontWeight:900}}><MaskedValue blur={blurSaldo} v={<AnimatedAmount value={totalSaldo}/>}/></div>
+                  <div style={{fontSize:11,opacity:.85,marginTop:4}}>{lang==="en"?"All wallet balances now":"Saldo seluruh dompet saat ini"}</div>
                   <div style={{fontSize:10,opacity:.65,marginTop:3}}>{t("runway")}: <AnimatedNumber value={runwayReal} format={n=>n.toFixed(1)}/> {t("months")}</div>
                   <div style={{fontSize:10,opacity:.65,marginTop:2}}>{t("scoreLabel")}: <AnimatedNumber value={skorTotal}/>/100 {getLabel(skorTotal)}</div>
                 </div>
@@ -8872,10 +8873,10 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <input placeholder={t("searchTx")} value={txSearch} onChange={e=>{setTxSearch(e.target.value);setTxPage(1);}} style={{...IS,paddingLeft:36,width:"100%"}}/>
                   <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",fontSize:11,fontWeight:800,color:T.muted}}>Cari</span>
                 </div>
-                <select value={txFilt.dompet} onChange={e=>{setTxFilt(f=>({...f,dompet:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
+                <select aria-label={lang==="en"?"Filter wallet":"Filter dompet"} value={txFilt.dompet} onChange={e=>{setTxFilt(f=>({...f,dompet:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
                   <option value="">{t("allWallets")}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}
                 </select>
-                <select value={txFilt.tipe} onChange={e=>{setTxFilt(f=>({...f,tipe:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
+                <select aria-label={lang==="en"?"Filter transaction type":"Filter tipe transaksi"} value={txFilt.tipe} onChange={e=>{setTxFilt(f=>({...f,tipe:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
                   <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="investasi">Investasi</option><option value="alokasi_amplop">Alokasi Amplop</option><option value="pengembalian_amplop">Pengembalian Amplop</option><option value="penyesuaian">Koreksi saldo</option><option value="transfer_internal">{lang==="en"?"Between wallets":"Transfer antar dompet"}</option>
                 </select>
                 {txHasFilter&&<Btn onClick={()=>{setTxSearch("");setTxFilt({dompet:"",tipe:"",sub:"",startDate:"",endDate:""});setTxPage(1);}} ch="Reset" c={T.err} outline style={{padding:"7px 12px",fontSize:12}}/>}
@@ -8928,14 +8929,33 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <strong>{lang==="en"?"Between-wallet transfers":"Transfer antar dompet"} · {filtTx.length} {t("txCount")}</strong>
               <div>{lang==="en"?"Balance moves between your wallets. Transfer principal is not income or spending; bank fees remain expenses.":"Saldo berpindah antar dompet sendiri. Nominal transfer tidak dihitung sebagai pemasukan atau pengeluaran; biaya admin tetap masuk pengeluaran."}</div>
             </div>}
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:16}}>
-              {[{l:t("incomeLabel"),value:filteredTxSummary.income,vc:T.ok,bg:T.okBg},{l:t("expenseLabel"),value:filteredTxSummary.expense,vc:T.err,bg:T.errBg},{l:"Tabungan & Investasi",value:filteredTxSummary.future,vc:T.info,bg:T.infoBg},{l:"Net",value:filteredTxSummary.net,vc:filteredTxSummary.net>=0?T.ok:T.err,bg:filteredTxSummary.net>=0?T.okBg:T.errBg}].map((x,i)=>(
+            <div data-testid="transaction-summary" style={{display:"grid",gridTemplateColumns:isMobile?"minmax(0,1fr) minmax(0,1fr)":"repeat(4,minmax(0,1fr))",gap:12,marginBottom:8}}>
+              {[{l:t("incomeLabel"),value:filteredTxSummary.income,vc:T.ok,bg:T.okBg},{l:t("expenseLabel"),value:filteredTxSummary.expense,vc:T.err,bg:T.errBg},{l:lang==="en"?"Savings & investments":"Tabungan & Investasi",value:filteredTxSummary.future,vc:T.info,bg:T.infoBg},{l:lang==="en"?"Net cash flow":"Arus kas bersih",value:filteredTxSummary.net,vc:filteredTxSummary.net>=0?T.ok:T.err,bg:filteredTxSummary.net>=0?T.okBg:T.errBg,hint:lang==="en"?"Not your wallet balance":"Bukan saldo dompet"}].map((x,i)=>(
                 <div key={x.l} className="stagger-in" style={{background:x.bg,borderRadius:12,padding:"13px 16px",transition:"background .3s",animationDelay:`${i*55}ms`}}>
-                  <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{x.l}</div>
-                  <div style={{fontWeight:800,fontSize:15,color:x.vc}}><AnimatedAmount value={x.value}/></div>
+                  <div style={{fontSize:11,color:T.sub,fontWeight:700,marginBottom:4,overflowWrap:"anywhere"}}>{x.l}</div>
+                  <div style={{fontWeight:800,fontSize:15,color:x.vc,overflowWrap:"anywhere"}}><AnimatedAmount value={x.value}/></div>
+                  {x.hint&&<div style={{fontSize:11,color:T.sub,lineHeight:1.4,marginTop:5}}>{x.hint}</div>}
                 </div>
               ))}
             </div>
+            <div data-testid="transaction-summary-period" style={{fontSize:11,color:T.sub,lineHeight:1.5,marginBottom:6}}>{txPeriodLabel} · {filtTx.length} {t("txCount")}{txHasFilter?(lang==="en"?" · Filtered results":" · Sesuai filter aktif"):""}</div>
+            <details data-testid="cashflow-balance-explanation" style={{marginBottom:16,borderBottom:`1px solid ${T.border}`,paddingBottom:6,color:T.text}}>
+              <summary style={{minHeight:44,alignContent:"center",cursor:"pointer",fontSize:12,fontWeight:750,color:T.accent}}>{lang==="en"?"Why is this different from my wallet balance?":"Mengapa berbeda dari saldo dompet?"}</summary>
+              <div style={{padding:"4px 0 12px",maxWidth:620,fontSize:12,lineHeight:1.6}}>
+                <div style={{fontWeight:750}}>{lang==="en"?"Net cash flow":"Arus kas bersih"} · {txPeriodLabel}</div>
+                <dl style={{margin:"8px 0 12px",display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"6px 12px"}}>
+                  {[
+                    [t("incomeLabel"),filteredTxSummary.income,""],
+                    [t("expenseLabel"),filteredTxSummary.expense,"− "],
+                    [lang==="en"?"Savings & investments":"Tabungan & investasi",filteredTxSummary.future,"− "],
+                    [lang==="en"?"Net cash flow":"Arus kas bersih",filteredTxSummary.net,""],
+                  ].map(([label,value,prefix])=><React.Fragment key={label}><dt style={{margin:0,color:T.sub}}>{label}</dt><dd style={{margin:0,fontWeight:750,textAlign:"right",overflowWrap:"anywhere"}}>{prefix}{IDR(value)}</dd></React.Fragment>)}
+                </dl>
+                <p style={{margin:"0 0 12px",color:T.sub}}>{lang==="en"?"This calculation uses only the transactions matching the current date, wallet, type and search filters. A positive result is a surplus; a negative result is a deficit.":"Perhitungan ini hanya memakai transaksi yang sesuai tanggal, dompet, tipe, dan pencarian aktif. Nilai positif berarti surplus, sedangkan nilai negatif berarti defisit."}</p>
+                <div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap",borderTop:`1px solid ${T.border}`,paddingTop:10}}><span>{lang==="en"?"Current balance · all wallets":"Saldo saat ini · semua dompet"}</span><strong data-testid="cashflow-current-wallet-balance"><MaskedValue blur={blurSaldo} v={IDR(totalSaldo)}/></strong></div>
+                <p style={{margin:"8px 0 0",color:T.sub}}>{lang==="en"?"Wallet balances include opening balances and all balance changes, including earlier transactions, balance adjustments and receivable payments. They are not the same as this filtered cash-flow result.":"Saldo dompet mencakup saldo awal dan seluruh perubahan saldo, termasuk transaksi sebelumnya, penyesuaian saldo, serta uang yang dipinjamkan atau dikembalikan. Jadi, nilainya tidak harus sama dengan arus kas bersih dari transaksi yang sedang ditampilkan."}</p>
+              </div>
+            </details>
             {reportTotals.goalUsage>0&&<div style={{display:"flex",alignItems:isMobile?"flex-start":"center",justifyContent:"space-between",gap:12,flexDirection:isMobile?"column":"row",marginTop:-6,marginBottom:18,padding:"12px 14px",borderRadius:10,background:T.infoBg,border:`1px solid ${T.infoBorder}`}}>
               <div>
                 <div style={{fontSize:12,fontWeight:900,color:T.info}}>Penggunaan dana Goal</div>

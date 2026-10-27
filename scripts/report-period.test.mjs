@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import "./cashflow-balance.test.mjs";
 import {
   buildReportActivity,
   buildReportCashflowActivity,
