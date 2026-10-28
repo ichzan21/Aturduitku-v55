@@ -141,6 +141,10 @@ try {
     if(scenario==='success') await page.getByTestId('account-reset-success').screenshot({path:`.e2e-artifacts/account-reset-success-${width}.png`});
     // Remove the device marker to verify server-confirmed reset on another storage context.
     if(scenario!=='storage-blocked') await page.evaluate(()=>localStorage.removeItem('aturduitku_confirmed_reset'));
+    else await page.addInitScript(()=>{
+      const get=Storage.prototype.getItem;
+      Storage.prototype.getItem=function(key){if(String(key).startsWith('aturduitku_'))throw new DOMException('QA cache read blocked','SecurityError');return get.call(this,key);};
+    });
     await page.reload({waitUntil:'domcontentloaded'});
     await page.getByText('Halo! Saya AturDuitku',{exact:true}).waitFor({timeout:30000});
     assert.equal(await page.getByTestId('account-backup-recovery').count(),0);

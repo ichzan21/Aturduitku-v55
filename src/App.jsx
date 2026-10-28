@@ -2995,7 +2995,8 @@ export default function App(){
     if(!isCurrent()) return null;
     if(profile.approvalStatus==="approved"){
       let local;
-      try{if(!cloudData.data?.txs?.length) local=readOwnedLocalAccount(localStorage,user.uid);}
+      const serverConfirmedReset=Number.isInteger(cloudData.confirmedResetVersion)&&accountRecoveryMode(cloudData,null)==="new";
+      try{if(!cloudData.data?.txs?.length&&!serverConfirmedReset) local=readOwnedLocalAccount(localStorage,user.uid);}
       catch(error){error.profile=profile;throw error;}
       let confirmedResetVersion=null;
       try{
