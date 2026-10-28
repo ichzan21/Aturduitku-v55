@@ -1986,7 +1986,7 @@ function KomparasiBulanan({ txs, budgets, T, isMobile }) {
 }
 
 // ─── ONBOARDING COMPONENT ─────────────────────────────────────────────────────
-function Onboarding({ onDone, lang="id", changeLang }) {
+function Onboarding({ onDone, lang="id", changeLang, resetComplete=false }) {
   const isMobile = typeof window !== "undefined" ? window.innerWidth < 900 : false;
   const t = (key) => TR[lang]?.[key] ?? TR["id"]?.[key] ?? key;
   const [step, setStep] = useState(0);
@@ -2026,6 +2026,7 @@ function Onboarding({ onDone, lang="id", changeLang }) {
     <div style={{minHeight:"var(--app-height, 100dvh)",background:"linear-gradient(135deg,#EDE9FE 0%,#F5F3FF 60%,#FDFBFF 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:"max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))",fontFamily:"'Nunito',system-ui,sans-serif"}}>
       <style>{`@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}`}</style>
       <div style={{background:"white",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:400,boxShadow:"0 20px 60px rgba(91,33,182,.15)"}}>
+        {resetComplete&&<p role="status" data-testid="account-reset-success" style={{fontSize:14,lineHeight:1.5,margin:"0 0 18px",color:"#166534",background:"#F0FDF4",padding:12,borderRadius:8}}>{lang==="en"?"Reset saved on the server. You can start a new setup.":"Reset berhasil disimpan di server. Silakan mulai setup baru."}</p>}
         {step>0&&<div style={{marginBottom:20}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:11,color:"#94A3B8"}}>
             <span>{t("ob_step")} {step} {t("ob_of")} 3</span><span>{Math.round(progressPct)}%</span>
@@ -2737,6 +2738,8 @@ export default function App(){
   const [recoveryBackup,setRecoveryBackup]=useState(null);
   const [recoveryError,setRecoveryError]=useState("");
   const [recoveryBusy,setRecoveryBusy]=useState(false);
+  const [accountResetForm,setAccountResetForm]=useState(null);
+  const [accountResetCompleted,setAccountResetCompleted]=useState(false);
   const activeAccountUidRef=useRef(null);
   const accountLoadSequenceRef=useRef(0);
   const accountResetPendingRef=useRef(false);
@@ -2820,6 +2823,7 @@ export default function App(){
     dismissTimersRef.current.push(timer);
   };
   const closeModal=after=>{
+    if(modalRef.current?.type==="resetAccount"&&accountResetPendingRef.current) return;
     if(modalRef.current?.type==="adminRestore"&&adminRestoreForm?.busy) return;
     if(modalRef.current?.type==="adminRestore") adminRestoreFileSequenceRef.current++;
     if(!modalRef.current){after?.();return;}
@@ -3014,6 +3018,7 @@ export default function App(){
       }else{
         setS(mergeUserData(INIT));
         setOnboarded(false);
+        setAccountResetCompleted(recovery==="new"&&cloudData.confirmedResetVersion===cloudData.version);
         if(recovery==="backup") setAccountRecovery(cloudData);
       }
       cloudVersionRef.current=cloudData.version;
@@ -3151,7 +3156,8 @@ export default function App(){
     if(!uid) return null;
     const result=await authedJson("/api/users/data", { method:"GET",expectedUid:uid });
     if(!isCompleteCloudSnapshot(result)) throw Object.assign(new Error("Data akun belum berhasil dimuat"),{code:"ACCOUNT_DATA_UNAVAILABLE"});
-    cloudVersionRef.current=Number(result.version)||0;
+    if(activeAccountUidRef.current!==uid) throw Object.assign(new Error("Sesi akun sudah berubah"),{code:"ACCOUNT_SESSION_CHANGED"});
+    cloudVersionRef.current=Math.max(cloudVersionRef.current,Number(result.version)||0);
     setSyncMeta({updatedAt:result.updatedAt||null,lastBackupAt:result.lastBackupAt||null});
     return result;
   };
@@ -3176,9 +3182,65 @@ export default function App(){
       }
       throw error;
     }
-    cloudVersionRef.current=Number(result.version)||cloudVersionRef.current;
+    if(activeAccountUidRef.current!==uid) throw Object.assign(new Error("Sesi akun sudah berubah"),{code:"ACCOUNT_SESSION_CHANGED"});
+    cloudVersionRef.current=Math.max(cloudVersionRef.current,Number(result.version)||0);
     setSyncMeta(meta=>({...meta,updatedAt:result.updatedAt||meta.updatedAt}));
     return result;
+  };
+
+  const resetAccountData = async () => {
+    if(accountResetPendingRef.current||modalClosingRef.current||accountResetForm?.confirmation!=="RESET") return;
+    const uid=fireUser?.uid;
+    if(!uid||!isApproved||!cloudReady||syncConflict) {
+      setAccountResetForm(form=>({...form,error:"Data akun belum siap atau sedang konflik. Muat ulang dan periksa data sebelum mencoba reset."}));
+      return;
+    }
+    accountResetPendingRef.current=true;
+    cloudSaveSequenceRef.current+=1;
+    const accountSequence=accountLoadSequenceRef.current;
+    const isCurrent=()=>activeAccountUidRef.current===uid&&accountLoadSequenceRef.current===accountSequence;
+    setAccountResetForm(form=>({...form,busy:true,error:""}));
+    const resetData=mergeUserData(INIT);
+    try {
+      // Finish earlier writes, then persist the explicit reset before touching local data.
+      const task=cloudSaveQueueRef.current.catch(()=>null).then(()=>saveCloudData(uid,{data:resetData,onboarded:false,confirmedReset:true}));
+      cloudSaveQueueRef.current=task;
+      const saved=await task;
+      if(!isCurrent()) return;
+      try{localStorage.setItem("aturduitku_confirmed_reset",JSON.stringify({uid,version:saved.version}));}catch{}
+      try{localStorage.setItem("aturduitku_data",JSON.stringify(resetData));}catch{}
+      try{localStorage.setItem("aturduitku_onboarded","0");}catch{}
+      try{localStorage.setItem(LOCAL_OWNER_KEY,uid);}catch{}
+      clearTimeout(txMotionTimerRef.current);
+      clearTimeout(undoTimerRef.current);
+      clearTimeout(syncIdleTimerRef.current);
+      setUndoAction(null);
+      setTxMotion(null);
+      setSyncConflict(null);
+      setAccountRecovery(null);
+      setS(resetData);
+      setSfForm({name:resetData.name,targetDana:resetData.targetDana,prevPemasukan:resetData.prevPemasukan,prevPengeluaran:resetData.prevPengeluaran});
+      setTxFilt({dompet:"",tipe:"",sub:"",startDate:"",endDate:""});
+      setTxSearch("");
+      setTxPage(1);
+      setExpandedBudgetId(null);
+      setTxForm({tipe:"pengeluaran",tgl:today(),ket:"",jml:"",katId:resetData.budgets[0]?.id||"",customKat:"",subKat:"",dompetId:resetData.dompet[0]?.id||"",dompetTo:resetData.dompet[1]?.id||"",biaya:"",goalId:"",budgetExcluded:false});
+      setOnboarded(false);
+      setPage("home");
+      setModal(null);
+      setModalClosing(false);
+      modalClosingRef.current=false;
+      setAccountResetForm(null);
+      setAccountResetCompleted(true);
+      setSyncStatus("saved");
+    } catch(error) {
+      if(!isCurrent()) return;
+      setAccountResetForm(form=>({...form,busy:false,error:error.code==="DATA_CONFLICT"
+        ?"Data berubah di perangkat lain. Data belum direset. Muat ulang halaman dan periksa data terbaru sebelum mencoba lagi."
+        :"Reset belum berhasil dikonfirmasi server. Data di aplikasi tetap utuh. Periksa koneksi lalu coba lagi."}));
+    } finally {
+      if(isCurrent()) accountResetPendingRef.current=false;
+    }
   };
 
   const loadAdminUsers = async () => {
@@ -3307,26 +3369,24 @@ export default function App(){
   // Auto-save (hanya saat s berubah, bukan setiap render/clock tick)
   // Autosave: localStorage + Firestore
   useEffect(()=>{
-    if(fireUser && isApproved && cloudReady && (onboarded||accountResetPendingRef.current) && !syncConflict){
+    if(accountResetPendingRef.current) return;
+    if(fireUser && isApproved && cloudReady && onboarded && !syncConflict){
       try{
         localStorage.setItem("aturduitku_data",JSON.stringify(s));
         localStorage.setItem(LOCAL_OWNER_KEY,fireUser.uid);
       }catch(e){}
       setSyncStatus("saving");
-      const confirmedReset=!onboarded&&accountResetPendingRef.current;
       const timer = setTimeout(async()=>{
+        if(accountResetPendingRef.current||activeAccountUidRef.current!==fireUser.uid) return;
         const saveSequence=++cloudSaveSequenceRef.current;
         try{
           const saveTask=cloudSaveQueueRef.current
             .catch(()=>null)
-            .then(()=>saveCloudData(fireUser.uid, {data:s, onboarded,...(confirmedReset?{confirmedReset:true}:{})}));
+            .then(()=>saveCloudData(fireUser.uid, {data:s, onboarded}));
           cloudSaveQueueRef.current=saveTask;
           const saved=await saveTask;
-          if(activeAccountUidRef.current!==fireUser.uid) return;
-          if(!onboarded&&accountResetPendingRef.current){
-            try{localStorage.setItem("aturduitku_confirmed_reset",JSON.stringify({uid:fireUser.uid,version:saved.version}));}catch{}
-            accountResetPendingRef.current=false;
-          }else if(onboarded){
+          if(activeAccountUidRef.current!==fireUser.uid||accountResetPendingRef.current) return;
+          if(onboarded&&!accountResetPendingRef.current){
             try{localStorage.removeItem("aturduitku_confirmed_reset");}catch{}
           }
           try{localStorage.setItem(LOCAL_OWNER_KEY, fireUser.uid);}catch(e){}
@@ -3336,6 +3396,7 @@ export default function App(){
             syncIdleTimerRef.current=setTimeout(()=>setSyncStatus("idle"),2000);
           }
         }catch(e){
+          if(accountResetPendingRef.current||activeAccountUidRef.current!==fireUser.uid) return;
           if(e.code==="DATA_CONFLICT"){
             reportClientError(e,{type:"sync_conflict",component:"cloud_autosave",route:page});
             try{
@@ -3355,7 +3416,7 @@ export default function App(){
       return ()=>clearTimeout(timer);
     }
     setSyncStatus(syncConflict?"conflict":"idle");
-  },[s, onboarded, fireUser, isApproved, cloudReady, syncConflict]);
+  },[s, onboarded, fireUser, isApproved, cloudReady, syncConflict, accountResetForm?.busy]);
 
   useEffect(()=>()=>clearTimeout(syncIdleTimerRef.current),[]);
 
@@ -3372,6 +3433,8 @@ export default function App(){
           const sequence=++accountLoadSequenceRef.current;
           activeAccountUidRef.current=user?.uid||null;
           accountResetPendingRef.current=false;
+          setAccountResetForm(null);
+          setAccountResetCompleted(false);
           const isCurrent=()=>!disposed&&sequence===accountLoadSequenceRef.current;
           cloudSaveSequenceRef.current+=1;
           cloudVersionRef.current=0;
@@ -7318,6 +7381,8 @@ Saldo amplop bertambah.`}]);
   const handleOnboardDone = ({name, dompet, budgets}) => {
     const newData = {...s, name, dompet, budgets};
     setS(newData);
+    setSfForm({name:newData.name,targetDana:newData.targetDana,prevPemasukan:newData.prevPemasukan,prevPengeluaran:newData.prevPengeluaran});
+    setAccountResetCompleted(false);
     try{localStorage.setItem("aturduitku_onboarded","1");}catch(e){}
     try{if(fireUser?.uid) localStorage.setItem(LOCAL_OWNER_KEY, fireUser.uid);}catch(e){}
     setOnboarded(true);
@@ -7552,7 +7617,7 @@ Saldo amplop bertambah.`}]);
     </main>
   );
 
-  if (!onboarded) return <Onboarding onDone={handleOnboardDone} lang={lang} changeLang={changeLang}/>;
+  if (!onboarded) return <Onboarding onDone={handleOnboardDone} lang={lang} changeLang={changeLang} resetComplete={accountResetCompleted}/>;
 
   // ── IMPORT MUTASI HANDLER ──────────────────────────────────────────────────
   const handleImportMutasi = (txRows, dompetId, importOptions={}) => {
@@ -8020,6 +8085,20 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             </>}
 
             {/* Confirm Modal */}
+            {modal.type==="resetAccount"&&accountResetForm&&<section role="dialog" aria-modal="true" aria-labelledby="reset-account-heading" data-testid="account-reset-dialog">
+              <h2 id="reset-account-heading" style={{fontSize:20,margin:"0 0 12px",lineHeight:1.3}}>{lang==="en"?"Reset financial data":"Reset data keuangan"}</h2>
+              <p style={{fontSize:14,lineHeight:1.6,margin:"0 0 12px"}}>{lang==="en"?"Active financial records will be cleared and setup will restart. Your account and access remain active.":"Catatan keuangan aktif akan dikosongkan dan setup dimulai ulang. Akun dan akses tetap aktif."}</p>
+              <p style={{fontSize:13,color:T.sub,lineHeight:1.6,margin:"0 0 16px",overflowWrap:"anywhere"}}>{lang==="en"?"Account":"Akun"}: {fireUser?.email||fireUser?.uid}</p>
+              <button type="button" disabled={accountResetForm.busy} onClick={exportJSON} style={{minHeight:44,padding:"8px 12px",marginBottom:16,border:`1px solid ${T.border}`,borderRadius:8,color:T.accent,background:T.cardAlt,fontFamily:"inherit",fontWeight:750,cursor:"pointer"}}>{lang==="en"?"Download JSON backup":"Unduh backup JSON"}</button>
+              <label style={{display:"block",fontSize:14,fontWeight:750,lineHeight:1.5}}>{lang==="en"?"Type RESET to confirm":"Ketik RESET untuk mengonfirmasi"}<input aria-label="Konfirmasi reset" autoComplete="off" spellCheck={false} value={accountResetForm.confirmation} disabled={accountResetForm.busy} onChange={event=>setAccountResetForm(form=>({...form,confirmation:event.target.value}))} style={{...IS,marginTop:8,fontSize:16}}/></label>
+              <p style={{fontSize:12,color:T.sub,lineHeight:1.6,margin:"10px 0 16px"}}>{lang==="en"?"This cannot be undone in the app. Keep a JSON backup if you may need the records again.":"Reset tidak dapat dibatalkan dari aplikasi. Simpan backup JSON jika catatan masih mungkin diperlukan."}</p>
+              {accountResetForm.error&&<p role="alert" style={{fontSize:14,color:T.err,lineHeight:1.6}}>{accountResetForm.error}</p>}
+              {accountResetForm.busy&&<p role="status" style={{fontSize:14,lineHeight:1.6,color:T.info}}>{lang==="en"?"Waiting for server confirmation. Keep this page open.":"Menunggu konfirmasi server. Jangan tutup halaman ini dulu."}</p>}
+              <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:16}}>
+                <button type="button" disabled={accountResetForm.busy} onClick={()=>closeModal()} style={{flex:1,minHeight:46,borderRadius:8,border:`1px solid ${T.border}`,background:T.card,color:T.text,fontFamily:"inherit",fontWeight:750,cursor:"pointer"}}>{t("cancel")}</button>
+                <button type="button" disabled={accountResetForm.busy||accountResetForm.confirmation!=="RESET"} onClick={resetAccountData} style={{flex:1,minHeight:46,padding:"10px 12px",borderRadius:8,border:0,background:T.err,color:T.card,fontFamily:"inherit",fontWeight:800,cursor:accountResetForm.busy?"wait":"pointer",opacity:(accountResetForm.busy||accountResetForm.confirmation!=="RESET")?0.55:1}}>{accountResetForm.busy?(lang==="en"?"Resetting...":"Mereset..."):(lang==="en"?"Reset financial data":"Reset data keuangan")}</button>
+              </div>
+            </section>}
             {modal.type==="confirm"&&<>
               <div style={{textAlign:"center",marginBottom:20}}>
                 <div style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"8px 14px",borderRadius:999,background:"#FEF3C7",color:"#92400E",fontSize:12,fontWeight:800,marginBottom:12}}>Konfirmasi</div>
@@ -10373,15 +10452,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <Card ch={<>
                   <Sec t="Zona Berbahaya" sub="Tindakan permanen untuk mengosongkan akun ini."/>
                   <div style={{fontSize:11,color:T.muted,lineHeight:1.55,marginBottom:12}}>Gunakan hanya bila ingin memulai ulang. Semua dompet, transaksi, budget, goal, dan pengaturan keuangan akan dihapus.</div>
-                  <button onClick={()=>setModal({type:"confirm",title:"Reset Semua Data",msg:"Tindakan ini akan menghapus SEMUA data keuanganmu secara permanen. Yakin ingin melanjutkan?",danger:true,onConfirm:()=>{
-                    accountResetPendingRef.current=true;
-                    localStorage.removeItem("aturduitku_data");
-                    localStorage.removeItem("aturduitku_onboarded");
-                    setS(INIT);
-                    setOnboarded(false);
-                    closeModal();
-                    showToast("Semua data berhasil direset!");
-                  }})} style={{width:"100%",padding:10,borderRadius:10,border:`1.5px solid ${T.errBorder}`,background:T.errBg,color:T.err,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
+                  <button type="button" onClick={()=>{setAccountResetForm({busy:false,confirmation:"",error:""});setModal({type:"resetAccount"});}} style={{width:"100%",padding:10,borderRadius:10,border:`1.5px solid ${T.errBorder}`,background:T.errBg,color:T.err,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
                     Reset semua data
                   </button>
                 </>}/>

@@ -56,6 +56,7 @@ export default async function handler(req, res) {
           data: body.data || {},
           onboarded: Boolean(body.onboarded),
           dataVersion: nextVersion,
+          ...(body.confirmedReset===true&&body.onboarded===false?{confirmedResetVersion:nextVersion}:{}),
           updatedAt: now,
           lastSeenAt: now,
           ...(mutationId ? { lastDataMutationId: mutationId } : {}),

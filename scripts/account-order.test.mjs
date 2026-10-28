@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import { accountRecoveryMode, fetchAccountBootstrap, isCompleteCloudSnapshot, parseAccountRecoveryBackup, readAccountToken, readOwnedLocalAccount, resolveAccountOnboarded } from "../src/accountBootstrap.js";
 import { filterTransactionsForList, moveTransactionWithinDate } from "../src/transactionList.js";
 import { assertAccountResetIntent } from "../api/_lib/dataVersion.js";
+import { getCloudDataPayload } from "../api/_lib/userCloudData.js";
 
 const sampleTransactions = [
   { id:"air", tgl:"2026-08-18", ket:"Beli air", entryOrder:300, jml:"5000" },
@@ -48,6 +49,14 @@ assert.equal(accountRecoveryMode(savedDefaults,{data:accountData,onboarded:true}
 assert.equal(accountRecoveryMode(savedDefaults,null),"backup","Existing saved defaults require recovery, not immediate setup");
 assert.equal(accountRecoveryMode(savedDefaults,null,8),"new","An explicit matching reset may resume setup");
 assert.equal(accountRecoveryMode(savedDefaults,null,7),"backup","A stale reset must not bypass recovery");
+const confirmedServerReset={...savedDefaults,confirmedResetVersion:8};
+assert.equal(accountRecoveryMode(confirmedServerReset,null),"new","A confirmed server reset must work without a local reset marker");
+assert.equal(accountRecoveryMode(confirmedServerReset,{data:accountData,onboarded:true}),"new","Stale device records must not undo an explicitly confirmed server reset");
+assert.equal(accountRecoveryMode({...confirmedServerReset,confirmedResetVersion:7},null),"backup","A stale server marker must not suppress recovery");
+assert.equal(accountRecoveryMode({...snapshot,confirmedResetVersion:snapshot.version},null),"cloud","A marker must never hide meaningful account data");
+assert.equal(getCloudDataPayload({dataVersion:8,confirmedResetVersion:8}).confirmedResetVersion,8);
+assert.equal(getCloudDataPayload({dataVersion:9,confirmedResetVersion:8}).confirmedResetVersion,undefined,"Newer saved data must invalidate an old reset marker");
+assert.equal(getCloudDataPayload({dataVersion:8,confirmedResetVersion:"8"}).confirmedResetVersion,undefined);
 assert.equal(accountRecoveryMode(emptySnapshot,{data:accountData,onboarded:true}),"local");
 assert.equal(accountRecoveryMode(emptySnapshot,null),"new");
 assert.equal(accountRecoveryMode(snapshot,null),"cloud");

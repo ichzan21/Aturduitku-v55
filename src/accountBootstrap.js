@@ -79,6 +79,8 @@ export function readOwnedLocalAccount(storage, uid) {
 }
 
 export function accountRecoveryMode(cloud, local, confirmedResetVersion=null) {
+  // Only a server-confirmed reset of this exact empty version can supersede stale device data.
+  if(cloud.onboarded===false&&Number.isInteger(cloud.confirmedResetVersion)&&cloud.confirmedResetVersion>0&&cloud.confirmedResetVersion===cloud.version&&!hasMeaningfulAccountData(cloud.data)) return "new";
   if(cloud.data?.txs?.length===0&&local?.data?.txs?.length>0) return "local-confirm";
   if(resolveAccountOnboarded(cloud)) return "cloud";
   if(local?.onboarded) return cloud.data===null?"local":"local-confirm";

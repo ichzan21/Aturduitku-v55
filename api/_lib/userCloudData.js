@@ -5,6 +5,7 @@ export function getCloudDataPayload(data = {}, lastBackupAt = data.lastBackupAt 
     version: Number(data.dataVersion) || 0,
     updatedAt: data.updatedAt || null,
     lastBackupAt,
+    ...(Number.isInteger(data.confirmedResetVersion)&&data.confirmedResetVersion===Number(data.dataVersion)?{confirmedResetVersion:data.confirmedResetVersion}:{}),
   };
 }
 

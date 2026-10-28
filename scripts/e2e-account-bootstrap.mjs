@@ -209,7 +209,8 @@ try {
         await page.getByRole("button",{name:/Lainnya/}).last().click();
         await page.getByRole("dialog",{name:"Menu lainnya"}).getByRole("button",{name:/Setting/}).click();
         await page.getByRole("button",{name:"Reset semua data",exact:true}).click();
-        await page.getByRole("button",{name:"Ya, Lanjutkan",exact:true}).click();
+        await page.getByLabel("Konfirmasi reset",{exact:true}).fill("RESET");
+        await page.getByTestId("account-reset-dialog").getByRole("button",{name:"Reset data keuangan",exact:true}).click();
         await page.getByText("Halo! Saya AturDuitku",{exact:true}).waitFor();
       }
       if(admin){
