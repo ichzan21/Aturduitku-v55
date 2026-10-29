@@ -50,6 +50,9 @@ export const findTransactionBudget = (transaction, budgets = []) => {
   return matches.length === 1 ? matches[0] : null;
 };
 
+export const isUnassignedBudgetTransaction = (transaction, budgets = []) =>
+  isBudgetTrackedTransaction(transaction) && !findTransactionBudget(transaction, budgets);
+
 export const buildBudgetRealization = (transactions = [], budgets = [], numberValue = Number) => {
   const totalsByBudget = {};
   const rowsByBudget = {};

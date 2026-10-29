@@ -1,5 +1,6 @@
 import React, { Suspense, useState, useEffect, useMemo, useRef, createContext, useContext } from "react";
 import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 import {
   getCurrentIdToken, onAuthChange, sendResetPassword, sendVerificationEmail, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
 } from "./firebaseClient.js";
@@ -3999,11 +4000,13 @@ export default function App(){
     type:txFilt.tipe,
     startDate:txFilt.startDate,
     endDate:txFilt.endDate,
-  }),[s.txs,txSearch,txFilt]);
+    budgetStatus:txFilt.budgetStatus,
+    budgets:s.budgets,
+  }),[s.txs,s.budgets,txSearch,txFilt]);
 
   const filteredTxSummary=useMemo(()=>summarizeTransactions(filtTx,N),[filtTx]);
   const highestExpenseDay=useMemo(()=>getHighestExpenseDay(filtTx,N),[filtTx]);
-  const txHasFilter=Boolean(txSearch||txFilt.dompet||txFilt.tipe||txFilt.startDate||txFilt.endDate);
+  const txHasFilter=Boolean(txSearch||txFilt.dompet||txFilt.tipe||txFilt.startDate||txFilt.endDate||txFilt.budgetStatus);
   const txPeriodLabel=useMemo(()=>{
     if(!txFilt.startDate&&!txFilt.endDate) return lang==="en"?"All dates":"Semua tanggal";
     const format=value=>value?new Date(`${value}T00:00:00`).toLocaleDateString(lang==="en"?"en-US":"id-ID",{day:"numeric",month:"short",year:"numeric"}):"...";
@@ -8145,7 +8148,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
                 <div><label style={LS}>{txForm.tipe==="transfer"?t("fromWallet"):t("dompet")}</label>
                 <select value={txForm.dompetId} onChange={e=>setTxForm(f=>({...f,dompetId:e.target.value}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>
-                {txForm.tipe==="pengeluaran"&&<div><label style={LS}>{t("category")}</label><select value={txForm.katId} onChange={e=>{const selected=s.budgets.find(b=>sameId(b.id,e.target.value));setTxForm(f=>({...f,katId:selected?.id??"",customKat:"",subKat:"",budgetExcluded:!selected}));}} style={IS}><option value="">Di luar budget</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{uiIcon(b.icon)} {b.kat}</option>)}</select></div>}
+                {txForm.tipe==="pengeluaran"&&<div><label style={LS}>{t("category")}</label><select aria-label="Kategori transaksi" value={txForm.katId} onChange={e=>{const selected=s.budgets.find(b=>sameId(b.id,e.target.value));setTxForm(f=>({...f,katId:selected?.id??"",customKat:"",subKat:"",budgetExcluded:!selected}));}} style={IS}><option value="">Di luar budget</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{uiIcon(b.icon)} {b.kat}</option>)}</select></div>}
                 {txForm.tipe==="transfer"&&<div><label style={LS}>{t("toWallet")}</label><select value={txForm.dompetTo} onChange={e=>setTxForm(f=>({...f,dompetTo:e.target.value}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>}
                 {txForm.tipe==="pemasukan"&&<div><label style={LS}>Kategori</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:e.target.value,customKat:""}))} style={IS}><option value="">Otomatis dari keterangan</option>{KAT_IN.map(k=><option key={k}>{k}</option>)}</select><div style={{fontSize:10,color:T.muted,marginTop:5,lineHeight:1.45}}>{!txForm.katId&&txForm.ket.trim()?<>Terdeteksi: <strong style={{color:T.accent}}>{inferIncomeCategory(txForm.ket)||"Lainnya"}</strong></>:"Contoh: gaji kantor, fee proyek, bonus, jualan, dividen, atau transfer masuk."}</div></div>}
                 {txForm.tipe==="investasi"&&<div><label htmlFor="investment-budget" style={LS}>Kategori budget investasi</label><select id="investment-budget" value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:e.target.value,subKat:""}))} style={IS}><option value="">Di luar budget</option>{s.budgets.map(b=><option key={b.id} value={b.id}>{b.kat}</option>)}</select></div>}
@@ -8956,7 +8959,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <select aria-label={lang==="en"?"Filter wallet":"Filter dompet"} value={txFilt.dompet} onChange={e=>{setTxFilt(f=>({...f,dompet:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
                   <option value="">{t("allWallets")}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}
                 </select>
-                <select aria-label={lang==="en"?"Filter transaction type":"Filter tipe transaksi"} value={txFilt.tipe} onChange={e=>{setTxFilt(f=>({...f,tipe:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
+                <select aria-label={lang==="en"?"Filter transaction type":"Filter tipe transaksi"} value={txFilt.tipe} onChange={e=>{const tipe=e.target.value;setTxFilt(f=>({...f,tipe,budgetStatus:["","pengeluaran","tabungan","investasi"].includes(tipe)?f.budgetStatus:""}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
                   <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="investasi">Investasi</option><option value="alokasi_amplop">Alokasi Amplop</option><option value="pengembalian_amplop">Pengembalian Amplop</option><option value="penyesuaian">Koreksi saldo</option><option value="transfer_internal">{lang==="en"?"Between wallets":"Transfer antar dompet"}</option>
                 </select>
                 {txHasFilter&&<Btn onClick={()=>{setTxSearch("");setTxFilt({dompet:"",tipe:"",sub:"",startDate:"",endDate:""});setTxPage(1);}} ch="Reset" c={T.err} outline style={{padding:"7px 12px",fontSize:12}}/>}
@@ -8974,6 +8977,11 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{fontSize:11,color:T.muted,marginLeft:isMobile?0:"auto",paddingBottom:8}}>{txPeriodLabel}</div>
               </div>
             </>} style={{marginBottom:16}}/>
+
+            {txFilt.budgetStatus==="unassigned"&&<div data-testid="unassigned-budget-review" style={{display:"flex",alignItems:"center",gap:12,justifyContent:"space-between",padding:"10px 14px",marginBottom:16,borderRadius:8,border:`1px solid ${T.warnBorder}`,background:T.warnBg,color:T.text}}>
+              <div style={{minWidth:0}}><div style={{fontSize:13,fontWeight:800}}>{lang==="en"?"Outside budget":"Transaksi di luar budget"} · {filtTx.length} {t("txCount")}</div><div style={{fontSize:12,color:T.sub,lineHeight:1.5,marginTop:3}}>{txPeriodLabel}. {lang==="en"?"These records are not included in budget realization. Keeping a transaction outside the budget is allowed.":"Catatan ini belum dihitung ke realisasi budget. Pilihan di luar budget boleh tetap dipertahankan."}</div></div>
+              <button type="button" aria-label={lang==="en"?"Remove outside-budget filter":"Hapus filter di luar budget"} title={lang==="en"?"Remove outside-budget filter":"Hapus filter di luar budget"} onClick={()=>{setTxFilt(f=>({...f,budgetStatus:""}));setTxPage(1);}} style={{width:44,height:44,flexShrink:0,display:"inline-flex",alignItems:"center",justifyContent:"center",border:`1px solid ${T.warnBorder}`,borderRadius:8,color:T.text,background:"transparent",cursor:"pointer"}}><X size={18}/></button>
+            </div>}
 
             {internalTransferReview.length>0&&<Card ch={<>
               <Sec t="Perlu dicek: transfer antar dompetmu" right={<div style={{fontSize:12,color:T.muted}}>{internalTransferReview.length} pasangan</div>}/>
@@ -9062,9 +9070,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               </>:<LaunchEmpty
                 icon="🔎"
                 title="Tidak ada transaksi yang cocok"
-                desc="Coba ganti filter, pindah bulan, atau tambah transaksi baru supaya riwayat keuanganmu mulai kebentuk."
-                actionLabel="Tambah transaksi baru"
-                onAction={()=>setModal({type:"tx"})}
+                desc={txFilt.budgetStatus==="unassigned"?"Tidak ada transaksi di luar budget yang sesuai filter aktif.":"Coba ganti filter, pindah bulan, atau tambah transaksi baru supaya riwayat keuanganmu mulai kebentuk."}
+                actionLabel={txFilt.budgetStatus==="unassigned"?"Lihat semua transaksi":"Tambah transaksi baru"}
+                onAction={()=>{if(txFilt.budgetStatus==="unassigned"){setTxFilt({dompet:"",tipe:"",sub:"",startDate:"",endDate:""});setTxSearch("");setTxPage(1);}else setModal({type:"tx"});}}
                 secondaryLabel="Bulan ini"
                 onSecondary={()=>setS(p=>({...p,bulan:MONTHS[now.getMonth()],tahun:String(now.getFullYear())}))}
               />}
@@ -9107,7 +9115,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
             {unassignedBudgetTransactions.length>0&&<div style={{display:"flex",alignItems:isMobile?"stretch":"center",justifyContent:"space-between",gap:12,flexDirection:isMobile?"column":"row",padding:"12px 14px",marginBottom:14,borderRadius:10,background:T.warnBg,border:`1px solid ${T.warnBorder}`}}>
               <div><div style={{fontSize:12,fontWeight:900,color:T.warn}}>{unassignedBudgetTransactions.length} transaksi di luar budget</div><div style={{fontSize:11,color:T.sub,lineHeight:1.5,marginTop:2}}>Transaksi tetap masuk saldo dan laporan, tetapi tidak dihitung ke realisasi {MONTHS_L[bulanIdx]} {s.tahun}. Edit kategorinya bila ingin memasukkannya ke budget.</div></div>
-              <Btn onClick={()=>{setTxFilt({dompet:"",tipe:"pengeluaran",sub:"",startDate:`${activeBudgetPeriodKey}-01`,endDate:`${activeBudgetPeriodKey}-${String(new Date(yr,bulanIdx+1,0).getDate()).padStart(2,"0")}`});setTxSearch("");setTxPage(1);setPage("trans");}} ch="Periksa transaksi" c={T.warn} outline style={{padding:"8px 12px",fontSize:11,flexShrink:0}}/>
+              <Btn onClick={()=>{setTxFilt({dompet:"",tipe:"",sub:"",budgetStatus:"unassigned",startDate:`${activeBudgetPeriodKey}-01`,endDate:`${activeBudgetPeriodKey}-${String(new Date(yr,bulanIdx+1,0).getDate()).padStart(2,"0")}`});setTxSearch("");setTxPage(1);setPage("trans");}} ch="Periksa transaksi" c={T.warn} outline style={{padding:"8px 12px",fontSize:11,flexShrink:0}}/>
             </div>}
 
             <Card ch={<>

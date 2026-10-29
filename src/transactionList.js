@@ -1,5 +1,6 @@
 import { isCashflowExpense } from "./cashflowClassification.js";
 import { walletDeltasForTransaction } from "./financeLedger.js";
+import { isUnassignedBudgetTransaction } from "./budgetRealization.js";
 
 export const isWalletTransfer = transaction => ["transfer", "transfer_internal_keluar", "transfer_internal_masuk"].includes(transaction?.tipe);
 
@@ -51,6 +52,7 @@ export const filterTransactionsForList = (transactions = [], filters = {}) => {
   const endDate = transactionDateKey(filters.endDate);
 
   return [...transactions]
+    .filter(transaction => filters.budgetStatus !== "unassigned" || isUnassignedBudgetTransaction(transaction, filters.budgets))
     .filter(transaction => !search || normalizedText(`${transaction?.displayName || ""} ${transaction?.ket || ""}`).includes(search))
     .filter(transaction => !walletId || (isWalletTransfer(transaction)
       ? (walletDeltasForTransaction(transaction).get(walletId) || 0) !== 0

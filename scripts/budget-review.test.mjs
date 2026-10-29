@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import { filterTransactionsForList } from '../src/transactionList.js';
+import { buildBudgetRealization, prepareExpenseTransactionCategory } from '../src/budgetRealization.js';
+import { reviewBudgets as budgets, reviewTransactions as transactions } from './budget-review-fixture.mjs';
+
+const options={budgetStatus:'unassigned',budgets,startDate:'2026-10-01',endDate:'2026-10-31'};
+const period=transactions.filter(tx=>tx.tgl.startsWith('2026-10'));
+const ids=rows=>rows.map(tx=>tx.id).sort();
+const before=JSON.stringify({budgets,transactions});
+assert.deepEqual(ids(filterTransactionsForList(transactions,options)),ids(buildBudgetRealization(period,budgets).unassigned),'Review must match exactly the notification, including savings and investments');
+assert.deepEqual(ids(filterTransactionsForList(transactions,options)),['invest','orphan','outside','saving']);
+assert.deepEqual(ids(filterTransactionsForList(transactions,{...options,type:'pengeluaran'})),['orphan','outside']);
+assert.deepEqual(ids(filterTransactionsForList(transactions,{...options,walletId:'cash'})),['outside']);
+assert.deepEqual(ids(filterTransactionsForList(transactions,{...options,search:'terhapus'})),['orphan']);
+assert.deepEqual(ids(filterTransactionsForList(transactions,{...options,startDate:'2026-09-01',endDate:'2026-09-30'})),['old']);
+assert.equal(filterTransactionsForList(transactions,{...options,search:'no result'}).length,0);
+assert.equal(filterTransactionsForList(transactions).length,transactions.length,'Ordinary transaction lists must not change');
+const assigned=transactions.map(tx=>tx.id==='outside'?prepareExpenseTransactionCategory({...tx,katId:1},budgets):tx);
+assert.deepEqual(ids(filterTransactionsForList(assigned,options)),['invest','orphan','saving'],'Assigning a budget must remove the record from the review');
+assert.ok(filterTransactionsForList(transactions,{...options,budgets:[]}).some(tx=>tx.id==='assigned'),'Review must react to deleted budgets');
+assert.equal(JSON.stringify({budgets,transactions}),before,'Review is read-only');
+console.log('Outside-budget notification and review parity tests passed');
