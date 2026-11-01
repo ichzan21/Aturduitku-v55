@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import "./wallet-reconciliation.test.mjs";
 import "./debt-payments.test.mjs";
 import "./budget-review.test.mjs";
+import "./budget-periods.test.mjs";
 import { readFile } from "node:fs/promises";
 import {
   applyTransactionToWallets,

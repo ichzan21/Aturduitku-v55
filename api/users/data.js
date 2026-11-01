@@ -52,7 +52,7 @@ export default async function handler(req, res) {
         const currentVersion = assertDataVersion(current.dataVersion, body.baseVersion, body.force === true);
         assertAccountResetIntent(current,body);
         nextVersion = currentVersion + 1;
-        transaction.set(ref, {
+        const savedFields = {
           data: body.data || {},
           onboarded: Boolean(body.onboarded),
           dataVersion: nextVersion,
@@ -60,7 +60,9 @@ export default async function handler(req, res) {
           updatedAt: now,
           lastSeenAt: now,
           ...(mutationId ? { lastDataMutationId: mutationId } : {}),
-        }, { merge: true });
+        };
+        // Replace the complete account snapshot, including removed monthly plans.
+        transaction.set(ref, savedFields, { mergeFields: Object.keys(savedFields) });
       });
 
       return res.status(200).json({ ok: true, version: nextVersion, updatedAt: responseUpdatedAt, replayed });

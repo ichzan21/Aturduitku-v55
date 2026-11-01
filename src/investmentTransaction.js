@@ -1,9 +1,10 @@
 import { applyTransactionToWallets, moneyNumber, sameId, transactionValidationError } from "./financeLedger.js";
+import { budgetsForPeriod } from "./budgetPeriods.js";
 
 export const recordInvestment = (state, draft) => {
   const error = transactionValidationError(state.dompet, {...draft,tipe:"investasi"});
   if (error) throw new Error(error);
-  const budget = state.budgets.find(item => sameId(item.id, draft.katId));
+  const budget = budgetsForPeriod(state,String(draft.tgl||'').slice(0,7)).find(item => sameId(item.id, draft.katId));
   if (draft.katId !== "" && !budget) throw new Error("budget_not_found");
   const transaction = {...draft, tipe:"investasi", dompetTo:"", biaya:"", goalId:"", budgetExcluded:false};
   const asset = state.asetTetap.find(item => sameId(item.id, transaction.asetId));
