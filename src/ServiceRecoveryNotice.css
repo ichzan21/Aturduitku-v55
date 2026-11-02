@@ -35,6 +35,7 @@
 .service-recovery .service-recovery-safety { display: flex; align-items: flex-start; gap: 8px; color: var(--recovery-muted); font-size: 11px; line-height: 1.65; margin: 14px 0 0; }
 .service-recovery-safety svg { flex: 0 0 17px; margin-top: 2px; }
 .service-recovery .service-recovery-checking { font-size: 13px; color: var(--recovery-accent); line-height: 1.65; margin: 0; }
+.service-recovery .service-recovery-auto { font-size: 11px; line-height: 1.6; margin: 12px 0 0; color: var(--recovery-muted); }
 .service-recovery--banner { background: #fff8e8; border-bottom: 1px solid var(--recovery-border); padding: 20px max(24px,calc((100% - 1120px)/2)); display: grid; grid-template-columns: minmax(0,1fr) 300px; column-gap: 36px; }
 .service-recovery--banner .service-recovery-estimate { margin: 0; border: 0; padding: 0; }
 .service-recovery--banner .service-recovery-deadline { margin-bottom: 8px; }

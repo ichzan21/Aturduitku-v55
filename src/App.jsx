@@ -12,6 +12,7 @@ import { reconcileWalletBalance, walletBalanceAtDate } from "./walletReconciliat
 import PublicLanding from "./PublicLanding.jsx";
 import ServiceRecoveryNotice from "./ServiceRecoveryNotice.jsx";
 import { SERVICE_RECOVERY_NOTICE_ENABLED } from "./serviceRecovery.js";
+import { startScheduledAccountRecovery } from "./scheduledAccountRecovery.js";
 import { findBudgetSourceWallet, normalizeBudgetSourceId } from "./budgetSource.js";
 import { findGoalSourceWallet, normalizeGoalSourceId } from "./goalSource.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
@@ -35,7 +36,7 @@ import { buildAiFallbackAnswer, buildAiQuestionGuidance } from "./aiConversation
 import { buildReportActivity, buildReportCashflowActivity, filterTransactionsByPeriod, formatReportPeriod, getReportPdfTemplate, getReportPeriodRange, shiftReportAnchor, summarizeTransactions } from "./reportPeriod.js";
 import { compareTransactionsNewestFirst, filterTransactionsForList, getHighestExpenseDay, moveTransactionWithinDate } from "./transactionList.js";
 import { EMAIL_VERIFICATION_COOLDOWN_MS, EMAIL_VERIFICATION_RATE_LIMIT_COOLDOWN_MS, formatEmailVerificationCooldown, getEmailVerificationCooldownSeconds, isEmailVerificationRateLimitError } from "./emailVerification.js";
-import { accountRecoveryMode, fetchAccountBootstrap, isCompleteCloudSnapshot, parseAccountRecoveryBackup, readOwnedLocalAccount, resolveAccountOnboarded } from "./accountBootstrap.js";
+import { accountDataMatches, accountRecoveryMode, fetchAccountBootstrap, isCompleteCloudSnapshot, parseAccountRecoveryBackup, readOwnedLocalAccount, resolveAccountOnboarded } from "./accountBootstrap.js";
 import { getDailyBudgetBreakdown } from "./dailyBudget.js";
 import { isCashflowExpense, isGoalFundUsage, sumGoalFundUsage } from "./cashflowClassification.js";
 import { formatCompactRupiah, formatRupiah } from "./moneyFormat.js";
@@ -2750,6 +2751,9 @@ export default function App(){
   const [accountLoadError,setAccountLoadError]=useState(false);
   const [accountServiceFailure,setAccountServiceFailure]=useState(null);
   const accountRetryBusyRef=useRef(false);
+  const recoveryRetryRef=useRef(null);
+  const quotaRetryAtRef=useRef(0);
+  quotaRetryAtRef.current=accountServiceFailure?.retryAt||0;
   const lastSyncedSnapshotRef=useRef(null);
   const [accountRecovery,setAccountRecovery]=useState(null);
   const [recoveryBackup,setRecoveryBackup]=useState(null);
@@ -3008,13 +3012,13 @@ export default function App(){
     return data;
   };
 
-  const loadAccountBootstrap = async (user, isCurrent=()=>activeAccountUidRef.current===user.uid) => {
+  const loadAccountBootstrap = async (user, isCurrent=()=>activeAccountUidRef.current===user.uid,protectLocal=false) => {
     const {profile,cloudData}=await fetchAccountBootstrap(authedJson,user.uid);
     if(!isCurrent()) return null;
     if(profile.approvalStatus==="approved"){
       let local;
       const serverConfirmedReset=Number.isInteger(cloudData.confirmedResetVersion)&&accountRecoveryMode(cloudData,null)==="new";
-      try{if(!cloudData.data?.txs?.length&&!serverConfirmedReset) local=readOwnedLocalAccount(localStorage,user.uid);}
+      try{if((protectLocal||!cloudData.data?.txs?.length)&&!serverConfirmedReset) local=readOwnedLocalAccount(localStorage,user.uid);}
       catch(error){error.profile=profile;throw error;}
       let confirmedResetVersion=null;
       try{
@@ -3025,11 +3029,13 @@ export default function App(){
       setAccountRecovery(null);
       setRecoveryBackup(null);
       setRecoveryError("");
-      if(recovery==="local-confirm"){
+      const quotaConflict=protectLocal&&local?.onboarded&&cloudData.data&&!serverConfirmedReset
+        &&!accountDataMatches(mergeUserData(local.data),mergeUserData(cloudData.data));
+      if(recovery==="local-confirm"||quotaConflict){
         const merged=mergeUserData(local.data);
         setS(merged);
         setOnboarded(true);
-        setSyncConflict({localData:merged,localOnboarded:true,remote:cloudData,emptyCloudRecovery:true});
+        setSyncConflict({localData:merged,localOnboarded:true,remote:cloudData,emptyCloudRecovery:recovery==="local-confirm",quotaRecovery:quotaConflict});
       }else if(recovery==="local"){
         applyLoadedUserData(user,{...cloudData,...local},false);
       }else if(recovery==="cloud"){
@@ -3043,13 +3049,13 @@ export default function App(){
       cloudVersionRef.current=cloudData.version;
       setSyncMeta({updatedAt:cloudData.updatedAt||null,lastBackupAt:cloudData.lastBackupAt||null});
       setAccountLoadError(false);
-    setAccountServiceFailure(null);
       setCloudReady(true);
     }else{
       setCloudReady(false);
       setOnboarded(false);
     }
     setAccessProfile(profile);
+    setAccountServiceFailure(null);
     return profile;
   };
 
@@ -3064,18 +3070,32 @@ export default function App(){
     });
   };
 
-  const retryAccountLoad=async()=>{
+  const retryAccountLoad=async(options={})=>{
     if(!fireUser||accountRetryBusyRef.current||Date.now()<(accountServiceFailure?.retryAt||0)) return;
     accountRetryBusyRef.current=true;
     const user=fireUser;
     const sequence=++accountLoadSequenceRef.current;
     const isCurrent=()=>sequence===accountLoadSequenceRef.current&&activeAccountUidRef.current===user.uid;
-    setAccessLoading(true);
+    if(!options.background) setAccessLoading(true);
     setCloudReady(false);
-    try{await loadAccountBootstrap(user,isCurrent);}
+    try{
+      const profile=await loadAccountBootstrap(user,isCurrent,accountServiceFailure?.quota===true);
+      if(!isCurrent()) return false;
+      if(options.background&&profile?.approvalStatus==="approved") setPage("home");
+      return Boolean(profile);
+    }
     catch(error){if(isCurrent()) handleAccountLoadFailure(user,error);}
     finally{accountRetryBusyRef.current=false;if(isCurrent()) setAccessLoading(false);}
   };
+  recoveryRetryRef.current=()=>retryAccountLoad({background:true});
+
+  useEffect(()=>{
+    if(!fireUser?.uid||!accountServiceFailure?.quota) return undefined;
+    return startScheduledAccountRecovery({
+      check:()=>recoveryRetryRef.current?.(),
+      notBefore:()=>quotaRetryAtRef.current,
+    });
+  },[fireUser?.uid,accountServiceFailure?.quota]);
 
   const selectRecoveryBackup=(file)=>{
     if(!file||recoveryBusy) return;
@@ -4176,7 +4196,7 @@ export default function App(){
 
   const resolveConflictWithCloud=()=>{
     if(!syncConflict?.remote||!fireUser||syncStatus==="saving") return;
-    if(syncConflict.emptyCloudRecovery&&!window.confirm("Pakai cloud akan mengganti salinan perangkat yang berisi transaksi. Pastikan sudah memiliki backup JSON sebelum melanjutkan. Tetap pakai cloud?")) return;
+    if((syncConflict.emptyCloudRecovery||syncConflict.quotaRecovery)&&!window.confirm("Pakai cloud akan mengganti salinan perangkat yang berisi transaksi. Pastikan sudah memiliki backup JSON sebelum melanjutkan. Tetap pakai cloud?")) return;
     applyLoadedUserData(fireUser,syncConflict.remote);
     setSyncConflict(null);
     setSyncStatus("saved");
@@ -7593,7 +7613,7 @@ Saldo amplop bertambah.`}]);
         <div style={{display:"inline-flex",alignItems:"center",gap:8,background:accessProfile?.approvalStatus==="rejected"?"rgba(239,68,68,.16)":accessProfile?.approvalStatus==="verification_unavailable"?"rgba(96,165,250,.16)":"rgba(250,204,21,.14)",color:accessProfile?.approvalStatus==="rejected"?"#FCA5A5":accessProfile?.approvalStatus==="verification_unavailable"?"#BFDBFE":"#FDE68A",borderRadius:99,padding:"8px 14px",fontSize:12,fontWeight:800,marginBottom:14}}>
           {accessProfile?.approvalStatus==="rejected"?"Ditolak":accessProfile?.approvalStatus==="verification_unavailable"?"Layanan sedang terganggu":"Menunggu approval admin"}
         </div>
-        {accessProfile?.approvalStatus==="verification_unavailable"&&accountServiceFailure?.quota?<div style={{marginBottom:18}}><ServiceRecoveryNotice/></div>:<div style={{color:"white",fontSize:14,lineHeight:1.7,marginBottom:14}}>
+        {accessProfile?.approvalStatus==="verification_unavailable"&&accountServiceFailure?.quota?<div style={{marginBottom:18}}><ServiceRecoveryNotice autoRecovery/></div>:<div style={{color:"white",fontSize:14,lineHeight:1.7,marginBottom:14}}>
           {accessProfile?.approvalStatus==="rejected"
             ?"Akun ini sudah direview tetapi belum bisa diaktifkan. Kamu masih bisa hubungi admin untuk minta pengecekan ulang."
             :accessProfile?.approvalStatus==="verification_unavailable"
@@ -7632,7 +7652,7 @@ Saldo amplop bertambah.`}]);
       <section style={{width:"100%",maxWidth:440}} aria-labelledby="account-load-heading">
         <img src="/icon-192.png" alt="AturDuitku" width="56" height="56" style={{borderRadius:8,marginBottom:20}}/>
         <h1 id="account-load-heading" style={{fontSize:24,lineHeight:1.3,margin:"0 0 12px",letterSpacing:0}}>{accountLoadError?"Data akun belum berhasil dimuat":"Data akun belum siap"}</h1>
-        {accountServiceFailure?.quota&&<div style={{marginBottom:20}}><ServiceRecoveryNotice tone={dark?"dark":"light"}/></div>}
+        {accountServiceFailure?.quota&&<div style={{marginBottom:20}}><ServiceRecoveryNotice autoRecovery tone={dark?"dark":"light"}/></div>}
         <p role="status" style={{fontSize:16,lineHeight:1.6,margin:"0 0 16px"}}>{accountServiceFailure?.quota?"Kuota database harian sedang habis. Data tidak dihapus. Setup awal dan penyimpanan ditunda sampai layanan pulih.":"Setup awal dan penyimpanan ditunda sampai data akun selesai diperiksa. Periksa koneksi, lalu coba muat kembali."}</p>
         <p style={{fontSize:14,lineHeight:1.5,overflowWrap:"anywhere",margin:"0 0 24px"}}>Akun: {fireUser.email}</p>
         <div style={{display:"flex",flexWrap:"wrap",gap:12}}>
@@ -7875,7 +7895,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
             <img src="/icon-192.png" alt="" style={{width:42,height:42,borderRadius:12,objectFit:"cover"}}/>
             <div>
-              <div id="sync-conflict-title" style={{fontSize:17,fontWeight:900}}>{syncConflict.emptyCloudRecovery?"Data perangkat belum ada di cloud":"Data berubah di perangkat lain"}</div>
+              <div id="sync-conflict-title" style={{fontSize:17,fontWeight:900}}>{syncConflict.quotaRecovery?"Periksa catatan setelah gangguan":syncConflict.emptyCloudRecovery?"Data perangkat belum ada di cloud":"Data berubah di perangkat lain"}</div>
               <div style={{fontSize:11,color:T.muted,marginTop:3}}>Pilih versi yang ingin dipakai agar saldo tidak tertimpa.</div>
             </div>
           </div>

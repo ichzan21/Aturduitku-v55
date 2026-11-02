@@ -11,6 +11,7 @@ try {
   for(const width of [390,1440]) {
     const context=await browser.newContext({viewport:{width,height:900},locale:'id-ID',timezoneId:'Asia/Makassar'});
     const page=await context.newPage();
+    await page.clock.install({time:new Date('2026-11-02T15:00:00+08:00')});
     const errors=[];
     page.on('pageerror',error=>errors.push(error.message));
     let unavailable=true,failUsers=false,failMonitoring=true,profileReads=0,userReads=0,monitoringReads=0,writes=0;
@@ -66,7 +67,6 @@ try {
     assert.match(await page.locator('body').innerText(),/bukan penolakan akun atau hilangnya akses admin/);
     assert.equal(writes,0);
     await page.screenshot({path:`.e2e-artifacts/database-quota-${width}.png`});
-    await page.clock.install();
     await page.clock.fastForward(125000);
     assert.equal(profileReads,1,'Unavailable status must not poll the exhausted database');
     assert.equal(writes,0,'Failed bootstrap must never initialize or save empty finances');

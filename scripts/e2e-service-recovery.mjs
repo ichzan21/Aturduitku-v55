@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
+import { SERVICE_RECOVERY_NOTICE_ENABLED } from '../src/serviceRecovery.js';
 
 const base=process.env.E2E_BASE_URL||'http://127.0.0.1:5192';
 await mkdir('.e2e-artifacts',{recursive:true});
@@ -16,6 +17,18 @@ try {
     await page.clock.install({time:new Date('2026-11-02T13:30:00+08:00')});
     await page.goto(base,{waitUntil:'domcontentloaded'});
     const notice=page.getByTestId('service-recovery-notice');
+    if(!SERVICE_RECOVERY_NOTICE_ENABLED) {
+      await page.getByRole('link',{name:'Log in',exact:true}).waitFor({timeout:45000});
+      assert.equal(await notice.count(),0,'Resolved incidents must not appear on the public landing page');
+      await page.getByRole('link',{name:'Log in',exact:true}).click();
+      await page.getByPlaceholder('Email').waitFor();
+      assert.equal(await notice.count(),0,'Resolved incidents must not appear on login');
+      assert.equal(apiCalls,0);
+      assert.deepEqual(errors,[]);
+      console.log(`PASS resolved incident ${width} ${reducedMotion}: public/login notice removed, zero database calls`);
+      await context.close();
+      continue;
+    }
     await notice.waitFor({timeout:45000});
     await page.clock.pauseAt(new Date('2026-11-02T13:30:10+08:00'));
     assert.equal(await notice.locator('[data-unit="Jam"]').innerText(),'02');

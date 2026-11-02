@@ -1,6 +1,7 @@
 // One incident, with an explicit timezone. Never roll the estimate to tomorrow.
 export const SERVICE_RECOVERY_AT = '2026-11-02T16:00:00+08:00';
-export const SERVICE_RECOVERY_NOTICE_ENABLED = true;
+// Public notice closed after login, cloud data and admin refresh were verified live.
+export const SERVICE_RECOVERY_NOTICE_ENABLED = false;
 
 export function recoveryCountdown(now=Date.now(),target=SERVICE_RECOVERY_AT) {
   const deadline=Date.parse(target);

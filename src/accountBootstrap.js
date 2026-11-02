@@ -81,6 +81,12 @@ export function readOwnedLocalAccount(storage, uid) {
   return { data, onboarded:resolveAccountOnboarded({ data, onboarded:storage.getItem("aturduitku_onboarded") === "1" }) };
 }
 
+export const accountDataMatches = (left,right) => {
+  const canonical=value=>JSON.stringify(value,(_key,item)=>item&&typeof item==='object'&&!Array.isArray(item)
+    ? Object.fromEntries(Object.keys(item).sort().map(key=>[key,item[key]])) : item);
+  return canonical(left)===canonical(right);
+};
+
 export function accountRecoveryMode(cloud, local, confirmedResetVersion=null) {
   // Only a server-confirmed reset of this exact empty version can supersede stale device data.
   if(cloud.onboarded===false&&Number.isInteger(cloud.confirmedResetVersion)&&cloud.confirmedResetVersion>0&&cloud.confirmedResetVersion===cloud.version&&!hasMeaningfulAccountData(cloud.data)) return "new";
