@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, ChartNoAxesCombined, Check, ChevronDown, LogIn, MessageCircle, ShieldCheck, Target, Wallet } from "lucide-react";
 import "./PublicLanding.css";
+import ServiceRecoveryNotice from './ServiceRecoveryNotice.jsx';
+import { SERVICE_RECOVERY_NOTICE_ENABLED } from './serviceRecovery.js';
 
 const features = [
   { id:"wallet", label:"Wallets", icon:Wallet, title:"Check each wallet without switching apps.", copy:"Keep a record of your bank, e-wallet, and cash balances in one place. Track transfers separately from spending, open each wallet's history, and adjust your records when the actual balance differs.", image:"wallet.png" },
@@ -45,6 +47,7 @@ export default function PublicLanding() {
       <a className="public-login" href="#login"><LogIn size={17}/> Log in</a>
     </header>
     <main id="public-main">
+      {SERVICE_RECOVERY_NOTICE_ENABLED&&<ServiceRecoveryNotice variant="banner" tone="light"/>}
       <section className="public-hero" aria-labelledby="public-title">
         <div className="public-hero-copy">
           <h1 id="public-title">AturDuitku</h1>

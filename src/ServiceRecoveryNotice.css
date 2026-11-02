@@ -1,0 +1,52 @@
+.service-recovery {
+  --recovery-ink: #fff;
+  --recovery-muted: #e4d7f7;
+  --recovery-accent: #fde09a;
+  --recovery-border: #ffffff30;
+  color: var(--recovery-ink);
+  width: 100%;
+  min-width: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  animation: recovery-enter 240ms var(--public-ease, cubic-bezier(.23,1,.32,1)) both;
+}
+.service-recovery--light {
+  --recovery-ink: #251638;
+  --recovery-muted: #514354;
+  --recovery-accent: #8d4700;
+  --recovery-border: #e6d8b5;
+}
+.service-recovery-heading { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.service-recovery-heading > div:last-child { min-width: 0; }
+.service-recovery .service-recovery-title { font-size: 19px; font-weight: 800; line-height: 1.35; margin: 0 0 7px; color: var(--recovery-ink); letter-spacing: 0; }
+.service-recovery .service-recovery-copy { font-size: 13px; line-height: 1.6; color: var(--recovery-muted); margin: 0; }
+.service-recovery-mascot { position: relative; width: 72px; height: 80px; flex: 0 0 72px; }
+.service-recovery-mascot img { display: block; width: 72px; height: 72px; object-fit: contain; }
+.service-recovery-tool { position: absolute; right: 0; bottom: 1px; color: var(--recovery-accent); transform-origin: 30% 80%; animation: recovery-working 2400ms cubic-bezier(.77,0,.175,1) infinite; }
+.service-recovery-estimate { margin-top: 18px; padding: 15px 0; border-top: 1px solid var(--recovery-border); border-bottom: 1px solid var(--recovery-border); }
+.service-recovery .service-recovery-deadline { display: flex; align-items: flex-start; gap: 8px; color: var(--recovery-muted); margin: 0 0 13px; font-size: 12px; line-height: 1.65; }
+.service-recovery-deadline svg { flex-shrink: 0; margin-top: 3px; }
+.service-recovery-deadline time { color: var(--recovery-ink); }
+.service-recovery-clock { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; min-width: 0; }
+.service-recovery-unit { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; border-right: 1px solid var(--recovery-border); }
+.service-recovery-unit:last-child { border-right: 0; }
+.service-recovery-unit strong { font-size: 32px; font-weight: 850; line-height: 1.2; font-variant-numeric: tabular-nums; min-width: 2ch; text-align: center; color: var(--recovery-accent); }
+.service-recovery-unit span { color: var(--recovery-muted); font-size: 11px; }
+.service-recovery .service-recovery-safety { display: flex; align-items: flex-start; gap: 8px; color: var(--recovery-muted); font-size: 11px; line-height: 1.65; margin: 14px 0 0; }
+.service-recovery-safety svg { flex: 0 0 17px; margin-top: 2px; }
+.service-recovery .service-recovery-checking { font-size: 13px; color: var(--recovery-accent); line-height: 1.65; margin: 0; }
+.service-recovery--banner { background: #fff8e8; border-bottom: 1px solid var(--recovery-border); padding: 20px max(24px,calc((100% - 1120px)/2)); display: grid; grid-template-columns: minmax(0,1fr) 300px; column-gap: 36px; }
+.service-recovery--banner .service-recovery-estimate { margin: 0; border: 0; padding: 0; }
+.service-recovery--banner .service-recovery-deadline { margin-bottom: 8px; }
+.service-recovery--banner .service-recovery-safety { grid-column: 1/-1; margin-top: 12px; }
+.service-recovery--login { padding: 18px 0 22px; border-bottom: 1px solid var(--recovery-border); margin-bottom: 24px; }
+@keyframes recovery-enter { from { opacity: .55; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes recovery-working { 0%,100% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } }
+@media (max-width: 700px) {
+  .service-recovery--banner { grid-template-columns: minmax(0,1fr); gap: 16px; padding: 18px 24px; }
+  .service-recovery--banner .service-recovery-estimate { border-top: 1px solid var(--recovery-border); padding-top: 14px; }
+  .service-recovery--banner .service-recovery-safety { margin-top: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .service-recovery, .service-recovery-tool { animation: none; transform: none; }
+}

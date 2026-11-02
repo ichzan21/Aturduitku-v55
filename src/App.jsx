@@ -10,6 +10,8 @@ import { retryCloudSave } from "./cloudSaveRetry.js";
 import { accountPollingDelay, accountSnapshotKey, isDatabaseQuotaError } from "./serviceAvailability.js";
 import { reconcileWalletBalance, walletBalanceAtDate } from "./walletReconciliation.js";
 import PublicLanding from "./PublicLanding.jsx";
+import ServiceRecoveryNotice from "./ServiceRecoveryNotice.jsx";
+import { SERVICE_RECOVERY_NOTICE_ENABLED } from "./serviceRecovery.js";
 import { findBudgetSourceWallet, normalizeBudgetSourceId } from "./budgetSource.js";
 import { findGoalSourceWallet, normalizeGoalSourceId } from "./goalSource.js";
 import { ATURDUITKU_PRODUCT_KNOWLEDGE } from "./productKnowledge.js";
@@ -7503,6 +7505,7 @@ Saldo amplop bertambah.`}]);
     <div style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#2E1065 0%,#1A0A2E 100%)",padding:"max(24px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px))",fontFamily:"system-ui,sans-serif"}}>
       <div style={{width:"100%",maxWidth:360,display:"flex",flexDirection:"column",alignItems:"center",gap:0}}>
         <a href="#home" style={{color:"#DDD6FE",fontSize:13,padding:"12px",marginBottom:12}}>Kembali ke beranda</a>
+        {SERVICE_RECOVERY_NOTICE_ENABLED&&<ServiceRecoveryNotice variant="login"/>}
         {/* Logo */}
         <img className="cat-mascot" src="/icon-192.png" alt="AturDuitku" style={{width:88,height:88,borderRadius:22,objectFit:"cover",marginBottom:20,boxShadow:"0 8px 32px rgba(124,58,237,0.5)"}}/>
         <div style={{color:"white",fontWeight:800,fontSize:28,marginBottom:6,letterSpacing:-0.5}}>AturDuitku</div>
@@ -7590,13 +7593,13 @@ Saldo amplop bertambah.`}]);
         <div style={{display:"inline-flex",alignItems:"center",gap:8,background:accessProfile?.approvalStatus==="rejected"?"rgba(239,68,68,.16)":accessProfile?.approvalStatus==="verification_unavailable"?"rgba(96,165,250,.16)":"rgba(250,204,21,.14)",color:accessProfile?.approvalStatus==="rejected"?"#FCA5A5":accessProfile?.approvalStatus==="verification_unavailable"?"#BFDBFE":"#FDE68A",borderRadius:99,padding:"8px 14px",fontSize:12,fontWeight:800,marginBottom:14}}>
           {accessProfile?.approvalStatus==="rejected"?"Ditolak":accessProfile?.approvalStatus==="verification_unavailable"?"Layanan sedang terganggu":"Menunggu approval admin"}
         </div>
-        <div style={{color:"white",fontSize:14,lineHeight:1.7,marginBottom:14}}>
+        {accessProfile?.approvalStatus==="verification_unavailable"&&accountServiceFailure?.quota?<div style={{marginBottom:18}}><ServiceRecoveryNotice/></div>:<div style={{color:"white",fontSize:14,lineHeight:1.7,marginBottom:14}}>
           {accessProfile?.approvalStatus==="rejected"
             ?"Akun ini sudah direview tetapi belum bisa diaktifkan. Kamu masih bisa hubungi admin untuk minta pengecekan ulang."
             :accessProfile?.approvalStatus==="verification_unavailable"
               ?accountServiceFailure?.quota?"Kuota database harian sedang habis. Ini gangguan layanan, bukan penolakan akun atau hilangnya akses admin. Data tidak dihapus. Akses akan tersedia setelah kuota pulih atau kapasitas database ditingkatkan.":"Server belum dapat memeriksa akun. Data lokal tidak dihapus dan akun tidak otomatis ditolak. Coba cek status lagi sebentar nanti."
               :"Akun berhasil dibuat. Sekarang admin akan cek pembayaran dan mengaktifkan akses penuh setelah semuanya sesuai."}
-        </div>
+        </div>}
         {accessProfile?.approvalStatus!=="rejected"&&accessProfile?.approvalStatus!=="verification_unavailable"&&<div style={{display:"grid",gridTemplateColumns:"1fr",gap:8,marginBottom:14}}>
           {["Akun berhasil dibuat","Admin cek kecocokan pembayaran","Akses penuh dibuka setelah valid"].map((item,i)=><div key={item} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:12,padding:"10px 12px",color:i===2?"#C4B5FD":"white",fontSize:12,fontWeight:700}}><span style={{width:22,height:22,borderRadius:999,display:"inline-flex",alignItems:"center",justifyContent:"center",background:i===0?"rgba(134,239,172,.18)":i===1?"rgba(250,204,21,.18)":"rgba(196,181,253,.18)",color:i===0?"#86EFAC":i===1?"#FDE68A":"#C4B5FD",fontSize:11}}>{i+1}</span>{item}</div>)}
         </div>}
@@ -7629,6 +7632,7 @@ Saldo amplop bertambah.`}]);
       <section style={{width:"100%",maxWidth:440}} aria-labelledby="account-load-heading">
         <img src="/icon-192.png" alt="AturDuitku" width="56" height="56" style={{borderRadius:8,marginBottom:20}}/>
         <h1 id="account-load-heading" style={{fontSize:24,lineHeight:1.3,margin:"0 0 12px",letterSpacing:0}}>{accountLoadError?"Data akun belum berhasil dimuat":"Data akun belum siap"}</h1>
+        {accountServiceFailure?.quota&&<div style={{marginBottom:20}}><ServiceRecoveryNotice tone={dark?"dark":"light"}/></div>}
         <p role="status" style={{fontSize:16,lineHeight:1.6,margin:"0 0 16px"}}>{accountServiceFailure?.quota?"Kuota database harian sedang habis. Data tidak dihapus. Setup awal dan penyimpanan ditunda sampai layanan pulih.":"Setup awal dan penyimpanan ditunda sampai data akun selesai diperiksa. Periksa koneksi, lalu coba muat kembali."}</p>
         <p style={{fontSize:14,lineHeight:1.5,overflowWrap:"anywhere",margin:"0 0 24px"}}>Akun: {fireUser.email}</p>
         <div style={{display:"flex",flexWrap:"wrap",gap:12}}>

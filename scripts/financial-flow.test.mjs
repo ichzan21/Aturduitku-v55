@@ -4,6 +4,7 @@ import "./debt-payments.test.mjs";
 import "./budget-review.test.mjs";
 import "./budget-periods.test.mjs";
 import "./database-availability.test.mjs";
+import "./service-recovery.test.mjs";
 import { readFile } from "node:fs/promises";
 import {
   applyTransactionToWallets,
