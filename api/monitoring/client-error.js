@@ -5,6 +5,7 @@ import { consumeRateLimit } from "../_lib/rateLimit.js";
 import { evaluateMonitoringAlerts } from "../_lib/monitoringAlerts.js";
 import { classifyMonitoringEvent, isIgnoredMonitoringEvent } from "../_lib/monitoringPolicy.js";
 import { createHash } from "node:crypto";
+import { respondToDatabaseError } from "../_lib/databaseErrors.js";
 
 const text = (value, max) => String(value || "")
   .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[email]")
@@ -73,6 +74,7 @@ export default async function handler(req, res) {
     });
     return res.status(202).json({ ok: true });
   } catch (error) {
+    if(respondToDatabaseError(error,res)) return;
     return res.status(error.status || 500).json({
       error: error.status === 429 ? "Batas laporan error tercapai" : "Gagal mencatat laporan error",
     });

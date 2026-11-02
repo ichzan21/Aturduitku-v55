@@ -1,3 +1,5 @@
+import { isDatabaseQuotaError } from './serviceAvailability.js';
+
 const cleanText = (value, maxLength) => String(value || "")
   .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[email]")
   .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]")
@@ -19,6 +21,7 @@ const fingerprint = (value) => {
 
 export async function reportClientError(error, context = {}) {
   try {
+    if(isDatabaseQuotaError(error)) return;
     const type = cleanText(context.type || "client_error", 60);
     const message = cleanText(error?.message || error, 500);
     if (ignoredBrowserNoise.test(message) || (type === "window_error" && opaqueScriptError.test(message))) return;

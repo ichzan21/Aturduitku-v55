@@ -1,6 +1,7 @@
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { assertDatabaseAvailable } from "./databaseErrors.js";
 
 export function hasFirebaseAdminConfig() {
   return Boolean(
@@ -27,6 +28,7 @@ export function getAdminApp() {
 }
 
 export function getAdminDb() {
+  assertDatabaseAvailable();
   return getFirestore(getAdminApp());
 }
 

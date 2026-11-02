@@ -3,6 +3,7 @@ import { requireApprovedUser } from "../_lib/auth.js";
 import { assertAccountResetIntent, assertDataVersion, isMutationReplay } from "../_lib/dataVersion.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 import { buildCloudDataPayload, getCloudDataPayload } from "../_lib/userCloudData.js";
+import { respondToDatabaseError } from "../_lib/databaseErrors.js";
 
 export default async function handler(req, res) {
   const security = secureApi(req, res, { methods: ["GET", "POST"] });
@@ -70,6 +71,7 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: "Method not allowed" });
   } catch (error) {
+    if(respondToDatabaseError(error,res)) return;
     const status = error.status >= 400 && error.status < 500 ? error.status : 500;
     if (status === 500) console.error("User data sync failed", error?.message || error);
     return res.status(status).json({

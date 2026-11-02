@@ -175,6 +175,10 @@ try {
         assert.equal(await page.getByTestId("account-backup-recovery").count(),0);
       }
     } else if (["approval-failure","startup-failure","invalid-cloud","invalid-cloud-desktop","corrupt-cache"].includes(scenario)) {
+      if(scenario==="approval-failure"){
+        await page.getByText("Menunggu approval admin",{exact:true}).waitFor();
+        await page.getByRole('button',{name:'Cek status lagi',exact:true}).click();
+      }
       await page.getByTestId("account-data-unavailable").waitFor({ timeout:20000 });
       await page.waitForTimeout(2000);
       assert.equal(writes.length,0,"Failed reads must never trigger cloud writes");

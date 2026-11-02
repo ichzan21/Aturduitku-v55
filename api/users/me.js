@@ -4,6 +4,8 @@ import { sendNewUserApprovalMessage } from "../_lib/telegram.js";
 import { evaluateUserGrowth } from "../_lib/monitoringAlerts.js";
 import { secureApi } from "../_lib/httpSecurity.js";
 import { getCloudDataPayload } from "../_lib/userCloudData.js";
+import { respondToDatabaseError } from "../_lib/databaseErrors.js";
+import { changedProfileFields } from "../_lib/userProfilePatch.js";
 
 function buildApproval(existing, isAdminEmail) {
   const approvalStatus = existing?.approvalStatus || (isAdminEmail ? "approved" : "pending_review");
@@ -49,7 +51,7 @@ export default async function handler(req, res) {
 
     const email = String(decoded.email || "").toLowerCase();
     const adminEmails = getAdminEmails();
-    const isAdminEmail = adminEmails.includes(email);
+    const isAdminEmail = decoded.admin===true || adminEmails.includes(email);
     const { approvalStatus, role } = buildApproval(existing, isAdminEmail);
     const finalRole = isAdminEmail ? "admin" : role;
     const finalApprovalStatus = finalRole === "admin" ? "approved" : approvalStatus;
@@ -77,7 +79,8 @@ export default async function handler(req, res) {
         : existing?.approvedBy || "system:legacy-user";
     }
 
-    await ref.set(patch, { merge: true });
+    const changes=changedProfileFields(existing,patch);
+    if(Object.keys(changes).length) await ref.set(changes, { merge: true });
     const includeData = String(req.query?.includeData || "") === "1";
     const cloud = includeData ? getCloudDataPayload({ ...existing, ...patch }) : null;
 
@@ -137,6 +140,7 @@ export default async function handler(req, res) {
       ...(cloud ? { cloud } : {}),
     });
   } catch (error) {
+    if(respondToDatabaseError(error,res)) return;
     const status = error.status >= 400 && error.status < 500 ? error.status : 500;
     if (status === 500) console.error("User profile failed", error?.message || error);
     return res.status(status).json({ error: status === 500 ? "Gagal memuat profil akun" : error.message });

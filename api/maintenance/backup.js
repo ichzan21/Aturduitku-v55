@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { secureApi } from "../_lib/httpSecurity.js";
 import { runProductionHealthCheck } from "../_lib/monitoringAlerts.js";
+import { respondToDatabaseError } from "../_lib/databaseErrors.js";
 
 function isAuthorizedCron(req, secret) {
   const authorization = String(req.headers.authorization || "");
@@ -65,6 +66,7 @@ export default async function handler(req, res) {
     }, { merge:true });
     return res.status(200).json({ ok: true, backupKey, backedUp, health });
   } catch (error) {
+    if(respondToDatabaseError(error,res)) return;
     console.error("Scheduled backup failed", error?.message || error);
     await getAdminDb().collection("_system").doc("backup_status").set({
       ok:false,

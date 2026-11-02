@@ -4,6 +4,9 @@ import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 import { consumeRateLimit } from "../_lib/rateLimit.js";
 import { readAccountDataInspection } from "../_lib/accountDataInspection.js";
 import { restoreAdminAccountBackup } from "../_lib/accountBackupRestore.js";
+import { respondToDatabaseError } from "../_lib/databaseErrors.js";
+
+let usersRequest=null;
 
 const ALLOWED_STATUSES = ["pending_review", "approved", "rejected"];
 const MIN_PASSWORD_LENGTH = 8;
@@ -41,7 +44,9 @@ export default async function handler(req, res) {
         const inspection=await readAccountDataInspection(db,req.query.inspectUid);
         return res.status(200).json({ok:true,inspection});
       }
-      const snap = await db.collection("users").get();
+      // Collapse overlapping refreshes; do not retain a stale authorization result.
+      if(!usersRequest) usersRequest=db.collection("users").select(...ADMIN_FIELDS).get().finally(()=>{usersRequest=null;});
+      const snap = await usersRequest;
       const users = sortUsers(snap.docs.map(toAdminUser));
 
       const stats = users.reduce(
@@ -129,6 +134,7 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: "Method not allowed" });
   } catch (error) {
+    if(respondToDatabaseError(error,res)) return;
     const status = error.status >= 400 && error.status < 500 ? error.status : 500;
     if (status === 500) console.error("Admin users request failed", error?.message || error);
     return res.status(status).json({ error: status === 500 ? "Permintaan dashboard admin gagal" : error.message,...(error.code?{code:error.code}:{}) });

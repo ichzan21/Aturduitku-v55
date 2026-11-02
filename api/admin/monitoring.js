@@ -3,6 +3,7 @@ import { requireAdmin } from "../_lib/auth.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
 import { sendMonitoringTestAlert } from "../_lib/monitoringAlerts.js";
 import { classifyMonitoringEvent, isExpectedAiLatency, knownIncidentResolution, sortMonitoringEvents } from "../_lib/monitoringPolicy.js";
+import { respondToDatabaseError } from "../_lib/databaseErrors.js";
 
 const safeText = (value, max = 180) => String(value || "")
   .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[email]")
@@ -108,6 +109,7 @@ export default async function handler(req, res) {
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
+    if(respondToDatabaseError(error,res)) return;
     const status = error.status >= 400 && error.status < 500 ? error.status : 500;
     if (status === 500) console.error("Admin monitoring failed", error?.message || error);
     return res.status(status).json({ error: status === 500 ? "Monitoring belum dapat dimuat" : error.message });

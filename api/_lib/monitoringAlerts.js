@@ -3,7 +3,8 @@ import { isNetworkFailureType, isSevereMonitoringEvent } from "./monitoringPolic
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 const ALERT_COOLDOWN = 30 * 60 * 1000;
-const EVALUATION_COOLDOWN = 30 * 1000;
+const EVALUATION_COOLDOWN = 5 * 60 * 1000;
+const recentEvaluations = new WeakMap();
 
 const toMs = (value) => {
   const timestamp = Date.parse(value || "");
@@ -45,21 +46,24 @@ async function notifyOnce(db, key, alert) {
 }
 
 async function reserveEvaluation(db) {
+  if(Date.now()-(recentEvaluations.get(db)||0)<EVALUATION_COOLDOWN) return false;
   const ref = db.collection("_system").doc("monitoring_evaluation");
   const now = new Date().toISOString();
-  return db.runTransaction(async (tx) => {
+  const reserved=await db.runTransaction(async (tx) => {
     const snapshot = await tx.get(ref);
     const lastRunAt = snapshot.exists ? toMs(snapshot.data()?.lastRunAt) : 0;
     if (lastRunAt && Date.now() - lastRunAt < EVALUATION_COOLDOWN) return false;
     tx.set(ref, { lastRunAt:now }, { merge:true });
     return true;
   });
+  recentEvaluations.set(db,Date.now());
+  return reserved;
 }
 
 export async function evaluateMonitoringAlerts(db) {
   if (!(await reserveEvaluation(db))) return { skipped:true, reason:"evaluation_cooldown" };
-  const snapshot = await db.collection("_client_errors").orderBy("createdAt", "desc").limit(80).get();
   const cutoff = Date.now() - FIFTEEN_MINUTES;
+  const snapshot = await db.collection("_client_errors").where("createdAt",">=",new Date(cutoff).toISOString()).orderBy("createdAt", "desc").limit(80).get();
   const recent = snapshot.docs.map((doc) => doc.data() || {}).filter((event) => toMs(event.createdAt) >= cutoff);
   const severe = recent.filter(isSevereMonitoringEvent);
   const slow = recent.filter((event) => ["performance_slow", "performance_long_task", "api_slow"].includes(event.type));
@@ -133,26 +137,29 @@ export function buildUserCapacityAlert(totalUsers) {
 }
 
 export async function evaluateUserGrowth(db) {
-  const snapshot = await db.collection("users").get();
   const now = Date.now();
-  const users = snapshot.docs.map((doc) => doc.data() || {});
-  const hour = users.filter((user) => now - toMs(user.createdAt) <= 60 * 60 * 1000).length;
-  const day = users.filter((user) => now - toMs(user.createdAt) <= 24 * 60 * 60 * 1000).length;
+  const users=db.collection("users");
+  const counts=await Promise.all([
+    users.count().get(),
+    users.where("createdAt",">=",new Date(now-60*60*1000).toISOString()).count().get(),
+    users.where("createdAt",">=",new Date(now-24*60*60*1000).toISOString()).count().get(),
+  ]);
+  const [total,hour,day]=counts.map(snapshot=>Number(snapshot.data().count)||0);
   let alerted = false;
   if (hour >= 10 || day >= 25) {
     const result = await notifyOnce(db, "user_growth", {
       severity:"warning", title:"Lonjakan user baru",
-      lines:[`${hour} user baru dalam 1 jam.`, `${day} user baru dalam 24 jam.`, `Total akun saat ini: ${users.length}.`],
+      lines:[`${hour} user baru dalam 1 jam.`, `${day} user baru dalam 24 jam.`, `Total akun saat ini: ${total}.`],
       action:"Pantau kuota Firebase, Vercel, dan Cloudflare AI. Upgrade hanya jika penggunaan nyata mendekati batas.",
     });
     alerted = result.sent;
   }
-  if (users.length >= 80) {
-    const capacityAlert = buildUserCapacityAlert(users.length);
+  if (total >= 80) {
+    const capacityAlert = buildUserCapacityAlert(total);
     const result = await notifyOnce(db, capacityAlert.key, capacityAlert);
     alerted = alerted || result.sent;
   }
-  return { total:users.length, hour, day, alerted };
+  return { total, hour, day, alerted };
 }
 
 export async function runProductionHealthCheck(db) {

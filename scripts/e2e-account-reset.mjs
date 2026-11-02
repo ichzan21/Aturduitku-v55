@@ -76,6 +76,10 @@ try {
       await page.locator('.bottom-nav').getByRole('button',{name:/Lainnya/}).click();
       await page.getByRole('dialog',{name:'Menu lainnya'}).getByRole('button',{name:/Setting/}).click();
     } else await page.getByText('Setting',{exact:true}).first().click();
+    if(scenario==='in-flight-save') {
+      await page.getByTestId('settings-layout').getByRole('textbox').first().fill('QA Reset Updated');
+      await page.getByRole('button',{name:'Simpan perubahan',exact:true}).click();
+    }
     await page.getByRole('button',{name:'Reset semua data',exact:true}).click();
     const panel=page.getByTestId('account-reset-dialog');
     const submit=panel.getByRole('button',{name:'Reset data keuangan',exact:true});

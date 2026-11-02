@@ -1,3 +1,5 @@
+import { isDatabaseQuotaError } from './serviceAvailability.js';
+
 const numberValue = value => {
   const parsed = Number(String(value ?? "0").replace(/[^0-9.-]/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
@@ -62,6 +64,7 @@ export async function fetchAccountBootstrap(fetchJson, uid) {
     return { profile, cloudData };
   } catch (error) {
     const failure = accountDataError();
+    if(isDatabaseQuotaError(error)) {failure.code=error.code;failure.message=error.message;failure.retryAfterSeconds=error.retryAfterSeconds;}
     failure.profile = profile;
     failure.cause = error;
     throw failure;

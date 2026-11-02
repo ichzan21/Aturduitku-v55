@@ -7,6 +7,7 @@ import {
 import { reportClientError } from "./monitoring.js";
 import { applyTransactionToWallets, confirmInternalTransferPair, displayNumber, findWallet, hasWallet, internalTransferPairsForReview, pairImportedInternalTransfers, reconcileImportedStatement, replaceTransactionInWallets, sameId, transactionValidationError, uniqueNewTransactions, unlinkInternalTransferPair, walletDeltasForTransaction } from "./financeLedger.js";
 import { retryCloudSave } from "./cloudSaveRetry.js";
+import { accountPollingDelay, accountSnapshotKey, isDatabaseQuotaError } from "./serviceAvailability.js";
 import { reconcileWalletBalance, walletBalanceAtDate } from "./walletReconciliation.js";
 import PublicLanding from "./PublicLanding.jsx";
 import { findBudgetSourceWallet, normalizeBudgetSourceId } from "./budgetSource.js";
@@ -2728,6 +2729,9 @@ export default function App(){
   const [adminUsers,setAdminUsers]=useState([]);
   const [adminStats,setAdminStats]=useState({total:0,pending_review:0,approved:0,rejected:0});
   const [adminLoading,setAdminLoading]=useState(false);
+  const [adminLoadError,setAdminLoadError]=useState("");
+  const [adminLoadedAt,setAdminLoadedAt]=useState(null);
+  const adminUsersRequestRef=useRef(null);
   const [adminFilter,setAdminFilter]=useState("all");
   const [adminQuery,setAdminQuery]=useState("");
   const [adminPage,setAdminPage]=useState(1);
@@ -2742,6 +2746,9 @@ export default function App(){
   const [syncConflict,setSyncConflict]=useState(null);
   const [cloudReady,setCloudReady]=useState(false);
   const [accountLoadError,setAccountLoadError]=useState(false);
+  const [accountServiceFailure,setAccountServiceFailure]=useState(null);
+  const accountRetryBusyRef=useRef(false);
+  const lastSyncedSnapshotRef=useRef(null);
   const [accountRecovery,setAccountRecovery]=useState(null);
   const [recoveryBackup,setRecoveryBackup]=useState(null);
   const [recoveryError,setRecoveryError]=useState("");
@@ -2983,6 +2990,7 @@ export default function App(){
       const error = new Error(data.error || `Request failed: ${resp.status}`);
       error.status = resp.status;
       error.code = data.code;
+      error.retryAfterSeconds = data.retryAfterSeconds;
       error.details = data;
       if(resp.status===429&&!suppressMonitoring){
         reportClientError(error,{type:"api_rate_limit",component:"authedJson",route:url,durationMs:requestDuration});
@@ -3021,7 +3029,7 @@ export default function App(){
         setOnboarded(true);
         setSyncConflict({localData:merged,localOnboarded:true,remote:cloudData,emptyCloudRecovery:true});
       }else if(recovery==="local"){
-        applyLoadedUserData(user,{...cloudData,...local});
+        applyLoadedUserData(user,{...cloudData,...local},false);
       }else if(recovery==="cloud"){
         applyLoadedUserData(user,cloudData);
       }else{
@@ -3033,6 +3041,7 @@ export default function App(){
       cloudVersionRef.current=cloudData.version;
       setSyncMeta({updatedAt:cloudData.updatedAt||null,lastBackupAt:cloudData.lastBackupAt||null});
       setAccountLoadError(false);
+    setAccountServiceFailure(null);
       setCloudReady(true);
     }else{
       setCloudReady(false);
@@ -3046,6 +3055,7 @@ export default function App(){
     if(activeAccountUidRef.current!==user.uid) return;
     setCloudReady(false);
     setAccountLoadError(true);
+    setAccountServiceFailure({message:error.message,quota:isDatabaseQuotaError(error),retryAt:isDatabaseQuotaError(error)?Date.now()+(error.retryAfterSeconds||60)*1000:0});
     setAccessProfile(error.profile||{
       uid:user.uid,email:user.email||"",displayName:user.displayName||"",
       photoURL:user.photoURL||"",role:"user",approvalStatus:"verification_unavailable",backendReady:false,
@@ -3053,7 +3063,8 @@ export default function App(){
   };
 
   const retryAccountLoad=async()=>{
-    if(!fireUser) return;
+    if(!fireUser||accountRetryBusyRef.current||Date.now()<(accountServiceFailure?.retryAt||0)) return;
+    accountRetryBusyRef.current=true;
     const user=fireUser;
     const sequence=++accountLoadSequenceRef.current;
     const isCurrent=()=>sequence===accountLoadSequenceRef.current&&activeAccountUidRef.current===user.uid;
@@ -3061,7 +3072,7 @@ export default function App(){
     setCloudReady(false);
     try{await loadAccountBootstrap(user,isCurrent);}
     catch(error){if(isCurrent()) handleAccountLoadFailure(user,error);}
-    finally{if(isCurrent()) setAccessLoading(false);}
+    finally{accountRetryBusyRef.current=false;if(isCurrent()) setAccessLoading(false);}
   };
 
   const selectRecoveryBackup=(file)=>{
@@ -3194,6 +3205,7 @@ export default function App(){
     if(activeAccountUidRef.current!==uid) throw Object.assign(new Error("Sesi akun sudah berubah"),{code:"ACCOUNT_SESSION_CHANGED"});
     cloudVersionRef.current=Math.max(cloudVersionRef.current,Number(result.version)||0);
     setSyncMeta(meta=>({...meta,updatedAt:result.updatedAt||meta.updatedAt}));
+    lastSyncedSnapshotRef.current=accountSnapshotKey(payload.data,payload.onboarded);
     return result;
   };
 
@@ -3253,16 +3265,27 @@ export default function App(){
   };
 
   const loadAdminUsers = async () => {
-    if(!isAdmin) return;
+    if(!isAdmin||adminUsersRequestRef.current) return;
+    const adminUid=fireUser.uid;
+    let request=null;
     setAdminLoading(true);
+    setAdminLoadError("");
     try{
-      const data = await authedJson("/api/admin/users", { method:"GET" });
+      request=authedJson("/api/admin/users", { method:"GET",expectedUid:adminUid });
+      adminUsersRequestRef.current=request;
+      const data = await request;
+      if(activeAccountUidRef.current!==adminUid) return;
+      if(!Array.isArray(data.users)||!data.stats) throw new Error("Respons daftar user tidak lengkap. Coba refresh lagi.");
       setAdminUsers(data.users || []);
       setAdminStats(data.stats || {total:0,pending_review:0,approved:0,rejected:0});
+      setAdminLoadedAt(new Date().toISOString());
     }catch(e){
-      showToast(`⚠️ ${e.message || "Gagal memuat user admin"}`);
+      if(activeAccountUidRef.current===adminUid) setAdminLoadError(e.message || "Gagal memuat user admin");
     }finally{
-      setAdminLoading(false);
+      if(adminUsersRequestRef.current===request){
+        adminUsersRequestRef.current=null;
+        if(activeAccountUidRef.current===adminUid) setAdminLoading(false);
+      }
     }
   };
 
@@ -3384,6 +3407,8 @@ export default function App(){
         localStorage.setItem("aturduitku_data",JSON.stringify(s));
         localStorage.setItem(LOCAL_OWNER_KEY,fireUser.uid);
       }catch(e){}
+      const snapshotKey=accountSnapshotKey(s,onboarded);
+      if(lastSyncedSnapshotRef.current===snapshotKey) {setSyncStatus("saved");return;}
       setSyncStatus("saving");
       const timer = setTimeout(async()=>{
         if(accountResetPendingRef.current||activeAccountUidRef.current!==fireUser.uid) return;
@@ -3395,6 +3420,7 @@ export default function App(){
           cloudSaveQueueRef.current=saveTask;
           const saved=await saveTask;
           if(activeAccountUidRef.current!==fireUser.uid||accountResetPendingRef.current) return;
+          lastSyncedSnapshotRef.current=snapshotKey;
           if(onboarded&&!accountResetPendingRef.current){
             try{localStorage.removeItem("aturduitku_confirmed_reset");}catch{}
           }
@@ -3441,6 +3467,13 @@ export default function App(){
           if(disposed) return;
           const sequence=++accountLoadSequenceRef.current;
           activeAccountUidRef.current=user?.uid||null;
+          lastSyncedSnapshotRef.current=null;
+          setAccountServiceFailure(null);
+          setAdminUsers([]);
+          adminUsersRequestRef.current=null;
+          setAdminLoading(false);
+          setAdminLoadError("");
+          setAdminLoadedAt(null);
           accountResetPendingRef.current=false;
           setAccountResetForm(null);
           setAccountResetCompleted(false);
@@ -3493,11 +3526,12 @@ export default function App(){
   },[]);
 
   useEffect(()=>{
-    if(!fireUser || !accessProfile || accessProfile.approvalStatus==="approved") return;
+    const pollingDelay=accountPollingDelay(accessProfile?.approvalStatus);
+    if(!fireUser || !pollingDelay) return;
     let disposed=false;
     let busy=false;
     const timer=setInterval(async()=>{
-      if(busy) return;
+      if(busy||document.hidden||!navigator.onLine) return;
       busy=true;
       const sequence=accountLoadSequenceRef.current;
       const isCurrent=()=>!disposed&&sequence===accountLoadSequenceRef.current&&activeAccountUidRef.current===fireUser.uid;
@@ -3511,7 +3545,7 @@ export default function App(){
         console.warn("Approval status polling failed:", e);
         if(isCurrent()) handleAccountLoadFailure(fireUser,e);
       }finally{busy=false;}
-    },8000);
+    },pollingDelay);
     return ()=>{disposed=true;clearInterval(timer);};
   },[fireUser?.uid, accessProfile?.approvalStatus]);
 
@@ -4121,9 +4155,10 @@ export default function App(){
     });
   };
 
-  const applyLoadedUserData=(user, cloudData)=>{
+  const applyLoadedUserData=(user, cloudData,fromServer=true)=>{
     if(cloudData && cloudData.data){
       const merged=mergeUserData(cloudData.data);
+      lastSyncedSnapshotRef.current=fromServer?accountSnapshotKey(merged,resolveAccountOnboarded(cloudData)):null;
       setS(merged);
       try{
         localStorage.setItem("aturduitku_data",JSON.stringify(merged));
@@ -7553,13 +7588,13 @@ Saldo amplop bertambah.`}]);
           </div>
         </div>
         <div style={{display:"inline-flex",alignItems:"center",gap:8,background:accessProfile?.approvalStatus==="rejected"?"rgba(239,68,68,.16)":accessProfile?.approvalStatus==="verification_unavailable"?"rgba(96,165,250,.16)":"rgba(250,204,21,.14)",color:accessProfile?.approvalStatus==="rejected"?"#FCA5A5":accessProfile?.approvalStatus==="verification_unavailable"?"#BFDBFE":"#FDE68A",borderRadius:99,padding:"8px 14px",fontSize:12,fontWeight:800,marginBottom:14}}>
-          {accessProfile?.approvalStatus==="rejected"?"Ditolak":accessProfile?.approvalStatus==="verification_unavailable"?"Status belum terverifikasi":"Menunggu approval admin"}
+          {accessProfile?.approvalStatus==="rejected"?"Ditolak":accessProfile?.approvalStatus==="verification_unavailable"?"Layanan sedang terganggu":"Menunggu approval admin"}
         </div>
         <div style={{color:"white",fontSize:14,lineHeight:1.7,marginBottom:14}}>
           {accessProfile?.approvalStatus==="rejected"
             ?"Akun ini sudah direview tetapi belum bisa diaktifkan. Kamu masih bisa hubungi admin untuk minta pengecekan ulang."
             :accessProfile?.approvalStatus==="verification_unavailable"
-              ?"AturDuitku belum berhasil memverifikasi status akun dari server. Data lokal tidak dihapus. Periksa koneksi lalu tekan Cek status lagi."
+              ?accountServiceFailure?.quota?"Kuota database harian sedang habis. Ini gangguan layanan, bukan penolakan akun atau hilangnya akses admin. Data tidak dihapus. Akses akan tersedia setelah kuota pulih atau kapasitas database ditingkatkan.":"Server belum dapat memeriksa akun. Data lokal tidak dihapus dan akun tidak otomatis ditolak. Coba cek status lagi sebentar nanti."
               :"Akun berhasil dibuat. Sekarang admin akan cek pembayaran dan mengaktifkan akses penuh setelah semuanya sesuai."}
         </div>
         {accessProfile?.approvalStatus!=="rejected"&&accessProfile?.approvalStatus!=="verification_unavailable"&&<div style={{display:"grid",gridTemplateColumns:"1fr",gap:8,marginBottom:14}}>
@@ -7568,7 +7603,7 @@ Saldo amplop bertambah.`}]);
         {accessProfile?.adminNotes&&<div style={{background:"rgba(255,255,255,.06)",borderRadius:14,padding:14,color:"#E9D5FF",fontSize:12,lineHeight:1.6,marginBottom:14}}>
           Catatan admin: {accessProfile.adminNotes}
         </div>}
-        <div style={{background:"linear-gradient(135deg,rgba(34,197,94,.14),rgba(124,58,237,.16))",border:"1px solid rgba(196,181,253,.22)",borderRadius:16,padding:14,marginBottom:14}}>
+        {accessProfile?.approvalStatus!=="verification_unavailable"&&<div style={{background:"linear-gradient(135deg,rgba(34,197,94,.14),rgba(124,58,237,.16))",border:"1px solid rgba(196,181,253,.22)",borderRadius:16,padding:14,marginBottom:14}}>
           <div style={{display:"flex",gap:11,alignItems:"flex-start",marginBottom:10}}>
             <img src="/icon-192.png" alt="" style={{width:38,height:38,borderRadius:12,objectFit:"cover",boxShadow:"0 8px 20px rgba(124,58,237,.24)",flexShrink:0}}/>
             <div style={{minWidth:0}}>
@@ -7580,9 +7615,9 @@ Saldo amplop bertambah.`}]);
             <a href={supportWhatsappHref} target="_self" onClick={event=>openSupportLink(event,supportWhatsappHref)} aria-label="Hubungi admin melalui WhatsApp" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7,minHeight:46,color:"#052E16",fontWeight:900,textDecoration:"none",background:"#86EFAC",border:"1px solid rgba(134,239,172,.45)",borderRadius:12,padding:"10px 11px",fontSize:12,touchAction:"manipulation",position:"relative",zIndex:1}}>WhatsApp</a>
             <a href={supportInstagramHref} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7,color:"white",fontWeight:900,textDecoration:"none",background:"rgba(124,58,237,.72)",border:"1px solid rgba(196,181,253,.32)",borderRadius:12,padding:"10px 11px",fontSize:12}}>Instagram</a>
           </div>
-        </div>
+        </div>}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          <button onClick={retryAccountLoad} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.08)",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{accessLoading?"Mengecek...":"Cek status lagi"}</button>
+          <button onClick={retryAccountLoad} disabled={accessLoading||Date.now()<(accountServiceFailure?.retryAt||0)} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.08)",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{accessLoading?"Mengecek...":Date.now()<(accountServiceFailure?.retryAt||0)?`Coba lagi ${Math.ceil((accountServiceFailure.retryAt-Date.now())/1000)} dtk`:"Cek status lagi"}</button>
           <button onClick={handleSignOut} style={{padding:"12px 14px",borderRadius:12,border:"1px solid rgba(252,165,165,.35)",background:"rgba(127,29,29,.22)",color:"#FCA5A5",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Keluar</button>
         </div>
       </div>
@@ -7594,10 +7629,10 @@ Saldo amplop bertambah.`}]);
       <section style={{width:"100%",maxWidth:440}} aria-labelledby="account-load-heading">
         <img src="/icon-192.png" alt="AturDuitku" width="56" height="56" style={{borderRadius:8,marginBottom:20}}/>
         <h1 id="account-load-heading" style={{fontSize:24,lineHeight:1.3,margin:"0 0 12px",letterSpacing:0}}>{accountLoadError?"Data akun belum berhasil dimuat":"Data akun belum siap"}</h1>
-        <p role="status" style={{fontSize:16,lineHeight:1.6,margin:"0 0 16px"}}>Setup awal dan penyimpanan ditunda sampai data akun selesai diperiksa. Periksa koneksi, lalu coba muat kembali.</p>
+        <p role="status" style={{fontSize:16,lineHeight:1.6,margin:"0 0 16px"}}>{accountServiceFailure?.quota?"Kuota database harian sedang habis. Data tidak dihapus. Setup awal dan penyimpanan ditunda sampai layanan pulih.":"Setup awal dan penyimpanan ditunda sampai data akun selesai diperiksa. Periksa koneksi, lalu coba muat kembali."}</p>
         <p style={{fontSize:14,lineHeight:1.5,overflowWrap:"anywhere",margin:"0 0 24px"}}>Akun: {fireUser.email}</p>
         <div style={{display:"flex",flexWrap:"wrap",gap:12}}>
-          <button onClick={retryAccountLoad} style={{minHeight:46,padding:"12px 16px",borderRadius:8,border:0,background:LIGHT.accent,color:"white",fontFamily:"inherit",fontSize:14,fontWeight:700,cursor:"pointer"}}>Coba muat data lagi</button>
+          <button onClick={retryAccountLoad} disabled={accessLoading||Date.now()<(accountServiceFailure?.retryAt||0)} style={{minHeight:46,padding:"12px 16px",borderRadius:8,border:0,background:LIGHT.accent,color:"white",fontFamily:"inherit",fontSize:14,fontWeight:700,cursor:"pointer"}}>Coba muat data lagi</button>
           <button onClick={handleSignOut} style={{minHeight:46,padding:"12px 16px",borderRadius:8,border:`1px solid ${T.border}`,background:T.card,color:T.text,fontFamily:"inherit",fontSize:14,fontWeight:700,cursor:"pointer"}}>Keluar</button>
         </div>
       </section>
@@ -10503,7 +10538,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <AdminMonitoringPanelLazy authedJson={authedJson} theme={T} isMobile={isMobile} reportError={reportClientError}/>
             </Suspense>
             <Card ch={<>
-              <Sec t="Kelola User" sub="Aktifkan akun setelah pembayaran terkonfirmasi di Scalev." right={<Btn onClick={loadAdminUsers} ch={adminLoading?"Memuat...":"Refresh"} c={T.info} outline style={{padding:"6px 12px",fontSize:11}}/>}/>
+              <Sec t="Kelola User" sub="Aktifkan akun setelah pembayaran terkonfirmasi di Scalev." right={<button type="button" onClick={loadAdminUsers} disabled={adminLoading} style={{padding:"6px 12px",fontSize:11,fontFamily:"inherit",fontWeight:700,border:`1px solid ${T.infoBorder}`,borderRadius:8,background:T.card,color:T.info,cursor:adminLoading?"wait":"pointer",minHeight:36}}>{adminLoading?"Memuat...":"Refresh"}</button>}/>
+              {adminLoadError&&<div role="alert" style={{padding:12,marginBottom:12,borderRadius:8,background:T.errBg,color:T.err,border:`1px solid ${T.errBorder}`,fontSize:12,lineHeight:1.6}}>{adminLoadError}{adminUsers.length>0?" Daftar terakhir tetap ditampilkan; belum berhasil diperbarui.":" Daftar user belum tersedia."}</div>}
+              {adminLoadedAt&&<div style={{fontSize:11,color:T.muted,marginBottom:12}}>Pembaruan terakhir: {new Date(adminLoadedAt).toLocaleTimeString("id-ID")}</div>}
               <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
                 {[
                   {id:"all",label:"Semua"},
@@ -10596,7 +10633,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     </details>
                   </div>
                 ))}
-                {!adminFilteredUsers.length&&<LaunchEmpty icon="🛡️" title="Tidak ada user yang cocok" desc="Belum ada akun pada status ini atau pencarian tidak cocok." actionLabel="Tampilkan semua" onAction={()=>{setAdminFilter("all");setAdminQuery("");}} secondaryLabel="Refresh data" onSecondary={loadAdminUsers} style={{padding:"34px 18px"}}/>}
+                {!adminLoading&&!adminLoadError&&!adminFilteredUsers.length&&<LaunchEmpty icon="🛡️" title="Tidak ada user yang cocok" desc="Belum ada akun pada status ini atau pencarian tidak cocok." actionLabel="Tampilkan semua" onAction={()=>{setAdminFilter("all");setAdminQuery("");}} secondaryLabel="Refresh data" onSecondary={loadAdminUsers} style={{padding:"34px 18px"}}/>}
               </div>
               {adminFilteredUsers.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginTop:14}}>
                 <div style={{fontSize:11,color:T.muted}}>

@@ -1,6 +1,8 @@
-export const isRetryableCloudSaveError = error =>
+import { isDatabaseQuotaError } from './serviceAvailability.js';
+
+export const isRetryableCloudSaveError = error => !isDatabaseQuotaError(error) && (
   ["API_NETWORK_ERROR", "API_TIMEOUT"].includes(error?.code)
-  || [500, 502, 503, 504, 520, 521, 522, 523, 524].includes(Number(error?.status));
+  || [500, 502, 503, 504, 520, 521, 522, 523, 524].includes(Number(error?.status)));
 
 export async function retryCloudSave(save, wait = ms => new Promise(resolve => setTimeout(resolve, ms))) {
   for (let attempt = 0; attempt < 3; attempt += 1) {

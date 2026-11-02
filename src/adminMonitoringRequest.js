@@ -1,8 +1,10 @@
 const MONITORING_ENDPOINT = "/api/admin/monitoring";
+import { isDatabaseQuotaError } from './serviceAvailability.js';
 
 const wait = (durationMs) => new Promise((resolve) => setTimeout(resolve, durationMs));
 
 export const isRetryableMonitoringError = (error) => {
+  if(isDatabaseQuotaError(error)) return false;
   const status = Number(error?.status) || 0;
   const code = String(error?.code || "").toUpperCase();
   const message = String(error?.message || "");
@@ -38,6 +40,7 @@ export async function fetchAdminMonitoring(authedJson, options = {}) {
 }
 
 export const monitoringFailureContext = (error) => {
+  if(isDatabaseQuotaError(error)) return null;
   const code = String(error?.code || "").toUpperCase();
   const status = Number(error?.status) || 0;
   if (code === "API_TIMEOUT") return { type: "api_timeout", component: "AdminMonitoringPanel", route: MONITORING_ENDPOINT, durationMs:error?.durationMs };
