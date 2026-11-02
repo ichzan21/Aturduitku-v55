@@ -23,6 +23,7 @@ try {
     assert.equal(await notice.locator('[data-unit="Detik"]').innerText(),'50');
     assert.equal(await notice.getByRole('timer').getAttribute('aria-live'),'off','Seconds must not interrupt screen readers');
     assert.match(await notice.innerText(),/Estimasi pemulihan[\s\S]*2 November 2026, 16\.00 WITA/);
+    await notice.locator('img').evaluate(img=>img.decode());
     assert.equal(await notice.locator('img').evaluate(img=>img.complete&&img.naturalWidth>0),true);
     const motion=await notice.locator('.service-recovery-tool').evaluate(icon=>getComputedStyle(icon).animationName);
     assert.equal(motion,reducedMotion==='reduce'?'none':'recovery-working');
