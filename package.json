@@ -40,6 +40,7 @@
     "test:e2e:budget-review": "node scripts/e2e-budget-review.mjs",
     "test:e2e:budget-periods": "node scripts/e2e-budget-periods.mjs",
     "test:e2e:database": "node scripts/e2e-database-availability.mjs",
+    "test:e2e:admin-directory": "node scripts/e2e-admin-directory.mjs",
     "test:e2e:service-recovery": "node scripts/e2e-service-recovery.mjs",
     "test:e2e:keyboard": "node scripts/e2e-keyboard-layout.mjs",
     "build": "npm run check:secrets && vite build",

@@ -43,7 +43,7 @@ try {
         userReads++;
         await new Promise(resolve=>setTimeout(resolve,250));
         if(failUsers) return route.fulfill({status:503,json:quota});
-        return route.fulfill({json:{users:[{uid:'qa-target',displayName:userReads>2?'QA Updated':'QA Customer',email:'qa@example.invalid',role:'user',approvalStatus:'approved'}],stats:{total:1,approved:1,pending_review:0,rejected:0}}});
+        return route.fulfill({json:{users:[{uid:'qa-target',displayName:userReads>2?'QA Updated':'QA Customer',email:'qa@example.invalid',role:'user',approvalStatus:'approved'}],pagination:{hasMore:false,nextCursor:null},stats:{total:1,approved:1,pending_review:0,rejected:0}}});
       }
       if(path==='/api/admin/monitoring') {
         monitoringReads++;

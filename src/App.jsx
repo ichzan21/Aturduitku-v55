@@ -1,6 +1,6 @@
 import React, { Suspense, useState, useEffect, useMemo, useRef, useCallback, createContext, useContext } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import {
   getCurrentIdToken, onAuthChange, sendResetPassword, sendVerificationEmail, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
 } from "./firebaseClient.js";
@@ -2737,7 +2737,16 @@ export default function App(){
   const adminUsersRequestRef=useRef(null);
   const [adminFilter,setAdminFilter]=useState("all");
   const [adminQuery,setAdminQuery]=useState("");
+  const [adminSearchBy,setAdminSearchBy]=useState("email");
+  const [adminSearch,setAdminSearch]=useState({query:"",by:"email"});
+  const [adminCursors,setAdminCursors]=useState([null]);
+  const [adminNextCursor,setAdminNextCursor]=useState(null);
   const [adminPage,setAdminPage]=useState(1);
+  const adminRequestKeyRef=useRef("");
+  const adminParams=new URLSearchParams({status:adminFilter,limit:"8",searchBy:adminSearch.by});
+  if(adminSearch.query) adminParams.set("q",adminSearch.query);
+  if(adminCursors[adminPage-1]) adminParams.set("cursor",adminCursors[adminPage-1]);
+  const adminRequestKey=adminParams.toString();
   const [adminPasswordForm,setAdminPasswordForm]=useState({password:"",confirm:""});
   const [adminPasswordBusy,setAdminPasswordBusy]=useState(false);
   const [adminDataInspections,setAdminDataInspections]=useState({});
@@ -2796,6 +2805,7 @@ export default function App(){
   },[verificationCooldownUntil]);
 
   const [page,setPageState]=useState("home");
+  adminRequestKeyRef.current=page==="admin"?`${fireUser?.uid}:${adminRequestKey}`:"";
   const pageRef=useRef("home");
   const mainScrollRef=useRef(null);
   const [pageBack,setPageBack]=useState(false);
@@ -3286,23 +3296,27 @@ export default function App(){
     }
   };
 
-  const loadAdminUsers = async () => {
-    if(!isAdmin||adminUsersRequestRef.current) return;
+  const loadAdminUsers = async (options={}) => {
+    if(!isAdmin||page!=="admin") return;
     const adminUid=fireUser.uid;
+    const key=`${adminUid}:${adminRequestKey}`;
+    if(adminRequestKeyRef.current!==key) return;
+    if(adminUsersRequestRef.current?.key===key) return;
     let request=null;
     setAdminLoading(true);
     setAdminLoadError("");
     try{
-      request=authedJson("/api/admin/users", { method:"GET",expectedUid:adminUid });
+      request={key,promise:authedJson(`/api/admin/users?${adminRequestKey}${options.refresh?"&refresh=1":""}`, { method:"GET",expectedUid:adminUid })};
       adminUsersRequestRef.current=request;
-      const data = await request;
-      if(activeAccountUidRef.current!==adminUid) return;
-      if(!Array.isArray(data.users)||!data.stats) throw new Error("Respons daftar user tidak lengkap. Coba refresh lagi.");
+      const data = await request.promise;
+      if(activeAccountUidRef.current!==adminUid||adminUsersRequestRef.current!==request||adminRequestKeyRef.current!==key) return;
+      if(!Array.isArray(data.users)||data.users.length>8||!data.stats||!data.pagination) throw new Error("Respons daftar user tidak lengkap. Coba refresh lagi.");
       setAdminUsers(data.users || []);
+      setAdminNextCursor(data.pagination.nextCursor||null);
       setAdminStats(data.stats || {total:0,pending_review:0,approved:0,rejected:0});
       setAdminLoadedAt(new Date().toISOString());
     }catch(e){
-      if(activeAccountUidRef.current===adminUid) setAdminLoadError(e.message || "Gagal memuat user admin");
+      if(activeAccountUidRef.current===adminUid&&adminUsersRequestRef.current===request&&adminRequestKeyRef.current===key) setAdminLoadError(e.message || "Gagal memuat user admin");
     }finally{
       if(adminUsersRequestRef.current===request){
         adminUsersRequestRef.current=null;
@@ -3310,6 +3324,16 @@ export default function App(){
       }
     }
   };
+  const resetAdminPages=()=>{setAdminPage(1);setAdminCursors([null]);setAdminNextCursor(null);setAdminUsers([]);};
+  const searchAdminUsers=event=>{
+    event.preventDefault();
+    const query=adminQuery.trim();
+    if(query&&query.length<2) {setAdminLoadError("Masukkan sedikitnya 2 karakter untuk mencari pengguna.");return;}
+    if(adminSearch.query===query&&adminSearch.by===adminSearchBy&&adminPage===1) {loadAdminUsers({refresh:true});return;}
+    resetAdminPages();
+    setAdminSearch({query,by:adminSearchBy});
+  };
+  const filterAdminUsers=status=>{if(status===adminFilter&&adminPage===1)return;resetAdminPages();setAdminFilter(status);};
 
   const inspectAdminUserData=async(uid)=>{
     if(!isAdmin||adminDataInspections[uid]?.loading) return;
@@ -3366,11 +3390,14 @@ export default function App(){
   };
 
   const updateAdminApproval = async (uid, approvalStatus) => {
+    const adminUid=fireUser?.uid;
+    if(!isAdmin||adminLoading) return;
     setAdminLoading(true);
     try{
       const currentUser = adminUsers.find(user=>user.uid===uid) || {};
       const data = await authedJson("/api/admin/users", {
         method:"POST",
+        expectedUid:adminUid,
         body:JSON.stringify({
           uid,
           approvalStatus,
@@ -3379,13 +3406,14 @@ export default function App(){
           orderId: currentUser.orderId || "",
         }),
       });
+      if(activeAccountUidRef.current!==adminUid) return;
       setAdminUsers(prev=>prev.map(user=>user.uid===uid?{...user,...data.user}:user));
       showToast(approvalStatus==="approved"?"✅ User di-approve":"✅ Status user diperbarui");
-      await loadAdminUsers();
+      await loadAdminUsers({refresh:true});
     }catch(e){
-      showToast(`⚠️ ${e.message || "Gagal update user"}`);
+      if(activeAccountUidRef.current===adminUid) showToast(`⚠️ ${e.message || "Gagal update user"}`);
     }finally{
-      setAdminLoading(false);
+      if(activeAccountUidRef.current===adminUid) setAdminLoading(false);
     }
   };
 
@@ -3411,7 +3439,7 @@ export default function App(){
       showToast(`Password ${target.email||"user"} berhasil diperbarui`);
       setAdminPasswordForm({password:"",confirm:""});
       closeModal();
-      await loadAdminUsers();
+      await loadAdminUsers({refresh:true});
     }catch(error){
       showToast(`⚠️ ${error.message||"Password user belum dapat diperbarui"}`);
     }finally{
@@ -3496,6 +3524,9 @@ export default function App(){
           setAdminLoading(false);
           setAdminLoadError("");
           setAdminLoadedAt(null);
+          setAdminPage(1);
+          setAdminCursors([null]);
+          setAdminNextCursor(null);
           accountResetPendingRef.current=false;
           setAccountResetForm(null);
           setAccountResetCompleted(false);
@@ -3665,37 +3696,9 @@ export default function App(){
   };
 
   useEffect(()=>{
-    if(isAdmin) loadAdminUsers();
-  },[isAdmin]);
-
-  const adminFilteredUsers = useMemo(()=>{
-    const filtered = adminUsers.filter((user)=>{
-      const matchFilter = adminFilter==="all" || (user.approvalStatus || "pending_review")===adminFilter;
-      const q = adminQuery.trim().toLowerCase();
-      const hay = `${user.displayName||""} ${user.email||""} ${user.buyerEmail||""} ${user.orderId||""}`.toLowerCase();
-      return matchFilter && (!q || hay.includes(q));
-    });
-    const approvalRank = { pending_review:0, approved:1, rejected:2 };
-    return filtered.sort((a,b)=>{
-      const approvalDelta = (approvalRank[a.approvalStatus || "pending_review"] ?? 9) - (approvalRank[b.approvalStatus || "pending_review"] ?? 9);
-      if(approvalDelta!==0) return approvalDelta;
-      return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
-    });
-  },[adminUsers, adminFilter, adminQuery]);
-
-  const ADMIN_PAGE_SIZE = 8;
-  const adminPageCount = Math.max(1, Math.ceil(adminFilteredUsers.length / ADMIN_PAGE_SIZE));
-  const adminPagedUsers = useMemo(()=>{
-    const start = (adminPage - 1) * ADMIN_PAGE_SIZE;
-    return adminFilteredUsers.slice(start, start + ADMIN_PAGE_SIZE);
-  },[adminFilteredUsers, adminPage]);
-  useEffect(()=>{
-    setAdminPage(1);
-  },[adminFilter, adminQuery]);
-
-  useEffect(()=>{
-    if(adminPage > adminPageCount) setAdminPage(adminPageCount);
-  },[adminPage, adminPageCount]);
+    if(isAdmin&&page==="admin") loadAdminUsers();
+  },[isAdmin,page,adminRequestKey,fireUser?.uid]);
+  const adminResultCount=adminSearch.query?null:adminFilter==="all"?adminStats.total:adminStats[adminFilter];
 
   useEffect(()=>{try{localStorage.setItem("aturduitku_dark",dark?"1":"0");}catch(e){}},[ dark]);
 
@@ -10562,7 +10565,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <AdminMonitoringPanelLazy authedJson={authedJson} theme={T} isMobile={isMobile} reportError={reportClientError}/>
             </Suspense>
             <Card ch={<>
-              <Sec t="Kelola User" sub="Aktifkan akun setelah pembayaran terkonfirmasi di Scalev." right={<button type="button" onClick={loadAdminUsers} disabled={adminLoading} style={{padding:"6px 12px",fontSize:11,fontFamily:"inherit",fontWeight:700,border:`1px solid ${T.infoBorder}`,borderRadius:8,background:T.card,color:T.info,cursor:adminLoading?"wait":"pointer",minHeight:36}}>{adminLoading?"Memuat...":"Refresh"}</button>}/>
+              <Sec t="Kelola User" sub="Aktifkan akun setelah pembayaran terkonfirmasi di Scalev." right={<button type="button" onClick={()=>loadAdminUsers({refresh:true})} disabled={adminLoading} style={{padding:"6px 12px",fontSize:11,fontFamily:"inherit",fontWeight:700,border:`1px solid ${T.infoBorder}`,borderRadius:8,background:T.card,color:T.info,cursor:adminLoading?"wait":"pointer",minHeight:44}}>{adminLoading?"Memuat...":"Refresh"}</button>}/>
               {adminLoadError&&<div role="alert" style={{padding:12,marginBottom:12,borderRadius:8,background:T.errBg,color:T.err,border:`1px solid ${T.errBorder}`,fontSize:12,lineHeight:1.6}}>{adminLoadError}{adminUsers.length>0?" Daftar terakhir tetap ditampilkan; belum berhasil diperbarui.":" Daftar user belum tersedia."}</div>}
               {adminLoadedAt&&<div style={{fontSize:11,color:T.muted,marginBottom:12}}>Pembaruan terakhir: {new Date(adminLoadedAt).toLocaleTimeString("id-ID")}</div>}
               <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
@@ -10572,18 +10575,23 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   {id:"approved",label:"Aktif"},
                   {id:"rejected",label:"Ditolak"},
                 ].map((item)=>(
-                  <button key={item.id} onClick={()=>setAdminFilter(item.id)} style={{padding:"8px 13px",borderRadius:999,border:`1px solid ${adminFilter===item.id?T.accent:T.border}`,background:adminFilter===item.id?T.accentBg:T.cardAlt,color:adminFilter===item.id?T.accent:T.text,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>
+                  <button key={item.id} onClick={()=>filterAdminUsers(item.id)} aria-pressed={adminFilter===item.id} style={{padding:"8px 13px",minHeight:44,borderRadius:8,border:`1px solid ${adminFilter===item.id?T.accent:T.border}`,background:adminFilter===item.id?T.accentBg:T.cardAlt,color:adminFilter===item.id?T.accent:T.text,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>
                     {item.label}
                   </button>
                 ))}
               </div>
-              <input value={adminQuery} onChange={e=>setAdminQuery(e.target.value)} placeholder="Cari nama atau email user" style={{...IS,marginBottom:14}}/>
+              <form onSubmit={searchAdminUsers} style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
+                <select aria-label="Cari pengguna berdasarkan" value={adminSearchBy} onChange={e=>setAdminSearchBy(e.target.value)} style={{...IS,width:"auto",minHeight:44,flex:"0 1 140px"}}><option value="email">Email</option><option value="name">Nama</option><option value="order">Order ID</option></select>
+                <input aria-label="Pencarian pengguna" value={adminQuery} onChange={e=>setAdminQuery(e.target.value)} maxLength={120} placeholder={adminSearchBy==="name"?"Awal nama pengguna":adminSearchBy==="order"?"Awal Order ID":"Email pengguna atau pembeli"} style={{...IS,minWidth:150,minHeight:44,flex:"1 1 180px"}}/>
+                <button type="submit" aria-label="Cari pengguna" title="Cari pengguna" style={{width:44,height:44,flexShrink:0,borderRadius:8,border:`1px solid ${T.accent}`,background:T.accent,color:"white",display:"grid",placeItems:"center",cursor:"pointer"}}><Search size={18}/></button>
+                {adminSearch.query&&<button type="button" aria-label="Hapus pencarian" title="Hapus pencarian" onClick={()=>{resetAdminPages();setAdminQuery("");setAdminSearch({query:"",by:adminSearchBy});}} style={{width:44,height:44,borderRadius:8,border:`1px solid ${T.border}`,background:T.card,color:T.text,display:"grid",placeItems:"center",cursor:"pointer"}}><X size={18}/></button>}
+              </form>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr auto",gap:12,marginBottom:14,padding:"12px 14px",borderRadius:12,background:T.cardAlt,border:`1px solid ${T.border}`}}>
                 <div style={{fontSize:12,color:T.text,fontWeight:700}}>
-                  {adminFilteredUsers.length} user ditemukan
+                  {adminResultCount===null?`${adminUsers.length} hasil pada halaman ini`: `${adminResultCount} pengguna`}
                 </div>
                 <div style={{fontSize:11,color:T.muted}}>
-                  Akun menunggu selalu tampil lebih dulu.
+                  {adminSearch.query?`Pencarian: ${adminSearch.query}`:`Halaman ${adminPage}`}
                 </div>
               </div>
               <div style={{display:"grid",gap:12}}>
@@ -10595,7 +10603,6 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                         <div className="smooth-skeleton" style={{width:"42%",height:14,marginBottom:8}}/>
                         <div className="smooth-skeleton" style={{width:"64%",height:10}}/>
                       </div>
-                      {t.paid?<span style={{display:"inline-block",marginTop:4,fontSize:9,fontWeight:900,color:T.ok,background:T.card,border:`1px solid ${T.okBorder}`,borderRadius:999,padding:"3px 7px"}}>SUDAH DIBAYAR</span>:<button onClick={()=>setModal({type:"payBill",bill:t,walletId:s.dompet[0]?.id||"",amount:String(N(t.alokasi))})} style={{marginTop:4,border:`1px solid ${T.okBorder}`,background:T.okBg,color:T.ok,borderRadius:8,padding:"4px 7px",fontSize:9,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>Tandai bayar</button>}
                     </div>
                     <div className="smooth-skeleton" style={{height:42,marginBottom:10}}/>
                     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 120px",gap:10}}>
@@ -10605,7 +10612,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     </div>
                   </div>
                 ))}
-                {adminPagedUsers.map((user)=>(
+                {adminUsers.map((user)=>(
                   <div key={user.uid} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:14,padding:14}}>
                     <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start",flexWrap:"wrap",marginBottom:10}}>
                       <div>
@@ -10657,16 +10664,15 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     </details>
                   </div>
                 ))}
-                {!adminLoading&&!adminLoadError&&!adminFilteredUsers.length&&<LaunchEmpty icon="🛡️" title="Tidak ada user yang cocok" desc="Belum ada akun pada status ini atau pencarian tidak cocok." actionLabel="Tampilkan semua" onAction={()=>{setAdminFilter("all");setAdminQuery("");}} secondaryLabel="Refresh data" onSecondary={loadAdminUsers} style={{padding:"34px 18px"}}/>}
+                {!adminLoading&&!adminLoadError&&!adminUsers.length&&<LaunchEmpty icon="🛡️" title={adminNextCursor?"Belum ada hasil pada halaman ini":"Tidak ada user yang cocok"} desc={adminNextCursor?"Lanjutkan ke halaman berikutnya untuk mencari pada status ini.":"Belum ada akun pada status ini atau pencarian tidak cocok."} actionLabel="Tampilkan semua" onAction={()=>{resetAdminPages();setAdminFilter("all");setAdminQuery("");setAdminSearch({query:"",by:adminSearchBy});}} secondaryLabel="Refresh data" onSecondary={()=>loadAdminUsers({refresh:true})} style={{padding:"34px 18px"}}/>}
               </div>
-              {adminFilteredUsers.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginTop:14}}>
+              {(adminUsers.length>0||adminNextCursor||adminPage>1)&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginTop:14}}>
                 <div style={{fontSize:11,color:T.muted}}>
-                  Menampilkan {Math.min((adminPage-1)*ADMIN_PAGE_SIZE + 1, adminFilteredUsers.length)} - {Math.min(adminPage*ADMIN_PAGE_SIZE, adminFilteredUsers.length)} dari {adminFilteredUsers.length} user
+                  {adminUsers.length} pengguna pada halaman {adminPage}
                 </div>
                 <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                  <button onClick={()=>setAdminPage(p=>Math.max(1, p-1))} disabled={adminPage===1} style={{padding:"8px 12px",borderRadius:10,border:`1px solid ${T.border}`,background:adminPage===1?T.cardAlt:T.bg,color:adminPage===1?T.muted:T.text,fontSize:12,fontWeight:700,cursor:adminPage===1?"default":"pointer",fontFamily:"inherit"}}>Sebelumnya</button>
-                  <div style={{fontSize:12,color:T.text,fontWeight:700,minWidth:72,textAlign:"center"}}>{adminPage} / {adminPageCount}</div>
-                  <button onClick={()=>setAdminPage(p=>Math.min(adminPageCount, p+1))} disabled={adminPage===adminPageCount} style={{padding:"8px 12px",borderRadius:10,border:`1px solid ${T.border}`,background:adminPage===adminPageCount?T.cardAlt:T.bg,color:adminPage===adminPageCount?T.muted:T.text,fontSize:12,fontWeight:700,cursor:adminPage===adminPageCount?"default":"pointer",fontFamily:"inherit"}}>Berikutnya</button>
+                  <button onClick={()=>{setAdminUsers([]);setAdminNextCursor(null);setAdminPage(p=>Math.max(1,p-1));}} disabled={adminLoading||adminPage===1} style={{padding:"8px 12px",minHeight:44,borderRadius:8,border:`1px solid ${T.border}`,background:T.card,color:T.text,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Sebelumnya</button>
+                  <button onClick={()=>{if(!adminNextCursor)return;setAdminCursors(p=>[...p.slice(0,adminPage),adminNextCursor]);setAdminUsers([]);setAdminNextCursor(null);setAdminPage(p=>p+1);}} disabled={adminLoading||!adminNextCursor} style={{padding:"8px 12px",minHeight:44,borderRadius:8,border:`1px solid ${T.border}`,background:T.card,color:T.text,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Berikutnya</button>
                 </div>
               </div>}
             </>}/>

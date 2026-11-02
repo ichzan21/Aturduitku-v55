@@ -7,6 +7,7 @@ import {
   verifyTelegramWebhook,
 } from "../_lib/telegram.js";
 import { secureApi } from "../_lib/httpSecurity.js";
+import { invalidateAdminDirectory } from "../_lib/adminUserDirectory.js";
 
 const ALLOWED_STATUSES = ["pending_review", "approved", "rejected"];
 
@@ -61,6 +62,7 @@ async function handleApprovalCallback(callbackQuery) {
   }
 
   await ref.set(patch, { merge: true });
+  invalidateAdminDirectory(db);
   const updatedSnap = await ref.get();
   const updated = { uid, ...updatedSnap.data() };
 

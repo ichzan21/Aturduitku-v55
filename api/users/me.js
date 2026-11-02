@@ -6,6 +6,7 @@ import { secureApi } from "../_lib/httpSecurity.js";
 import { getCloudDataPayload } from "../_lib/userCloudData.js";
 import { respondToDatabaseError } from "../_lib/databaseErrors.js";
 import { changedProfileFields } from "../_lib/userProfilePatch.js";
+import { invalidateAdminDirectory } from "../_lib/adminUserDirectory.js";
 
 function buildApproval(existing, isAdminEmail) {
   const approvalStatus = existing?.approvalStatus || (isAdminEmail ? "approved" : "pending_review");
@@ -81,6 +82,7 @@ export default async function handler(req, res) {
 
     const changes=changedProfileFields(existing,patch);
     if(Object.keys(changes).length) await ref.set(changes, { merge: true });
+    if(['email','displayName','photoURL','approvalStatus','role'].some(key=>key in changes)) invalidateAdminDirectory(db);
     const includeData = String(req.query?.includeData || "") === "1";
     const cloud = includeData ? getCloudDataPayload({ ...existing, ...patch }) : null;
 

@@ -60,7 +60,7 @@ try {
         if(inspectionReads===1) return route.fulfill({status:503,json:{error:"QA unavailable"}});
         return route.fulfill({json:{ok:true,inspection:{uid:"qa-target",checkedAt:new Date().toISOString(),cloud:{dataPresent:true,dataShapeValid:true,transactionCount:scenario.includes("-restore")&&!adminRestored?0:68,walletCount:1,version:scenario.includes("-restore")?(adminRestored?9:8):7,onboarded:adminRestored,updatedAt:"2026-10-10T12:00:00Z"},backups:[]}}});
       }
-      return route.fulfill({json:{ok:true,users:[{uid:"qa-target",displayName:"QA target",email:"qa-target@example.invalid",approvalStatus:"approved",role:"user"}],stats:{total:1,approved:1,pending_review:0,rejected:0}}});
+      return route.fulfill({json:{ok:true,users:[{uid:"qa-target",displayName:"QA target",email:"qa-target@example.invalid",approvalStatus:"approved",role:"user"}],pagination:{hasMore:false,nextCursor:null},stats:{total:1,approved:1,pending_review:0,rejected:0}}});
     });
     await page.route("**/api/users/**", async route=>{
       const request = route.request();

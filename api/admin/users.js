@@ -5,31 +5,11 @@ import { consumeRateLimit } from "../_lib/rateLimit.js";
 import { readAccountDataInspection } from "../_lib/accountDataInspection.js";
 import { restoreAdminAccountBackup } from "../_lib/accountBackupRestore.js";
 import { respondToDatabaseError } from "../_lib/databaseErrors.js";
-
-let usersRequest=null;
+import { invalidateAdminDirectory, listAdminUsers, toAdminUser } from "../_lib/adminUserDirectory.js";
 
 const ALLOWED_STATUSES = ["pending_review", "approved", "rejected"];
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 128;
-
-function sortUsers(users) {
-  return users.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
-}
-
-const ADMIN_FIELDS = [
-  "email", "displayName", "photoURL", "role", "approvalStatus", "authProvider",
-  "buyerEmail", "orderId", "createdAt", "lastLoginAt", "lastSeenAt",
-  "reviewedAt", "reviewedBy", "approvedAt", "approvedBy", "adminNotes", "passwordUpdatedAt", "passwordUpdatedBy",
-];
-
-function toAdminUser(doc) {
-  const data = doc.data() || {};
-  const user = { uid: doc.id };
-  ADMIN_FIELDS.forEach((field) => {
-    if (data[field] !== undefined) user[field] = data[field];
-  });
-  return user;
-}
 
 export default async function handler(req, res) {
   const security = secureApi(req, res, { methods: ["GET", "POST"] });
@@ -44,21 +24,7 @@ export default async function handler(req, res) {
         const inspection=await readAccountDataInspection(db,req.query.inspectUid);
         return res.status(200).json({ok:true,inspection});
       }
-      // Collapse overlapping refreshes; do not retain a stale authorization result.
-      if(!usersRequest) usersRequest=db.collection("users").select(...ADMIN_FIELDS).get().finally(()=>{usersRequest=null;});
-      const snap = await usersRequest;
-      const users = sortUsers(snap.docs.map(toAdminUser));
-
-      const stats = users.reduce(
-        (acc, user) => {
-          acc.total += 1;
-          acc[user.approvalStatus || "pending_review"] = (acc[user.approvalStatus || "pending_review"] || 0) + 1;
-          return acc;
-        },
-        { total: 0, pending_review: 0, approved: 0, rejected: 0 }
-      );
-
-      return res.status(200).json({ ok: true, users, stats });
+      return res.status(200).json(await listAdminUsers(db,req.query||{}));
     }
 
     if (req.method === "POST") {
@@ -102,6 +68,7 @@ export default async function handler(req, res) {
             createdAt: now,
           }),
         ]);
+        invalidateAdminDirectory(db);
         return res.status(200).json({ ok: true });
       }
       const { uid, approvalStatus, adminNotes = "", buyerEmail, orderId } = req.body || {};
@@ -128,6 +95,7 @@ export default async function handler(req, res) {
       }
 
       await db.collection("users").doc(uid).set(patch, { merge: true });
+      invalidateAdminDirectory(db);
       const updated = await db.collection("users").doc(uid).get();
       return res.status(200).json({ ok: true, user: toAdminUser(updated) });
     }
