@@ -24,8 +24,10 @@ const localizedNumber = (token, hasMultiplier) => {
   return Number(decimal ? `${whole}.${fraction}` : `${whole}${fraction}`) || 0;
 };
 
-export const parseConversationalMoney = (value) => {
-  if (typeof value === "number") return Number.isFinite(value) ? Math.round(value) : 0;
+export const parseConversationalMoney = (value,currency='IDR') => {
+  const scale=currency==='TND'?1000:currency==='IDR'?1:100;
+  const round=value=>Math.round((value+Number.EPSILON)*scale)/scale;
+  if (typeof value === "number") return Number.isFinite(value) ? round(value) : 0;
   const text = String(value || "").toLowerCase();
   const match = text.match(/(?:rp|idr)?\s*([0-9][0-9.,]*)\s*(miliar|milyar|juta|ribu|jt|rb|k|m)?\b/i);
   if (!match) return 0;
@@ -37,7 +39,8 @@ export const parseConversationalMoney = (value) => {
       : /^(ribu|rb|k)$/.test(suffix)
         ? 1_000
         : 1;
-  return Math.round(localizedNumber(match[1], multiplier > 1) * multiplier);
+  const explicitFraction=currency==='TND'&&multiplier===1&&/^[0-9]+[.,][0-9]{1,3}$/.test(match[1]);
+  return round((explicitFraction?Number(match[1].replace(',','.')):localizedNumber(match[1], multiplier > 1))*multiplier);
 };
 
 export const inferTransactionType = (message, fallback = "") => {
@@ -51,22 +54,22 @@ export const inferTransactionType = (message, fallback = "") => {
   return ["pemasukan", "pengeluaran", "tabungan"].includes(fallback) ? fallback : "";
 };
 
-export const inferDirectTransactionAction = (message) => {
+export const inferDirectTransactionAction = (message,currency='IDR') => {
   const text = String(message || "").trim();
   // Debt payments need an installment link, not an unlinked cash-flow shortcut.
   if (/\b(?:utang|hutang|piutang|pinjaman|cicilan)(?:ku|nya)?\b/i.test(text)) return null;
   const declarativeTransaction = /\bsaya\s+(?:dapat|dapet|menerima|terima|bayar|membayar|beli|belanja)\b/i.test(text);
   if ((!executionSignal.test(text) && !declarativeTransaction) || ((hypotheticalSignal.test(text) || planningSignal.test(text)) && !executionSignal.test(text))) return null;
   const tipe = inferTransactionType(text);
-  const jml = parseConversationalMoney(text);
+  const jml = parseConversationalMoney(text,currency);
   if (!tipe || !jml) return null;
   return { action:"catat", tipe, ket:text, jml };
 };
 
-export const normalizeAiTransactionAction = (action, message) => {
+export const normalizeAiTransactionAction = (action, message,currency='IDR') => {
   if (!action || action.action !== "catat") return action;
   const tipe = inferTransactionType(message, action.tipe);
-  const messageAmount = parseConversationalMoney(message);
+  const messageAmount = parseConversationalMoney(message,currency);
   return {
     ...action,
     tipe:tipe || action.tipe,

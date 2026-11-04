@@ -5,6 +5,7 @@
 import { requireApprovedUser } from "../_lib/auth.js";
 import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
+import { parseMoneyNumber } from '../../src/moneyValue.js';
 
 async function getAccessToken(uid) {
   const db = getAdminDb();
@@ -73,7 +74,7 @@ export default async function handler(req, res) {
     const range = encodeURIComponent("Transaksi!A:H");
     const appendRes = await sheetsRequest(token, "POST",
       `/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
-      { values: [[safeSheetCell(tgl), safeSheetCell(ket), safeSheetCell(tipe), safeSheetCell(kategori), safeSheetCell(dompet), Number(jml)||0, safeSheetCell(id), now]] }
+      { values: [[safeSheetCell(tgl), safeSheetCell(ket), safeSheetCell(tipe), safeSheetCell(kategori), safeSheetCell(dompet), parseMoneyNumber(jml), safeSheetCell(id), now]] }
     );
 
     if (appendRes.error) throw new Error(appendRes.error.message);

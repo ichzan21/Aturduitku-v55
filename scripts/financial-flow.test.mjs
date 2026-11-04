@@ -7,6 +7,7 @@ import "./database-availability.test.mjs";
 import "./service-recovery.test.mjs";
 import "./scheduled-account-recovery.test.mjs";
 import "./admin-user-directory.test.mjs";
+import "./currency.test.mjs";
 import { readFile } from "node:fs/promises";
 import {
   applyTransactionToWallets,

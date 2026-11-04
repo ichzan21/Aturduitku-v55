@@ -1,5 +1,6 @@
 import { applyTransactionToWallets, moneyNumber, sameId, transactionValidationError } from "./financeLedger.js";
 import { budgetsForPeriod } from "./budgetPeriods.js";
+import { storeMoney } from './moneyValue.js';
 
 export const recordInvestment = (state, draft) => {
   const error = transactionValidationError(state.dompet, {...draft,tipe:"investasi"});
@@ -15,8 +16,8 @@ export const recordInvestment = (state, draft) => {
     txs:[transaction, ...state.txs],
     asetTetap:asset
       ? state.asetTetap.map(item => sameId(item.id, asset.id)
-        ? {...item, nilai:String(moneyNumber(item.nilai) + moneyNumber(transaction.jml))}
+        ? {...item, nilai:storeMoney(moneyNumber(item.nilai) + moneyNumber(transaction.jml))}
         : item)
-      : [...state.asetTetap, {id:transaction.asetId, nama:transaction.ket.trim(), nilai:String(moneyNumber(transaction.jml)), ket:""}],
+      : [...state.asetTetap, {id:transaction.asetId, nama:transaction.ket.trim(), nilai:storeMoney(moneyNumber(transaction.jml)), ket:""}],
   };
 };

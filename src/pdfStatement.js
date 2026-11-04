@@ -1,3 +1,5 @@
+import { parseMoneyNumber, storeMoney } from './moneyValue.js';
+
 const MONTHS = {
   jan: "01", feb: "02", mar: "03", apr: "04", mei: "05", may: "05", jun: "06",
   jul: "07", agu: "08", ags: "08", aug: "08", sep: "09", okt: "10", oct: "10",
@@ -10,20 +12,21 @@ const DATE_AT_START = new RegExp(`^\\s*(\\d{4}[\\/.\\-]\\d{1,2}[\\/.\\-]\\d{1,2}
 // Two shapes of money: currency-prefixed integers (e-wallets: "-Rp25.000", "IDR 50.000",
 // "Rp500") and separator/decimal numbers (bank tables: "1,544,000.00", "203.000,00").
 const MONEY_TOKEN = /[+\-]?\s*\b(?:Rp\.?|IDR)\s*[+\-]?\d+(?:[.,]\d{3})*(?:[.,]\d{2})?(?:\s*(?:DB|DR|CR|D|K|C)\b)?|[+\-]?(?:\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{2})?|\d+[.,]\d{2})(?:\s*(?:DB|DR|CR|D|K|C)\b)?/gi;
+const moneyToken=currency=>currency==='IDR'?MONEY_TOKEN:new RegExp(`[+\\-]?\\s*(?:MYR|RM|SGD|S\\$|THB|\u0e3f|TND|DT)?\\s*(?:\\d{1,3}(?:[.,\\s]\\d{3})+(?:[.,]\\d{${currency==='TND'?3:2}})?|\\d+[.,]\\d{${currency==='TND'?3:2}})(?:\\s*(?:DB|DR|CR|D|K|C)\\b)?`,'gi');
 const SKIP_LINE = /^(?:page|halaman|tanggal\s+transaksi|transaction\s+date|date\s+description|saldo\s+awal|opening\s+balance|saldo\s+akhir|closing\s+balance|total\s+(?:debit|debet|kredit|credit))/i;
 // Page furniture (bank footers, page headers, column headers). A record stops
 // absorbing continuation lines once one of these appears, so page-break junk
 // never leaks into transaction descriptions.
 const NOISE_LINE = /^(?:pt\.?\s+bank\b|peserta\s+penjamin|serta\s+merupakan|bersambung\s+ke\s+halaman|informasi\s+lainnya|laporan\s+(?:mutasi|transaksi)\b|statement\s+of\s+financial|no\.?\s+(?:date|tanggal)\b|tanggal\s*&\s*waktu|tanggal\s+keterangan\s+cbg|created\s+by\s+brimo|mandiri\s+call|menara\s+mandiri|e-statement$|rekening\s+tahapan\b|nama\s*\/\s*name\b|cabang\s*\/\s*branch\b|kepada\s+yth|terbilang\s*\/|in\s+words|c\s*a\s*t\s*a\s*t\s*a\s*n|k\s+c\s+p\b|•|\d+\s+(?:dari|of)\s+\d+$)/i;
 
-const cleanNumber = value => {
-  let raw = String(value || "").replace(/Rp\.?/gi, "").replace(/\bIDR\b/gi, "").replace(/\s+/g, "").replace(/(?:DB|DR|CR|D|K|C)$/i, "");
+const cleanNumber = (value,currency='IDR') => {
+  let raw = String(value || "").replace(/Rp\.?/gi, "").replace(/\b(?:IDR|MYR|RM|SGD|THB|TND|DT)\b|S\$|\u0e3f/gi, "").replace(/\s+/g, "").replace(/(?:DB|DR|CR|D|K|C)$/i, "");
   const negative = raw.startsWith("-");
   raw = raw.replace(/^[+\-]/, "");
   const lastComma = raw.lastIndexOf(",");
   const lastDot = raw.lastIndexOf(".");
   const decimalAt = Math.max(lastComma, lastDot);
-  if (decimalAt >= 0 && raw.length - decimalAt - 1 === 2) raw = raw.slice(0, decimalAt).replace(/[.,]/g, "") + "." + raw.slice(decimalAt + 1);
+  if (decimalAt >= 0 && raw.length - decimalAt - 1 === (currency==='TND'?3:2)) raw = raw.slice(0, decimalAt).replace(/[.,]/g, "") + "." + raw.slice(decimalAt + 1);
   else raw = raw.replace(/[.,]/g, "");
   const number = Number(raw) || 0;
   return negative ? -number : number;
@@ -81,7 +84,7 @@ const descriptionFor = (record, dateToken, money) => {
   return description || "Transaksi bank";
 };
 
-export const parsePdfStatementLines = (inputLines, bank = "Generic") => {
+export const parsePdfStatementLines = (inputLines, bank = "Generic",currency='IDR') => {
   const lines = (inputLines || []).map(line => String(line || "").replace(/\s+/g, " ").trim()).filter(Boolean);
   const fullText = lines.join("\n");
   const year = inferYear(fullText);
@@ -117,31 +120,31 @@ export const parsePdfStatementLines = (inputLines, bank = "Generic") => {
   return records.map((record, recordIndex) => {
     const dateMatch = record.match(DATE_AT_START);
     const recordWithoutDate = dateMatch ? record.replace(dateMatch[1], " ") : record;
-    const money = recordWithoutDate.match(MONEY_TOKEN) || [];
+    const money = recordWithoutDate.match(moneyToken(currency)) || [];
     if (!dateMatch || !money.length) return null;
     if (/\b(?:saldo awal|opening balance)\b/i.test(record)) return null;
     let direction = bank === "BCA" && /\bKR\b/i.test(record)
       ? "pemasukan"
       : directionFor(record, money);
-    const values = money.map(cleanNumber).filter(value => Math.abs(value) > 0);
+    const values = money.map(value=>cleanNumber(value,currency)).filter(value => Math.abs(value) > 0);
     if (!values.length) return null;
     let amount = 0;
     if (hasDebitCreditColumns && money.length >= 3) {
-      const debit = Math.abs(cleanNumber(money[money.length - 3]));
-      const credit = Math.abs(cleanNumber(money[money.length - 2]));
+      const debit = Math.abs(cleanNumber(money[money.length - 3],currency));
+      const credit = Math.abs(cleanNumber(money[money.length - 2],currency));
       if (credit > 0 && debit === 0) { direction = "pemasukan"; amount = credit; }
       else if (debit > 0 && credit === 0) { direction = "pengeluaran"; amount = debit; }
     }
     if (!amount) {
       const markerIndex = money.findIndex(token => /(?:DB|DR|CR|D|K|C)\s*$/i.test(token));
-      amount = Math.abs(markerIndex >= 0 ? cleanNumber(money[markerIndex]) : values[0]);
+      amount = Math.abs(markerIndex >= 0 ? cleanNumber(money[markerIndex],currency) : values[0]);
     }
     const tgl = isoDate(dateMatch[1], year);
     if (!tgl || !amount) return null;
     return {
       tgl,
       ket: descriptionFor(record, dateMatch[1], money),
-      jml: String(Math.round(amount)),
+      jml: storeMoney(currency==='IDR'?Math.round(amount):amount),
       tipe: direction || "pengeluaran",
       katId: 9,
       bank,
@@ -151,27 +154,27 @@ export const parsePdfStatementLines = (inputLines, bank = "Generic") => {
   }).filter(Boolean);
 };
 
-const amountsIn = line => (String(line || "").match(MONEY_TOKEN) || []).map(value => Math.abs(cleanNumber(value)));
-const nearbyAmounts = (lines, index, count = 4) => {
+const amountsIn = (line,currency='IDR') => (String(line || "").match(moneyToken(currency)) || []).map(value => Math.abs(cleanNumber(value,currency)));
+const nearbyAmounts = (lines, index, count = 4,currency='IDR') => {
   for (let offset = 0; offset <= 4; offset += 1) {
-    const values = amountsIn(lines[index + offset]);
+    const values = amountsIn(lines[index + offset],currency);
     if (values.length >= count) return values;
   }
   return [];
 };
 
-export const extractPdfStatementSummary = inputLines => {
+export const extractPdfStatementSummary = (inputLines,currency='IDR') => {
   const lines = (inputLines || []).map(line => String(line || "").replace(/\s+/g, " ").trim()).filter(Boolean);
   const findValue = pattern => {
     const index = lines.findIndex(line => pattern.test(line));
     if (index < 0) return null;
-    const own = amountsIn(lines[index]);
+    const own = amountsIn(lines[index],currency);
     if (own.length) return own[own.length - 1];
-    return amountsIn(lines[index + 1] || "")[0] ?? null;
+    return amountsIn(lines[index + 1] || "",currency)[0] ?? null;
   };
   const combinedIndex = lines.findIndex(line => /saldo awal/i.test(line) && /(?:saldo akhir|total.*(?:debit|debet|kredit|credit)|dana masuk)/i.test(line));
   if (combinedIndex >= 0) {
-    const values = nearbyAmounts(lines, combinedIndex + 1, 4);
+    const values = nearbyAmounts(lines, combinedIndex + 1, 4,currency);
     if (values.length >= 4) {
       const header = `${lines[combinedIndex]} ${lines[combinedIndex + 1] || ""}`.toLowerCase();
       const debitFirst = header.search(/(?:debit|debet)/) >= 0 && header.search(/(?:debit|debet)/) < header.search(/(?:credit|kredit)/);
@@ -189,16 +192,16 @@ export const extractPdfStatementSummary = inputLines => {
     : null;
 };
 
-export const validatePdfStatement = (inputLines, rows) => {
-  const expected = extractPdfStatementSummary(inputLines);
+export const validatePdfStatement = (inputLines, rows,currency='IDR') => {
+  const expected = extractPdfStatementSummary(inputLines,currency);
   const actual = (rows || []).reduce((totals, row) => {
-    const amount = Number(row.jml) || 0;
+    const amount = parseMoneyNumber(row.jml);
     if (row.tipe === "pemasukan") totals.income += amount;
     if (row.tipe === "pengeluaran") totals.expense += amount;
     return totals;
   }, { income:0, expense:0 });
   if (!expected) return { hasReference:false, accurate:true, expected:null, actual };
-  const closeEnough = (left, right) => Math.abs(Number(left) - Number(right)) <= 1;
+  const closeEnough = (left, right) => Math.abs(Number(left) - Number(right)) <= (currency==='TND'?.001:currency==='IDR'?1:.01)+1e-8;
   const referenceBalanced = closeEnough(expected.opening + expected.income - expected.expense, expected.closing);
   const accurate = referenceBalanced && closeEnough(actual.income, expected.income) && closeEnough(actual.expense, expected.expense);
   return { hasReference:true, accurate, referenceBalanced, expected, actual };

@@ -1,10 +1,5 @@
-export const moneyNumber = value => {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  const normalized = String(value ?? "").trim().replace(/[^\d-]/g, "");
-  if (!normalized || normalized === "-") return 0;
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
+import { parseMoneyNumber, roundMoney, storeMoney } from './moneyValue.js';
+export const moneyNumber = parseMoneyNumber;
 
 export const sameId = (left, right) => String(left ?? "") === String(right ?? "");
 
@@ -12,11 +7,7 @@ export const sameId = (left, right) => String(left ?? "") === String(right ?? ""
 // app just computed. Indonesian strings use "." for thousands and "," for
 // decimals ("1.500.000,50"), but a number is taken as-is: stripping the "." from
 // a computed 120689.65 would silently turn it into 12,068,965.
-export const displayNumber = value => {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  const raw = String(value || 0).replace(/[^0-9.,-]/g, "").replace(/\./g, "").replace(",", ".");
-  return parseFloat(raw) || 0;
-};
+export const displayNumber = parseMoneyNumber;
 
 export const walletDeltasForTransaction = transaction => {
   const tx = transaction || {};
@@ -26,7 +17,7 @@ export const walletDeltasForTransaction = transaction => {
   const add = (walletId, delta) => {
     if (walletId === undefined || walletId === null || walletId === "" || !delta) return;
     const key = String(walletId);
-    deltas.set(key, (deltas.get(key) || 0) + delta);
+    deltas.set(key, roundMoney((deltas.get(key) || 0) + delta));
   };
 
   if (tx.tipe === "transfer") {
@@ -61,7 +52,7 @@ export const applyTransactionToWallets = (wallets, transaction, direction = 1) =
     const delta = deltas.get(String(wallet.id));
     return delta === undefined
       ? wallet
-      : { ...wallet, saldo:String(moneyNumber(wallet.saldo) + (delta * direction)) };
+      : { ...wallet, saldo:storeMoney(moneyNumber(wallet.saldo) + (delta * direction)) };
   });
 };
 
@@ -417,7 +408,7 @@ export const reconcileImportedStatement = (existingTransactions, wallets, incomi
   let nextWallets = added.reduce((all, transaction) => applyTransactionToWallets(all, transaction), restoredWallets);
   if (options.closingBalance !== null && options.closingBalance !== undefined) {
     nextWallets = nextWallets.map(wallet => sameId(wallet.id, walletId)
-      ? { ...wallet, saldo:String(Math.round(Number(options.closingBalance) || 0)) }
+      ? { ...wallet, saldo:storeMoney(!options.currency||options.currency==='IDR'?Math.round(moneyNumber(options.closingBalance)):options.closingBalance) }
       : wallet);
   }
   return { transactions:[...remaining, ...added], wallets:nextWallets, importedCount:added.length, replacedCount:replaced.length };

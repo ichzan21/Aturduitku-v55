@@ -4,6 +4,7 @@
 import { requireApprovedUser } from "../_lib/auth.js";
 import { getAdminDb } from "../_lib/firebaseAdmin.js";
 import { assertJsonSize, secureApi } from "../_lib/httpSecurity.js";
+import { formatMoney, normalizeCurrency } from '../../src/moneyFormat.js';
 
 async function getAccessToken(uid) {
   const db = getAdminDb();
@@ -56,6 +57,9 @@ export default async function handler(req, res) {
     assertJsonSize(req.body, 16_000);
     const uid = decoded.uid;
     const userName = String(req.body?.userName || decoded.name || "User").slice(0, 80);
+    const account=await getAdminDb().collection('users').doc(uid).get();
+    const currency=normalizeCurrency(account.data()?.data?.currency);
+    const money=value=>formatMoney(value,currency,{portable:true});
     const token = await getAccessToken(uid);
     const now = new Date();
     const bulan = now.toLocaleString("id-ID", { month: "long" });
@@ -82,24 +86,24 @@ export default async function handler(req, res) {
         { range:"Ringkasan!A2:C2", values:[[`Periode: ${bulan} ${tahun}`, `Nama: ${userName||"User"}`, `Dibuat: ${now.toLocaleDateString("id-ID")}`]] },
         { range:"Ringkasan!A4:D4", values:[["RINGKASAN BULANAN","","JUMLAH","KETERANGAN"]] },
         { range:"Ringkasan!A5:D9", values:[
-          ["💰 Total Pemasukan","","Rp 0","Bulan ini"],
-          ["💸 Total Pengeluaran","","Rp 0","Bulan ini"],
-          ["🏦 Total Tabungan","","Rp 0","Bulan ini"],
-          ["💹 Net Cashflow","","Rp 0","Surplus / Defisit"],
-          ["💼 Total Saldo","","Rp 0","Semua dompet"],
+          ["💰 Total Pemasukan","",money(0),"Bulan ini"],
+          ["💸 Total Pengeluaran","",money(0),"Bulan ini"],
+          ["🏦 Total Tabungan","",money(0),"Bulan ini"],
+          ["💹 Net Cashflow","",money(0),"Surplus / Defisit"],
+          ["💼 Total Saldo","",money(0),"Semua dompet"],
         ]},
         { range:"Ringkasan!A11:D11", values:[["📊 Rasio Tabungan","","0%","Ideal ≥ 20%"]] },
         { range:"Ringkasan!A13:C13", values:[["DOMPET","TIPE","SALDO"]] },
         { range:"Transaksi!A1:H1", values:[["TANGGAL","KETERANGAN","TIPE","KATEGORI","DOMPET","JUMLAH","ID","DICATAT"]] },
         { range:"Anggaran!A1:F1", values:[["KATEGORI","ANGGARAN","REALISASI","SISA","%","STATUS"]] },
         { range:"Anggaran!A2:F8", values:[
-          ["Makan & Minum","Rp 800.000","Rp 0","Rp 800.000","0%","Aman"],
-          ["Transportasi","Rp 500.000","Rp 0","Rp 500.000","0%","Aman"],
-          ["Tagihan","Rp 800.000","Rp 0","Rp 800.000","0%","Aman"],
-          ["Belanja","Rp 600.000","Rp 0","Rp 600.000","0%","Aman"],
-          ["Kesehatan","Rp 300.000","Rp 0","Rp 300.000","0%","Aman"],
-          ["Hiburan","Rp 200.000","Rp 0","Rp 200.000","0%","Aman"],
-          ["Lainnya","Rp 200.000","Rp 0","Rp 200.000","0%","Aman"],
+          ["Makan & Minum",money(800000),money(0),money(800000),"0%","Aman"],
+          ["Transportasi",money(500000),money(0),money(500000),"0%","Aman"],
+          ["Tagihan",money(800000),money(0),money(800000),"0%","Aman"],
+          ["Belanja",money(600000),money(0),money(600000),"0%","Aman"],
+          ["Kesehatan",money(300000),money(0),money(300000),"0%","Aman"],
+          ["Hiburan",money(200000),money(0),money(200000),"0%","Aman"],
+          ["Lainnya",money(200000),money(0),money(200000),"0%","Aman"],
         ]},
       ],
     });

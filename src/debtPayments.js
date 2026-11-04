@@ -1,4 +1,5 @@
 import { moneyNumber, sameId } from './financeLedger.js';
+import { roundMoney, storeMoney } from './moneyValue.js';
 
 const hasId = value => value !== undefined && value !== null && value !== '';
 const text = value => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -33,7 +34,7 @@ const reversePaymentGoal = (goals, tx, debtName) => {
     && moneyNumber(entry.jml) === moneyNumber(tx.jml) && text(entry.ket) === text(`Pengembalian piutang: ${debtName}`) ? [index] : []);
   if (historyIndices.length !== 1) throw failure();
   return goals.map(item => item !== goal ? item : {...goal,
-    kumpul:String(moneyNumber(goal.kumpul) - moneyNumber(tx.jml)),
+    kumpul:storeMoney(moneyNumber(goal.kumpul) - moneyNumber(tx.jml)),
     history:goal.history.filter((_, index) => index !== historyIndices[0]),
   });
 };
@@ -64,7 +65,7 @@ export function reverseDebtPayment(state, tx) {
     if (competing.length !== 1 || !sameId(competing[0].id, tx.id)) throw failure();
   }
   const cicilan = link.debt.cicilan.filter((_, index) => index !== link.index);
-  const lunas = cicilan.reduce((sum, payment) => sum + moneyNumber(payment.jml), 0) >= moneyNumber(link.debt.jml);
+  const lunas = roundMoney(cicilan.reduce((sum, payment) => sum + moneyNumber(payment.jml), 0)) >= moneyNumber(link.debt.jml);
   const updated = {...link.debt, cicilan, lunas};
   if (text(updated.status) === 'lunas') updated.status = lunas ? 'lunas' : 'aktif';
   const goals = reversePaymentGoal(state.goals, tx, link.debt.nama);

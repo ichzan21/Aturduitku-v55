@@ -1,9 +1,10 @@
 import { moneyNumber } from "./financeLedger.js";
+import { roundMoney } from './moneyValue.js';
 
-export const remainingDebtAmount = debt => Math.max(
+export const remainingDebtAmount = debt => roundMoney(Math.max(
   moneyNumber(debt?.jml) - (debt?.cicilan || []).reduce((sum, payment) => sum + moneyNumber(payment.jml), 0),
   0,
-);
+));
 
 export const isOutstandingDebt = debt =>
   debt?.lunas !== true && String(debt?.status || "").trim().toLowerCase() !== "lunas" && remainingDebtAmount(debt) > 0;

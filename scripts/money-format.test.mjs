@@ -11,8 +11,8 @@ assert.equal(formatRupiah(217500), "Rp 217.500", "Daftar transaksi wajib menampi
 assert.equal(formatRupiah(-217500), "-Rp 217.500");
 
 const source = await (await import("node:fs/promises")).readFile("src/App.jsx", "utf8");
-assert.match(source, /const idrs = formatCompactRupiah;/, "Export PDF harus memakai formatter presisi");
+assert.ok(source.includes("const idrs = value=>IDRs(value)"), "Export PDF harus memakai formatter mata uang aktif");
 assert.doesNotMatch(source, /\(a\/1e3\)\.toFixed\(0\)\+"rb"/, "Tidak boleh ada pembulatan rb lama di tampilan");
-assert.match(source, /\}\{formatRupiah\(N\(t\.jml\)\)\}/, "Daftar transaksi harus memakai nominal penuh");
+assert.ok(source.includes("}{IDR(N(t.jml))}"), "Daftar transaksi harus memakai nominal penuh dari mata uang aktif");
 
 console.log("Money format tests passed");

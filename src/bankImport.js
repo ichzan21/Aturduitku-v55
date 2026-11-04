@@ -1,3 +1,5 @@
+import { storeMoney } from './moneyValue.js';
+
 const PROVIDERS = [
   ["BCA", /bank central asia|klik\s*bca|mybca|bca mobile/i],
   ["Mandiri", /bank mandiri|livin'? by mandiri|livin|mandiri/i],
@@ -89,7 +91,7 @@ const delimiterScore = (lines, delimiter) => lines.slice(0, 20).reduce((score, l
 
 const detectDelimiter = lines => [",", ";", "\t", "|"].sort((a, b) => delimiterScore(lines, b) - delimiterScore(lines, a))[0];
 
-const parseAmount = value => {
+const parseAmount = (value,currency='IDR') => {
   let raw = String(value ?? "").trim();
   if (!raw || /^-$/.test(raw)) return 0;
   const negative = /^\s*[-(]/.test(raw) || /\b(?:db|dr|debit|debet)\b/i.test(raw);
@@ -100,7 +102,7 @@ const parseAmount = value => {
   const dot = raw.lastIndexOf(".");
   const lastSeparator = Math.max(comma, dot);
   const decimals = lastSeparator >= 0 ? raw.length - lastSeparator - 1 : 0;
-  if (lastSeparator >= 0 && decimals > 0 && decimals <= 2) {
+  if (lastSeparator >= 0 && decimals > 0 && decimals <= (currency==='TND'?3:2)) {
     raw = `${raw.slice(0, lastSeparator).replace(/[.,]/g, "")}.${raw.slice(lastSeparator + 1)}`;
   } else {
     raw = raw.replace(/[.,]/g, "");
@@ -215,7 +217,7 @@ export const walletDraftForProvider = provider => {
   return { tipe, nama:provider, norek:"", saldo:"0" };
 };
 
-export const parseStatementCSV = (text, provider = "Generic") => {
+export const parseStatementCSV = (text, provider = "Generic", currency='IDR') => {
   const rawLines = String(text || "").replace(/^\uFEFF/, "").split(/\r?\n/).filter(line => line.trim());
   if (!rawLines.length) return [];
   const delimiter = detectDelimiter(rawLines);
@@ -241,10 +243,10 @@ export const parseStatementCSV = (text, provider = "Generic") => {
     const tgl = toIsoDate(valueAt(columns, fields.date));
     if (!tgl) continue;
     const description = valueAt(columns, fields.description) || "Transaksi";
-    const debit = Math.abs(parseAmount(valueAt(columns, fields.debit)));
-    const credit = Math.abs(parseAmount(valueAt(columns, fields.credit)));
+    const debit = Math.abs(parseAmount(valueAt(columns, fields.debit),currency));
+    const credit = Math.abs(parseAmount(valueAt(columns, fields.credit),currency));
     const rawAmount = valueAt(columns, fields.amount);
-    const signedAmount = parseAmount(rawAmount);
+    const signedAmount = parseAmount(rawAmount,currency);
     const typeText = `${valueAt(columns, fields.type)} ${rawAmount} ${description}`;
     let tipe = "";
     let amount = 0;
@@ -258,7 +260,7 @@ export const parseStatementCSV = (text, provider = "Generic") => {
     rows.push({
       tgl,
       ket: description,
-      jml: String(amount),
+      jml: storeMoney(amount),
       tipe: tipe || "pengeluaran",
       bank: detectedProvider,
       sourceIndex,
