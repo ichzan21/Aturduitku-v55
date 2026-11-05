@@ -9372,15 +9372,15 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           ══════════════════════════════════════════════════════════ */}
           {page==="amplop"&&<>
             {/* Hero */}
-            <div style={{background:T.hero,borderRadius:16,padding:"20px 26px",marginBottom:20,color:"white"}}>
+            <div data-testid="envelope-summary" style={{background:T.hero,borderRadius:16,padding:"20px 26px",marginBottom:20,color:"white"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
-                <div>
+                <div style={{minWidth:0,maxWidth:"100%"}}>
                   <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>{t("totalEnvFunds")}</div>
-                  <div style={{fontSize:28,fontWeight:900,marginBottom:4}}>{IDR(amplopTotal)}</div>
+                  <div data-testid="envelope-total" style={{fontSize:IDR(amplopTotal).length>18?18:IDR(amplopTotal).length>14?22:28,fontWeight:900,marginBottom:4,overflowWrap:"anywhere",fontVariantNumeric:"tabular-nums"}}>{IDR(amplopTotal)}</div>
                   <div style={{display:"flex",gap:10,fontSize:12,flexWrap:"wrap"}}>
                     <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px"}}>Amplop: {s.amplop.length}</div>
-                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px"}}>Terpakai: {IDRs(amplopTerpakai)}</div>
-                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px"}}>{t("envelopeLeft")}: {IDRs(amplopTotal-amplopTerpakai)}</div>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px",maxWidth:"100%",overflowWrap:"anywhere",fontVariantNumeric:"tabular-nums"}}>Terpakai: <span data-testid="envelope-used">{IDR(amplopTerpakai)}</span></div>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px",maxWidth:"100%",overflowWrap:"anywhere",fontVariantNumeric:"tabular-nums"}}>{t("envelopeLeft")}: <span data-testid="envelope-remaining">{IDR(amplopTotal-amplopTerpakai)}</span></div>
                   </div>
                 </div>
                 <Btn onClick={()=>setShowAddAmplop(!showAddAmplop)} ch={showAddAmplop?"Tutup form":t("createEnvelope")} style={{padding:"10px 18px",background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.4)",color:"white"}}/>

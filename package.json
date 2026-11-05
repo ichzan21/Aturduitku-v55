@@ -43,6 +43,7 @@
     "test:e2e:database": "node scripts/e2e-database-availability.mjs",
     "test:e2e:admin-directory": "node scripts/e2e-admin-directory.mjs",
     "test:e2e:currency": "node scripts/e2e-currency.mjs",
+    "test:e2e:envelope-amounts": "node scripts/e2e-envelope-amounts.mjs",
     "test:e2e:service-recovery": "node scripts/e2e-service-recovery.mjs",
     "test:e2e:keyboard": "node scripts/e2e-keyboard-layout.mjs",
     "build": "npm run check:secrets && vite build",
