@@ -9275,7 +9275,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                           </div>
                           <div data-testid="budget-allocation-grid" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:8,marginBottom:10,minWidth:0}}>
                             <div style={{gridColumn:"1/-1",minWidth:0}}><label style={LS}>{lang==="en"?"Funding wallet":"Dompet sumber"}</label><select aria-label={`${lang==="en"?"Funding wallet":"Dompet sumber"} ${b.kat}`} value={sourceWallet?String(b.dompetId):""} onChange={e=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,dompetId:e.target.value})}))} style={{...IS,minWidth:0,marginBottom:0}}><option value="">{lang==="en"?"All wallets":"Semua dompet"}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>
-                            <div style={{minWidth:0}}><label style={LS}>{b.sub.length?(lang==="en"?"Main allocation":"Alokasi utama"):"Alokasi"}</label><CurIn value={b.alokasi} onChange={v=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,alokasi:v})}))} style={{minWidth:0,height:58,fontSize:14,fontWeight:750,margin:0}}/></div>
+                            <div style={{minWidth:0}}><label style={LS}>{b.sub.length?(lang==="en"?"Main allocation":"Alokasi utama"):"Alokasi"}</label><CurIn aria-label={`${lang==="en"?"Main allocation":"Alokasi utama"} ${b.kat} (${currencySymbol})`} value={b.alokasi} onChange={v=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,alokasi:v})}))} style={{minWidth:0,height:58,fontSize:14,fontWeight:750,margin:0}}/></div>
                             <div style={{minWidth:0}}><label style={LS}>Realisasi</label>
                             <button type="button" aria-expanded={sameId(expandedBudgetId,b.id)} aria-controls={`budget-realization-${b.id}`} onClick={()=>setExpandedBudgetId(current=>sameId(current,b.id)?null:b.id)} style={{width:"100%",minWidth:0,height:58,padding:"8px 10px",borderRadius:9,border:`1.5px dashed ${over?T.errBorder:unallocated?T.warnBorder:T.infoBorder}`,background:over?T.errBg:unallocated?T.warnBg:T.infoBg,color:over?T.err:unallocated?T.warn:T.info,textAlign:"left",cursor:"pointer",fontFamily:"inherit",overflow:"hidden"}}>
                               <span style={{display:"block",fontWeight:850,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{IDRs(spend)||`${currencySymbol} 0`}</span>
@@ -9315,8 +9315,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                             const billRef=`${b.id}:${si}`;
                             const paid=getBillPayment(txBulan,b,sb,si,`${yr}-${String(bulanIdx+1).padStart(2,"0")}`).paid;
                             const bill={...sb,kat:b.kat,katId:b.id,subIndex:si,billRef,paid};
-                            return <div key={si} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:paid?T.okBg:T.cardAlt,borderRadius:8,marginBottom:4,border:`1px solid ${paid?T.okBorder:T.borderLight}`}}>
-                              <div style={{display:"flex",gap:7,alignItems:"center"}}>
+                            return <div key={si} data-testid="budget-subcategory-row" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,alignItems:"center",padding:"10px",background:paid?T.okBg:T.cardAlt,borderRadius:8,marginBottom:6,border:`1px solid ${paid?T.okBorder:T.borderLight}`,minWidth:0}}>
+                              <div style={{display:"flex",gap:7,alignItems:"center",minWidth:0}}>
                                 <select
                                   aria-label={`Ubah ikon ${sb.nama}`}
                                   title="Ubah ikon"
@@ -9326,12 +9326,15 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                                 >
                                   {[uiIcon(sb.emoji),...SUBCATEGORY_ICONS].filter((icon,index,all)=>all.indexOf(icon)===index).map(icon=><option key={icon} value={icon}>{icon}</option>)}
                                 </select>
-                                <div><div style={{fontSize:12,fontWeight:600,color:T.text}}>{sb.nama}</div>{sb.tempo&&<div style={{fontSize:10,color:T.muted}}>Tagihan tgl {sb.tempo}</div>}</div>
+                                <div style={{minWidth:0,overflowWrap:"anywhere"}}><div style={{fontSize:12,fontWeight:600,color:T.text}}>{sb.nama}</div>{sb.tempo&&<div style={{fontSize:10,color:T.muted}}>Tagihan tgl {sb.tempo}</div>}</div>
                               </div>
-                              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                                <span style={{fontSize:12,fontWeight:700,color:T.text}}>{IDRs(N(sb.alokasi))}</span>
+                              <div style={{display:"flex",gap:6,alignItems:"center"}}>
                                 {sb.tempo&&(paid?<span style={{fontSize:9,color:T.ok,fontWeight:900}}>LUNAS</span>:<button onClick={()=>setModal({type:"payBill",bill,walletId:s.dompet[0]?.id||"",amount:storeMoney(N(sb.alokasi))})} style={{background:T.okBg,border:`1px solid ${T.okBorder}`,color:T.ok,borderRadius:7,padding:"4px 6px",fontSize:9,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>Bayar</button>)}
-                                <button onClick={()=>confirmDelete({title:"Hapus subkategori?",msg:`Subkategori "${sb.nama}" akan dihapus dari budget ${b.kat}.`,toastMsg:"Subkategori dihapus",onConfirm:()=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:x.sub.filter((_,j)=>j!==si)})}))})} style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:12,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>X</button>
+                                <button type="button" aria-label={`${lang==="en"?"Delete subcategory":"Hapus subkategori"} ${sb.nama}`} title={lang==="en"?"Delete subcategory":"Hapus subkategori"} onClick={()=>confirmDelete({title:"Hapus subkategori?",msg:`Subkategori "${sb.nama}" akan dihapus dari budget ${b.kat}.`,toastMsg:"Subkategori dihapus",onConfirm:()=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:x.sub.filter((_,j)=>j!==si)})}))})} style={{width:44,height:44,display:"inline-flex",alignItems:"center",justifyContent:"center",background:"none",border:"none",cursor:"pointer",color:T.muted,borderRadius:6}} onMouseEnter={e=>e.currentTarget.style.color=T.err} onMouseLeave={e=>e.currentTarget.style.color=T.muted}><X size={16} aria-hidden="true"/></button>
+                              </div>
+                              <div style={{gridColumn:"1/-1",minWidth:0}}>
+                                <label htmlFor={`subcategory-allocation-${b.id}-${si}`} style={{...LS,fontSize:10}}>{lang==="en"?"Allocation":"Alokasi"} ({currencySymbol})</label>
+                                <CurIn id={`subcategory-allocation-${b.id}-${si}`} aria-label={`${lang==="en"?"Subcategory allocation":"Alokasi subkategori"} ${sb.nama} (${currencySymbol})`} value={sb.alokasi} onChange={value=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:x.sub.map((item,j)=>j===si?{...item,alokasi:value}:item)})}))} style={{minWidth:0,height:44,fontSize:16,fontWeight:700,margin:0}}/>
                               </div>
                             </div>
                           })}

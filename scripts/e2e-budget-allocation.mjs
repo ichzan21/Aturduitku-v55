@@ -67,7 +67,7 @@ try {
     assert.equal(await over.getByText('Over',{exact:true}).count(),1);
     await transport.screenshot({path:`.e2e-artifacts/budget-allocation-${width}.png`});
     await over.screenshot({path:`.e2e-artifacts/budget-over-${width}.png`});
-    await transport.getByRole('textbox').fill('100000');
+    await transport.getByLabel('Alokasi utama Transportasi (Rp)',{exact:true}).fill('100000');
     await page.waitForFunction(()=>JSON.parse(localStorage.getItem('aturduitku_data')).budgets[0].alokasi==='100000');
     assert.match(await transport.getByTestId('budget-usage-summary').innerText(),/106% terpakai[\s\S]*Lebih: Rp 11\.000/);
     await page.waitForTimeout(1900);

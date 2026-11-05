@@ -28,6 +28,14 @@ move('November');
 assert.equal(state.budgets[0].alokasi,'300000');
 assert.equal(state.prevPengeluaran,'450000');
 
+const subEdited=updateBudgetPeriods(state,p=>({...p,budgets:p.budgets.map(b=>b.id!==2?b:{...b,sub:b.sub.map((item,index)=>index?item:{...item,alokasi:'125,123'})})}));
+assert.equal(getBudgetAllocation(subEdited.budgets[1]).total,100125.123,'Inline fractional subcategory changes update the total');
+assert.equal(budgetsForPeriod(subEdited,'2026-10')[1].sub[0].alokasi,'200000','Editing a subcategory must leave the prior month untouched');
+assert.deepEqual(subEdited.txs,state.txs);
+assert.deepEqual(subEdited.dompet,state.dompet);
+const appSource=readFileSync(new URL('../src/App.jsx',import.meta.url),'utf8');
+assert.ok(appSource.includes('id={`subcategory-allocation-${b.id}-${si}`}'),'Existing subcategories expose an editable amount field');
+
 // Subcategories, source wallets, deletion and AI/template edits use the same boundary.
 state=updateBudgetPeriods(state,p=>({...p,budgets:p.budgets.map(b=>b.id===2?{...b,dompetId:'bank',sub:[{nama:'Internet',alokasi:'100000'}]}:b)}));
 move('Oktober');

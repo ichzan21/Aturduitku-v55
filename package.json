@@ -35,6 +35,7 @@
     "test:e2e:receivables": "node scripts/e2e-receivable-regression.mjs",
     "test:e2e:debt-delete": "node scripts/e2e-debt-payment-delete.mjs",
     "test:e2e:budget-allocation": "node scripts/e2e-budget-allocation.mjs",
+    "test:e2e:subcategory-allocation": "node scripts/e2e-subcategory-allocation.mjs",
     "test:e2e:google-login": "node scripts/e2e-google-login.mjs",
     "test:e2e:cashflow-balance": "node scripts/e2e-cashflow-balance.mjs",
     "test:e2e:account-reset": "node scripts/e2e-account-reset.mjs",
