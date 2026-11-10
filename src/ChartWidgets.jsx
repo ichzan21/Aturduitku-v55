@@ -113,7 +113,7 @@ export const DonutChart = ({ pieData, pieColors, T, idr, height=160, outerRadius
         stroke={T.card}
         strokeWidth={2}
       >
-        {pieData.map((_, i) => <Cell key={i} fill={pieColors[i % pieColors.length]}/>)}
+        {pieData.map((entry, i) => <Cell key={i} fill={pieColors[i % pieColors.length]} aria-label={`${entry.name}: ${idr(entry.value)}`}/>)}
       </Pie>
       {showLabel && isMobile && pieData.length === 1 && (
         <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fill={T.text} fontSize="18" fontWeight="800">100%</text>

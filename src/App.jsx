@@ -1,6 +1,9 @@
 import React, { Suspense, useState, useEffect, useMemo, useRef, useCallback, createContext, useContext } from "react";
 import { createPortal } from "react-dom";
-import { Search, X } from "lucide-react";
+import { Search, X, ArrowUpRight, Calculator as CalculatorIcon } from "lucide-react";
+import DialogSurface from "./DialogSurface.jsx";
+import Field from "./Field.jsx";
+import { returnEnvelopeFunds, reverseEnvelopeReturn } from "./envelopeReturn.js";
 import {
   getCurrentIdToken, onAuthChange, sendResetPassword, sendVerificationEmail, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
 } from "./firebaseClient.js";
@@ -63,27 +66,27 @@ const useT = () => useContext(ThemeCtx);
 const LIGHT = {
   bg:"#F0EBF8",card:"#FFFFFF",cardAlt:"#FDFBFF",
   border:"#E9D5FF",borderLight:"#F5F0FF",
-  text:"#1A0A2E",sub:"#64748B",muted:"#94A3B8",
+  text:"#1A0A2E",sub:"#53657E",muted:"#53657E",
   accent:"#6D28D9",accentSoft:"#8B5CF6",accentBg:"#EDE9FE",accentFg:"#5B21B6",accentPop:"rgba(109,40,217,0.12)",
   nav:"#FFFFFF",navActive:"#F3EEFF",navBorder:"#7C3AED",navHover:"rgba(139,92,246,.05)",
-  input:"#FDFBFF",inputBorder:"#E9D5FF",
-  ok:"#15803D",okBg:"#F0FDF4",okBorder:"#BBF7D0",
+  input:"#FDFBFF",inputBorder:"#9475B8",
+  ok:"#166534",okBg:"#F0FDF4",okBorder:"#BBF7D0",
   err:"#B91C1C",errBg:"#FEF2F2",errBorder:"#FCA5A5",
-  warn:"#D97706",warnBg:"#FFFBEB",warnBorder:"#FDE68A",
+  warn:"#92400E",warnBg:"#FFFBEB",warnBorder:"#FDE68A",
   info:"#1D4ED8",infoBg:"#EFF6FF",infoBorder:"#BFDBFE",
   scroll:"#D8B4FE",
   shadow:"0 2px 12px rgba(109,40,217,.07)",shadowMd:"0 8px 28px rgba(109,40,217,.1)",
   topbar:"rgba(255,255,255,.96)",
   hero:"linear-gradient(135deg,#3B0764 0%,#6D28D9 40%,#A855F7 75%,#E879F9 100%)",
-  p:{"green":["#DCFCE7","#059669"],"red":["#FFF0F3","#E11D48"],"blue":["#EDE9FE","#6D28D9"],"indigo":["#EDE9FE","#5B21B6"],"yellow":["#FFFBEB","#B45309"],"gray":["#F5F3FF","#7C3AED"],"purple":["#ECFDF5","#059669"],"orange":["#FFF7ED","#C2410C"]},
+  p:{"green":["#DCFCE7","#166534"],"red":["#FFF0F3","#B91C1C"],"blue":["#EDE9FE","#6D28D9"],"indigo":["#EDE9FE","#5B21B6"],"yellow":["#FFFBEB","#92400E"],"gray":["#F5F3FF","#6D28D9"],"purple":["#ECFDF5","#166534"],"orange":["#FFF7ED","#9A3412"]},
 };
 const DARK = {
   bg:"#08051A",card:"#0F0A22",cardAlt:"#140D2A",
   border:"#231547",borderLight:"#180F38",
-  text:"#EDE9FF",sub:"#8B7EC0",muted:"#5D4E8A",
+  text:"#EDE9FF",sub:"#BFB2DF",muted:"#B0A2CF",
   accent:"#A78BFA",accentSoft:"#C4B5FD",accentBg:"#1C1238",accentFg:"#DDD6FE",accentPop:"rgba(167,139,250,0.1)",
   nav:"#0C0820",navActive:"#1C1238",navBorder:"#A78BFA",navHover:"rgba(167,139,250,.07)",
-  input:"#140D2A",inputBorder:"#231547",
+  input:"#140D2A",inputBorder:"#8A79A5",
   ok:"#22C55E",okBg:"#052E16",okBorder:"#166534",
   err:"#F87171",errBg:"#1F0909",errBorder:"#7F1D1D",
   warn:"#FBBF24",warnBg:"#1C1000",warnBorder:"#713F12",
@@ -131,7 +134,7 @@ const AnimatedNumber=React.memo(function AnimatedNumber({value,format=Math.round
     return()=>cancelAnimationFrame(frameRef.current);
   },[target,duration]);
   const text=format(display);
-  return <span data-animated-number={target} aria-label={format(target)} className={`number-flow${className?` ${className}`:""}`} style={style}>{text}</span>;
+  return <span data-animated-number={target} className={`number-flow${className?` ${className}`:""}`} style={style}>{text}</span>;
 });
 const AnimatedAmount=({value,compact=false,...props})=>{const {IDR,IDRs}=useMoney();return <AnimatedNumber value={N(value)} format={compact?IDRs:IDR} {...props}/>;};
 const AnimatedPercent=({value,digits=0,suffix="%",...props})=><AnimatedNumber value={Number(value)||0} format={n=>`${n.toFixed(digits)}${suffix}`} {...props}/>;
@@ -975,7 +978,7 @@ const Sec=({t,sub,right})=>{
   const T=useT();
   return(
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,minWidth:0,marginBottom:14,paddingBottom:10,borderBottom:`1px solid ${T.borderLight}`}}>
-      <div style={{minWidth:0,overflowWrap:"anywhere"}}><div style={{fontSize:10,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:T.accent}}>{t}</div>{sub&&<div style={{fontSize:11,color:T.muted,marginTop:2,lineHeight:1.5}}>{sub}</div>}</div>
+      <div style={{minWidth:0,overflowWrap:"anywhere"}}><h2 style={{margin:0,fontSize:10,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:T.accent}}>{t}</h2>{sub&&<div style={{fontSize:11,color:T.muted,marginTop:2,lineHeight:1.5}}>{sub}</div>}</div>
       {right&&<div style={{flexShrink:0}}>{right}</div>}
     </div>
   );
@@ -1007,9 +1010,15 @@ const useDismissAnimation=(onClose,duration=260)=>{
   };
   return [closing,close];
 };
+const filledButtonInk=color=>{
+  if(!/^#[\da-f]{6}$/i.test(color))return "white";
+  const channels=[1,3,5].map(index=>parseInt(color.slice(index,index+2),16)/255).map(value=>value<=.04045?value/12.92:((value+.055)/1.055)**2.4);
+  const luminance=channels[0]*.2126+channels[1]*.7152+channels[2]*.0722;
+  return (luminance+.05)/.059>1.05/(luminance+.05)?"#1A0A2E":"white";
+};
 const Btn=({onClick,ch,c,outline,disabled=false,style={}})=>{
   const T=useT();const bc=c||T.accent;
-  return <button onClick={onClick} disabled={disabled} className="btn-go" style={{padding:"9px 18px",borderRadius:10,border:outline?`1.5px solid ${bc}`:"none",cursor:disabled?"not-allowed":"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit",background:outline?"transparent":bc,color:outline?bc:"white",opacity:disabled?0.62:1,...style}}>{ch}</button>;
+  return <button onClick={onClick} disabled={disabled} className="btn-go" style={{padding:"9px 18px",borderRadius:10,border:outline?`1.5px solid ${bc}`:"none",cursor:disabled?"not-allowed":"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit",background:outline?"transparent":bc,color:outline?bc:filledButtonInk(bc),opacity:disabled?0.62:1,...style}}>{ch}</button>;
 };
 const LaunchEmpty=({title,desc,actionLabel,onAction,secondaryLabel,onSecondary,icon="✨",kicker="Mulai dari sini",style={}})=>{
   const T=useT();
@@ -1030,7 +1039,11 @@ const LaunchEmpty=({title,desc,actionLabel,onAction,secondaryLabel,onSecondary,i
 };
 const Del=({onClick})=>{
   const T=useT();
-  return <button type="button" onClick={onClick} aria-label="Hapus" className="del-x" style={{background:"none",border:"none",color:T.muted,padding:"2px 6px",fontSize:14,fontFamily:"inherit",borderRadius:4,cursor:"pointer"}}>X</button>;
+  return <button type="button" onClick={onClick} aria-label={T.lang==="en"?"Delete":"Hapus"} title={T.lang==="en"?"Delete":"Hapus"} className="del-x" style={{background:"none",border:"none",color:T.muted,padding:8,minWidth:44,minHeight:44,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit",borderRadius:4,cursor:"pointer"}}><X size={16} aria-hidden="true"/></button>;
+};
+const CalcButton=({onClick})=>{
+  const T=useT(),label=T.lang==="en"?"Calculator":"Kalkulator";
+  return <button type="button" onClick={onClick} title={label} aria-label={label} style={{position:"absolute",right:0,top:"50%",transform:"translateY(-50%)",width:44,height:44,display:"inline-flex",alignItems:"center",justifyContent:"center",background:"none",border:"none",borderRadius:8,cursor:"pointer",color:T.accent}}><CalculatorIcon size={18} aria-hidden="true"/></button>;
 };
 const CurIn=({value,onChange,placeholder="0",style={},...inputProps})=>{
   const T=useT();
@@ -1062,16 +1075,16 @@ const Calculator=({value,onChange,onClose})=>{
   const keys=["7","8","9","⌫","4","5","6","C","1","2","3","","0",".",""," ✓"];
   const content=(
     <div className={`sidebar-overlay ${closing?"closing":""}`} style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:compact?"flex-end":"center",justifyContent:"center",zIndex:9999,padding:compact?0:20}} onClick={()=>close()}>
-      <div className={`sheet-in ${closing?"closing":""}`} style={{cursor:"pointer",background:T.card,borderRadius:compact?"24px 24px 0 0":20,padding:"22px 22px calc(env(safe-area-inset-bottom, 0px) + 22px)",width:"100%",maxWidth:380,maxHeight:"min(520px, calc(var(--app-height, 100dvh) - 18px))",overflowY:"auto",boxShadow:T.shadowMd}} onClick={e=>e.stopPropagation()}>
+      <DialogSurface onDismiss={()=>close()} aria-label={T.lang==="en"?"Calculator":"Kalkulator"} className={`sheet-in ${closing?"closing":""}`} style={{cursor:"pointer",background:T.card,borderRadius:compact?"24px 24px 0 0":20,padding:"22px 22px calc(env(safe-area-inset-bottom, 0px) + 22px)",width:"100%",maxWidth:380,maxHeight:"min(520px, calc(var(--app-height, 100dvh) - 18px))",overflowY:"auto",boxShadow:T.shadowMd}} onClick={e=>e.stopPropagation()}>
         <div style={{textAlign:"right",fontSize:28,fontWeight:900,color:T.text,marginBottom:14,padding:"6px 12px",background:T.cardAlt,borderRadius:10}}>{fmtN(disp.replace('.',','))||"0"}</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
           {keys.map((k,i)=>(
-            <button key={i} onClick={()=>k.trim()&&press(k.trim())} style={{padding:14,borderRadius:10,border:"none",cursor:k.trim()?"pointer":"default",fontWeight:700,fontSize:16,fontFamily:"inherit",
+            <button key={i} disabled={!k.trim()||(k==="."&&!digits)} aria-hidden={!k.trim()?true:undefined} onClick={()=>k.trim()&&press(k.trim())} style={{padding:14,borderRadius:10,border:"none",cursor:k.trim()?"pointer":"default",fontWeight:700,fontSize:16,fontFamily:"inherit",
               background:k.trim()==="✓"?T.accent:k==="C"||k==="⌫"?T.errBg:T.cardAlt,
               color:k.trim()==="✓"?"white":k==="C"||k==="⌫"?T.err:T.text,opacity:k.trim()?1:.2}}>{k}</button>
           ))}
         </div>
-      </div>
+      </DialogSurface>
     </div>
   );
   return typeof document!=="undefined"?createPortal(content,document.body):content;
@@ -1110,11 +1123,11 @@ const KalkulatorFinansial = ({onClose}) => {
         <button onClick={()=>setTab("pinjaman")} style={{flex:1,padding:8,borderRadius:8,background:tab==="pinjaman"?T.accentBg:T.input,color:tab==="pinjaman"?T.accent:T.sub,border:`1.5px solid ${tab==="pinjaman"?T.accent:T.inputBorder}`,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>💳 Pinjaman</button>
       </div>
       {tab==="investasi" && <div>
-         <label style={LS}>Modal Awal ({symbol})</label><CurIn value={inv.awal} onChange={v=>setInv({...inv,awal:v})} style={IS}/>
-         <label style={LS}>Nabung Rutin per Bulan ({symbol})</label><CurIn value={inv.rutin} onChange={v=>setInv({...inv,rutin:v})} style={IS}/>
+         <Field label={<>Modal Awal ({symbol})</>} labelStyle={LS}><CurIn value={inv.awal} onChange={v=>setInv({...inv,awal:v})} style={IS}/></Field>
+         <Field label={<>Nabung Rutin per Bulan ({symbol})</>} labelStyle={LS}><CurIn value={inv.rutin} onChange={v=>setInv({...inv,rutin:v})} style={IS}/></Field>
          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
-           <div style={{flex:1}}><label style={LS}>Bunga Tahunan (%)</label><input type="number" value={inv.bunga} onChange={e=>setInv({...inv,bunga:e.target.value})} style={IS}/></div>
-           <div style={{flex:1}}><label style={LS}>Lama (Tahun)</label><input type="number" value={inv.tahun} onChange={e=>setInv({...inv,tahun:e.target.value})} style={IS}/></div>
+           <div style={{flex:1}}><Field label={<>Bunga Tahunan (%)</>} labelStyle={LS}><input type="number" value={inv.bunga} onChange={e=>setInv({...inv,bunga:e.target.value})} style={IS}/></Field></div>
+           <div style={{flex:1}}><Field label={<>Lama (Tahun)</>} labelStyle={LS}><input type="number" value={inv.tahun} onChange={e=>setInv({...inv,tahun:e.target.value})} style={IS}/></Field></div>
          </div>
          <div style={{background:T.infoBg,padding:16,borderRadius:12,border:`1px solid ${T.infoBorder}`,marginTop:10}}>
            <div style={{fontSize:11,color:T.info,fontWeight:700}}>Estimasi Hasil Akhir</div>
@@ -1122,10 +1135,10 @@ const KalkulatorFinansial = ({onClose}) => {
          </div>
       </div>}
       {tab==="pinjaman" && <div>
-         <label style={LS}>Pokok Pinjaman ({symbol})</label><CurIn value={pinj.pokok} onChange={v=>setPinj({...pinj,pokok:v})} style={IS}/>
+         <Field label={<>Pokok Pinjaman ({symbol})</>} labelStyle={LS}><CurIn value={pinj.pokok} onChange={v=>setPinj({...pinj,pokok:v})} style={IS}/></Field>
          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
-           <div style={{flex:1}}><label style={LS}>Bunga Tahunan (%)</label><input type="number" value={pinj.bunga} onChange={e=>setPinj({...pinj,bunga:e.target.value})} style={IS}/></div>
-           <div style={{flex:1}}><label style={LS}>Tenor (Bulan)</label><input type="number" value={pinj.tenor} onChange={e=>setPinj({...pinj,tenor:e.target.value})} style={IS}/></div>
+           <div style={{flex:1}}><Field label={<>Bunga Tahunan (%)</>} labelStyle={LS}><input type="number" value={pinj.bunga} onChange={e=>setPinj({...pinj,bunga:e.target.value})} style={IS}/></Field></div>
+           <div style={{flex:1}}><Field label={<>Tenor (Bulan)</>} labelStyle={LS}><input type="number" value={pinj.tenor} onChange={e=>setPinj({...pinj,tenor:e.target.value})} style={IS}/></Field></div>
          </div>
          <div style={{background:T.errBg,padding:16,borderRadius:12,border:`1px solid ${T.errBorder}`,marginTop:10}}>
            <div style={{fontSize:11,color:T.err,fontWeight:700}}>Estimasi Cicilan per Bulan</div>
@@ -1322,7 +1335,17 @@ const DailyChart=({txBulan,bulan,tahun})=>{
 };
 
 // ─── AMPLOP CARD ──────────────────────────────────────────────────────────────
-const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset,isMobile=false})=>{
+const envelopeReturnMessage=(code,english)=>{
+  const messages={
+    invalid_amount:["Masukkan jumlah pengembalian yang lebih dari nol.","Enter an amount greater than zero."],
+    insufficient_envelope_funds:["Jumlah pengembalian melebihi sisa dana amplop.","The amount exceeds the available envelope funds."],
+    insufficient_funds:["Saldo dompet tidak cukup untuk membatalkan pengembalian ini.","The wallet balance is too low to reverse this return."],
+    wallet_not_found:["Dompet tujuan tidak ditemukan. Pilih dompet yang tersedia.","Destination wallet not found. Choose an available wallet."],
+    envelope_not_found:["Amplop tidak ditemukan. Muat ulang dan periksa kembali.","Envelope not found. Reload and check again."],
+  };
+  return (messages[code]||["Dana belum dipindahkan. Periksa jumlah dan data amplop, lalu coba lagi.","Funds were not moved. Check the amount and envelope details, then try again."])[english?1:0];
+};
+const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset,onReturn,isMobile=false})=>{
   const {IDR,IDRs}=useMoney();
   const T=useT();
   const [showPakai,setShowPakai]=useState(false);
@@ -1331,6 +1354,20 @@ const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset,isMobile=false}
   const [showIsi,setShowIsi]=useState(false);
   const [isiJml,setIsiJml]=useState("");
   const [isiDompetId,setIsiDompetId]=useState(dompetList[0]?.id||1);
+  const [showReturn,setShowReturn]=useState(false);
+  const [returnAmount,setReturnAmount]=useState("");
+  const [returnWallet,setReturnWallet]=useState(String(dompetList.find(wallet=>sameId(wallet.id,amp.dompetId))?.id||dompetList[0]?.id||""));
+  const [returnError,setReturnError]=useState("");
+  const returnInputId=React.useId();
+  const returnErrorId=React.useId();
+  const returnTriggerRef=useRef(null);
+  const returnWasOpen=useRef(false);
+  useEffect(()=>{
+    if(showReturn)document.getElementById(returnInputId)?.focus();
+    else if(returnWasOpen.current)returnTriggerRef.current?.focus({preventScroll:true});
+    returnWasOpen.current=showReturn;
+  },[showReturn,returnInputId]);
+  const english=T.lang==="en";
   const alokasi=N(amp.alokasi);const terpakai=N(amp.terpakai||0);
   const sisa=alokasi-terpakai;const pct=alokasi>0?Math.min(terpakai/alokasi*100,100):0;
   const isOver=terpakai>alokasi;
@@ -1339,45 +1376,56 @@ const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset,isMobile=false}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0,flex:1}}>
           <div style={{width:44,height:44,borderRadius:12,background:amp.warna||T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0,overflow:"hidden"}}>{uiIcon(amp.icon||"ENV")}</div>
-          <div style={{minWidth:0,flex:1}}><div style={{fontWeight:800,fontSize:14,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{amp.nama}</div><div style={{fontSize:11,color:T.muted}}>Sisa: <strong style={{color:sisa>=0?T.ok:T.err}}>{IDR(Math.max(sisa,0))}</strong></div></div>
+          <div style={{minWidth:0,flex:1}}><div style={{fontWeight:800,fontSize:14,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{amp.nama}</div><div style={{fontSize:11,color:T.muted}}>{english?"Remaining":"Sisa"}: <strong style={{color:sisa>=0?T.ok:T.err}}>{IDR(Math.max(sisa,0))}</strong></div></div>
         </div>
         <Del onClick={onDelete}/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:10}}>
         <div style={{background:T.infoBg,borderRadius:8,padding:"8px 10px",border:`1px solid ${T.infoBorder}`}}>
-          <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:.6,marginBottom:1}}>ALOKASI</div>
+          <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:0,marginBottom:1}}>{english?"ALLOCATED":"ALOKASI"}</div>
           <div style={{fontWeight:700,color:T.info,fontSize:13}}>{IDR(alokasi)}</div>
         </div>
         <div style={{background:isOver?T.errBg:T.okBg,borderRadius:8,padding:"8px 10px",border:`1px solid ${isOver?T.errBorder:T.okBorder}`}}>
-          <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:.6,marginBottom:1}}>TERPAKAI</div>
+          <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:0,marginBottom:1}}>{english?"USED":"TERPAKAI"}</div>
           <div style={{fontWeight:700,color:isOver?T.err:T.ok,fontSize:13}}>{IDR(terpakai)}</div>
         </div>
       </div>
       <PBar pct={pct} c={isOver?"#EF4444":pct>80?"#F59E0B":"#22C55E"} h={7}/>
       <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.muted,marginTop:3,marginBottom:12}}>
-        <span style={{fontWeight:700,color:isOver?T.err:pct>80?T.warn:T.ok}}>{pct.toFixed(0)}% terpakai</span>
-        {isOver&&<span style={{color:T.err,fontWeight:700}}>⚠ Melebihi alokasi!</span>}
+        <span style={{fontWeight:700,color:isOver?T.err:pct>80?T.warn:T.ok}}>{pct.toFixed(0)}% {english?"used":"terpakai"}</span>
+        {isOver&&<span style={{color:T.err,fontWeight:700}}>{english?"Over allocation":"Melebihi alokasi!"}</span>}
       </div>
-      {!showPakai&&!showIsi&&<div className="envelope-action-row" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr) auto",gap:6}}>
-        <Btn onClick={()=>setShowPakai(true)} ch="💸 Pakai" c={T.err} outline style={{flex:1,padding:"8px 10px",fontSize:12}}/>
-        <Btn onClick={()=>setShowIsi(true)} ch="➕ Isi" c={T.ok} outline style={{flex:1,padding:"8px 10px",fontSize:12}}/>
-        <button onClick={onReset} title="Reset terpakai" style={{padding:"8px 10px",borderRadius:8,border:`1px solid ${T.border}`,background:T.cardAlt,cursor:"pointer",fontSize:14,fontFamily:"inherit",color:T.muted}}>🔄</button>
+      {!showPakai&&!showIsi&&!showReturn&&<div className="envelope-action-row" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr) auto",gap:6}}>
+        <Btn onClick={()=>setShowPakai(true)} ch={english?"Spend":"💸 Pakai"} c={T.err} outline style={{flex:1,minHeight:44,padding:"8px 10px",fontSize:12}}/>
+        <Btn onClick={()=>setShowIsi(true)} ch={english?"Top up":"➕ Isi"} c={T.ok} outline style={{flex:1,minHeight:44,padding:"8px 10px",fontSize:12}}/>
+        <button onClick={onReset} title={english?"Reset spending":"Reset terpakai"} style={{minHeight:44,minWidth:44,padding:"8px 10px",borderRadius:8,border:`1px solid ${T.border}`,background:T.cardAlt,cursor:"pointer",fontSize:14,fontFamily:"inherit",color:T.muted}}>🔄</button>
+        <button ref={returnTriggerRef} type="button" disabled={sisa<=0||!dompetList.length} onClick={()=>{setShowReturn(true);setReturnError("");}} style={{gridColumn:"1/-1",display:"flex",alignItems:"center",justifyContent:"center",gap:8,minHeight:44,border:`1px solid ${T.inputBorder}`,borderRadius:8,background:T.card,color:T.accent,fontWeight:700,fontSize:13,fontFamily:"inherit",cursor:sisa>0?"pointer":"not-allowed",opacity:sisa>0?1:.55}}><ArrowUpRight size={17} aria-hidden="true"/>{english?"Return to wallet":"Kembalikan ke dompet"}</button>
+      </div>}
+      {showReturn&&<div data-testid="envelope-return-form" style={{borderTop:`1px solid ${T.border}`,paddingTop:12,marginTop:10}}>
+        <p style={{fontSize:12,color:T.sub,margin:"0 0 10px"}}>{english?"Available":"Sisa tersedia"}: <strong>{IDR(Math.max(sisa,0))}</strong></p>
+        <Field label={english?"Destination wallet":"Dompet tujuan"} labelStyle={{display:"block",fontSize:12,color:T.text,fontWeight:700,marginBottom:5}}><select value={returnWallet} onChange={event=>{setReturnWallet(event.target.value);setReturnError("");}} style={{width:"100%",minHeight:44,border:`1px solid ${T.inputBorder}`,borderRadius:8,background:T.input,color:T.text,padding:"9px 10px",fontFamily:"inherit",marginBottom:10}}>{dompetList.map(wallet=><option key={wallet.id} value={wallet.id}>{wallet.nama}</option>)}</select></Field>
+        <Field label={english?"Amount to return":"Jumlah pengembalian"} labelStyle={{display:"block",fontSize:12,color:T.text,fontWeight:700,marginBottom:5}}><CurIn id={returnInputId} value={returnAmount} onChange={value=>{setReturnAmount(value);if(N(value)>0)setReturnError("");}} aria-invalid={!!returnError} aria-describedby={returnError?returnErrorId:undefined} style={{minHeight:44,fontSize:16,marginBottom:10}}/></Field>
+        {returnError&&<p id={returnErrorId} role="alert" style={{fontSize:13,color:T.err,marginBottom:10}}>{returnError}</p>}
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <Btn onClick={()=>{const result=onReturn(returnAmount,returnWallet);if(result?.error){setReturnError(result.error);document.getElementById(returnInputId)?.focus();return;}setShowReturn(false);setReturnAmount("");}} ch={english?"Return funds":"Kembalikan dana"} style={{flex:1,minHeight:44,padding:"9px 12px"}}/>
+          <Btn onClick={()=>{setShowReturn(false);setReturnError("");}} ch={english?"Cancel":"Batal"} outline style={{minHeight:44,padding:"9px 12px"}}/>
+        </div>
       </div>}
       {showPakai&&<div>
-        <input placeholder="Keterangan belanja..." value={pakaiKet} onChange={e=>setPakaiKet(e.target.value)} style={{...{width:"100%",padding:"9px 12px",border:`1.5px solid ${T.inputBorder}`,borderRadius:9,fontSize:13,outline:"none",background:T.input,color:T.text,fontFamily:"inherit"},marginBottom:6}}/>
+        <input aria-label={english?"Spending description":"Keterangan belanja"} placeholder={english?"Spending description...":"Keterangan belanja..."} value={pakaiKet} onChange={e=>setPakaiKet(e.target.value)} style={{...{width:"100%",padding:"9px 12px",border:`1.5px solid ${T.inputBorder}`,borderRadius:9,fontSize:13,outline:"none",background:T.input,color:T.text,fontFamily:"inherit"},marginBottom:6}}/>
         <div className="envelope-submit-row" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto auto",gap:6}}>
-          <CurIn value={pakaiJml} onChange={setPakaiJml} placeholder="Jumlah..." style={{width:"100%",minWidth:0}}/>
+          <CurIn aria-label={english?"Spending amount":"Jumlah pemakaian"} value={pakaiJml} onChange={setPakaiJml} placeholder={english?"Amount...":"Jumlah..."} style={{width:"100%",minWidth:0}}/>
           <Btn onClick={()=>{if(pakaiJml){onPakai(pakaiJml,pakaiKet);setPakaiJml("");setPakaiKet("");setShowPakai(false);}}} ch="✓" c={T.err} style={{padding:"8px 14px"}}/>
           <Btn onClick={()=>setShowPakai(false)} ch="✕" c={T.muted} outline style={{padding:"8px 14px"}}/>
         </div>
       </div>}
       {showIsi&&<div style={{padding:10,background:T.okBg,borderRadius:8,border:`1px solid ${T.okBorder}`}}>
-        <div style={{fontSize:11,color:T.ok,fontWeight:700,marginBottom:6}}>Top-up dari Dompet</div>
-        <select value={isiDompetId} onChange={e=>setIsiDompetId(e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1.5px solid ${T.inputBorder}`,background:T.input,color:T.text,fontSize:12,outline:"none",marginBottom:6,fontFamily:"inherit"}}>
+        <div style={{fontSize:11,color:T.ok,fontWeight:700,marginBottom:6}}>{english?"Top up from wallet":"Top-up dari Dompet"}</div>
+        <select aria-label={english?"Source wallet":"Dompet sumber"} value={isiDompetId} onChange={e=>setIsiDompetId(e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1.5px solid ${T.inputBorder}`,background:T.input,color:T.text,fontSize:12,outline:"none",marginBottom:6,fontFamily:"inherit"}}>
           {dompetList.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama} ({IDRs(N(d.saldo))})</option>)}
         </select>
         <div className="envelope-submit-row" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto auto",gap:6}}>
-          <CurIn value={isiJml} onChange={setIsiJml} placeholder="Jumlah..." style={{width:"100%",minWidth:0}}/>
+          <CurIn aria-label={english?"Top-up amount":"Jumlah isi amplop"} value={isiJml} onChange={setIsiJml} placeholder={english?"Amount...":"Jumlah..."} style={{width:"100%",minWidth:0}}/>
           <Btn onClick={()=>{if(isiJml){onIsi(isiJml,isiDompetId);setIsiJml("");setShowIsi(false);}}} ch="+ Isi" c={T.ok} style={{padding:"8px 12px"}}/>
           <Btn onClick={()=>setShowIsi(false)} ch="✕" c={T.muted} outline style={{padding:"8px 10px"}}/>
         </div>
@@ -1421,8 +1469,8 @@ const UtangCard=({u,dompetList,goals=[],onDelete,onCicilan})=>{
       <div style={{fontSize:10,color:unrecordedSettlement?T.sub:T.muted,marginBottom:8,marginTop:3}}>{unrecordedSettlement?"Ditandai lunas; rincian cicilan belum lengkap.":`${pct.toFixed(0)}% terbayar`}</div>
       {!settled&&<div style={{display:"flex",gap:8,alignItems:"center"}}>
         <div style={{position:"relative",flex:1}}>
-          <CurIn value={inp} onChange={v=>setInp(v)} placeholder="Nominal..." style={{paddingRight:36}}/>
-          <button onClick={()=>setShowCalc(true)} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14}}>🔢</button>
+          <CurIn aria-label={`${T.lang==="en"?"Payment amount":"Nominal cicilan"} ${u.nama}`} value={inp} onChange={v=>setInp(v)} placeholder="Nominal..." style={{paddingRight:48}}/>
+          <CalcButton onClick={()=>setShowCalc(true)}/>
         </div>
         <select value={destination} onChange={e=>setDestination(e.target.value)} style={{minWidth:120,flex:1,padding:"8px", borderRadius:8, border:`1.5px solid ${T.inputBorder}`, background:T.input, color:T.text, fontSize:12, outline:"none"}} aria-label="Tujuan pembayaran">
            <optgroup label="Dompet penerima">{dompetList.map(d=><option key={`wallet:${d.id}`} value={`wallet:${d.id}`}>{uiIcon(d.icon)} {d.nama}</option>)}</optgroup>
@@ -1480,8 +1528,8 @@ const GoalCard=({g,dompetList,onDelete,onTambah,onGunakan,onSelesai,onSourceChan
       </div>
       {!showUse&&pct<100&&<div className="goal-fund-row" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,alignItems:"center",width:"100%"}}>
           <div className="goal-fund-input" style={{position:"relative",flex:1,minWidth:0}}>
-            <CurIn value={inp} onChange={v=>setInp(v)} placeholder="Tambah dana..." style={{paddingRight:36}}/>
-            <button onClick={()=>setShowCalc(true)} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14}}>🔢</button>
+            <CurIn aria-label={`${T.lang==="en"?"Goal contribution":"Tambah dana Goal"} ${g.nama}`} value={inp} onChange={v=>setInp(v)} placeholder="Tambah dana..." style={{paddingRight:48}}/>
+            <CalcButton onClick={()=>setShowCalc(true)}/>
           </div>
           {showCalc&&<Calculator value={inp} onChange={v=>{setInp(v);setShowCalc(false);}} onClose={()=>setShowCalc(false)}/>}
           <Btn onClick={()=>{if(inp){onTambah(g.id,inp,dompetId);setInp("");}}} ch="+ Dana" style={{padding:"8px 12px",fontSize:12}}/>
@@ -1513,7 +1561,7 @@ const MoreMenu=({page,onNavigate,onClose,navItems=NAV})=>{
   const [closing,close]=useDismissAnimation(onClose,240);
   return(
     <div role="presentation" className={`sidebar-overlay ${closing?"closing":""}`} style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",zIndex:650,isolation:"isolate"}} onClick={()=>close()}>
-      <div role="dialog" aria-modal="true" aria-label="Menu lainnya" className={`sheet-in ${closing?"closing":""}`} style={{cursor:"default",position:"fixed",bottom:0,left:0,right:0,background:T.card,border:`1px solid ${T.border}`,borderBottom:"none",borderRadius:"22px 22px 0 0",padding:"20px max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(16px, env(safe-area-inset-left))",boxShadow:T.shadowMd,maxHeight:"min(74svh, calc(var(--app-height, 100dvh) - 16px))",overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain"}} onClick={e=>e.stopPropagation()}>
+      <DialogSurface onDismiss={()=>close()} role="dialog" aria-modal="true" aria-label="Menu lainnya" className={`sheet-in ${closing?"closing":""}`} style={{cursor:"default",position:"fixed",bottom:0,left:0,right:0,background:T.card,border:`1px solid ${T.border}`,borderBottom:"none",borderRadius:"22px 22px 0 0",padding:"20px max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(16px, env(safe-area-inset-left))",boxShadow:T.shadowMd,maxHeight:"min(74svh, calc(var(--app-height, 100dvh) - 16px))",overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain"}} onClick={e=>e.stopPropagation()}>
         <div style={{width:40,height:4,background:T.border,borderRadius:4,margin:"0 auto 16px"}}/>
         <div style={{fontSize:10,color:T.muted,fontWeight:700,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>Menu Lainnya</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
@@ -1528,7 +1576,7 @@ const MoreMenu=({page,onNavigate,onClose,navItems=NAV})=>{
             );
           })}
         </div>
-      </div>
+      </DialogSurface>
     </div>
   );
 };
@@ -2917,9 +2965,9 @@ export default function App(){
   const isApproved=accessProfile?.approvalStatus==="approved";
   const isAdmin=accessProfile?.role==="admin";
   const navItems=useMemo(()=>{
-    const base=isAdmin?[...NAV,ADMIN_NAV]:NAV;
+    const base=(isAdmin?[...NAV,ADMIN_NAV]:NAV).map(item=>({...item,label:lang==="en"?(TR.en[item.id]||item.label):item.label}));
     return simpleMode?base.filter(n=>["home","trans","budget","laporan","setting","admin"].includes(n.id)):base;
-  },[isAdmin,simpleMode]);
+  },[isAdmin,simpleMode,lang]);
   const YEAR_OPTIONS = Array.from({ length: 20 }, (_, i) => String(2020 + i));
   const toggleBlur=()=>{setBlurSaldo(v=>{try{localStorage.setItem("aturduitku_blur",!v?"1":"0");}catch(e){}return !v;});};
 
@@ -2927,14 +2975,14 @@ export default function App(){
   useEffect(()=>{
     let meta=document.querySelector("meta[name=\"viewport\"]");
     if(!meta){meta=document.createElement("meta");meta.name="viewport";document.head.appendChild(meta);}
-    meta.content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no";
+    meta.content="width=device-width,initial-scale=1,viewport-fit=cover";
   },[]);
 
   useEffect(()=>{
     const isPublicPage=!fireUser&&!publicLogin;
     document.title=isPublicPage?"AturDuitku | AI Budget Planner & Expense Tracker":"AturDuitku";
-    document.documentElement.lang=isPublicPage?"en":"id";
-  },[fireUser,publicLogin]);
+    document.documentElement.lang=isPublicPage?"en":lang;
+  },[fireUser,publicLogin,lang]);
 
   useEffect(()=>{
     const onBeforeInstall=(e)=>{e.preventDefault();setInstallPrompt(e);};
@@ -3862,6 +3910,8 @@ export default function App(){
 
   // Forms
   const [txForm,setTxForm]=useState({tipe:"pengeluaran",tgl:today(),ket:"",jml:"",katId:s.budgets[0]?.id||"",customKat:"",subKat:"",dompetId:1,dompetTo:2,biaya:"",goalId:"",budgetExcluded:false});
+  const [txErrors,setTxErrors]=useState({});
+  useEffect(()=>setTxErrors({}),[modal?.type,modal?.editTxId]);
   const txFormBudgets=budgetsForPeriod(s,String(txForm.tgl||"").slice(0,7));
   const [bulkRows,setBulkRows]=useState([{tgl:today(),jml:"",tipe:"pengeluaran",dompetId:1,katId:s.budgets[0]?.id||"",ket:""}]);
   const [utForm,setUtForm]=useState({tipe:"utang",tgl:today(),provider:"",nama:"",jml:"",tempo:"",ket:"",sourceType:"wallet",sourceId:s.dompet[0]?.id||""});
@@ -4034,7 +4084,7 @@ export default function App(){
   const skorRunway=Math.min(Number(runwayReal)/6*100,100);
   const skorTotal=Math.round((skorTabungan+skorDisiplin+skorRunway)/3);
   const getLabel=sc=>sc>=80?t("excellent"):sc>=60?t("good"):sc>=40?t("fair"):sc>=20?t("poor")+" 💪":t("poor");
-  const getC=sc=>sc>=80?"#16A34A":sc>=60?"#22C55E":sc>=40?"#F59E0B":sc>=20?"#EF4444":"#B91C1C";
+  const getC=sc=>sc>=60?T.ok:sc>=40?T.warn:T.err;
 
   const statusC=totalIn===0&&totalOut>0?T.err:rasioOut>80?T.err:rasioOut>60?T.warn:T.ok;
   const status=totalIn===0&&totalOut>0?t("fair")+" 🟡":rasioOut>80?t("poor")+" 🔴":rasioOut>60?t("fair")+" 🟡":t("good")+" 🟢";
@@ -4400,7 +4450,7 @@ export default function App(){
       ok:habitTotalToday>0&&habitDoneToday>=habitTotalToday,
       icon:"🐾",
       title:"Habit hari ini",
-      desc:habitTotalToday?`${habitDoneToday}/${habitTotalToday} quest selesai.`:"Buat habit kecil agar user rutin balik.",
+      desc:habitTotalToday?`${habitDoneToday}/${habitTotalToday} quest selesai.`:(lang==="en"?"Build one small habit to keep your money records up to date.":"Mulai dari satu kebiasaan kecil untuk menjaga catatan uangmu."),
       action:habitTotalToday?"Ceklis":"Buat habit",
       target:"habit",
     },
@@ -6805,6 +6855,15 @@ Saldo amplop bertambah.`}]);
     showToast(t("toast_topupOk"));
   };
 
+  const returnFromEnvelope=(envelopeId,amount,walletId)=>{
+    const result=returnEnvelopeFunds(s,{envelopeId,walletId,amount:N(amount),date:today(),id:Date.now()});
+    if(result.error)return {error:envelopeReturnMessage(result.error,lang==="en")};
+    setS(result.state);
+    scheduleUndo(s,result.state,lang==="en"?"Envelope funds returned":"Dana amplop dikembalikan");
+    showToast(lang==="en"?`${IDR(N(result.transaction.jml))} returned to the wallet.`:`${IDR(N(result.transaction.jml))} dikembalikan ke dompet.`);
+    return result;
+  };
+
   const pakaiAmplop=(amplopId,jml,ket)=>{
     const jmlNum=N(jml);
     if(jmlNum<=0){showToast("⚠️ Nominal pemakaian harus lebih dari nol.");return;}
@@ -6967,7 +7026,13 @@ Saldo amplop bertambah.`}]);
 
   const addTx=()=>{
     const {tipe,tgl,ket,jml,katId,customKat,subKat,dompetId,dompetTo,biaya,goalId}=txForm;
-    if(!tgl||N(jml)<=0){showToast("⚠️ Isi tanggal dan jumlah yang valid!");return;}
+    if(!tgl||N(jml)<=0){
+      const errors={...(!tgl?{date:lang==="en"?"Choose a transaction date.":"Pilih tanggal transaksi."}:{}),...(N(jml)<=0?{amount:lang==="en"?"Enter an amount greater than 0.":"Isi jumlah lebih dari 0."}:{})};
+      setTxErrors(errors);
+      requestAnimationFrame(()=>document.getElementById(!tgl?"transaction-date":"transaction-amount")?.focus());
+      return;
+    }
+    setTxErrors({});
     const cleanDescription=String(ket||"").trim().replace(/\s+/g," ").slice(0,120);
     const isEditing=modal?.editTxId!==undefined;
     if(isEditing&&!cleanDescription){showToast("Nama transaksi tidak boleh kosong.");return;}
@@ -7302,6 +7367,20 @@ Saldo amplop bertambah.`}]);
     toastMsg:"Transaksi dihapus",
     onConfirm:()=>{
       const p=s;
+      if(tx.tipe==="alokasi_amplop"&&tx.amplopId){
+        const envelope=p.amplop.find(item=>sameId(item.id,tx.amplopId));
+        if(!envelope||roundMoney(N(envelope.alokasi)-N(envelope.terpakai||0))<N(tx.jml)){
+          showToast(lang==="en"?"These envelope funds have been spent or returned. Reverse those movements before deleting the funding transaction.":"Dana amplop sudah digunakan atau dikembalikan. Batalkan pemakaian atau pengembaliannya sebelum menghapus transaksi isi amplop.");
+          return false;
+        }
+      }
+      if(tx.envelopeReturn){
+        const result=reverseEnvelopeReturn(p,tx);
+        if(result.error){showToast(envelopeReturnMessage(result.error,lang==="en"));return false;}
+        setS(result.state);
+        scheduleUndo(p,result.state,lang==="en"?"Envelope return cancelled":"Pengembalian amplop dibatalkan");
+        return true;
+      }
       let debtReversal;
       try{debtReversal=reverseDebtPayment(p,tx);}
       catch(error){showToast(error.message);return false;}
@@ -7596,10 +7675,12 @@ Saldo amplop bertambah.`}]);
               <button key={mode} onClick={()=>{setAuthMode(mode);setAuthError("");setGoogleAuthError("");setShowPassword(false);}} style={{flex:1,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${authMode===mode?"#C4B5FD":"rgba(255,255,255,.1)"}`,background:authMode===mode?"rgba(196,181,253,.18)":"transparent",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
             ))}
           </div>
-          {authMode==="signup"&&<input value={authForm.name} onChange={e=>setAuthForm(f=>({...f,name:e.target.value}))} placeholder="Nama lengkap" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/>}
-          <input value={authForm.email} onChange={e=>setAuthForm(f=>({...f,email:e.target.value}))} placeholder="Email" type="email" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/>
+          {authMode==="signup"&&<><label htmlFor="auth-name" style={{display:"block",color:"white",fontSize:13,marginBottom:6}}>Nama lengkap</label><input id="auth-name" autoComplete="name" value={authForm.name} onChange={e=>setAuthForm(f=>({...f,name:e.target.value}))} placeholder="Nama lengkap" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/></>}
+          <label htmlFor="auth-email" style={{display:"block",color:"white",fontSize:13,marginBottom:6}}>Email</label>
+          <input id="auth-email" autoComplete="email" value={authForm.email} onChange={e=>setAuthForm(f=>({...f,email:e.target.value}))} placeholder="Email" type="email" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/>
+          <label htmlFor="auth-password" style={{display:"block",color:"white",fontSize:13,marginBottom:6}}>Password</label>
           <div style={{position:"relative",marginBottom:10}}>
-            <input value={authForm.password} onChange={e=>setAuthForm(f=>({...f,password:e.target.value}))} placeholder="Password" type={showPassword?"text":"password"} autoComplete={authMode==="signup"?"new-password":"current-password"} style={{width:"100%",padding:"12px 78px 12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",outline:"none"}}/>
+            <input id="auth-password" value={authForm.password} onChange={e=>setAuthForm(f=>({...f,password:e.target.value}))} placeholder="Password" type={showPassword?"text":"password"} autoComplete={authMode==="signup"?"new-password":"current-password"} style={{width:"100%",padding:"12px 78px 12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",outline:"none"}}/>
             <button type="button" onClick={()=>setShowPassword(v=>!v)} aria-label={showPassword?"Sembunyikan password":"Lihat password"} style={{position:"absolute",right:6,top:6,bottom:6,minWidth:62,border:"1px solid rgba(255,255,255,.14)",borderRadius:10,background:"rgba(255,255,255,.08)",color:"#E9D5FF",fontSize:11,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>
               {showPassword?"Tutup":"Lihat"}
             </button>
@@ -7736,9 +7817,10 @@ Saldo amplop bertambah.`}]);
   };
 
   return(
-    <CurrencyContext.Provider value={money}><ThemeCtx.Provider value={{...T,goals:s.goals}}>
+    <CurrencyContext.Provider value={money}><ThemeCtx.Provider value={{...T,goals:s.goals,lang}}>
     {/* LAYOUT 100vh FULL (FIX SIDEBAR BOLONG) */}
     <div className={`app-shell ${dark?"is-dark":"is-light"}`} style={{display:"flex",height:"var(--app-height, 100dvh)",overflow:"hidden",maxWidth:"100vw",width:"100%",background:T.bg,fontFamily:"ui-rounded,'SF Pro Rounded','Segoe UI',system-ui,sans-serif",color:T.text,fontSize:14,position:"relative",transition:"background .3s,color .3s"}}>
+      <a className="app-skip" href="#app-content">{lang==="en"?"Skip to content":"Langsung ke isi"}</a>
       <style>{`
         *{box-sizing:border-box;margin:0;padding:0;}
         body,#root,button,input,select,textarea{font-family:ui-rounded,'SF Pro Rounded','Segoe UI',system-ui,sans-serif;}
@@ -7748,7 +7830,11 @@ Saldo amplop bertambah.`}]);
         input,select,textarea{transition:border-color .15s,box-shadow .15s;}
         input:focus,select:focus,textarea:focus{outline:none!important;border-color:${T.accent}!important;box-shadow:0 0 0 3px ${T.accentPop}!important;}
         button:focus{outline:none;}
-        button:focus-visible,a:focus-visible,[role="button"]:focus-visible{outline:3px solid ${T.accentPop};outline-offset:2px;}
+        button:focus-visible,a:focus-visible,[role="button"]:focus-visible{outline:3px solid ${T.accent};outline-offset:3px;}
+        .app-skip{position:fixed;left:14px;top:14px;z-index:11000;transform:translateY(-180%);padding:10px 14px;background:${T.card};color:${T.accent};border:2px solid ${T.accent};border-radius:8px;font-weight:700;}
+        .app-skip:focus{transform:none;}
+        .app-main-scroll{scroll-padding-block:90px 160px;}
+        .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0;}
         button,[role="button"],.nav-item,.icon-action,.btn-go,.quick-action-item,.bottom-nav-item{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
         .topbar-safe{box-shadow:0 8px 28px rgba(31,20,70,.06);}
         @media (min-width:900px) and (max-width:1180px){
@@ -7760,7 +7846,7 @@ Saldo amplop bertambah.`}]);
         .icon-action:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(139,92,246,.14);}
         .icon-action:active{transform:scale(.9);}
         .nav-item{transition:background .25s,color .15s,transform .22s cubic-bezier(.34,1.45,.5,1);}
-        .nav-item:hover{background:${T.navHover}!important;color:${T.accentSoft}!important;}
+        .nav-item:hover{background:${T.navHover}!important;color:${T.accent}!important;}
         .nav-item:active{transform:scale(.97);}
         .empty-polish{animation:fadeUp .25s ease-out both;}
         .btn-go{transition:transform .22s cubic-bezier(.34,1.45,.5,1),filter .15s,box-shadow .15s;}
@@ -7889,7 +7975,7 @@ Saldo amplop bertambah.`}]);
 .envelope-action-row>.btn-go,.envelope-submit-row>.btn-go{min-width:0;white-space:nowrap;}
 @container (max-width:340px){
   .goal-secondary-actions{grid-template-columns:1fr!important;}
-  .envelope-action-row{grid-template-columns:1fr 1fr!important;}
+  .envelope-action-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px!important;}
   .envelope-action-row>button:last-child{grid-column:1/-1;width:100%;}
   .envelope-submit-row{grid-template-columns:minmax(0,1fr) auto!important;}
   .envelope-submit-row>button:last-child{grid-column:1/-1;width:100%;}
@@ -7929,14 +8015,14 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           </div>
           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:9}}>
             <button type="button" onClick={resolveConflictWithCloud} style={{padding:"11px 12px",borderRadius:11,border:`1px solid ${T.accent}`,background:T.accentBg,color:T.accent,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>Pakai data cloud</button>
-            <button type="button" onClick={resolveConflictWithLocal} style={{padding:"11px 12px",borderRadius:11,border:"none",background:T.accent,color:"white",fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>Simpan perangkat ini</button>
+            <button type="button" onClick={resolveConflictWithLocal} style={{padding:"11px 12px",borderRadius:11,border:"none",background:T.accent,color:filledButtonInk(T.accent),fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>Simpan perangkat ini</button>
           </div>
         </div>
       </div>}
 
       {/* Toast */}
-      {toast&&<div className={`toast-in ${toastClosing?"closing":""}`} style={{position:"fixed",top:"max(18px, calc(env(safe-area-inset-top) + 8px))",right:"max(14px, env(safe-area-inset-right))",left:isMobile?"max(14px, env(safe-area-inset-left))":"auto",maxWidth:isMobile?"none":"min(430px, calc(100vw - 28px))",background:T.card,color:T.text,padding:"12px 15px",borderRadius:14,fontSize:13,fontWeight:800,zIndex:9999,boxShadow:T.shadowMd,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:10,lineHeight:1.35}}><span style={{width:28,height:28,borderRadius:9,background:T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><img src="/icon-192.png" style={{width:22,height:22,borderRadius:6,verticalAlign:"middle"}}/></span><span style={{minWidth:0,overflowWrap:"anywhere"}}>{toast}</span></div>}
-      {undoAction&&<div data-testid="transaction-undo" style={{position:"fixed",left:isMobile?"max(14px,env(safe-area-inset-left))":"50%",right:isMobile?"max(14px,env(safe-area-inset-right))":"auto",transform:isMobile?"none":"translateX(-50%)",bottom:isMobile?"calc(82px + env(safe-area-inset-bottom))":"24px",zIndex:10010,display:"flex",alignItems:"center",justifyContent:"space-between",gap:18,padding:"11px 12px 11px 15px",borderRadius:12,background:T.text,color:T.card,boxShadow:T.shadowMd,minWidth:isMobile?0:340,maxWidth:"calc(100vw - 28px)"}}><span style={{fontSize:12,fontWeight:800}}>{undoAction.label}. Bisa dibatalkan 15 detik.</span><button data-testid="transaction-undo-button" type="button" onClick={applyUndo} style={{border:"none",borderRadius:8,padding:"8px 11px",background:T.accent,color:"white",fontSize:11,fontWeight:900,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Batalkan</button></div>}
+      {toast&&<div role="status" aria-live="polite" aria-atomic="true" className={`toast-in ${toastClosing?"closing":""}`} style={{position:"fixed",top:"max(18px, calc(env(safe-area-inset-top) + 8px))",right:"max(14px, env(safe-area-inset-right))",left:isMobile?"max(14px, env(safe-area-inset-left))":"auto",maxWidth:isMobile?"none":"min(430px, calc(100vw - 28px))",background:T.card,color:T.text,padding:"12px 15px",borderRadius:14,fontSize:13,fontWeight:800,zIndex:9999,boxShadow:T.shadowMd,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:10,lineHeight:1.35}}><span style={{width:28,height:28,borderRadius:9,background:T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><img src="/icon-192.png" alt="" style={{width:22,height:22,borderRadius:6,verticalAlign:"middle"}}/></span><span style={{minWidth:0,overflowWrap:"anywhere"}}>{toast}</span></div>}
+      {undoAction&&<div data-testid="transaction-undo" style={{position:"fixed",left:isMobile?"max(14px,env(safe-area-inset-left))":"50%",right:isMobile?"max(14px,env(safe-area-inset-right))":"auto",transform:isMobile?"none":"translateX(-50%)",bottom:isMobile?"calc(82px + env(safe-area-inset-bottom))":"24px",zIndex:10010,display:"flex",alignItems:"center",justifyContent:"space-between",gap:18,padding:"11px 12px 11px 15px",borderRadius:12,background:T.text,color:T.card,boxShadow:T.shadowMd,minWidth:isMobile?0:340,maxWidth:"calc(100vw - 28px)"}}><span style={{fontSize:12,fontWeight:800}}>{undoAction.label}. Bisa dibatalkan 15 detik.</span><button data-testid="transaction-undo-button" type="button" onClick={applyUndo} style={{border:"none",borderRadius:8,padding:"8px 11px",background:T.accent,color:filledButtonInk(T.accent),fontSize:11,fontWeight:900,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Batalkan</button></div>}
 
       {/* Global Calculator */}
       {showCalc&&calcFor&&<Calculator value={calcFor.cur} onChange={v=>{calcFor.setter(v);setShowCalc(false);setCalcFor(null);}} onClose={()=>{setShowCalc(false);setCalcFor(null);}}/>}
@@ -7949,7 +8035,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
       {/* Command Palette */}
       {commandOpen&&<div style={{position:"fixed",inset:0,background:"rgba(15,6,38,.52)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:980,display:"flex",alignItems:isMobile?"flex-start":"center",justifyContent:"center",padding:isMobile?"max(18px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 14px max(14px, env(safe-area-inset-left))":"22px"}} onClick={()=>setCommandOpen(false)}>
-        <div className="modal-pop" style={{width:"100%",maxWidth:560,background:T.card,border:`1px solid ${T.border}`,borderRadius:22,boxShadow:T.shadowMd,padding:isMobile?16:18,color:T.text}} onClick={e=>e.stopPropagation()}>
+        <DialogSurface onDismiss={()=>setCommandOpen(false)} aria-label={lang==="en"?"Search AturDuitku":"Pencarian AturDuitku"} className="modal-pop" style={{width:"100%",maxWidth:560,background:T.card,border:`1px solid ${T.border}`,borderRadius:22,boxShadow:T.shadowMd,padding:isMobile?16:18,color:T.text}} onClick={e=>e.stopPropagation()}>
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
             <img src="/icon-192.png" alt="" style={{width:42,height:42,borderRadius:14,objectFit:"cover",boxShadow:`0 10px 24px ${T.accentPop}`}}/>
             <div style={{flex:1,minWidth:0}}>
@@ -7971,13 +8057,13 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             ))}
             {!commandResults.length&&<div style={{padding:22,textAlign:"center",fontSize:12,color:T.muted,background:T.cardAlt,borderRadius:14,border:`1px dashed ${T.border}`}}>Data atau aksi tidak ditemukan.</div>}
           </div>
-        </div>
+        </DialogSurface>
       </div>}
 
       {/* ── MODALS ── */}
       {modal&&(
         <div className={`modal-overlay ${modalClosing?"closing":""}`} style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.55)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",zIndex:1000,padding:isMobile?0:"16px",paddingTop:isMobile?"max(12px, env(safe-area-inset-top))":undefined}} onClick={()=>closeModal()}>
-          <div className={`modal-pop ${modalClosing?"closing":""}`} style={{cursor:"pointer",background:T.card,borderRadius:isMobile?"24px 24px 0 0":20,padding:isMobile?"20px max(18px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(18px, env(safe-area-inset-left))":"26px",width:"100%",maxWidth:isMobile?"100%":520,maxHeight:isMobile?"min(88svh, calc(var(--app-height, 100dvh) - 12px))":"min(92vh, calc(var(--app-height, 100dvh) - 32px))",overflowY:"auto",overflowX:"hidden",color:T.text,WebkitOverflowScrolling:"touch"}} onClick={e=>e.stopPropagation()}>
+          <DialogSurface onDismiss={()=>closeModal()} initialFocus={modal.type==="tx"?(modal.editTxId!==undefined?"#transaction-name":"#transaction-amount"):undefined} aria-label={modal.title||({tx:modal.editTxId!==undefined?"Edit transaksi":t("newTx"),confirm:t("confirm"),resetAccount:lang==="en"?"Reset account":"Reset akun",userMenu:lang==="en"?"Account menu":"Menu akun",walletHistory:lang==="en"?"Wallet history":"Riwayat dompet",kalkulator:lang==="en"?"Financial calculator":"Kalkulator finansial"}[modal.type])||(lang==="en"?"AturDuitku dialog":"Dialog AturDuitku")} className={`modal-pop ${modalClosing?"closing":""}`} style={{cursor:"pointer",background:T.card,borderRadius:isMobile?"24px 24px 0 0":20,padding:isMobile?"20px max(18px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(18px, env(safe-area-inset-left))":"26px",width:"100%",maxWidth:isMobile?"100%":520,maxHeight:isMobile?"min(88svh, calc(var(--app-height, 100dvh) - 12px))":"min(92vh, calc(var(--app-height, 100dvh) - 32px))",overflowY:"auto",overflowX:"hidden",color:T.text,WebkitOverflowScrolling:"touch"}} onClick={e=>e.stopPropagation()}>
 
             {isMobile&&<div style={{width:40,height:4,borderRadius:99,background:"rgba(0,0,0,.15)",margin:"-8px auto 16px",flexShrink:0}}/>}
             {modal.type==="adminRestore"&&adminRestoreForm&&<section data-testid="admin-backup-restore" aria-labelledby="admin-restore-heading">
@@ -7991,7 +8077,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <p style={{fontSize:14,lineHeight:1.6}}>Kondisi server sebelumnya akan dicadangkan. Pemulihan dibatalkan jika data cloud sudah berubah atau berisi catatan.</p>
               {adminRestoreForm.error&&<p role="alert" style={{fontSize:14,lineHeight:1.5,color:T.err}}>{adminRestoreForm.error}</p>}
               <div style={{display:"flex",flexWrap:"wrap",gap:12,marginTop:20}}>
-                <button onClick={restoreAdminBackup} disabled={!adminRestoreForm.backup||!adminRestoreForm.confirmed||adminRestoreForm.busy} style={{minHeight:46,padding:"12px 16px",border:0,borderRadius:8,background:T.accent,color:"white",fontFamily:"inherit",fontSize:14,fontWeight:700,opacity:(!adminRestoreForm.backup||!adminRestoreForm.confirmed)?0.6:1,cursor:"pointer"}}>{adminRestoreForm.busy?"Memulihkan...":"Pulihkan ke server customer"}</button>
+                <button onClick={restoreAdminBackup} disabled={!adminRestoreForm.backup||!adminRestoreForm.confirmed||adminRestoreForm.busy} style={{minHeight:46,padding:"12px 16px",border:0,borderRadius:8,background:T.accent,color:filledButtonInk(T.accent),fontFamily:"inherit",fontSize:14,fontWeight:700,opacity:(!adminRestoreForm.backup||!adminRestoreForm.confirmed)?0.6:1,cursor:"pointer"}}>{adminRestoreForm.busy?"Memulihkan...":"Pulihkan ke server customer"}</button>
                 <button onClick={()=>{adminRestoreFileSequenceRef.current++;closeModal();}} disabled={adminRestoreForm.busy} style={{minHeight:46,padding:"12px 16px",border:`1px solid ${T.border}`,borderRadius:8,background:T.card,color:T.text,fontFamily:"inherit",fontSize:14,fontWeight:700,cursor:"pointer"}}>Batal</button>
               </div>
             </section>}
@@ -8005,8 +8091,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <input type={showAdminPassword?"text":"password"} autoComplete="new-password" value={adminPasswordForm.password} onChange={e=>setAdminPasswordForm(f=>({...f,password:e.target.value}))} placeholder="Minimal 8 karakter" style={{...IS,paddingRight:72}}/>
                 <button type="button" onClick={()=>setShowAdminPassword(v=>!v)} style={{position:"absolute",right:6,top:6,bottom:6,padding:"0 9px",borderRadius:8,border:`1px solid ${T.border}`,background:T.cardAlt,color:T.sub,fontSize:10,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>{showAdminPassword?"Sembunyikan":"Lihat"}</button>
               </div>
-              <label style={LS}>Ulangi password baru</label>
-              <input type={showAdminPassword?"text":"password"} autoComplete="new-password" value={adminPasswordForm.confirm} onChange={e=>setAdminPasswordForm(f=>({...f,confirm:e.target.value}))} placeholder="Ketik ulang password" style={{...IS,marginBottom:14}}/>
+              <Field label={<>Ulangi password baru</>} labelStyle={LS}><input type={showAdminPassword?"text":"password"} autoComplete="new-password" value={adminPasswordForm.confirm} onChange={e=>setAdminPasswordForm(f=>({...f,confirm:e.target.value}))} placeholder="Ketik ulang password" style={{...IS,marginBottom:14}}/></Field>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8}}>
                 <Btn onClick={updateAdminPassword} disabled={adminPasswordBusy} ch={adminPasswordBusy?"Menyimpan...":"Simpan password"} c={T.accent} style={{width:"100%",padding:12}}/>
                 <Btn onClick={()=>closeModal()} ch="Batal" c={T.muted} outline style={{width:"100%",padding:12}}/>
@@ -8174,7 +8259,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             </>}
 
             {/* Confirm Modal */}
-            {modal.type==="resetAccount"&&accountResetForm&&<section role="dialog" aria-modal="true" aria-labelledby="reset-account-heading" data-testid="account-reset-dialog">
+            {modal.type==="resetAccount"&&accountResetForm&&<section aria-labelledby="reset-account-heading" data-testid="account-reset-dialog">
               <h2 id="reset-account-heading" style={{fontSize:20,margin:"0 0 12px",lineHeight:1.3}}>{lang==="en"?"Reset financial data":"Reset data keuangan"}</h2>
               <p style={{fontSize:14,lineHeight:1.6,margin:"0 0 12px"}}>{lang==="en"?"Active financial records will be cleared and setup will restart. Your account and access remain active.":"Catatan keuangan aktif akan dikosongkan dan setup dimulai ulang. Akun dan akses tetap aktif."}</p>
               <p style={{fontSize:13,color:T.sub,lineHeight:1.6,margin:"0 0 16px",overflowWrap:"anywhere"}}>{lang==="en"?"Account":"Akun"}: {fireUser?.email||fireUser?.uid}</p>
@@ -8223,45 +8308,43 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <button key={v} onClick={()=>setTxForm(f=>({...f,tipe:v,katId:v==="pemasukan"?"":v==="pengeluaran"?(s.budgets[0]?.id||""):["tabungan","investasi"].includes(v)?investasiBudgetId:f.katId,customKat:"",subKat:"",goalId:"",asetId:"",budgetExcluded:false}))} style={{padding:"9px 6px",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",border:`2px solid ${txForm.tipe===v?T.accent:T.inputBorder}`,background:txForm.tipe===v?T.accentBg:T.input,color:txForm.tipe===v?T.accent:T.sub}}>{l}</button>
                 ))}
               </div>
-              <label style={LS}>{t("date")}</label><input type="date" value={txForm.tgl} onChange={e=>setTxForm(f=>({...f,tgl:e.target.value}))} style={{...IS,marginBottom:10}}/>
+              <Field label={<>{t("date")}</>} labelStyle={LS}><input id="transaction-date" type="date" value={txForm.tgl} aria-invalid={!!txErrors.date} aria-describedby={txErrors.date?"transaction-date-error":undefined} onChange={e=>{setTxForm(f=>({...f,tgl:e.target.value}));setTxErrors(errors=>({...errors,date:undefined}));}} style={{...IS,marginBottom:10}}/></Field>
+              {txErrors.date&&<p id="transaction-date-error" role="alert" style={{fontSize:13,color:T.err,margin:"0 0 10px"}}>{txErrors.date}</p>}
               <label htmlFor="transaction-amount" style={LS}>{t("amount")} ({currencySymbol})</label>
               <div style={{position:"relative",marginBottom:10}}>
-                <CurIn id="transaction-amount" value={txForm.jml} onChange={v=>setTxForm(f=>({...f,jml:v}))} placeholder="0" style={{paddingRight:40}}/>
-                <button onClick={()=>openCalc("jml",txForm.jml,v=>setTxForm(f=>({...f,jml:v})))} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:12,fontWeight:800,color:T.accent}} title="Kalkulator" aria-label="Kalkulator">🧮</button>
+                <CurIn id="transaction-amount" value={txForm.jml} onChange={v=>{setTxForm(f=>({...f,jml:v}));if(N(v)>0)setTxErrors(errors=>({...errors,amount:undefined}));}} aria-invalid={!!txErrors.amount} aria-describedby={txErrors.amount?"transaction-amount-error":undefined} placeholder="0" style={{paddingRight:48}}/>
+                <CalcButton onClick={()=>openCalc("jml",txForm.jml,v=>setTxForm(f=>({...f,jml:v})))}/>
               </div>
+              {txErrors.amount&&<p id="transaction-amount-error" role="alert" style={{fontSize:13,color:T.err,margin:"0 0 10px"}}>{txErrors.amount}</p>}
               <label htmlFor="transaction-name" style={LS}>{modal.editTxId!==undefined?"Nama transaksi":t("description")}</label><input id="transaction-name" autoFocus={modal.editTxId!==undefined} maxLength={120} placeholder={modal.editTxId!==undefined?"Contoh: Belanja bulanan":t("txDescPlaceholder")} value={txForm.ket} onChange={e=>setTxForm(f=>({...f,ket:e.target.value}))} style={{...IS,marginBottom:10}}/>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
-                <div><label style={LS}>{txForm.tipe==="transfer"?t("fromWallet"):t("dompet")}</label>
-                <select value={txForm.dompetId} onChange={e=>setTxForm(f=>({...f,dompetId:e.target.value}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>
-                {txForm.tipe==="pengeluaran"&&<div><label style={LS}>{t("category")}</label><select aria-label="Kategori transaksi" value={txForm.katId} onChange={e=>{const selected=txFormBudgets.find(b=>sameId(b.id,e.target.value));setTxForm(f=>({...f,katId:selected?.id??"",customKat:"",subKat:"",budgetExcluded:!selected}));}} style={IS}><option value="">Di luar budget</option>{txFormBudgets.map(b=><option key={b.id} value={b.id}>{uiIcon(b.icon)} {b.kat}</option>)}</select></div>}
-                {txForm.tipe==="transfer"&&<div><label style={LS}>{t("toWallet")}</label><select value={txForm.dompetTo} onChange={e=>setTxForm(f=>({...f,dompetTo:e.target.value}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>}
-                {txForm.tipe==="pemasukan"&&<div><label style={LS}>Kategori</label><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:e.target.value,customKat:""}))} style={IS}><option value="">Otomatis dari keterangan</option>{KAT_IN.map(k=><option key={k}>{k}</option>)}</select><div style={{fontSize:10,color:T.muted,marginTop:5,lineHeight:1.45}}>{!txForm.katId&&txForm.ket.trim()?<>Terdeteksi: <strong style={{color:T.accent}}>{inferIncomeCategory(txForm.ket)||"Lainnya"}</strong></>:"Contoh: gaji kantor, fee proyek, bonus, jualan, dividen, atau transfer masuk."}</div></div>}
+                <div><Field label={<>{txForm.tipe==="transfer"?t("fromWallet"):t("dompet")}</>} labelStyle={LS}><select value={txForm.dompetId} onChange={e=>setTxForm(f=>({...f,dompetId:e.target.value}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></Field></div>
+                {txForm.tipe==="pengeluaran"&&<div><Field label={<>{t("category")}</>} labelStyle={LS}><select aria-label="Kategori transaksi" value={txForm.katId} onChange={e=>{const selected=txFormBudgets.find(b=>sameId(b.id,e.target.value));setTxForm(f=>({...f,katId:selected?.id??"",customKat:"",subKat:"",budgetExcluded:!selected}));}} style={IS}><option value="">Di luar budget</option>{txFormBudgets.map(b=><option key={b.id} value={b.id}>{uiIcon(b.icon)} {b.kat}</option>)}</select></Field></div>}
+                {txForm.tipe==="transfer"&&<div><Field label={<>{t("toWallet")}</>} labelStyle={LS}><select value={txForm.dompetTo} onChange={e=>setTxForm(f=>({...f,dompetTo:e.target.value}))} style={IS}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></Field></div>}
+                {txForm.tipe==="pemasukan"&&<div><Field label={<>Kategori</>} labelStyle={LS}><select value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:e.target.value,customKat:""}))} style={IS}><option value="">Otomatis dari keterangan</option>{KAT_IN.map(k=><option key={k}>{k}</option>)}</select></Field><div style={{fontSize:10,color:T.muted,marginTop:5,lineHeight:1.45}}>{!txForm.katId&&txForm.ket.trim()?<>Terdeteksi: <strong style={{color:T.accent}}>{inferIncomeCategory(txForm.ket)||"Lainnya"}</strong></>:"Contoh: gaji kantor, fee proyek, bonus, jualan, dividen, atau transfer masuk."}</div></div>}
                 {txForm.tipe==="investasi"&&<div><label htmlFor="investment-budget" style={LS}>Kategori budget investasi</label><select id="investment-budget" value={txForm.katId} onChange={e=>setTxForm(f=>({...f,katId:e.target.value,subKat:""}))} style={IS}><option value="">Di luar budget</option>{txFormBudgets.map(b=><option key={b.id} value={b.id}>{b.kat}</option>)}</select></div>}
-                {txForm.tipe==="tabungan"&&<div><label style={LS}>Goal</label><select value={txForm.goalId} onChange={e=>setTxForm(f=>({...f,goalId:e.target.value}))} style={IS}><option value="">-- Pilih Goal --</option>{s.goals.filter(g=>!g.selesai).map(g=><option key={g.id} value={g.id}>{uiIcon(g.icon)} {g.nama}</option>)}</select></div>}
+                {txForm.tipe==="tabungan"&&<div><Field label={<>Goal</>} labelStyle={LS}><select value={txForm.goalId} onChange={e=>setTxForm(f=>({...f,goalId:e.target.value}))} style={IS}><option value="">-- Pilih Goal --</option>{s.goals.filter(g=>!g.selesai).map(g=><option key={g.id} value={g.id}>{uiIcon(g.icon)} {g.nama}</option>)}</select></Field></div>}
               </div>
               {txForm.tipe==="investasi"&&<div style={{marginBottom:10}}><label htmlFor="investment-asset" style={LS}>Aset investasi</label><select id="investment-asset" value={txForm.asetId||""} onChange={e=>setTxForm(f=>({...f,asetId:e.target.value}))} style={IS}><option value="">Buat aset dari nama transaksi</option>{s.asetTetap.map(a=><option key={a.id} value={a.id}>{a.nama}</option>)}</select></div>}
               {txForm.tipe==="pengeluaran"&&!txFormBudgets.some(b=>sameId(b.id,txForm.katId))&&(
                 <div style={{marginBottom:10,padding:"10px 12px",borderRadius:9,background:T.infoBg,border:`1px solid ${T.infoBorder}`}}>
-                  <label style={{...LS,color:T.info}}>Nama kategori bebas (opsional)</label>
-                  <input maxLength={40} placeholder="Contoh: Donasi, peliharaan, renovasi" value={txForm.customKat||""} onChange={e=>setTxForm(f=>({...f,customKat:e.target.value,budgetExcluded:true}))} style={IS}/>
+                  <Field label={<>Nama kategori bebas (opsional)</>} labelStyle={{...LS,color:T.info}}><input maxLength={40} placeholder="Contoh: Donasi, peliharaan, renovasi" value={txForm.customKat||""} onChange={e=>setTxForm(f=>({...f,customKat:e.target.value,budgetExcluded:true}))} style={IS}/></Field>
                   <div style={{fontSize:10,color:T.sub,marginTop:6,lineHeight:1.45}}>Saldo dompet tetap berkurang dan transaksi tetap masuk laporan, tetapi tidak dihitung sebagai realisasi budget.</div>
                 </div>
               )}
               {((txForm.tipe==="pemasukan"&&txForm.katId==="Lainnya")||(txForm.tipe==="pengeluaran"&&txFormBudgets.find(b=>sameId(b.id,txForm.katId))?.kat==="Lainnya"))&&(
                 <div style={{marginBottom:10}}>
-                  <label style={LS}>Nama kategori lainnya</label>
-                  <input autoFocus maxLength={40} placeholder={txForm.tipe==="pemasukan"?"Contoh: Komisi, cashback, hadiah":"Contoh: Peliharaan, donasi, renovasi"} value={txForm.customKat||""} onChange={e=>setTxForm(f=>({...f,customKat:e.target.value}))} style={IS}/>
+                  <Field label={<>Nama kategori lainnya</>} labelStyle={LS}><input autoFocus maxLength={40} placeholder={txForm.tipe==="pemasukan"?"Contoh: Komisi, cashback, hadiah":"Contoh: Peliharaan, donasi, renovasi"} value={txForm.customKat||""} onChange={e=>setTxForm(f=>({...f,customKat:e.target.value}))} style={IS}/></Field>
                   <div style={{fontSize:10,color:T.muted,marginTop:5}}>Nama ini akan tampil di riwayat dan laporan transaksi.</div>
                 </div>
               )}
               {["pengeluaran","investasi"].includes(txForm.tipe)&&txForm.katId&&txFormBudgets.find(b=>sameId(b.id,txForm.katId))?.sub?.length>0&&(
-                <div style={{marginBottom:10}}><label style={LS}>Subkategori</label>
-                <select value={txForm.subKat} onChange={e=>setTxForm(f=>({...f,subKat:e.target.value}))} style={IS}>
+                <div style={{marginBottom:10}}><Field label={<>Subkategori</>} labelStyle={LS}><select value={txForm.subKat} onChange={e=>setTxForm(f=>({...f,subKat:e.target.value}))} style={IS}>
                   <option value="">-- Pilih --</option>
                   {txFormBudgets.find(b=>sameId(b.id,txForm.katId))?.sub?.map(sb=><option key={sb.nama} value={sb.nama}>{sb.emoji} {sb.nama}</option>)}
-                </select></div>
+                </select></Field></div>
               )}
-              {txForm.tipe==="transfer"&&<><label style={LS}>{t("transferFee")}</label><CurIn value={txForm.biaya} onChange={v=>setTxForm(f=>({...f,biaya:v}))} placeholder="0" style={{...IS,marginBottom:10}}/></>}
+              {txForm.tipe==="transfer"&&<><Field label={<>{t("transferFee")}</>} labelStyle={LS}><CurIn value={txForm.biaya} onChange={v=>setTxForm(f=>({...f,biaya:v}))} placeholder="0" style={{...IS,marginBottom:10}}/></Field></>}
               <Btn onClick={addTx} ch={modal.editTxId!==undefined?"Simpan Perubahan":t("saveTx")} style={{width:"100%",padding:"12px",marginTop:4}}/>
             </>}
 
@@ -8302,9 +8385,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
                 {DOMPET_TIPE.map(t=><button key={t} onClick={()=>setDompetForm(f=>({...f,tipe:t}))} style={{padding:"7px 14px",borderRadius:8,border:`2px solid ${dompetForm.tipe===t?T.accent:T.inputBorder}`,background:dompetForm.tipe===t?T.accentBg:T.input,color:dompetForm.tipe===t?T.accent:T.sub,fontWeight:600,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{t.toUpperCase()}</button>)}
               </div>
-              <label style={LS}>{t("name")}</label><input placeholder={t("walletPlaceholder")} value={dompetForm.nama} onChange={e=>setDompetForm(f=>({...f,nama:e.target.value}))} style={{...IS,marginBottom:10}}/>
-              <label style={LS}>{t("accountNoOpt")}</label><input placeholder={t("norekPlaceholder")} value={dompetForm.norek} onChange={e=>setDompetForm(f=>({...f,norek:e.target.value}))} style={{...IS,marginBottom:10}}/>
-              <label style={LS}>{t("openingBal")}</label><CurIn value={dompetForm.saldo} onChange={v=>setDompetForm(f=>({...f,saldo:v}))} placeholder="0" style={{...IS,marginBottom:14}}/>
+              <Field label={<>{t("name")}</>} labelStyle={LS}><input placeholder={t("walletPlaceholder")} value={dompetForm.nama} onChange={e=>setDompetForm(f=>({...f,nama:e.target.value}))} style={{...IS,marginBottom:10}}/></Field>
+              <Field label={<>{t("accountNoOpt")}</>} labelStyle={LS}><input placeholder={t("norekPlaceholder")} value={dompetForm.norek} onChange={e=>setDompetForm(f=>({...f,norek:e.target.value}))} style={{...IS,marginBottom:10}}/></Field>
+              <Field label={<>{t("openingBal")}</>} labelStyle={LS}><CurIn value={dompetForm.saldo} onChange={v=>setDompetForm(f=>({...f,saldo:v}))} placeholder="0" style={{...IS,marginBottom:14}}/></Field>
               <Btn onClick={addDompet} ch={t("addWallet")} style={{width:"100%",padding:"12px"}}/>
             </>}
 
@@ -8368,7 +8451,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <div style={{padding:"11px 12px",borderRadius:11,background:T.cardAlt,border:`1px solid ${T.border}`}}><div style={{fontSize:9,color:T.muted,fontWeight:900,textTransform:"uppercase",marginBottom:4}}>Saldo aplikasi</div><div style={{fontSize:15,fontWeight:900,color:T.text}}>{IDRs(current)}</div></div>
                   <div style={{padding:"11px 12px",borderRadius:11,background:diff===0?T.okBg:T.warnBg,border:`1px solid ${diff===0?T.okBorder:T.warnBorder}`}}><div style={{fontSize:9,color:T.muted,fontWeight:900,textTransform:"uppercase",marginBottom:4}}>Selisih</div><div style={{fontSize:15,fontWeight:900,color:diff===0?T.ok:T.warn}}>{diff>0?"+":""}{IDRs(diff)}</div></div>
                 </div>
-                <label style={LS}>Saldo sebenarnya pada tanggal acuan</label><CurIn value={modal.actual} onChange={v=>setModal(m=>({...m,actual:v}))} placeholder="0" style={{...IS,marginBottom:14}}/>
+                <Field label={<>Saldo sebenarnya pada tanggal acuan</>} labelStyle={LS}><CurIn value={modal.actual} onChange={v=>setModal(m=>({...m,actual:v}))} placeholder="0" style={{...IS,marginBottom:14}}/></Field>
                 <Btn onClick={reconcileWallet} ch={diff===0?"Saldo sudah cocok":"Simpan koreksi saldo"} c={diff===0?T.ok:T.accent} style={{width:"100%",padding:"12px"}}/>
               </>;
             })()}
@@ -8379,8 +8462,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               return <>
                 <div style={{fontSize:17,fontWeight:900,color:T.text,marginBottom:4}}>Bayar tagihan {bill?.nama}</div>
                 <div style={{fontSize:12,color:T.muted,lineHeight:1.55,marginBottom:16}}>Setelah disimpan, saldo dompet berkurang dan transaksi otomatis masuk ke kategori {bill?.kat}.</div>
-                <label style={LS}>Bayar dari</label><select value={modal.walletId||""} onChange={e=>setModal(m=>({...m,walletId:e.target.value}))} style={{...IS,marginBottom:10}}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama} ({IDRs(N(d.saldo))})</option>)}</select>
-                <label style={LS}>Nominal pembayaran</label><CurIn value={modal.amount} onChange={v=>setModal(m=>({...m,amount:v}))} placeholder="0" style={{...IS,marginBottom:10}}/>
+                <Field label={<>Bayar dari</>} labelStyle={LS}><select value={modal.walletId||""} onChange={e=>setModal(m=>({...m,walletId:e.target.value}))} style={{...IS,marginBottom:10}}>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama} ({IDRs(N(d.saldo))})</option>)}</select></Field>
+                <Field label={<>Nominal pembayaran</>} labelStyle={LS}><CurIn value={modal.amount} onChange={v=>setModal(m=>({...m,amount:v}))} placeholder="0" style={{...IS,marginBottom:10}}/></Field>
                 {wallet&&N(wallet.saldo)<N(modal.amount)&&<div style={{fontSize:11,color:T.err,background:T.errBg,border:`1px solid ${T.errBorder}`,borderRadius:9,padding:"8px 10px",marginBottom:10}}>Saldo {wallet.nama} tidak cukup.</div>}
                 <Btn onClick={payScheduledBill} ch="Simpan sebagai sudah dibayar" c={T.ok} style={{width:"100%",padding:"12px"}}/>
               </>;
@@ -8393,15 +8476,14 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:10,border:`1.5px solid ${T.inputBorder}`,borderRadius:8,marginBottom:10,maxHeight:isMobile?170:"none",overflowY:isMobile?"auto":"visible"}}>
                 {DREAM_ICONS.map(ico=><button key={ico} onClick={()=>setGoalForm(f=>({...f,icon:ico}))} style={{padding:"5px 7px",borderRadius:7,border:`2px solid ${goalForm.icon===ico?T.accent:"transparent"}`,background:goalForm.icon===ico?T.accentBg:"transparent",cursor:"pointer",fontSize:20,fontFamily:"inherit"}}>{uiIcon(ico)}</button>)}
               </div>
-              <label style={LS}>{t("goalName")}</label><input placeholder={t("goalPlaceholder")} value={goalForm.nama} onChange={e=>setGoalForm(f=>({...f,nama:e.target.value}))} style={{...IS,marginBottom:10}}/>
-              <label style={LS}>{t("goalTarget")}</label><CurIn value={goalForm.target} onChange={v=>setGoalForm(f=>({...f,target:v}))} placeholder="0" style={{...IS,marginBottom:10}}/>
-              <label style={LS}>Dompet sumber</label>
-              <select aria-label="Dompet sumber Goal baru" value={goalSourceId} onChange={e=>setGoalSourceId(e.target.value)} style={{...IS,marginBottom:10}}>
+              <Field label={<>{t("goalName")}</>} labelStyle={LS}><input placeholder={t("goalPlaceholder")} value={goalForm.nama} onChange={e=>setGoalForm(f=>({...f,nama:e.target.value}))} style={{...IS,marginBottom:10}}/></Field>
+              <Field label={<>{t("goalTarget")}</>} labelStyle={LS}><CurIn value={goalForm.target} onChange={v=>setGoalForm(f=>({...f,target:v}))} placeholder="0" style={{...IS,marginBottom:10}}/></Field>
+              <Field label={<>Dompet sumber</>} labelStyle={LS}><select aria-label="Dompet sumber Goal baru" value={goalSourceId} onChange={e=>setGoalSourceId(e.target.value)} style={{...IS,marginBottom:10}}>
                 {s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama} ({IDRs(N(d.saldo))})</option>)}
-              </select>
+              </select></Field>
               <div style={{fontSize:10,color:T.muted,lineHeight:1.5,marginTop:-5,marginBottom:10}}>Setoran Goal akan diambil dari dompet ini. Sumber masih bisa diganti pada kartu Goal.</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr",gap:10,marginBottom:14}}>
-                <div><label style={LS}>Deadline</label><input type="date" value={goalForm.deadline} onChange={e=>setGoalForm(f=>({...f,deadline:e.target.value}))} style={IS}/></div>
+                <div><Field label={<>Deadline</>} labelStyle={LS}><input type="date" value={goalForm.deadline} onChange={e=>setGoalForm(f=>({...f,deadline:e.target.value}))} style={IS}/></Field></div>
               </div>
               <Btn onClick={addGoal} ch={t("addGoal")} style={{width:"100%",padding:"12px"}}/>
             </>}
@@ -8409,9 +8491,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             {/* Aset Modal */}
             {modal.type==="aset"&&<>
               <div style={{fontSize:16,fontWeight:800,marginBottom:4,color:T.text}}>{asetForm.id?"Ubah aset":"Tambah aset tetap"}</div><div style={{fontSize:12,color:T.muted,marginBottom:16}}>{asetForm.id?"Perbarui nama, nilai, atau keterangan aset. Saldo dompet tidak akan berubah.":"Catat aset agar nilai kekayaan bersih kamu ikut terpantau."}</div>
-              <label style={LS}>{t("asetName2")}</label><input placeholder={t("assetPlaceholder")} value={asetForm.nama} onChange={e=>setAsetForm(f=>({...f,nama:e.target.value}))} style={{...IS,marginBottom:10}}/>
-              <label style={LS}>{t("asetVal")}</label><CurIn value={asetForm.nilai} onChange={v=>setAsetForm(f=>({...f,nilai:v}))} placeholder="0" style={{...IS,marginBottom:10}}/>
-              <label style={LS}>Keterangan</label><input placeholder={t("ketOpsional")} value={asetForm.ket} onChange={e=>setAsetForm(f=>({...f,ket:e.target.value}))} style={{...IS,marginBottom:14}}/>
+              <Field label={<>{t("asetName2")}</>} labelStyle={LS}><input placeholder={t("assetPlaceholder")} value={asetForm.nama} onChange={e=>setAsetForm(f=>({...f,nama:e.target.value}))} style={{...IS,marginBottom:10}}/></Field>
+              <Field label={<>{t("asetVal")}</>} labelStyle={LS}><CurIn value={asetForm.nilai} onChange={v=>setAsetForm(f=>({...f,nilai:v}))} placeholder="0" style={{...IS,marginBottom:10}}/></Field>
+              <Field label={<>Keterangan</>} labelStyle={LS}><input placeholder={t("ketOpsional")} value={asetForm.ket} onChange={e=>setAsetForm(f=>({...f,ket:e.target.value}))} style={{...IS,marginBottom:14}}/></Field>
               
                {!asetForm.id&&<div style={{background:T.cardAlt, padding:14, borderRadius:10, border:`1.5px dashed ${T.border}`, marginBottom:16}}>
                  <label style={{...LS, color:T.text}}>{t("useWalletBal")}</label>
@@ -8430,7 +8512,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
               <Btn onClick={addAset} ch={asetForm.id?"Simpan perubahan":t("addAset")} style={{width:"100%",padding:"12px"}}/>
             </>}
-          </div>
+          </DialogSurface>
         </div>
       )}
 
@@ -8446,21 +8528,21 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             </div>
             {isMobile&&<button onClick={()=>closeSidebar()} style={{background:T.accentBg,border:"none",borderRadius:8,minWidth:44,height:32,cursor:"pointer",fontSize:10,fontWeight:800,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0,padding:"0 10px"}}>Tutup</button>}
           </div>
-          <div style={{padding:"10px 8px",flex:1}}>
+          <nav aria-label={lang==="en"?"Main navigation":"Navigasi utama"} style={{padding:"10px 8px",flex:1}}>
             {[{label:"Menu Utama",items:navItems.slice(0,4)},{label:"Keuangan",items:navItems.slice(4,9)},{label:"Pengaturan",items:navItems.slice(9)}].map(section=>(
               <div key={section.label}>
                 <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:2,textTransform:"uppercase",padding:"8px 10px 6px",marginTop:4}}>{section.label}</div>
                 {section.items.map(nav=>{const a=page===nav.id;return(
-                  <div key={nav.id} onClick={()=>navTo(nav.id)} className="nav-item" style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",borderRadius:11,cursor:"pointer",marginBottom:4,background:a?T.navActive:"transparent",color:a?T.accent:T.sub,fontWeight:a?800:600,fontSize:13,borderLeft:a?`3px solid ${T.navBorder}`:"3px solid transparent",transition:"background .15s,color .15s"}}>
+                  <button type="button" key={nav.id} onClick={()=>navTo(nav.id)} aria-current={a?"page":undefined} className="nav-item" style={{display:"flex",width:"100%",textAlign:"left",fontFamily:"inherit",border:0,alignItems:"center",gap:10,padding:"11px 12px",borderRadius:11,cursor:"pointer",marginBottom:4,background:a?T.navActive:"transparent",color:a?T.accent:T.sub,fontWeight:a?800:600,fontSize:13,borderLeft:a?`3px solid ${T.navBorder}`:"3px solid transparent",transition:"background .15s,color .15s"}}>
                     <span style={{width:34,height:28,borderRadius:8,background:a?T.accentBg:T.cardAlt,color:a?T.accent:T.muted,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><AppIcon icon={nav.id} size={17} strokeWidth={a?2.4:2}/></span>
                     <span>{nav.label}</span>
                     {a&&<span style={{marginLeft:"auto",width:6,height:6,borderRadius:"50%",background:T.accent,display:"block",boxShadow:`0 0 7px ${T.accent}`}}/>}
-                  </div>
+                  </button>
                 );})}
                 {section.label!=="Pengaturan"&&<div style={{height:1,background:T.borderLight,margin:"6px 10px 0"}}/>}
               </div>
             ))}
-          </div>
+          </nav>
           <div style={{padding:12,borderTop:`1.5px solid ${T.border}`}}>
             <div style={{background:T.accentBg,borderRadius:12,padding:"12px 14px",border:`1px solid ${T.border}`}}>
               <div style={{fontSize:9,color:T.accent,fontWeight:700,textTransform:"uppercase",letterSpacing:1.5,marginBottom:4}}>Status Keuangan</div>
@@ -8480,16 +8562,16 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             <div style={{minWidth:0}}>
               <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
                 <img className="cat-mascot" src="/icon-192.png" alt="" style={{width:isMobile?24:28,height:isMobile?24:28,borderRadius:8,objectFit:"cover",flexShrink:0,boxShadow:`0 4px 12px ${T.accentPop}`}}/>
-                <div className="topbar-title" data-testid="page-title" style={{fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"38vw":"none"}}>{page==="admin"?"Admin":((lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",habit:"Habit",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings",admin:"Admin"}:{admin:"Admin",habit:"Habit"})[page]||navItems.find(n=>n.id===page)?.label||"")}</div>
+                <h1 id="app-page-title" tabIndex={-1} className="topbar-title" data-testid="page-title" style={{margin:0,fontWeight:800,fontSize:isMobile?13:15,color:T.accentFg,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:isMobile?"38vw":"none"}}>{page==="admin"?"Admin":((lang==="en"?{home:"Home",dompet:"Wallets",trans:"Transactions",budget:"Budget",amplop:"Envelopes",goals:"Goals",habit:"Habit",aset:"Assets",utang:"Debt",laporan:"Reports",setting:"Settings",admin:"Admin"}:{admin:"Admin",habit:"Habit"})[page]||navItems.find(n=>n.id===page)?.label||"")}</h1>
               </div>
               {!isMobile&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>{hariShort}{tzZone.zone?` • ${tzZone.zone}`:""}</div>}
             </div>
           </div>
           <div style={{display:"flex",gap:isMobile?6:8,alignItems:"center",flexShrink:0}}>
             {!isMobile&&(page==="trans"||page==="home")&&<Btn onClick={()=>setModal({type:"tx"})} ch={t("addTx")} style={{padding:"8px 14px",fontSize:12}}/>}
-            {!isMobile&&page==="trans"&&<Btn onClick={()=>setModal({type:"bulk"})} ch="Input Massal" c={T.accentSoft} outline style={{padding:"8px 14px",fontSize:12}}/>}
+            {!isMobile&&page==="trans"&&<Btn onClick={()=>setModal({type:"bulk"})} ch="Input Massal" c={T.accent} outline style={{padding:"8px 14px",fontSize:12}}/>}
             {!isMobile&&page==="dompet"&&<Btn onClick={()=>setModal({type:"dompet"})} ch={t("addWallet")+" "} style={{padding:"8px 14px",fontSize:12}}/>}
-            {!isMobile&&page==="dompet"&&<Btn onClick={()=>setModal({type:"importMutasi"})} ch={lang==="en"?"Import Statement":"Import Mutasi"} c={T.accentSoft} outline style={{padding:"8px 14px",fontSize:12}}/>}
+            {!isMobile&&page==="dompet"&&<Btn onClick={()=>setModal({type:"importMutasi"})} ch={lang==="en"?"Import Statement":"Import Mutasi"} c={T.accent} outline style={{padding:"8px 14px",fontSize:12}}/>}
             {!isMobile&&page==="goals"&&<Btn onClick={()=>setModal({type:"goal"})} ch={t("addGoalBtn")+" "} style={{padding:"8px 14px",fontSize:12}}/>}
             {!isMobile&&page==="aset"&&<Btn onClick={()=>setModal({type:"aset"})} ch={"+ "+t("aset")} style={{padding:"8px 14px",fontSize:12}}/>}
 
@@ -8499,7 +8581,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             {isMobile&&<button className="icon-action" onClick={()=>setCommandOpen(true)} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:17,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",color:T.text}} title="Cari semua data" aria-label="Cari semua data">⌕</button>}
 
             {/* Notification Bell */}
-            <button onClick={()=>setNotifOpen(true)} className={`icon-action ${notifications.length?"notif-bounce":""}`} title="Notifikasi" aria-label="Notifikasi" style={{position:"relative",background:notifications.length?T.errBg:T.cardAlt,border:`1px solid ${notifications.length?T.errBorder:T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,color:notifications.length?T.err:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .15s"}}>
+            <button onClick={()=>setNotifOpen(true)} className={`icon-action ${notifications.length?"notif-bounce":""}`} title="Notifikasi" aria-label={`${lang==="en"?"Notifications":"Notifikasi"} ${notifications.length}`} style={{position:"relative",background:notifications.length?T.errBg:T.cardAlt,border:`1px solid ${notifications.length?T.errBorder:T.border}`,borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:16,color:notifications.length?T.err:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all .15s"}}>
               🔔
               {notifications.length>0&&<span style={{position:"absolute",top:-3,right:-3,background:T.err,color:"white",borderRadius:"50%",width:16,height:16,fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${T.nav}`}}>{Math.min(notifications.length,9)}</span>}
             </button>
@@ -8518,7 +8600,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{fontWeight:700,color:T.text,marginBottom:2}}>{t(greetingWord)}, {s.name}! {greetingEmoji}</div>
               <div style={{fontSize:11,color:T.sub,display:"flex",alignItems:"center",gap:4,justifyContent:"flex-end"}}>
                 <span>{hariShort}</span>
-                {tzZone.city&&<><span style={{opacity:.4}}>•</span><span style={{color:tzZone.color,fontWeight:700}}>{tzZone.city} {tzZone.zone}</span></>}
+                {tzZone.city&&<><span aria-hidden="true" style={{opacity:.4}}>•</span><span style={{color:T.warn,fontWeight:700}}>{tzZone.city} {tzZone.zone}</span></>}
               </div>
             </div>}
             {/* Sync status */}
@@ -8573,7 +8655,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </button>
               ))}
             </div>}
-            <button className={`fab ${quickOpen?"is-open":""}`} onClick={()=>setQuickOpen(v=>!v)} aria-label="Aksi cepat" style={quickOpen?{zIndex:612}:undefined}>
+            <button className={`fab ${quickOpen?"is-open":""}`} onClick={()=>setQuickOpen(v=>!v)} aria-label={lang==="en"?"Record - quick actions":"Catat - Aksi cepat"} style={quickOpen?{zIndex:612}:undefined}>
               {quickOpen
                 ? <span className="fab-plus">×</span>
                 : <><span className="fab-plus">+</span><span className="fab-label">Catat</span></>}
@@ -8581,7 +8663,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           </>
         )}
 
-        <div key={page} className={`page-in ${pageBack?"back":""}`} style={{display:page==="admin"?"none":undefined,padding:isMobile?`14px max(14px,env(safe-area-inset-right)) calc(80px + max(env(safe-area-inset-bottom),0px)) max(14px,env(safe-area-inset-left))`:"22px 28px 40px",maxWidth:1340,margin:"0 auto"}}>
+        <main id="app-content" tabIndex={-1} aria-labelledby="app-page-title" key={page} className={`page-in ${pageBack?"back":""}`} style={{display:page==="admin"?"none":undefined,padding:isMobile?`14px max(14px,env(safe-area-inset-right)) calc(80px + max(env(safe-area-inset-bottom),0px)) max(14px,env(safe-area-inset-left))`:"22px 28px 40px",maxWidth:1340,margin:"0 auto"}}>
 
           {/* ══════════════════════════════════════════════════════════
               HOME
@@ -8712,7 +8794,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             </>} style={{marginBottom:18,padding:isMobile?14:"16px 18px"}}/>
 
             {setupPct<100&&<Card ch={<>
-              <Sec t="Start checklist" sub="Langkah kecil agar user baru cepat paham alur AturDuitku" right={<span style={{fontSize:11,fontWeight:900,color:T.accent}}>{Math.round(setupPct)}%</span>}/>
+              <Sec t={lang==="en"?"Getting started":"Mulai mencatat"} sub={lang==="en"?"Complete your starting balances, budget and first transaction.":"Lengkapi saldo awal, budget, dan transaksi pertamamu."} right={<span style={{fontSize:11,fontWeight:900,color:T.accent}}>{Math.round(setupPct)}%</span>}/>
               <PBar pct={setupPct} c={T.accent} h={8}/>
               <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:12}}>
                 <Btn onClick={applyBudgetTemplate} ch="Template budget" c={T.info} outline style={{padding:"8px 11px",fontSize:11}}/>
@@ -9038,7 +9120,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             <Card ch={<>
               <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
                 <div style={{position:"relative",flex:1,minWidth:200}}>
-                  <input placeholder={t("searchTx")} value={txSearch} onChange={e=>{setTxSearch(e.target.value);setTxPage(1);}} style={{...IS,paddingLeft:36,width:"100%"}}/>
+                  <input aria-label={lang==="en"?"Search transactions":"Cari transaksi"} placeholder={t("searchTx")} value={txSearch} onChange={e=>{setTxSearch(e.target.value);setTxPage(1);}} style={{...IS,paddingLeft:36,width:"100%"}}/>
                   <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",fontSize:11,fontWeight:800,color:T.muted}}>Cari</span>
                 </div>
                 <select aria-label={lang==="en"?"Filter wallet":"Filter dompet"} value={txFilt.dompet} onChange={e=>{setTxFilt(f=>({...f,dompet:e.target.value}));setTxPage(1);}} style={{...IS,width:"auto",fontSize:12}}>
@@ -9048,7 +9130,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <option value="">{t("allTypes")}</option><option value="pemasukan">{t("income")}</option><option value="pengeluaran">{t("expense")}</option><option value="tabungan">{t("saving")}</option><option value="investasi">Investasi</option><option value="alokasi_amplop">Alokasi Amplop</option><option value="pengembalian_amplop">Pengembalian Amplop</option><option value="penyesuaian">Koreksi saldo</option><option value="transfer_internal">{lang==="en"?"Between wallets":"Transfer antar dompet"}</option>
                 </select>
                 {txHasFilter&&<Btn onClick={()=>{setTxSearch("");setTxFilt({dompet:"",tipe:"",sub:"",startDate:"",endDate:""});setTxPage(1);}} ch="Reset" c={T.err} outline style={{padding:"7px 12px",fontSize:12}}/>}
-                <Btn onClick={()=>exportCSV()} ch="Export" c="#16A34A" outline style={{padding:"7px 12px",fontSize:12}}/>
+                <Btn onClick={()=>exportCSV()} ch="Export" c={T.ok} outline style={{padding:"7px 12px",fontSize:12}}/>
                 <Btn onClick={()=>setModal({type:"importMutasi"})} ch="Import Mutasi" c={T.accent} style={{padding:"7px 12px",fontSize:12}}/>
               </div>
               <div style={{display:"flex",alignItems:"flex-end",gap:8,flexWrap:"wrap",marginTop:12,paddingTop:12,borderTop:`1px solid ${T.border}`}}>
@@ -9213,9 +9295,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               </div>
               {showAddKat&&<div style={{background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:12,padding:16,marginTop:10}}>
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(0,1.4fr) minmax(150px,.8fr) minmax(190px,1fr)",gap:10,marginBottom:12}}>
-                  <div><label style={LS}>{t("catName")}</label><input placeholder={t("catPlaceholder")} value={newKat.kat} onChange={e=>setNewKat(f=>({...f,kat:e.target.value}))} style={IS}/></div>
-                  <div><label style={LS}>{t("catClass")}</label><select value={newKat.kelas} onChange={e=>setNewKat(f=>({...f,kelas:e.target.value}))} style={IS}><option>Kebutuhan</option><option>Keinginan</option><option>Investasi</option></select></div>
-                  <div><label style={LS}>{lang==="en"?"Funding wallet":"Dompet sumber"}</label><select value={newKat.dompetId} onChange={e=>setNewKat(f=>({...f,dompetId:e.target.value}))} style={IS}><option value="">{lang==="en"?"All wallets":"Semua dompet"}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>
+                  <div><Field label={<>{t("catName")}</>} labelStyle={LS}><input placeholder={t("catPlaceholder")} value={newKat.kat} onChange={e=>setNewKat(f=>({...f,kat:e.target.value}))} style={IS}/></Field></div>
+                  <div><Field label={<>{t("catClass")}</>} labelStyle={LS}><select value={newKat.kelas} onChange={e=>setNewKat(f=>({...f,kelas:e.target.value}))} style={IS}><option>Kebutuhan</option><option>Keinginan</option><option>Investasi</option></select></Field></div>
+                  <div><Field label={<>{lang==="en"?"Funding wallet":"Dompet sumber"}</>} labelStyle={LS}><select value={newKat.dompetId} onChange={e=>setNewKat(f=>({...f,dompetId:e.target.value}))} style={IS}><option value="">{lang==="en"?"All wallets":"Semua dompet"}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></Field></div>
                 </div>
                 <div style={{fontSize:10,color:T.sub,lineHeight:1.5,marginBottom:12}}>{lang==="en"?"This identifies the planned funding source. Wallet balances change only when a transaction is recorded.":"Ini hanya menandai asal dana yang direncanakan. Saldo dompet baru berubah saat transaksi dicatat."}</div>
                 <label style={LS}>Pilih ikon</label>
@@ -9243,8 +9325,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               const kelasSpend=cats.reduce((a,b)=>a+(spendByKat[b.id]||0),0);
               const isNeed=kelas===t("needsCat");
               const isInvest=kelas==="Investasi";
-              const badgeColor=isNeed?"#2563EB":isInvest?"#15803D":"#CA8A04";
-              const badgeBg=isNeed?"rgba(37,99,235,.12)":isInvest?"rgba(21,128,61,.12)":"rgba(202,138,4,.12)";
+              const badgeColor=isNeed?T.info:isInvest?T.ok:T.warn;
+              const badgeBg=isNeed?T.infoBg:isInvest?T.okBg:T.warnBg;
               return(
                 <div key={kelas} style={{marginBottom:20}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -9274,12 +9356,12 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                             </div>
                           </div>
                           <div data-testid="budget-allocation-grid" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:8,marginBottom:10,minWidth:0}}>
-                            <div style={{gridColumn:"1/-1",minWidth:0}}><label style={LS}>{lang==="en"?"Funding wallet":"Dompet sumber"}</label><select aria-label={`${lang==="en"?"Funding wallet":"Dompet sumber"} ${b.kat}`} value={sourceWallet?String(b.dompetId):""} onChange={e=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,dompetId:e.target.value})}))} style={{...IS,minWidth:0,marginBottom:0}}><option value="">{lang==="en"?"All wallets":"Semua dompet"}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></div>
-                            <div style={{minWidth:0}}><label style={LS}>{b.sub.length?(lang==="en"?"Main allocation":"Alokasi utama"):"Alokasi"}</label><CurIn aria-label={`${lang==="en"?"Main allocation":"Alokasi utama"} ${b.kat} (${currencySymbol})`} value={b.alokasi} onChange={v=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,alokasi:v})}))} style={{minWidth:0,height:58,fontSize:14,fontWeight:750,margin:0}}/></div>
+                            <div style={{gridColumn:"1/-1",minWidth:0}}><Field label={<>{lang==="en"?"Funding wallet":"Dompet sumber"}</>} labelStyle={LS}><select aria-label={`${lang==="en"?"Funding wallet":"Dompet sumber"} ${b.kat}`} value={sourceWallet?String(b.dompetId):""} onChange={e=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,dompetId:e.target.value})}))} style={{...IS,minWidth:0,marginBottom:0}}><option value="">{lang==="en"?"All wallets":"Semua dompet"}</option>{s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}</select></Field></div>
+                            <div style={{minWidth:0}}><Field label={<>{b.sub.length?(lang==="en"?"Main allocation":"Alokasi utama"):"Alokasi"}</>} labelStyle={LS}><CurIn aria-label={`${lang==="en"?"Main allocation":"Alokasi utama"} ${b.kat} (${currencySymbol})`} value={b.alokasi} onChange={v=>setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,alokasi:v})}))} style={{minWidth:0,height:58,fontSize:14,fontWeight:750,margin:0}}/></Field></div>
                             <div style={{minWidth:0}}><label style={LS}>Realisasi</label>
                             <button type="button" aria-expanded={sameId(expandedBudgetId,b.id)} aria-controls={`budget-realization-${b.id}`} onClick={()=>setExpandedBudgetId(current=>sameId(current,b.id)?null:b.id)} style={{width:"100%",minWidth:0,height:58,padding:"8px 10px",borderRadius:9,border:`1.5px dashed ${over?T.errBorder:unallocated?T.warnBorder:T.infoBorder}`,background:over?T.errBg:unallocated?T.warnBg:T.infoBg,color:over?T.err:unallocated?T.warn:T.info,textAlign:"left",cursor:"pointer",fontFamily:"inherit",overflow:"hidden"}}>
                               <span style={{display:"block",fontWeight:850,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{IDRs(spend)||`${currencySymbol} 0`}</span>
-                              <span style={{display:"block",fontSize:9,fontWeight:800,marginTop:3,opacity:.78,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{realizationRows.length} transaksi · {sameId(expandedBudgetId,b.id)?"Tutup rincian":"Lihat rincian"}</span>
+                              <span style={{display:"block",fontSize:11,fontWeight:700,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{realizationRows.length} transaksi · {sameId(expandedBudgetId,b.id)?"Tutup rincian":"Lihat rincian"}</span>
                             </button></div>
                           </div>
                           <div data-testid="budget-total-allocation" style={{marginBottom:10,minWidth:0}}>
@@ -9341,15 +9423,15 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                           {newSub.katId===b.id
                             ?<div style={{background:T.infoBg,borderRadius:8,padding:10,marginTop:8,border:`1px solid ${T.infoBorder}`}}>
                               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
-                                <div><label style={{...LS,fontSize:9}}>{t("name")}</label><input placeholder={t("subBillPlaceholder")} value={newSub.nama} onChange={e=>setNewSub(f=>({...f,nama:e.target.value}))} style={{...IS,fontSize:11,padding:"6px 9px"}}/></div>
-                                <div><label style={{...LS,fontSize:9}}>Alokasi</label><CurIn value={newSub.alokasi} onChange={v=>setNewSub(f=>({...f,alokasi:v}))} style={{...IS,fontSize:11,padding:"6px 9px"}}/></div>
+                                <div><Field label={<>{t("name")}</>} labelStyle={{...LS,fontSize:9}}><input placeholder={t("subBillPlaceholder")} value={newSub.nama} onChange={e=>setNewSub(f=>({...f,nama:e.target.value}))} style={{...IS,fontSize:11,padding:"6px 9px"}}/></Field></div>
+                                <div><Field label={<>Alokasi</>} labelStyle={{...LS,fontSize:9}}><CurIn value={newSub.alokasi} onChange={v=>setNewSub(f=>({...f,alokasi:v}))} style={{...IS,fontSize:11,padding:"6px 9px"}}/></Field></div>
                               </div>
                               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
                                 <div><label style={{...LS,fontSize:9}}>Emoji</label>
                                 <div style={{display:"flex",flexWrap:"wrap",gap:3,padding:5,background:T.card,borderRadius:6,border:`1px solid ${T.infoBorder}`}}>
                                   {SUBCATEGORY_ICONS.slice(0,16).map(ic=><button key={ic} onClick={()=>setNewSub(f=>({...f,emoji:ic}))} style={{width:30,height:30,borderRadius:6,border:`1.5px solid ${newSub.emoji===ic?T.accent:"transparent"}`,background:newSub.emoji===ic?T.accentBg:"transparent",cursor:"pointer",fontSize:15,fontFamily:"inherit"}}>{ic}</button>)}
                                 </div></div>
-                                <div><label style={{...LS,fontSize:9}}>Jatuh Tempo (tgl)</label><input type="number" min="1" max="31" placeholder="tgl" value={newSub.tempo} onChange={e=>setNewSub(f=>({...f,tempo:e.target.value}))} style={{...IS,fontSize:11,padding:"6px 9px"}}/></div>
+                                <div><Field label={<>Jatuh Tempo (tgl)</>} labelStyle={{...LS,fontSize:9}}><input type="number" min="1" max="31" placeholder="tgl" value={newSub.tempo} onChange={e=>setNewSub(f=>({...f,tempo:e.target.value}))} style={{...IS,fontSize:11,padding:"6px 9px"}}/></Field></div>
                               </div>
                               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr auto",gap:8}}>
                                 <Btn onClick={()=>{if(!newSub.nama){showToast("Isi nama dulu");return;}setS(p=>({...p,budgets:p.budgets.map(x=>x.id!==b.id?x:{...x,sub:[...x.sub,{nama:newSub.nama,emoji:uiIcon(newSub.emoji),alokasi:newSub.alokasi||"0",tempo:newSub.tempo||null}]})}));setNewSub({katId:null,nama:"",emoji:"📌",alokasi:"",tempo:""});showToast("Subkategori ditambahkan!");}} ch="Simpan" c="#0369A1" style={{fontSize:11,padding:"6px 12px"}}/>
@@ -9381,33 +9463,32 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   <div style={{fontSize:10,opacity:.6,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>{t("totalEnvFunds")}</div>
                   <div data-testid="envelope-total" style={{fontSize:IDR(amplopTotal).length>18?18:IDR(amplopTotal).length>14?22:28,fontWeight:900,marginBottom:4,overflowWrap:"anywhere",fontVariantNumeric:"tabular-nums"}}>{IDR(amplopTotal)}</div>
                   <div style={{display:"flex",gap:10,fontSize:12,flexWrap:"wrap"}}>
-                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px"}}>Amplop: {s.amplop.length}</div>
-                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px",maxWidth:"100%",overflowWrap:"anywhere",fontVariantNumeric:"tabular-nums"}}>Terpakai: <span data-testid="envelope-used">{IDR(amplopTerpakai)}</span></div>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px"}}>{t("amplop")}: {s.amplop.length}</div>
+                    <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px",maxWidth:"100%",overflowWrap:"anywhere",fontVariantNumeric:"tabular-nums"}}>{t("usage")}: <span data-testid="envelope-used">{IDR(amplopTerpakai)}</span></div>
                     <div style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"5px 12px",maxWidth:"100%",overflowWrap:"anywhere",fontVariantNumeric:"tabular-nums"}}>{t("envelopeLeft")}: <span data-testid="envelope-remaining">{IDR(amplopTotal-amplopTerpakai)}</span></div>
                   </div>
                 </div>
-                <Btn onClick={()=>setShowAddAmplop(!showAddAmplop)} ch={showAddAmplop?"Tutup form":t("createEnvelope")} style={{padding:"10px 18px",background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.4)",color:"white"}}/>
+                <Btn onClick={()=>setShowAddAmplop(!showAddAmplop)} ch={showAddAmplop?(lang==="en"?"Close form":"Tutup form"):t("createEnvelope")} style={{padding:"10px 18px",background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.4)",color:"white"}}/>
               </div>
             </div>
 
             {/* Penjelasan */}
             <div style={{background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:12,padding:"12px 16px",marginBottom:18,fontSize:12,color:T.info,lineHeight:1.6}}>
-              {t("envelopeInfo")} untuk tujuan tertentu. Mirip metode amplop fisik, tapi digital. Uang dari dompet dipindah ke amplop, dan saat belanja cukup "ambil" dari amplop yang sesuai.
+              {lang==="en"?"Set aside wallet funds for a specific purpose. Record spending from the matching envelope, or return any unused funds to a wallet.":"Pisahkan dana dompet untuk tujuan tertentu. Catat belanja dari amplop yang sesuai, atau kembalikan sisa dana yang tidak digunakan ke dompet."}
             </div>
 
             {/* Form Tambah Amplop */}
             {showAddAmplop&&<Card ch={<>
               <Sec t={lang==="en"?"Create New Envelope":"Buat Amplop Baru"}/>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10,marginBottom:10}}>
-                <div><label style={LS}>{t("envelopeName")}</label><input placeholder="Makan, Bensin, Hiburan..." value={amplopForm.nama} onChange={e=>setAmplopForm(f=>({...f,nama:e.target.value}))} style={IS}/></div>
-                <div><label style={LS}>{t("envelopeAlloc")}</label><CurIn value={amplopForm.alokasi} onChange={v=>setAmplopForm(f=>({...f,alokasi:v}))} placeholder="0" style={IS}/></div>
-                <div><label style={LS}>Kategori Budget</label><select value={amplopForm.katId} onChange={e=>setAmplopForm(f=>({...f,katId:Number(e.target.value)}))} style={IS}>{s.budgets.map(b=><option key={b.id} value={b.id}>{uiIcon(b.icon)} {b.kat}</option>)}</select></div>
+                <div><Field label={<>{t("envelopeName")}</>} labelStyle={LS}><input placeholder="Makan, Bensin, Hiburan..." value={amplopForm.nama} onChange={e=>setAmplopForm(f=>({...f,nama:e.target.value}))} style={IS}/></Field></div>
+                <div><Field label={<>{t("envelopeAlloc")}</>} labelStyle={LS}><CurIn value={amplopForm.alokasi} onChange={v=>setAmplopForm(f=>({...f,alokasi:v}))} placeholder="0" style={IS}/></Field></div>
+                <div><Field label={<>Kategori Budget</>} labelStyle={LS}><select value={amplopForm.katId} onChange={e=>setAmplopForm(f=>({...f,katId:Number(e.target.value)}))} style={IS}>{s.budgets.map(b=><option key={b.id} value={b.id}>{uiIcon(b.icon)} {b.kat}</option>)}</select></Field></div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:14}}>
-                <div><label style={LS}>{t("envelopeSource")}</label>
-                <select value={amplopForm.dompetId} onChange={e=>setAmplopForm(f=>({...f,dompetId:e.target.value}))} style={IS}>
+                <div><Field label={<>{t("envelopeSource")}</>} labelStyle={LS}><select value={amplopForm.dompetId} onChange={e=>setAmplopForm(f=>({...f,dompetId:e.target.value}))} style={IS}>
                   {s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama} ({IDRs(N(d.saldo))})</option>)}
-                </select></div>
+                </select></Field></div>
                 <div><label style={LS}>Pilih ikon</label>
                 <div style={{display:"flex",flexWrap:"wrap",gap:4,padding:8,background:T.cardAlt,borderRadius:8,border:`1.5px solid ${T.inputBorder}`}}>
                   {["ENV","FOD","MOV","SHP","IDEA","HLT","FUN","EDU","TRP","HOME","STYL","WORK","MUS","CAFE","GIFT","FIT","PLNT","STDY","PHN","CARE"].map(ico=>(
@@ -9442,6 +9523,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   isMobile={isMobile}
                   onDelete={()=>setModal({type:"confirm",title:t("deleteEnvelope"),msg:`${t("deleteEnvelopeMsg")} "${amp.nama}"${t("deleteEnvelopeSuffix")} — Sisa dana akan dikembalikan ke dompet asal.`,danger:true,onConfirm:()=>deleteAmplop(amp.id)})}
                   onIsi={(jml,dompetId)=>isiAmplop(amp.id,jml,dompetId)}
+                  onReturn={(amount,walletId)=>returnFromEnvelope(amp.id,amount,walletId)}
                   onPakai={(jml,ket)=>pakaiAmplop(amp.id,jml,ket)}
                   onReset={()=>resetAmplop(amp.id)}
                 />
@@ -9658,8 +9740,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 </div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.2fr .9fr auto auto",gap:10,alignItems:"center"}}>
-                <input value={habitForm.nama} onChange={e=>setHabitForm(f=>({...f,nama:e.target.value}))} placeholder="Nama habit, contoh: Catat transaksi malam" style={IS}/>
-                <input value={habitForm.target} onChange={e=>setHabitForm(f=>({...f,target:e.target.value}))} placeholder="Target, contoh: 5 menit" style={IS}/>
+                <input aria-label={lang==="en"?"Habit name":"Nama habit"} value={habitForm.nama} onChange={e=>setHabitForm(f=>({...f,nama:e.target.value}))} placeholder="Nama habit, contoh: Catat transaksi malam" style={IS}/>
+                <input aria-label={lang==="en"?"Habit target":"Target habit"} value={habitForm.target} onChange={e=>setHabitForm(f=>({...f,target:e.target.value}))} placeholder="Target, contoh: 5 menit" style={IS}/>
                 <Btn onClick={addHabit} ch="Tambah quest" style={{padding:"10px 16px",whiteSpace:"nowrap"}}/>
                 <Btn onClick={addHabitPresets} ch="Starter uang" c={T.ok} outline style={{padding:"10px 14px",whiteSpace:"nowrap"}}/>
               </div>
@@ -9835,16 +9917,15 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     })} style={{padding:"7px 10px",borderRadius:999,border:`1.5px solid ${active?T.accent:T.border}`,background:active?T.accentBg:T.cardAlt,color:active?T.accent:T.sub,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit",touchAction:"manipulation"}}>{provider}</button>;
                   })}
                 </div>
-                <label style={LS}>{t("date")}</label><input type="date" value={utForm.tgl} onChange={e=>setUtForm(f=>({...f,tgl:e.target.value}))} style={{...IS,marginBottom:10}}/>
-                <label style={LS}>{utForm.tipe==="utang"?"Nama utang / detail":t("debtor")}</label><input placeholder={utForm.provider&&utForm.provider!=="Lainnya"?`${utForm.provider} - contoh: cicilan HP`:"Contoh: Shopee PayLater cicilan HP, pinjam teman, kartu kredit"} value={utForm.nama} onChange={e=>setUtForm(f=>({...f,nama:e.target.value,provider:DEBT_PROVIDER_OPTIONS.includes(e.target.value)?e.target.value:f.provider}))} style={{...IS,marginBottom:10}}/>
+                <Field label={<>{t("date")}</>} labelStyle={LS}><input type="date" value={utForm.tgl} onChange={e=>setUtForm(f=>({...f,tgl:e.target.value}))} style={{...IS,marginBottom:10}}/></Field>
+                <Field label={<>{utForm.tipe==="utang"?"Nama utang / detail":t("debtor")}</>} labelStyle={LS}><input placeholder={utForm.provider&&utForm.provider!=="Lainnya"?`${utForm.provider} - contoh: cicilan HP`:"Contoh: Shopee PayLater cicilan HP, pinjam teman, kartu kredit"} value={utForm.nama} onChange={e=>setUtForm(f=>({...f,nama:e.target.value,provider:DEBT_PROVIDER_OPTIONS.includes(e.target.value)?e.target.value:f.provider}))} style={{...IS,marginBottom:10}}/></Field>
                 <label style={LS}>{t("amount")} ({currencySymbol})</label>
                 <div style={{position:"relative",marginBottom:10}}>
-                  <CurIn value={utForm.jml} onChange={v=>setUtForm(f=>({...f,jml:v}))} placeholder="0" style={{paddingRight:40}}/>
-                  <button onClick={()=>openCalc("utjml",utForm.jml,v=>setUtForm(f=>({...f,jml:v})))} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:12,fontWeight:800,color:T.accent}} title="Kalkulator" aria-label="Kalkulator">🧮</button>
+                  <CurIn aria-label={lang==="en"?"Debt amount":"Jumlah utang"} value={utForm.jml} onChange={v=>setUtForm(f=>({...f,jml:v}))} placeholder="0" style={{paddingRight:48}}/>
+                  <CalcButton onClick={()=>openCalc("utjml",utForm.jml,v=>setUtForm(f=>({...f,jml:v})))}/>
                 </div>
                 {(["piutang","piutangBisnis"].includes(utForm.tipe))&&<>
-                  <label style={LS}>Sumber dana yang dipinjamkan</label>
-                  <select value={`${utForm.sourceType}:${utForm.sourceId}`} onChange={e=>{const [sourceType,...rest]=e.target.value.split(":");setUtForm(f=>({...f,sourceType,sourceId:rest.join(":")}));}} style={{...IS,marginBottom:10}}>
+                  <Field label={<>Sumber dana yang dipinjamkan</>} labelStyle={LS}><select value={`${utForm.sourceType}:${utForm.sourceId}`} onChange={e=>{const [sourceType,...rest]=e.target.value.split(":");setUtForm(f=>({...f,sourceType,sourceId:rest.join(":")}));}} style={{...IS,marginBottom:10}}>
                     <option value="">Pilih dompet atau Goal</option>
                     <optgroup label="Dompet">
                       {s.dompet.map(d=><option key={`wallet:${d.id}`} value={`wallet:${d.id}`}>{uiIcon(d.icon)} {d.nama} · saldo {IDR(N(d.saldo))}</option>)}
@@ -9852,11 +9933,11 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     {(s.goals||[]).filter(g=>N(g.kumpul)>0).length>0&&<optgroup label="Goal">
                       {(s.goals||[]).filter(g=>N(g.kumpul)>0).map(g=><option key={`goal:${g.id}`} value={`goal:${g.id}`}>{uiIcon(g.icon||"GOAL")} {g.nama} · tersedia {IDR(N(g.kumpul))}</option>)}
                     </optgroup>}
-                  </select>
+                  </select></Field>
                   <div style={{fontSize:10,color:T.muted,marginTop:-5,marginBottom:10}}>Piutang mengurangi sumber dana saat dicatat. Saat dibayar, saldo dompet penerima bertambah.</div>
                 </>}
-                <label style={LS}>Jatuh Tempo</label><input type="date" value={utForm.tempo} onChange={e=>setUtForm(f=>({...f,tempo:e.target.value}))} style={{...IS,marginBottom:10}}/>
-                <label style={LS}>Keterangan</label><input placeholder={t("ketOpsional")} value={utForm.ket} onChange={e=>setUtForm(f=>({...f,ket:e.target.value}))} style={{...IS,marginBottom:14}}/>
+                <Field label={<>Jatuh Tempo</>} labelStyle={LS}><input type="date" value={utForm.tempo} onChange={e=>setUtForm(f=>({...f,tempo:e.target.value}))} style={{...IS,marginBottom:10}}/></Field>
+                <Field label={<>Keterangan</>} labelStyle={LS}><input placeholder={t("ketOpsional")} value={utForm.ket} onChange={e=>setUtForm(f=>({...f,ket:e.target.value}))} style={{...IS,marginBottom:14}}/></Field>
                 <Btn onClick={addUt} ch={t("saveNote")} style={{width:"100%",padding:11}}/>
               </>}/>
               <div style={{display:"grid",gap:14,alignContent:"start"}}>
@@ -9981,9 +10062,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             </>} style={{marginBottom:18}}/>
 
             <div style={{marginBottom:18, display:"flex", justifyContent:"flex-end", gap:8, flexWrap:"wrap"}}>
-              <Btn onClick={()=>setModal({type:"yearReview"})} ch={t("yearReviewBtn")} c={T.accentSoft} outline style={{padding:"7px 14px",fontSize:12}}/>
-              <Btn onClick={()=>setModal({type:"kalkulator"})} ch={t("loanCalc")} c={T.accentSoft} outline style={{padding:"7px 14px",fontSize:12}}/>
-              <Btn onClick={()=>exportCSV("report")} ch={t("exportCSV")} c="#16A34A" outline style={{padding:"7px 14px",fontSize:12}}/>
+              <Btn onClick={()=>setModal({type:"yearReview"})} ch={t("yearReviewBtn")} c={T.accent} outline style={{padding:"7px 14px",fontSize:12}}/>
+              <Btn onClick={()=>setModal({type:"kalkulator"})} ch={t("loanCalc")} c={T.accent} outline style={{padding:"7px 14px",fontSize:12}}/>
+              <Btn onClick={()=>exportCSV("report")} ch={t("exportCSV")} c={T.ok} outline style={{padding:"7px 14px",fontSize:12}}/>
               <Btn onClick={exportSheets} ch={t("exportSheets")} c="#0F9D58" style={{padding:"7px 14px",fontSize:12}}/>
               <Btn onClick={exportPDF} ch={t("exportPDF")} c="#5B21B6" style={{padding:"7px 14px",fontSize:12}}/>
             </div>
@@ -10014,7 +10095,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{flex:1,minWidth:200}}>
                   <div style={{fontSize:20,fontWeight:900,color:getC(reportHealthScore),marginBottom:4}}>{getLabel(reportHealthScore)}</div>
                   <div style={{fontSize:12,color:T.sub,marginBottom:14}}>Skor periode {reportPeriodLabel}</div>
-                  {[{l:t("savingRatioLabel"),v:reportSavingScore,c:"#22C55E",hint:`${PCT(reportSavingRate)} dari ideal 20%`},{l:"Disiplin Anggaran",v:reportBudgetScore,c:T.accent,hint:`${reportBudgetTotal>0?PCT(reportBudgetUsed/reportBudgetTotal*100):"N/A"} terpakai dari budget ekuivalen`},{l:"Keamanan & Runway",v:reportRunwayScore,c:"#F59E0B",hint:`${reportRunway.toFixed(1)} bulan dari ideal 6`}].map(x=>(
+                  {[{l:t("savingRatioLabel"),v:reportSavingScore,c:T.ok,hint:`${PCT(reportSavingRate)} dari ideal 20%`},{l:"Disiplin Anggaran",v:reportBudgetScore,c:T.accent,hint:`${reportBudgetTotal>0?PCT(reportBudgetUsed/reportBudgetTotal*100):"N/A"} terpakai dari budget ekuivalen`},{l:"Keamanan & Runway",v:reportRunwayScore,c:T.warn,hint:`${reportRunway.toFixed(1)} bulan dari ideal 6`}].map(x=>(
                     <div key={x.l} style={{marginBottom:10}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                         <span style={{fontSize:12,color:T.text,fontWeight:600}}>{x.l}</span>
@@ -10283,18 +10364,18 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div data-testid="settings-columns" className="settings-flow" style={{columnCount:isMobile||isTablet?1:2,columnGap:isMobile?14:18}}>
               <Card ch={<>
                 <Sec t={t("profile")}/>
-                <label style={LS}>{t("displayName")}</label><input value={sfForm.name} onChange={e=>setSfForm(f=>({...f,name:e.target.value}))} style={{...IS,marginBottom:10}}/>
+                <Field label={<>{t("displayName")}</>} labelStyle={LS}><input value={sfForm.name} onChange={e=>setSfForm(f=>({...f,name:e.target.value}))} style={{...IS,marginBottom:10}}/></Field>
                 <label htmlFor="account-currency" style={LS}>{lang==="en"?"Currency":"Mata uang"}</label>
                 <select id="account-currency" data-testid="currency-select" value={sfForm.currency} onChange={e=>setSfForm(f=>({...f,currency:e.target.value}))} style={{...IS,minHeight:44,marginBottom:8}}>
                   {Object.values(CURRENCIES).map(info=><option key={info.code} value={info.code}>{info.code} - {info.name} ({info.symbol})</option>)}
                 </select>
                 <p style={{fontSize:12,color:T.sub,lineHeight:1.5,margin:"0 0 14px"}}>{lang==="en"?"Existing amounts stay the same. No exchange-rate conversion.":"Angka yang sudah dicatat tetap sama. Tidak ada konversi kurs."}</p>
-                <label style={LS}>{t("emergencyTarget")}</label><CurIn value={sfForm.targetDana} onChange={v=>setSfForm(f=>({...f,targetDana:v}))} placeholder="0" style={{...IS,marginBottom:14}}/>
+                <Field label={<>{t("emergencyTarget")}</>} labelStyle={LS}><CurIn value={sfForm.targetDana} onChange={v=>setSfForm(f=>({...f,targetDana:v}))} placeholder="0" style={{...IS,marginBottom:14}}/></Field>
 
                 <Sec t={t("display")}/>
                 {/* Language Selector */}
                 <div style={{marginBottom:14}}>
-                  <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:8}}>Bahasa</div>
+                  <div style={{fontSize:10,fontWeight:700,color:T.accent,textTransform:"uppercase",letterSpacing:.8,marginBottom:8}}>{lang==="en"?"Language":"Bahasa"}</div>
                   <div style={{display:"flex",gap:6}}>
                     {[{code:"id",flag:"🇮🇩",label:"Indonesia"},{code:"en",flag:"🇺🇸",label:"English"}].map(l=>(
                       <button key={l.code} onClick={()=>changeLang(l.code)} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"9px 12px",borderRadius:10,border:`2px solid ${lang===l.code?T.accent:T.border}`,background:lang===l.code?T.accentBg:T.card,color:lang===l.code?T.accent:T.sub,fontWeight:700,fontSize:13,cursor:"pointer",transition:"all .2s"}}>
@@ -10308,7 +10389,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     <div style={{fontWeight:700,fontSize:13,color:T.text}}>{t("darkMode")}</div>
                     <div style={{fontSize:11,color:T.muted}}>{t("darkModeDesc")}</div>
                   </div>
-                  <button onClick={()=>setDark(!dark)} style={{width:52,height:28,borderRadius:99,background:dark?T.accent:T.border,border:"none",cursor:"pointer",position:"relative",transition:"background .3s"}}>
+                  <button type="button" role="switch" aria-label={t("darkMode")} aria-checked={dark} onClick={()=>setDark(!dark)} style={{width:52,height:28,borderRadius:99,background:dark?T.accent:T.border,border:"none",cursor:"pointer",position:"relative",transition:"background .3s"}}>
                     <div style={{width:22,height:22,borderRadius:"50%",background:"white",position:"absolute",top:3,left:dark?27:3,transition:"left .25s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
                   </button>
                 </div>
@@ -10319,7 +10400,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     <div style={{fontWeight:700,fontSize:13,color:T.text}}>{t("blurBalance")}</div>
                     <div style={{fontSize:11,color:T.muted}}>{t("blurDesc")}</div>
                   </div>
-                  <button onClick={toggleBlur} style={{width:52,height:28,borderRadius:99,background:blurSaldo?T.accent:T.border,border:"none",cursor:"pointer",position:"relative",transition:"background .3s"}}>
+                  <button type="button" role="switch" aria-label={t("blurBalance")} aria-checked={blurSaldo} onClick={toggleBlur} style={{width:52,height:28,borderRadius:99,background:blurSaldo?T.accent:T.border,border:"none",cursor:"pointer",position:"relative",transition:"background .3s"}}>
                     <div style={{width:22,height:22,borderRadius:"50%",background:"white",position:"absolute",top:3,left:blurSaldo?27:3,transition:"left .25s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
                   </button>
                 </div>
@@ -10328,9 +10409,9 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",background:T.cardAlt,borderRadius:10,border:`1px solid ${T.border}`,marginBottom:14}}>
                   <div>
                     <div style={{fontWeight:700,fontSize:13,color:T.text}}>Simple Mode</div>
-                    <div style={{fontSize:11,color:T.muted}}>Sembunyikan menu lanjutan supaya user baru fokus ke Home, Transaksi, Budget, Laporan, dan Setting.</div>
+                    <div style={{fontSize:11,color:T.muted}}>{lang==="en"?"Show only Home, Transactions, Budget, Reports and Settings.":"Tampilkan hanya Home, Transaksi, Budget, Laporan, dan Setting."}</div>
                   </div>
-                  <button onClick={toggleSimpleMode} style={{width:52,height:28,borderRadius:99,background:simpleMode?T.accent:T.border,border:"none",cursor:"pointer",position:"relative",transition:"background .3s",flexShrink:0}}>
+                  <button type="button" role="switch" aria-label="Simple Mode" aria-checked={simpleMode} onClick={toggleSimpleMode} style={{width:52,height:28,borderRadius:99,background:simpleMode?T.accent:T.border,border:"none",cursor:"pointer",position:"relative",transition:"background .3s",flexShrink:0}}>
                     <div style={{width:22,height:22,borderRadius:"50%",background:"white",position:"absolute",top:3,left:simpleMode?27:3,transition:"left .25s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
                   </button>
                 </div>
@@ -10348,8 +10429,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
                 <Sec t={t("laporanPeriod")}/>
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:14}}>
-                  <div><label style={LS}>{t("bulanShort")}</label><select value={s.bulan} onChange={e=>setS(p=>({...p,bulan:e.target.value}))} style={IS}>{MONTHS.map(m=><option key={m}>{m}</option>)}</select></div>
-                  <div><label style={LS}>{t("year")}</label><select value={s.tahun} onChange={e=>setS(p=>({...p,tahun:e.target.value}))} style={IS}>{YEAR_OPTIONS.map(y=><option key={y}>{y}</option>)}</select></div>
+                  <div><Field label={<>{t("bulanShort")}</>} labelStyle={LS}><select value={s.bulan} onChange={e=>setS(p=>({...p,bulan:e.target.value}))} style={IS}>{MONTHS.map(m=><option key={m}>{m}</option>)}</select></Field></div>
+                  <div><Field label={<>{t("year")}</>} labelStyle={LS}><select value={s.tahun} onChange={e=>setS(p=>({...p,tahun:e.target.value}))} style={IS}>{YEAR_OPTIONS.map(y=><option key={y}>{y}</option>)}</select></Field></div>
                 </div>
                 
                 <Btn onClick={()=>{
@@ -10437,15 +10518,15 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                     </div>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8}}>
-                    <a href={supportWhatsappHref} target="_self" onClick={event=>openSupportLink(event,supportWhatsappHref)} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"11px 14px",borderRadius:14,background:T.ok,color:"white",fontSize:13,fontWeight:900,textDecoration:"none",boxShadow:`0 12px 28px ${T.ok}22`}}>Hubungi Admin</a>
+                    <a href={supportWhatsappHref} target="_self" onClick={event=>openSupportLink(event,supportWhatsappHref)} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"11px 14px",borderRadius:14,background:T.ok,color:filledButtonInk(T.ok),fontSize:13,fontWeight:900,textDecoration:"none",boxShadow:`0 12px 28px ${T.ok}22`}}>Hubungi Admin</a>
                     <a href={supportBugWhatsappHref} target="_self" onClick={event=>openSupportLink(event,supportBugWhatsappHref)} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"11px 14px",borderRadius:14,background:T.accentBg,color:T.accent,border:`1px solid ${T.accent}44`,fontSize:13,fontWeight:900,textDecoration:"none"}}>Kirim masukan / bug</a>
                   </div>
                 </>}/>
 
                 <Card ch={<>
                   <Sec t={t("prevPeriod")}/>
-                  <label style={LS}>{t("prevIncome")}</label><CurIn value={sfForm.prevPemasukan} onChange={v=>setSfForm(f=>({...f,prevPemasukan:v}))} placeholder="0" style={{...IS,marginBottom:10}}/>
-                  <label style={LS}>{t("prevExpense")}</label><CurIn value={sfForm.prevPengeluaran} onChange={v=>setSfForm(f=>({...f,prevPengeluaran:v}))} placeholder="0" style={IS}/>
+                  <Field label={<>{t("prevIncome")}</>} labelStyle={LS}><CurIn value={sfForm.prevPemasukan} onChange={v=>setSfForm(f=>({...f,prevPemasukan:v}))} placeholder="0" style={{...IS,marginBottom:10}}/></Field>
+                  <Field label={<>{t("prevExpense")}</>} labelStyle={LS}><CurIn value={sfForm.prevPengeluaran} onChange={v=>setSfForm(f=>({...f,prevPengeluaran:v}))} placeholder="0" style={IS}/></Field>
                 </>}/>
                 
                 {/* Backup & Restore */}
@@ -10467,21 +10548,19 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
 
                     {showAddRecurring&&<div style={{background:T.infoBg,border:`1px solid ${T.infoBorder}`,borderRadius:10,padding:14,marginBottom:14}}>
                       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
-                        <div><label style={{...LS,fontSize:9}}>{t("name")}</label><input placeholder={t("recurringPlaceholder")} value={recurringForm.nama} onChange={e=>setRecurringForm(f=>({...f,nama:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></div>
-                        <div><label style={{...LS,fontSize:9}}>{t("amount")}</label><CurIn value={recurringForm.jml} onChange={v=>setRecurringForm(f=>({...f,jml:v}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></div>
+                        <div><Field label={<>{t("name")}</>} labelStyle={{...LS,fontSize:9}}><input placeholder={t("recurringPlaceholder")} value={recurringForm.nama} onChange={e=>setRecurringForm(f=>({...f,nama:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></Field></div>
+                        <div><Field label={<>{t("amount")}</>} labelStyle={{...LS,fontSize:9}}><CurIn value={recurringForm.jml} onChange={v=>setRecurringForm(f=>({...f,jml:v}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></Field></div>
                       </div>
                       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:10}}>
-                        <div><label style={{...LS,fontSize:9}}>{t("type")}</label>
-                        <select value={recurringForm.tipe} onChange={e=>setRecurringForm(f=>({...f,tipe:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}>
+                        <div><Field label={<>{t("type")}</>} labelStyle={{...LS,fontSize:9}}><select value={recurringForm.tipe} onChange={e=>setRecurringForm(f=>({...f,tipe:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}>
                           <option value="pengeluaran">{t("expense")}</option>
                           <option value="pemasukan">{t("income")}</option>
                           <option value="tabungan">{t("savingShort")}</option>
-                        </select></div>
-                        <div><label style={{...LS,fontSize:9}}>{t("recurringDay")}</label><input type="number" min="1" max="31" placeholder="tgl" value={recurringForm.hari} onChange={e=>setRecurringForm(f=>({...f,hari:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></div>
-                        <div><label style={{...LS,fontSize:9}}>{t("dompet")}</label>
-                        <select value={recurringForm.dompetId} onChange={e=>setRecurringForm(f=>({...f,dompetId:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}>
+                        </select></Field></div>
+                        <div><Field label={<>{t("recurringDay")}</>} labelStyle={{...LS,fontSize:9}}><input type="number" min="1" max="31" placeholder="tgl" value={recurringForm.hari} onChange={e=>setRecurringForm(f=>({...f,hari:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}/></Field></div>
+                        <div><Field label={<>{t("dompet")}</>} labelStyle={{...LS,fontSize:9}}><select value={recurringForm.dompetId} onChange={e=>setRecurringForm(f=>({...f,dompetId:e.target.value}))} style={{...IS,fontSize:11,padding:"7px 9px"}}>
                           {s.dompet.map(d=><option key={d.id} value={d.id}>{uiIcon(d.icon)} {d.nama}</option>)}
-                        </select></div>
+                        </select></Field></div>
                       </div>
                       <Btn onClick={addRecurring} ch={t("recurringAdd")} style={{padding:"8px 16px",fontSize:12}}/>
                     </div>}
@@ -10566,7 +10645,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               </div>
             </div>
           )}
-        </div>
+        </main>
 
         {page==="admin"&&isAdmin&&(
           <div style={{padding:isMobile?`12px max(12px,env(safe-area-inset-right)) calc(80px + max(env(safe-area-inset-bottom),0px)) max(12px,env(safe-area-inset-left))`:"14px 14px 40px",maxWidth:1340,margin:"0 auto"}}>
@@ -10615,7 +10694,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <form onSubmit={searchAdminUsers} style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
                 <select aria-label="Cari pengguna berdasarkan" value={adminSearchBy} onChange={e=>setAdminSearchBy(e.target.value)} style={{...IS,width:"auto",minHeight:44,flex:"0 1 140px"}}><option value="email">Email</option><option value="name">Nama</option><option value="order">Order ID</option></select>
                 <input aria-label="Pencarian pengguna" value={adminQuery} onChange={e=>setAdminQuery(e.target.value)} maxLength={120} placeholder={adminSearchBy==="name"?"Awal nama pengguna":adminSearchBy==="order"?"Awal Order ID":"Email pengguna atau pembeli"} style={{...IS,minWidth:150,minHeight:44,flex:"1 1 180px"}}/>
-                <button type="submit" aria-label="Cari pengguna" title="Cari pengguna" style={{width:44,height:44,flexShrink:0,borderRadius:8,border:`1px solid ${T.accent}`,background:T.accent,color:"white",display:"grid",placeItems:"center",cursor:"pointer"}}><Search size={18}/></button>
+                <button type="submit" aria-label="Cari pengguna" title="Cari pengguna" style={{width:44,height:44,flexShrink:0,borderRadius:8,border:`1px solid ${T.accent}`,background:T.accent,color:filledButtonInk(T.accent),display:"grid",placeItems:"center",cursor:"pointer"}}><Search size={18}/></button>
                 {adminSearch.query&&<button type="button" aria-label="Hapus pencarian" title="Hapus pencarian" onClick={()=>{resetAdminPages();setAdminQuery("");setAdminSearch({query:"",by:adminSearchBy});}} style={{width:44,height:44,borderRadius:8,border:`1px solid ${T.border}`,background:T.card,color:T.text,display:"grid",placeItems:"center",cursor:"pointer"}}><X size={18}/></button>}
               </form>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr auto",gap:12,marginBottom:14,padding:"12px 14px",borderRadius:12,background:T.cardAlt,border:`1px solid ${T.border}`}}>
@@ -10952,7 +11031,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           overscrollBehavior:"none",
         }} onClick={()=>setAiOpen(false)}/>
 
-        <div className="ai-panel" style={{
+        <DialogSurface onDismiss={()=>setAiOpen(false)} aria-label="Dokter Keuangan AI" initialFocus=".ai-textarea" className="ai-panel" style={{
           background:dark?"#130929":"#FAFAFA",
         }}>
           {/* Header */}
@@ -10965,7 +11044,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           }}>
             <img src="/icon-192.png" alt="AturDuitku" style={{width:38,height:38,borderRadius:"50%",objectFit:"cover",flexShrink:0,border:"2px solid rgba(255,255,255,0.3)"}}/>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{color:"white",fontWeight:800,fontSize:15,letterSpacing:-0.3}}>Dokter Keuangan</div><div style={{color:"rgba(255,255,255,0.78)",fontSize:11,marginTop:2}}>Advisor empatik, pencatat pintar, dan coach uang harianmu.</div>
+              <h2 style={{margin:0,color:"white",fontWeight:800,fontSize:15}}>Dokter Keuangan</h2><div style={{color:"white",fontSize:11,marginTop:2}}>{lang==="en"?"AI for recording and reviewing your finances.":"AI untuk mencatat dan meninjau keuanganmu."}</div>
               
             </div>
             <button onClick={()=>setAiOpen(false)} style={{
@@ -10980,8 +11059,12 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
             }}>Tutup</button>
           </div>
 
+          <div data-testid="ai-safety-notice" style={{padding:"8px 12px",background:T.card,color:T.sub,fontSize:12,lineHeight:1.5,flexShrink:0}}>
+            <p style={{margin:0}}>{lang==="en"?"AI can make mistakes. Check amounts and suggestions before using them. This is not professional financial advice.":"AI bisa keliru. Periksa nominal dan saran sebelum digunakan. Ini bukan nasihat keuangan profesional."}</p>
+            <button type="button" onClick={()=>{setAiOpen(false);setPage("trans");}} style={{marginTop:4,background:"none",border:0,color:T.accent,fontFamily:"inherit",fontSize:12,fontWeight:700,minHeight:32,cursor:"pointer",textDecoration:"underline"}}>{lang==="en"?"Check recorded transactions":"Periksa catatan transaksi"}</button>
+          </div>
           {/* Messages */}
-          <div className="ai-msgs-wrap" ref={aiMsgsRef}>
+          <div className="ai-msgs-wrap" ref={aiMsgsRef} role="log" aria-label={lang==="en"?"AI conversation":"Percakapan AI"} aria-live="polite" aria-relevant="additions text">
             {aiMsgs.map((m,i)=>(
               <div key={i}
                 className={m.role==="user"?"ai-msg-user":"ai-msg-ai"}
@@ -11021,6 +11104,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
           }}>
             <textarea
               className="ai-textarea"
+              aria-label={lang==="en"?"Message to Dokter Keuangan AI":"Pesan untuk Dokter Keuangan AI"}
               value={aiInput}
               onChange={e=>{setAiInput(e.target.value);e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,120)+"px";}}
               onFocus={()=>setTimeout(()=>{if(aiMsgsRef.current) aiMsgsRef.current.scrollTop=aiMsgsRef.current.scrollHeight;},180)}
@@ -11044,7 +11128,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               }}
             ><span style={{fontSize:12,fontWeight:900}}>Kirim</span></button>
           </div>
-        </div>
+        </DialogSurface>
       </>}
       {/* ═══════ END AI ═══════ */}
     </ThemeCtx.Provider></CurrencyContext.Provider>
