@@ -18,3 +18,4 @@ const prompts={
 };
 export const aiWelcome=language=>welcome[language]||welcome.id;
 export const aiQuickPrompts=language=>prompts[language]||prompts.id;
+export const aiResponseInstruction=language=>language==='en'?'Reply in warm, natural English.':'Jawab dalam bahasa Indonesia yang hangat dan natural.';

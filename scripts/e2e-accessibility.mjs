@@ -3,10 +3,15 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { isDeepStrictEqual } from 'node:util';
 import { chromium } from 'playwright-core';
+import {aiResponseInstruction} from '../src/aiPresentation.js';
 
 if (!process.env.E2E_EMAIL || !process.env.E2E_PASSWORD) throw new Error('E2E_EMAIL and E2E_PASSWORD are required');
 const base = process.env.E2E_BASE_URL || 'http://127.0.0.1:5198';
 const mode = process.env.E2E_A11Y_MODE || 'all';
+const widths=(process.env.E2E_WIDTHS||'390,1440').split(',').map(Number);
+const themes=(process.env.E2E_THEMES||'light,dark').split(',');
+assert.ok(widths.every(width=>Number.isInteger(width)&&width>=320));
+assert.ok(themes.every(theme=>['light','dark'].includes(theme)));
 assert.ok(['all', 'interactions'].includes(mode), 'E2E_A11Y_MODE must be all or interactions');
 const artifacts = '.e2e-artifacts';
 const require = createRequire(import.meta.url);
@@ -50,6 +55,7 @@ async function runCase(width, theme) {
   const result = { id, writes: 0, mockedRequests: [], runtimeErrors: [], nativeDialogs: [] };
   report.cases.push(result);
   let cloud = { data: structuredClone(fixture), onboarded: true, version: 7, updatedAt: new Date().toISOString() };
+  let lastAiPrompt='';
   // Install before any page is opened; no app API request is allowed through.
   await context.route('**/api/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname;
@@ -71,7 +77,7 @@ async function runCase(width, theme) {
         }
         return await route.fulfill({ json: cloud });
       }
-      if (path.startsWith('/api/ai/')) return await route.fulfill({ json: { reply: 'Respons QA sintetis. Tidak ada transaksi dicatat.' } });
+      if (path.startsWith('/api/ai/')) {lastAiPrompt=request.postDataJSON().systemPrompt;return await route.fulfill({ json: { reply: 'Respons QA sintetis. Tidak ada transaksi dicatat.' } });}
       if (path === '/api/monitoring/client-error') return await route.fulfill({ json: { ok: true } });
       throw new Error(`Unrecognized API request blocked: ${request.method()} ${path}`);
     } catch (error) {
@@ -394,6 +400,7 @@ async function runCase(width, theme) {
       const unchanged=await local();
       await dialog.getByRole('button',{name:lang==='en'?'Review spending':'Tinjau pengeluaran',exact:true}).click();
       await dialog.getByText('Respons QA sintetis. Tidak ada transaksi dicatat.',{exact:true}).last().waitFor();
+      assert.ok(lastAiPrompt.includes(aiResponseInstruction(lang)),'AI response instruction must follow the selected language');
       assert.deepEqual(await local(),unchanged,'Reviewing with AI must not modify finances');
       await audit(`ai-${lang}`);
       await page.keyboard.press('Escape');
@@ -430,7 +437,7 @@ async function runCase(width, theme) {
 }
 
 try {
-  for (const width of [390, 1440]) for (const theme of ['light', 'dark']) await runCase(width, theme);
+  for (const width of widths) for (const theme of themes) await runCase(width, theme);
 } finally {
   await browser.close();
   report.finishedAt = new Date().toISOString();

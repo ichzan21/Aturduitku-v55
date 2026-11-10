@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Search, X, ArrowUpRight, Calculator as CalculatorIcon } from "lucide-react";
 import DialogSurface from "./DialogSurface.jsx";
 import Field from "./Field.jsx";
-import { aiWelcome, aiQuickPrompts } from "./aiPresentation.js";
+import { aiWelcome, aiQuickPrompts, aiResponseInstruction } from "./aiPresentation.js";
 import { returnEnvelopeFunds, reverseEnvelopeReturn } from "./envelopeReturn.js";
 import {
   getCurrentIdToken, onAuthChange, sendResetPassword, sendVerificationEmail, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
@@ -5189,7 +5189,7 @@ Balas HANYA JSON (tanpa teks lain) untuk action:
 Untuk chat/analisis/saran → jawab langsung tanpa JSON.
 
 ═══ CARA MENJAWAB ═══
-- Bahasa Indonesia yang hangat dan natural
+- ${aiResponseInstruction(lang)}
 - Parse nominal: 150rb=150000, 5jt=5000000, 50k=50000, 1.5jt=1500000
 - Untuk saran keuangan: berikan angka konkret, bukan abstrak
 - Jika ada masalah keuangan (defisit, budget lewat, utang besar): sampaikan dengan empati + solusi

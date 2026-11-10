@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {aiWelcome,aiQuickPrompts} from '../src/aiPresentation.js';
+import {aiWelcome,aiQuickPrompts,aiResponseInstruction} from '../src/aiPresentation.js';
 import {inferDirectTransactionAction} from '../src/aiIntent.js';
 for(const language of ['id','en']){
   const welcome=aiWelcome(language),prompts=aiQuickPrompts(language);
@@ -16,4 +16,7 @@ assert.equal(aiWelcome('unknown'),aiWelcome('id'));
 assert.match(aiWelcome('en'),/limited to the data available/);
 assert.match(aiWelcome('id'),/terbatas pada data/);
 assert.deepEqual(aiQuickPrompts('en').map(item=>item.id),aiQuickPrompts('id').map(item=>item.id));
+assert.match(aiResponseInstruction('en'),/Reply.*English/);
+assert.match(aiResponseInstruction('id'),/Jawab.*Indonesia/);
+assert.equal(aiResponseInstruction('unknown'),aiResponseInstruction('id'));
 console.log('AI presentation passed: concise bilingual welcome, bounded labels, safe review-only prompts, language fallback');
