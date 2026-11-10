@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Search, X, ArrowUpRight, Calculator as CalculatorIcon } from "lucide-react";
 import DialogSurface from "./DialogSurface.jsx";
 import Field from "./Field.jsx";
+import { aiWelcome, aiQuickPrompts } from "./aiPresentation.js";
 import { returnEnvelopeFunds, reverseEnvelopeReturn } from "./envelopeReturn.js";
 import {
   getCurrentIdToken, onAuthChange, sendResetPassword, sendVerificationEmail, signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail, waitForAuthUser,
@@ -1212,28 +1213,29 @@ const CircleGauge=({value,max=100,size=110,c="#22C55E",label})=>{
 const NotificationPanel=({notifs,onClose,onAction})=>{
   const {IDR}=useMoney();
   const T=useT();
+  const english=T.lang==="en";
   const [closing,close]=useDismissAnimation(onClose,260);
   const colMap={danger:{bg:T.errBg,border:T.errBorder,c:T.err},warning:{bg:T.warnBg,border:T.warnBorder,c:T.warn},success:{bg:T.okBg,border:T.okBorder,c:T.ok},info:{bg:T.infoBg,border:T.infoBorder,c:T.info}};
   const groups=[
-    {title:"Perlu tindakan",items:notifs.filter(n=>n.color==="danger"||n.color==="warning")},
-    {title:"Info keuangan",items:notifs.filter(n=>n.color!=="danger"&&n.color!=="warning")},
+    {title:english?"Action needed":"Perlu tindakan",items:notifs.filter(n=>n.color==="danger"||n.color==="warning")},
+    {title:english?"Financial updates":"Info keuangan",items:notifs.filter(n=>n.color!=="danger"&&n.color!=="warning")},
   ].filter(g=>g.items.length);
   return(
     <div className={`sidebar-overlay ${closing?"closing":""}`} style={{cursor:"pointer",position:"fixed",touchAction:"none",overscrollBehavior:"none",inset:0,background:"rgba(0,0,0,.5)",zIndex:500,display:"flex",justifyContent:"flex-end"}} onClick={()=>close()}>
-      <div className={`panel-right ${closing?"closing":""}`} style={{cursor:"pointer",width:"min(380px, 100vw)",background:T.card,height:"var(--app-height, 100dvh)",overflowY:"auto",boxShadow:T.shadowMd,paddingBottom:"env(safe-area-inset-bottom, 0px)"}} onClick={e=>e.stopPropagation()}>
+      <DialogSurface onDismiss={()=>close()} aria-label={english?"Notifications":"Notifikasi"} className={`panel-right ${closing?"closing":""}`} style={{cursor:"default",width:"min(380px, 100vw)",background:T.card,height:"var(--app-height, 100dvh)",overflowY:"auto",boxShadow:T.shadowMd,paddingBottom:"env(safe-area-inset-bottom, 0px)"}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:"20px 20px 14px",borderBottom:`1.5px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:T.card,zIndex:1}}>
           <div>
-            <div style={{fontWeight:900,fontSize:17,color:T.text}}>Notifikasi</div>
-            <div style={{fontSize:11,color:T.muted,marginTop:1}}>{notifs.length} peringatan aktif</div>
+            <h2 style={{margin:0,fontWeight:900,fontSize:17,color:T.text}}>{english?"Notifications":"Notifikasi"}</h2>
+            <div style={{fontSize:12,color:T.muted,marginTop:1}}>{notifs.length} {english?"active reminders":"peringatan aktif"}</div>
           </div>
-          <button onClick={()=>close()} style={{background:T.cardAlt,border:`1px solid ${T.border}`,borderRadius:9,width:32,height:32,cursor:"pointer",fontSize:15,color:T.sub,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center"}}>X</button>
+          <button type="button" onClick={()=>close()} aria-label={english?"Close notifications":"Tutup notifikasi"} title={english?"Close notifications":"Tutup notifikasi"} style={{background:T.cardAlt,border:`1px solid ${T.inputBorder}`,borderRadius:8,width:44,height:44,cursor:"pointer",color:T.sub,display:"flex",alignItems:"center",justifyContent:"center"}}><X size={18} aria-hidden="true"/></button>
         </div>
         <div style={{padding:16}}>
           {notifs.length===0?(
             <div style={{textAlign:"center",padding:"48px 20px",color:T.muted}}>
               <div style={{fontSize:48,marginBottom:12}}>✅</div>
-              <div style={{fontSize:15,fontWeight:700,color:T.sub}}>Semua beres!</div>
-              <div style={{fontSize:12,marginTop:6}}>Tidak ada tagihan atau peringatan aktif.</div>
+              <div style={{fontSize:15,fontWeight:700,color:T.sub}}>{english?"All caught up":"Semua beres!"}</div>
+              <div style={{fontSize:12,marginTop:6}}>{english?"No bills or active reminders.":"Tidak ada tagihan atau peringatan aktif."}</div>
             </div>
           ):groups.map((group,gIdx)=>(
             <div key={group.title} style={{marginBottom:gIdx===groups.length-1?0:14}}>
@@ -1255,7 +1257,7 @@ const NotificationPanel=({notifs,onClose,onAction})=>{
             </div>
           ))}
         </div>
-      </div>
+      </DialogSurface>
     </div>
   );
 };
@@ -2783,6 +2785,8 @@ export default function App(){
     return()=>window.removeEventListener("hashchange",update);
   },[]);
   const [authBusy,setAuthBusy]=useState(false);
+  const [authMethod,setAuthMethod]=useState("");
+  const [authInvalid,setAuthInvalid]=useState({});
   const [authError,setAuthError]=useState("");
   const [googleAuthError,setGoogleAuthError]=useState("");
   const [authForm,setAuthForm]=useState({name:"",email:"",password:""});
@@ -3676,6 +3680,7 @@ export default function App(){
   const handleGoogleSignIn = async() => {
     if(authBusy) return;
     setAuthBusy(true);
+    setAuthMethod("google");
     setGoogleAuthError("");
     try{
       await signInWithGoogle();
@@ -3698,11 +3703,16 @@ export default function App(){
     const email = authForm.email.trim();
     const password = authForm.password;
     const name = authForm.name.trim();
-    if(!email || !password || (authMode==="signup" && !name)){
-      setAuthError(authMode==="signup" ? "Lengkapi nama, email, dan password dulu." : "Lengkapi email dan password dulu.");
+    const invalid={...(authMode==="signup"&&!name?{name:true}:{}),...(!email||document.getElementById("auth-email")?.validity.typeMismatch?{email:true}:{}),...(!password?{password:true}:{})};
+    if(Object.keys(invalid).length){
+      setAuthInvalid(invalid);
+      setAuthError(invalid.name?"Isi nama lengkap terlebih dahulu.":invalid.email?"Isi email dengan format yang benar, misalnya nama@email.com.":"Isi password untuk melanjutkan.");
+      requestAnimationFrame(()=>document.getElementById(`auth-${Object.keys(invalid)[0]}`)?.focus());
       return;
     }
+    setAuthInvalid({});
     setAuthBusy(true);
+    setAuthMethod("email");
     setAuthError("");
     try{
       if(authMode==="signup"){
@@ -3895,6 +3905,7 @@ export default function App(){
     };
   },[]);
   const isMobile=vw<900;const isTablet=vw>=900&&vw<1180;const isReportCompact=isMobile||isTablet;
+  const SidebarSurface=isMobile?DialogSurface:"div";
   const navTo=id=>{
     const run=()=>{
       setPage(id);
@@ -4896,7 +4907,7 @@ export default function App(){
   const [aiOpen,setAiOpen]=useState(false);
   const shortcutHandledRef=useRef(false);
   const aiMsgsRef = useRef(null);
-  const [aiMsgs,setAiMsgs]=useState([{role:"assistant",content:"Halo! Saya **Dokter Keuangan**. Saya bukan cuma chatbot catatan uang, saya bisa jadi partner finansial kamu: membaca pola uang, bantu catat banyak fitur, mengingatkan risiko, dan menyusun langkah kecil yang realistis.\n\nKamu bisa minta saya:\n- Jelaskan cara memakai AturDuitku atau pandu setup dari awal\n- Catat transaksi, amplop, habit, goal, aset, utang, budget, dompet, dan transaksi rutin\n- Analisis cashflow, saving rate, runway, budget bocor, dan prioritas bulan ini\n- Bikin rencana hemat, target nabung, atau strategi keluar dari utang\n\nCoba tulis: `cara pakai AturDuitku`, `catat makan 25rb`, `buat amplop makan 500rb`, atau `cek kondisi uangku hari ini`."}]);
+  const [aiMsgs,setAiMsgs]=useState(()=>[{role:"assistant",welcome:true,content:aiWelcome(lang)}]);
   const [aiInput,setAiInput]=useState("");
   const [aiLoading,setAiLoading]=useState(false);
 
@@ -5234,7 +5245,7 @@ CONTOH GAYA:
       const reply = directAction
         ? JSON.stringify({...directAction,dompet:directWallet?.nama||s.dompet[0]?.nama||"",kat:directAction.tipe==="pemasukan"?inferIncomeCategory(msg):undefined})
         : await callAi(
-          newMsgs.filter(m=>m.role!=="system").map(m=>({role:m.role,content:m.content})),
+          newMsgs.filter(m=>m.role!=="system").map(m=>({role:m.role,content:m.welcome?aiWelcome(lang):m.content})),
           getAiSystemPrompt(msg)
         );
 
@@ -7624,13 +7635,13 @@ Saldo amplop bertambah.`}]);
 
   // Keep the existing authentication form behind the public Login link.
   if(!fireUser) return (
-    <div style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#2E1065 0%,#1A0A2E 100%)",padding:"max(24px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px))",fontFamily:"system-ui,sans-serif"}}>
+    <main className="auth-surface" aria-labelledby="auth-title" style={{minHeight:"var(--app-height, 100dvh)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#2E1065 0%,#1A0A2E 100%)",padding:"max(24px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px))",fontFamily:"system-ui,sans-serif"}}>
       <div style={{width:"100%",maxWidth:360,display:"flex",flexDirection:"column",alignItems:"center",gap:0}}>
         <a href="#home" style={{color:"#DDD6FE",fontSize:13,padding:"12px",marginBottom:12}}>Kembali ke beranda</a>
         {SERVICE_RECOVERY_NOTICE_ENABLED&&<ServiceRecoveryNotice variant="login"/>}
         {/* Logo */}
         <img className="cat-mascot" src="/icon-192.png" alt="AturDuitku" style={{width:88,height:88,borderRadius:22,objectFit:"cover",marginBottom:20,boxShadow:"0 8px 32px rgba(124,58,237,0.5)"}}/>
-        <div style={{color:"white",fontWeight:800,fontSize:28,marginBottom:6,letterSpacing:-0.5}}>AturDuitku</div>
+        <h1 id="auth-title" style={{color:"white",fontWeight:800,fontSize:28,margin:"0 0 6px",letterSpacing:0}}>AturDuitku</h1>
         <div style={{color:"#A78BFA",fontSize:14,marginBottom:36,textAlign:"center",lineHeight:1.6}}>Teman finansial harian<br/>buat catat, paham, dan tumbuh lebih rapi</div>
 
         {/* Features */}
@@ -7656,7 +7667,7 @@ Saldo amplop bertambah.`}]);
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
-          {authBusy?"Membuka Google...":"Masuk dengan Google"}
+          {authBusy&&authMethod==="google"?"Membuka Google...":"Masuk dengan Google"}
         </button>
         {googleAuthError&&<div role="alert" style={{width:"100%",fontSize:12,color:"#FECACA",lineHeight:1.5,background:"rgba(127,29,29,.28)",border:"1px solid rgba(252,165,165,.3)",borderRadius:8,padding:"10px 12px",marginTop:10,textAlign:"left"}}>
           {googleAuthError}
@@ -7669,39 +7680,39 @@ Saldo amplop bertambah.`}]);
           <div style={{height:1,flex:1,background:"rgba(255,255,255,.12)"}}/>
         </div>
 
-        <div style={{width:"100%",background:"rgba(255,255,255,.06)",borderRadius:16,padding:18,border:"1px solid rgba(255,255,255,.08)"}}>
+        <form noValidate aria-label={authMode==="signup"?"Daftar dengan email":"Login dengan email"} onSubmit={event=>{event.preventDefault();handleEmailAuth();}} style={{width:"100%",background:"rgba(255,255,255,.06)",borderRadius:16,padding:18,border:"1px solid rgba(255,255,255,.08)"}}>
           <div style={{display:"flex",gap:8,marginBottom:14}}>
             {[["signin","Masuk"],["signup","Daftar"]].map(([mode,label])=>(
-              <button key={mode} onClick={()=>{setAuthMode(mode);setAuthError("");setGoogleAuthError("");setShowPassword(false);}} style={{flex:1,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${authMode===mode?"#C4B5FD":"rgba(255,255,255,.1)"}`,background:authMode===mode?"rgba(196,181,253,.18)":"transparent",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
+              <button type="button" key={mode} aria-pressed={authMode===mode} onClick={()=>{setAuthMode(mode);setAuthError("");setAuthInvalid({});setGoogleAuthError("");setShowPassword(false);}} style={{flex:1,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${authMode===mode?"#C4B5FD":"rgba(255,255,255,.1)"}`,background:authMode===mode?"rgba(196,181,253,.18)":"transparent",color:"white",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
             ))}
           </div>
-          {authMode==="signup"&&<><label htmlFor="auth-name" style={{display:"block",color:"white",fontSize:13,marginBottom:6}}>Nama lengkap</label><input id="auth-name" autoComplete="name" value={authForm.name} onChange={e=>setAuthForm(f=>({...f,name:e.target.value}))} placeholder="Nama lengkap" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/></>}
+          {authMode==="signup"&&<><label htmlFor="auth-name" style={{display:"block",color:"white",fontSize:13,marginBottom:6}}>Nama lengkap</label><input id="auth-name" autoComplete="name" aria-invalid={!!authInvalid.name} aria-describedby={authError?"auth-error":undefined} value={authForm.name} onChange={e=>{setAuthForm(f=>({...f,name:e.target.value}));setAuthInvalid(fields=>({...fields,name:false}));}} placeholder="Nama lengkap" style={{width:"100%",fontSize:16,padding:"12px 14px",borderRadius:12,border:"1px solid #A78BFA",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/></>}
           <label htmlFor="auth-email" style={{display:"block",color:"white",fontSize:13,marginBottom:6}}>Email</label>
-          <input id="auth-email" autoComplete="email" value={authForm.email} onChange={e=>setAuthForm(f=>({...f,email:e.target.value}))} placeholder="Email" type="email" style={{width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/>
+          <input id="auth-email" autoComplete="email" autoCapitalize="none" spellCheck={false} aria-invalid={!!authInvalid.email} aria-describedby={authError?"auth-error":undefined} value={authForm.email} onChange={e=>{setAuthForm(f=>({...f,email:e.target.value}));setAuthInvalid(fields=>({...fields,email:false}));}} placeholder="Email" type="email" style={{width:"100%",fontSize:16,padding:"12px 14px",borderRadius:12,border:"1px solid #A78BFA",background:"rgba(255,255,255,.08)",color:"white",marginBottom:10,outline:"none"}}/>
           <label htmlFor="auth-password" style={{display:"block",color:"white",fontSize:13,marginBottom:6}}>Password</label>
           <div style={{position:"relative",marginBottom:10}}>
-            <input id="auth-password" value={authForm.password} onChange={e=>setAuthForm(f=>({...f,password:e.target.value}))} placeholder="Password" type={showPassword?"text":"password"} autoComplete={authMode==="signup"?"new-password":"current-password"} style={{width:"100%",padding:"12px 78px 12px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.08)",color:"white",outline:"none"}}/>
+            <input id="auth-password" aria-invalid={!!authInvalid.password} aria-describedby={authError?"auth-error":undefined} value={authForm.password} onChange={e=>{setAuthForm(f=>({...f,password:e.target.value}));setAuthInvalid(fields=>({...fields,password:false}));}} placeholder="Password" type={showPassword?"text":"password"} autoComplete={authMode==="signup"?"new-password":"current-password"} style={{width:"100%",fontSize:16,padding:"12px 78px 12px 14px",borderRadius:12,border:"1px solid #A78BFA",background:"rgba(255,255,255,.08)",color:"white",outline:"none"}}/>
             <button type="button" onClick={()=>setShowPassword(v=>!v)} aria-label={showPassword?"Sembunyikan password":"Lihat password"} style={{position:"absolute",right:6,top:6,bottom:6,minWidth:62,border:"1px solid rgba(255,255,255,.14)",borderRadius:10,background:"rgba(255,255,255,.08)",color:"#E9D5FF",fontSize:11,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>
               {showPassword?"Tutup":"Lihat"}
             </button>
           </div>
-          {authError&&<div style={{fontSize:11,color:"#FCA5A5",marginBottom:10,lineHeight:1.5,background:"rgba(127,29,29,.22)",border:"1px solid rgba(252,165,165,.26)",borderRadius:10,padding:"9px 11px"}}>{authError}</div>}
-          <button onClick={handleEmailAuth} style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#8B5CF6,#6D28D9)",color:"white",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
-            {authMode==="signup" ? "Daftar dengan Email" : "Masuk dengan Email"}
+          {authError&&<div id="auth-error" role="alert" style={{fontSize:13,color:"#FCA5A5",marginBottom:10,lineHeight:1.5,background:"rgba(127,29,29,.22)",border:"1px solid rgba(252,165,165,.26)",borderRadius:10,padding:"9px 11px"}}>{authError}</div>}
+          <button type="submit" disabled={authBusy} aria-busy={authBusy&&authMethod==="email"} style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"none",background:"#6D28D9",color:"white",fontWeight:800,fontSize:14,cursor:authBusy?"wait":"pointer",opacity:authBusy?.7:1,fontFamily:"inherit"}}>
+            {authBusy&&authMethod==="email"?"Memproses...":authMode==="signup" ? "Daftar dengan Email" : "Masuk dengan Email"}
           </button>
           <div style={{fontSize:10,color:"#A78BFA",lineHeight:1.55,marginTop:10,textAlign:"center"}}>
-            Google dan Email bisa dipakai setelah provider aktif di Firebase.
+            Gunakan akun dan cara masuk yang sama seperti sebelumnya.
           </div>
-        </div>
+        </form>
 
-        <div style={{color:"#6D28D9",fontSize:11,marginTop:16,textAlign:"center",lineHeight:1.6}}>
-          Setelah daftar, akunmu akan dicek admin dulu<br/>supaya akses penuh tetap rapi dan aman
+        <div style={{color:"#DDD6FE",fontSize:12,marginTop:16,textAlign:"center",lineHeight:1.6}}>
+          Akses akun baru tersedia setelah pembayaran diverifikasi dan disetujui admin.
         </div>
         <a href={supportHref} style={{marginTop:14,color:"#C4B5FD",fontSize:12,fontWeight:800,textDecoration:"none",background:"rgba(255,255,255,.07)",border:"1px solid rgba(255,255,255,.1)",borderRadius:999,padding:"9px 13px"}}>
           Butuh bantuan? Hubungi admin
         </a>
       </div>
-    </div>
+    </main>
   );
 
   if(!isApproved) return (
@@ -8517,16 +8528,16 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
       )}
 
       {/* ── SIDEBAR ── */}
-      {isMobile&&sidebarOpen&&<div className={`sidebar-overlay ${sidebarClosing?"closing":""}`} style={{cursor:"pointer"}} onClick={()=>closeSidebar()}/>}
+      {isMobile&&sidebarOpen&&<div data-dialog-backdrop className={`sidebar-overlay ${sidebarClosing?"closing":""}`} style={{cursor:"pointer"}} onClick={()=>closeSidebar()}/>}
       {(!isMobile||sidebarOpen)&&(
-        <div className={isMobile?`sidebar-slide ${sidebarClosing?"closing":""}`:""} style={{position:isMobile?"fixed":"relative",top:0,left:0,width:isMobile?"min(82vw, 300px)":isTablet?190:220,minWidth:isMobile?0:isTablet?190:220,background:T.nav,borderRight:`1.5px solid ${T.border}`,display:"flex",flexDirection:"column",height:"var(--app-height, 100dvh)",overflowY:"auto",flexShrink:0,zIndex:isMobile?500:10,boxShadow:isMobile?`6px 0 30px rgba(0,0,0,.2)`:T.shadow,transition:"background .3s,border-color .3s",paddingTop:isMobile?"env(safe-area-inset-top, 0px)":0,paddingBottom:isMobile?"env(safe-area-inset-bottom, 0px)":0}}>
+        <SidebarSurface {...(isMobile?{onDismiss:()=>closeSidebar(),"aria-label":lang==="en"?"Main menu":"Menu utama"}:{})} className={isMobile?`sidebar-slide ${sidebarClosing?"closing":""}`:""} style={{position:isMobile?"fixed":"relative",top:0,left:0,width:isMobile?"min(82vw, 300px)":isTablet?190:220,minWidth:isMobile?0:isTablet?190:220,background:T.nav,borderRight:`1.5px solid ${T.border}`,display:"flex",flexDirection:"column",height:"var(--app-height, 100dvh)",overflowY:"auto",flexShrink:0,zIndex:isMobile?500:10,boxShadow:isMobile?`6px 0 30px rgba(0,0,0,.2)`:T.shadow,transition:"background .3s,border-color .3s",paddingTop:isMobile?"env(safe-area-inset-top, 0px)":0,paddingBottom:isMobile?"env(safe-area-inset-bottom, 0px)":0}}>
           <div style={{padding:"18px 16px",borderBottom:`1.5px solid ${T.border}`,display:"flex",alignItems:"center",gap:11}}>
             <img className="cat-mascot" src="/icon-192.png" alt="AturDuitku" style={{width:40,height:40,borderRadius:10,objectFit:"cover",flexShrink:0,boxShadow:`0 4px 14px ${T.accentPop}`}}/>
             <div style={{flex:1}}>
               <div style={{fontWeight:900,fontSize:15,color:T.text,letterSpacing:-.3}}>AturDuitku</div>
               <div style={{fontSize:10,color:T.accent,fontWeight:600,marginTop:1}}>{s.name} Workspace</div>
             </div>
-            {isMobile&&<button onClick={()=>closeSidebar()} style={{background:T.accentBg,border:"none",borderRadius:8,minWidth:44,height:32,cursor:"pointer",fontSize:10,fontWeight:800,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0,padding:"0 10px"}}>Tutup</button>}
+            {isMobile&&<button type="button" onClick={()=>closeSidebar()} style={{background:T.accentBg,border:"none",borderRadius:8,minWidth:44,minHeight:44,cursor:"pointer",fontSize:12,fontWeight:800,color:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0,padding:"0 10px"}}>{lang==="en"?"Close":"Tutup"}</button>}
           </div>
           <nav aria-label={lang==="en"?"Main navigation":"Navigasi utama"} style={{padding:"10px 8px",flex:1}}>
             {[{label:"Menu Utama",items:navItems.slice(0,4)},{label:"Keuangan",items:navItems.slice(4,9)},{label:"Pengaturan",items:navItems.slice(9)}].map(section=>(
@@ -8550,7 +8561,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               <div style={{fontSize:10,color:T.muted}}>{s.bulan} {s.tahun}</div>
             </div>
           </div>
-        </div>
+        </SidebarSurface>
       )}
 
       {/* ── MAIN CONTENT ── */}
@@ -8631,14 +8642,15 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
         {/* Mobile Quick Action */}
         {isMobile&&!keyboardOpen&&!moreOpen&&!sidebarOpen&&!aiOpen&&!modal&&(page==="home"||page==="trans"||page==="budget"||page==="habit")&&(
           <>
-            {quickOpen&&<div className={`sidebar-overlay ${quickClosing?"closing":""}`} onClick={()=>closeQuick()} style={{position:"fixed",inset:0,zIndex:610,background:"rgba(15,23,42,.18)",backdropFilter:"blur(2px)",WebkitBackdropFilter:"blur(2px)",touchAction:"none"}}/>}
-            {quickOpen&&<div className={`quick-action-sheet ${quickClosing?"closing":""}`} style={{position:"fixed",right:"max(18px,env(safe-area-inset-right))",bottom:"calc(82px + max(env(safe-area-inset-bottom),8px))",zIndex:611,width:"min(292px, calc(100vw - 36px))",background:T.card,border:`1px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowMd,padding:12}}>
+            {quickOpen&&<div data-dialog-backdrop className={`sidebar-overlay ${quickClosing?"closing":""}`} onClick={()=>closeQuick()} style={{position:"fixed",inset:0,zIndex:610,background:"rgba(15,23,42,.18)",backdropFilter:"blur(2px)",WebkitBackdropFilter:"blur(2px)",touchAction:"none"}}/>}
+            {quickOpen&&<DialogSurface id="mobile-quick-actions" onDismiss={()=>closeQuick()} aria-label={lang==="en"?"Quick actions":"Aksi cepat"} className={`quick-action-sheet ${quickClosing?"closing":""}`} style={{position:"fixed",right:"max(18px,env(safe-area-inset-right))",bottom:"calc(82px + max(env(safe-area-inset-bottom),8px))",zIndex:611,width:"min(292px, calc(100vw - 36px))",maxHeight:"calc(var(--app-height, 100dvh) - 110px)",overflowY:"auto",background:T.card,border:`1px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowMd,padding:12}}>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,padding:"4px 4px 8px",borderBottom:`1px solid ${T.borderLight}`}}>
                 <img src="/icon-192.png" alt="" style={{width:34,height:34,borderRadius:11,objectFit:"cover",boxShadow:`0 6px 16px ${T.accentPop}`}}/>
                 <div>
-                  <div style={{fontSize:12,fontWeight:900,color:T.text}}>Aksi cepat</div>
-                  <div style={{fontSize:10,color:T.muted}}>Catat, cek habit, atau tanya AI</div>
+                  <h2 style={{margin:0,fontSize:14,fontWeight:900,color:T.text}}>{lang==="en"?"Quick actions":"Aksi cepat"}</h2>
+                  <div style={{fontSize:12,color:T.muted}}>{lang==="en"?"Transactions, habits and AI":"Transaksi, habit, dan AI"}</div>
                 </div>
+                <button type="button" aria-label={lang==="en"?"Close quick actions":"Tutup aksi cepat"} onClick={()=>closeQuick()} style={{marginLeft:"auto",flexShrink:0,width:44,height:44,border:0,borderRadius:8,background:T.cardAlt,color:T.text,display:"grid",placeItems:"center",cursor:"pointer"}}><X size={18} aria-hidden="true"/></button>
               </div>
               {[
                 {k:"expense",i:"🧾",t:"Catat pengeluaran",d:"Uang keluar hari ini"},
@@ -8654,8 +8666,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   </span>
                 </button>
               ))}
-            </div>}
-            <button className={`fab ${quickOpen?"is-open":""}`} onClick={()=>setQuickOpen(v=>!v)} aria-label={lang==="en"?"Record - quick actions":"Catat - Aksi cepat"} style={quickOpen?{zIndex:612}:undefined}>
+            </DialogSurface>}
+            <button className={`fab ${quickOpen?"is-open":""}`} onClick={()=>setQuickOpen(v=>!v)} aria-label={lang==="en"?"Record - quick actions":"Catat - Aksi cepat"} aria-haspopup="dialog" aria-expanded={quickOpen} aria-controls={quickOpen?"mobile-quick-actions":undefined} style={quickOpen?{zIndex:612}:undefined}>
               {quickOpen
                 ? <span className="fab-plus">×</span>
                 : <><span className="fab-plus">+</span><span className="fab-label">Catat</span></>}
@@ -10991,10 +11003,11 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
         .ai-typing-wrap span:nth-child(3){animation-delay:0.4s;}
         .ai-quick-btn {
           flex-shrink:0;
+          min-height:44px;
           border:none;
           border-radius:999px;
           padding:8px 12px;
-          font-size:11px;
+          font-size:12px;
           font-weight:700;
           cursor:pointer;
           white-space:nowrap;
@@ -11056,7 +11069,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               touchAction:"manipulation",
               WebkitTapHighlightColor:"transparent",
               flexShrink:0,
-            }}>Tutup</button>
+            }}>{lang==="en"?"Close":"Tutup"}</button>
           </div>
 
           <div data-testid="ai-safety-notice" style={{padding:"8px 12px",background:T.card,color:T.sub,fontSize:12,lineHeight:1.5,flexShrink:0}}>
@@ -11074,22 +11087,22 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   border:`1px solid ${dark?"rgba(124,58,237,0.25)":"rgba(124,58,237,0.12)"}`,
                 }:{}}
               >
-                {m.role!=="user"&&i===0?<div style={{display:"inline-flex",alignItems:"center",gap:6,marginBottom:10,padding:"5px 10px",borderRadius:999,background:dark?"rgba(124,58,237,0.16)":"rgba(124,58,237,0.08)",color:dark?"#C4B5FD":"#6D28D9",fontSize:10,fontWeight:800}}>SIAP BANTU</div>:null}{renderAiContent(m.content)}
+                {renderAiContent(m.welcome?aiWelcome(lang):m.content)}
               </div>
             ))}
-            {aiLoading&&<div className="ai-typing-wrap" style={{background:dark?"#2D1B69":"#F0EBFF"}}><span/><span/><span/></div>}
+            {aiLoading&&<div role="status" className="ai-typing-wrap" style={{background:dark?"#2D1B69":"#F0EBFF"}}><span aria-hidden="true"/><span aria-hidden="true"/><span aria-hidden="true"/><div className="sr-only">{lang==="en"?"Preparing a reply...":"Menyiapkan jawaban..."}</div></div>}
           </div>
 
           {/* Quick actions */}
           <div style={{padding:"6px 12px 4px",display:"flex",gap:8,overflowX:"auto",flexShrink:0,WebkitOverflowScrolling:"touch"}}>
-            {[{q:"Jelaskan cara memakai AturDuitku dan pandu saya mulai dari data yang belum lengkap",tag:"PANDUAN"},{q:"Diagnosis kondisi uangku seperti dokter keuangan dan beri langkah hari ini",tag:"DIAGNOSIS"},{q:"Buat rencana hemat yang realistis dan tetap manusiawi dari dataku",tag:"HEMAT"},{q:"Review budget, cari kebocoran, dan kasih batas harian yang aman",tag:"BUDGET"},{q:"Bantu buat target nabung yang realistis dari saldo dan cashflowku",tag:"NABUNG"},{q:"Jadi coach habit uangku hari ini, apa yang harus aku selesaikan?",tag:"COACH"}].map(({q,tag})=>(
-              <button key={q} className="ai-quick-btn"
-                onClick={()=>handleAiSend(q)}
+            {aiQuickPrompts(lang).map(({id,label,prompt})=>(
+              <button key={id} className="ai-quick-btn" disabled={aiLoading}
+                onClick={()=>handleAiSend(prompt)}
                 style={{
                   background:dark?"#2D1B69":"#EDE9FE",
                   color:dark?"#C4B5FD":"#5B21B6",
                 }}
-              ><span style={{display:"inline-block",padding:"2px 6px",borderRadius:999,background:dark?"rgba(255,255,255,0.08)":"rgba(255,255,255,0.55)",fontSize:9,fontWeight:800,marginRight:6}}>{tag}</span>{q.replace(" dan beri 3 langkah paling penting","").replace(" dari dataku","").replace(" dari saldo dan cashflowku","")}</button>
+              >{label}</button>
             ))}
           </div>
 
@@ -11126,7 +11139,7 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                 color:"white",
                 opacity:aiLoading||!aiInput.trim()?0.6:1,
               }}
-            ><span style={{fontSize:12,fontWeight:900}}>Kirim</span></button>
+            ><span style={{fontSize:12,fontWeight:900}}>{lang==="en"?"Send":"Kirim"}</span></button>
           </div>
         </DialogSurface>
       </>}

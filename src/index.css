@@ -289,6 +289,10 @@ html {
 }
 
 /* Better focus for accessibility on mobile */
+.auth-surface :is(input,button,a):focus-visible {
+  outline: 3px solid #DDD6FE !important;
+  outline-offset: 3px;
+}
 input:focus, textarea:focus, select:focus, button:focus {
   outline: 2px solid #7C3AED;
   outline-offset: 2px;

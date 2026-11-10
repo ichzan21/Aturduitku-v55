@@ -191,9 +191,26 @@ async function runCase(width, theme) {
   try {
     await page.goto(`${base}/#login`, { waitUntil: 'domcontentloaded' });
     result.buildAssets = await page.locator('script[type="module"][src]').evaluateAll(scripts => scripts.map(script => new URL(script.src).pathname));
+    await check('login-validation', async()=>{
+      await page.getByLabel('Password',{exact:true}).waitFor();
+      assert.equal(await page.getByRole('heading',{level:1,name:'AturDuitku',exact:true}).count(),1);
+      assert.equal(await page.getByRole('main').count(),1);
+      const email=page.getByLabel('Email',{exact:true}),password=page.getByLabel('Password',{exact:true});
+      await password.press('Enter');
+      await page.getByRole('alert').waitFor();
+      assert.equal(await email.getAttribute('aria-invalid'),'true');
+      assert.equal(await password.getAttribute('aria-invalid'),'true');
+      await eventually(()=>focused(email),'Blank login must focus email');
+      await email.fill('invalid-email');await password.fill('not-submitted');await password.press('Enter');
+      await eventually(()=>focused(email),'Malformed email must focus email');
+      assert.match(await page.getByRole('alert').innerText(),/format/);
+      assert.equal(await email.getAttribute('aria-describedby'),'auth-error');
+      for(const control of [email,password])assert.ok(await control.evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=16),'Login inputs must not trigger small-input iOS zoom');
+      await audit('login-invalid');
+    });
     await page.getByPlaceholder('Email').fill(process.env.E2E_EMAIL);
     await page.getByPlaceholder('Password').fill(process.env.E2E_PASSWORD);
-    await page.getByRole('button', { name: 'Masuk dengan Email', exact: true }).click();
+    await page.getByPlaceholder('Password').press('Enter');
     await page.getByTestId('page-title').waitFor({ timeout: 45000 });
     for (const name of ['Nanti dulu', 'Nanti']) {
       const button = page.getByRole('button', { name, exact: true });
@@ -208,6 +225,33 @@ async function runCase(width, theme) {
       assert.equal(await currentLanguage(), 'id');
     });
     if (mode === 'all') for (const name of pages) await check(`page-${name}`, async () => { await navigate(name); await audit(name.toLowerCase()); });
+    await check('notification-dialog',async()=>{
+      const trigger=page.getByRole('button',{name:/^Notifikasi/}).first();
+      await trigger.focus();await page.keyboard.press('Enter');
+      const dialog=page.getByRole('dialog',{name:'Notifikasi',exact:true});
+      await dialog.waitFor();await trap(dialog);await audit('notification-dialog');
+      await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});await restored(trigger);
+      await trigger.click();await dialog.waitFor();
+      await page.mouse.click(2,450);await dialog.waitFor({state:'hidden'});await restored(trigger);
+    });
+    if(width<900)await check('mobile-overlay-navigation',async()=>{
+      await navigate('Home');
+      const trigger=page.getByRole('button',{name:'Menu',exact:true});
+      await trigger.focus();await page.keyboard.press('Enter');
+      const sidebar=page.getByRole('dialog',{name:'Menu utama',exact:true});
+      await sidebar.waitFor();await trap(sidebar);await audit('mobile-sidebar');
+      await page.keyboard.press('Escape');await sidebar.waitFor({state:'hidden'});await restored(trigger);
+      await trigger.click();await sidebar.waitFor();await page.mouse.click(width-2,450);await sidebar.waitFor({state:'hidden'});await restored(trigger);
+      const quick=page.getByRole('button',{name:/Aksi cepat/});
+      await quick.focus();await page.keyboard.press('Enter');
+      const dialog=page.getByRole('dialog',{name:'Aksi cepat',exact:true});
+      await dialog.waitFor();await trap(dialog);await audit('quick-action-dialog');
+      await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});await restored(quick);
+      await quick.click();await dialog.waitFor();await page.mouse.click(2,100);await dialog.waitFor({state:'hidden'});await restored(quick);
+      await quick.click();await dialog.waitFor();await dialog.getByRole('button',{name:/Catat pengeluaran/}).click();
+      const transaction=transactionDialog();await transaction.waitFor();await trap(transaction);
+      await page.keyboard.press('Escape');await transaction.waitFor({state:'hidden'});
+    });
     if (width >= 900) await check('desktop-keyboard-menu', async () => {
       await navigate('Home');
       const items = page.locator('.nav-item');
@@ -337,12 +381,20 @@ async function runCase(width, theme) {
       const dialog = page.getByRole('dialog', { name: 'Dokter Keuangan AI', exact: true });
       await dialog.waitFor({ state: 'visible' });
       const warning = dialog.getByTestId('ai-safety-notice');
+      assert.match(await dialog.locator('.ai-msg-ai').first().innerText(),lang==='en'?/What would you like to review/:/Apa yang ingin kamu tinjau/);
+      assert.equal(await dialog.getByRole('button',{name:lang==='en'?'Close':'Tutup',exact:true}).count(),1);
+      assert.equal(await dialog.locator('.ai-quick-btn').count(),4);
+      for(const label of await dialog.locator('.ai-quick-btn').allTextContents())assert.ok(label.length<=22,'AI shortcuts must use short labels');
       assert.match(await warning.innerText(), lang === 'en' ? /AI can (?:make mistakes|be wrong)/i : /AI (?:bisa|dapat) (?:keliru|salah)/i, 'AI warning must explicitly acknowledge possible errors in the selected language');
       const input = dialog.getByRole('textbox', { name: lang === 'en' ? /Message.*Dokter Keuangan AI/i : /Pesan.*Dokter Keuangan AI/i });
       assert.equal(await input.evaluate(element => element.tagName), 'TEXTAREA', 'AI textarea must have an accessible label');
       await eventually(() => focused(input), 'Opening AI must focus its labelled textarea');
       await backgroundInert(dialog);
       await trap(dialog);
+      const unchanged=await local();
+      await dialog.getByRole('button',{name:lang==='en'?'Review spending':'Tinjau pengeluaran',exact:true}).click();
+      await dialog.getByText('Respons QA sintetis. Tidak ada transaksi dicatat.',{exact:true}).last().waitFor();
+      assert.deepEqual(await local(),unchanged,'Reviewing with AI must not modify finances');
       await audit(`ai-${lang}`);
       await page.keyboard.press('Escape');
       await dialog.waitFor({ state: 'hidden' });

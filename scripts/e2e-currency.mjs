@@ -95,7 +95,7 @@ try {
     if(code==='TND') await page.screenshot({path:`.e2e-artifacts/currency-setting-${width}.png`});
     await navigate('Transaksi');
     let amount=code==='TND'?12.345:12.34;
-    if(width<900){await page.getByRole('button',{name:'Aksi cepat',exact:true}).click();await page.getByRole('button',{name:/Transaksi baru|Catat pengeluaran|Transaksi/,exact:false}).last().click();}
+    if(width<900){await page.getByRole('button',{name:/Aksi cepat/}).click();await page.getByRole('button',{name:/Transaksi baru|Catat pengeluaran|Transaksi/,exact:false}).last().click();}
     else await page.getByRole('button',{name:'+ Transaksi',exact:true}).click();
     const modal=page.locator('.modal-overlay .modal-pop');
     await modal.locator('#transaction-amount').fill(String(amount));

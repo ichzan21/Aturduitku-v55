@@ -9,7 +9,8 @@ function lock(element) {
   const saved=locked.get(element);
   if(saved){saved.count++;return;}
   locked.set(element,{count:1,inert:element.inert,hidden:element.getAttribute('aria-hidden')});
-  element.inert=true;
+  // Backdrops stay clickable for dismissal, but are never exposed to assistive technology.
+  element.inert=!element.hasAttribute('data-dialog-backdrop');
   element.setAttribute('aria-hidden','true');
 }
 function unlock(element) {
