@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Search, X, ArrowUpRight, Calculator as CalculatorIcon } from "lucide-react";
 import DialogSurface from "./DialogSurface.jsx";
 import Field from "./Field.jsx";
+import EnvelopeHistory from "./EnvelopeHistory.jsx";
 import { aiWelcome, aiQuickPrompts, aiResponseInstruction } from "./aiPresentation.js";
 import { returnEnvelopeFunds, reverseEnvelopeReturn } from "./envelopeReturn.js";
 import {
@@ -1347,7 +1348,7 @@ const envelopeReturnMessage=(code,english)=>{
   };
   return (messages[code]||["Dana belum dipindahkan. Periksa jumlah dan data amplop, lalu coba lagi.","Funds were not moved. Check the amount and envelope details, then try again."])[english?1:0];
 };
-const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset,onReturn,isMobile=false})=>{
+const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset,onReturn,onHistory,spendingCount=0,isMobile=false})=>{
   const {IDR,IDRs}=useMoney();
   const T=useT();
   const [showPakai,setShowPakai]=useState(false);
@@ -1373,8 +1374,9 @@ const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset,onReturn,isMobi
   const alokasi=N(amp.alokasi);const terpakai=N(amp.terpakai||0);
   const sisa=alokasi-terpakai;const pct=alokasi>0?Math.min(terpakai/alokasi*100,100):0;
   const isOver=terpakai>alokasi;
+  const historyHint=`${spendingCount} ${english?"transactions · View details":"transaksi · Lihat rincian"}`;
   return(
-    <div className="feature-item-card envelope-card" style={{background:T.card,borderRadius:14,padding:18,border:`1.5px solid ${isOver?T.errBorder:pct>80?T.warnBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s",minWidth:0}}>
+    <div data-testid="envelope-card" data-envelope-id={String(amp.id)} className="feature-item-card envelope-card" style={{background:T.card,borderRadius:14,padding:18,border:`1.5px solid ${isOver?T.errBorder:pct>80?T.warnBorder:T.border}`,boxShadow:T.shadow,transition:"background .3s",minWidth:0}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0,flex:1}}>
           <div style={{width:44,height:44,borderRadius:12,background:amp.warna||T.accentBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0,overflow:"hidden"}}>{uiIcon(amp.icon||"ENV")}</div>
@@ -1387,10 +1389,12 @@ const AmplopCard=({amp,dompetList,onDelete,onIsi,onPakai,onReset,onReturn,isMobi
           <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:0,marginBottom:1}}>{english?"ALLOCATED":"ALOKASI"}</div>
           <div style={{fontWeight:700,color:T.info,fontSize:13}}>{IDR(alokasi)}</div>
         </div>
-        <div style={{background:isOver?T.errBg:T.okBg,borderRadius:8,padding:"8px 10px",border:`1px solid ${isOver?T.errBorder:T.okBorder}`}}>
+        <button type="button" onClick={onHistory} aria-haspopup="dialog" data-testid="envelope-history-trigger" style={{textAlign:"left",fontFamily:"inherit",cursor:"pointer",minHeight:66,minWidth:0,background:isOver?T.errBg:T.okBg,borderRadius:8,padding:"8px 10px",border:`1px solid ${isOver?T.errBorder:T.okBorder}`}}>
+          <span className="sr-only">{amp.nama}: </span>
           <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:0,marginBottom:1}}>{english?"USED":"TERPAKAI"}</div>
           <div style={{fontWeight:700,color:isOver?T.err:T.ok,fontSize:13}}>{IDR(terpakai)}</div>
-        </div>
+          <span style={{display:"block",fontSize:11,fontWeight:700,color:isOver?T.err:T.ok,marginTop:4,overflowWrap:"anywhere"}}>{historyHint}</span>
+        </button>
       </div>
       <PBar pct={pct} c={isOver?"#EF4444":pct>80?"#F59E0B":"#22C55E"} h={7}/>
       <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.muted,marginTop:3,marginBottom:12}}>
@@ -8421,6 +8425,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
               </>;
             })()}
 
+            {modal.type==="envelopeHistory"&&<EnvelopeHistory key={String(modal.envelopeId)} envelope={s.amplop.find(item=>sameId(item.id,modal.envelopeId))} transactions={s.txs} wallets={s.dompet} T={T} lang={lang} onClose={()=>closeModal()} transactionName={transactionDisplayName}/>}
+
             {modal.type==="goalHistory"&&(()=>{
               const goal=s.goals.find(item=>sameId(item.id,modal.goalId));
               const rows=buildGoalHistoryTimeline(goal,N);
@@ -9536,6 +9542,8 @@ button,.bottom-nav-item,.nav-item,.quick-action-item,.icon-action{-webkit-user-s
                   onDelete={()=>setModal({type:"confirm",title:t("deleteEnvelope"),msg:`${t("deleteEnvelopeMsg")} "${amp.nama}"${t("deleteEnvelopeSuffix")} — Sisa dana akan dikembalikan ke dompet asal.`,danger:true,onConfirm:()=>deleteAmplop(amp.id)})}
                   onIsi={(jml,dompetId)=>isiAmplop(amp.id,jml,dompetId)}
                   onReturn={(amount,walletId)=>returnFromEnvelope(amp.id,amount,walletId)}
+                  onHistory={()=>setModal({type:"envelopeHistory",envelopeId:amp.id,title:`${lang==="en"?"Envelope history":"Riwayat amplop"}: ${amp.nama}`})}
+                  spendingCount={s.txs.filter(tx=>tx.tipe==="pengeluaran"&&tx.amplopId!==null&&tx.amplopId!==undefined&&sameId(tx.amplopId,amp.id)).length}
                   onPakai={(jml,ket)=>pakaiAmplop(amp.id,jml,ket)}
                   onReset={()=>resetAmplop(amp.id)}
                 />

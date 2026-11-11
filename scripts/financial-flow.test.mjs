@@ -9,6 +9,7 @@ import "./scheduled-account-recovery.test.mjs";
 import "./admin-user-directory.test.mjs";
 import "./currency.test.mjs";
 import "./envelope-return.test.mjs";
+import "./envelope-history.test.mjs";
 import "./ai-presentation.test.mjs";
 import { readFile } from "node:fs/promises";
 import {

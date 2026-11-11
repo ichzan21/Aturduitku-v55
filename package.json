@@ -28,6 +28,8 @@
     "test:money-format": "node scripts/money-format.test.mjs",
     "test:currency": "node scripts/currency.test.mjs",
     "test:envelope-return": "node scripts/envelope-return.test.mjs",
+    "test:envelope-history": "node scripts/envelope-history.test.mjs",
+    "test:e2e:envelope-history": "node scripts/e2e-envelope-history.mjs",
     "test:e2e:envelope-return": "node scripts/e2e-envelope-return.mjs",
     "test:e2e:accessibility": "node scripts/e2e-accessibility.mjs",
     "test:e2e": "node scripts/e2e-production.mjs",
